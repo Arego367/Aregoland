@@ -48,7 +48,7 @@
 - AES-GCM 256-bit Nachrichtenverschlüsselung (`p2p-crypto.ts`)
 - `P2PManager` Klasse: verwaltet mehrere gleichzeitige WebRTC-Verbindungen (`p2p-manager.ts`)
 - Verbindungen bleiben aktiv auch wenn ChatScreen geschlossen — Nachrichten kommen immer an
-- WebRTC STUN-only (Google STUN) — kein TURN-Relay
+- WebRTC STUN + TURN (coturn) — Relay für Nutzer hinter symmetrischen NATs
 - Automatische Reconnection bei Verbindungsabbruch (5s Delay)
 - P2P-Chat in `ChatScreen` eingebaut mit `deriveRoomId()` für echte Kontakte
 
@@ -117,6 +117,25 @@
 - systemd Service, startet automatisch nach Reboot
 - Verbindungsrate: nahezu 100% (vorher ~85-90% wegen symmetrischer NATs)
 
+**Kalender Stufe 1** (`CalendarScreen.tsx`) ✅ 2026-03-30
+- Drei Ansichten umschaltbar: Monat / Woche / Tag
+- Monatsansicht: Kalender-Grid mit farbigen Termin-Pills (Uhrzeit + Titel), max 2 pro Tag, "+X weitere"
+- Wochenansicht: 7-Spalten-Zeitstrahl (06:00-21:00)
+- Tagesansicht: Zeitstrahl mit Termin-Blöcken, ganztägige Events oben
+- Termin erstellen: Titel, Datum, Uhrzeit, Dauer (15min/30min/1h/2h/ganztägig), Erinnerung, 6 Farben, Notiz
+- Termin-Detail: Bearbeiten + Löschen mit Bestätigungsdialog
+- Erinnerungen via Browser Notification API (innerhalb 24h)
+- Daten in localStorage (`arego_calendar_events`)
+- `CalendarEvent` Interface in `types.ts`
+- Kalender-Kachel auf Dashboard navigiert zu CalendarScreen
+
+**WelcomeScreen** (`WelcomeScreen.tsx`) — bereinigt 2026-03-30
+- 3 Buttons: "Loslegen" (Registrierung), "Wiederherstellen" (Recovery), "Kind hinzufügen" (Kind-Konto)
+- Sprach-Selector entfernt (kommt mit i18n zurück)
+- Wiederherstellen: Info-Screen → QR-Code scannen (Kamera-Placeholder) oder Schlüssel eingeben (funktional)
+- Kind hinzufügen: eigener Screen mit Kamera-Scanner für Eltern-QR-Code (Placeholder)
+- 5 Views: welcome, restore, restoreScan, restoreKey, child
+
 **Infrastruktur**
 - `start.sh` — systemd Services für Signaling-Server (Docker) + Vite Dev-Server
 - `arego.bat` — Windows-Batch für SSH + Claude Code
@@ -124,6 +143,8 @@
 - HMR Overlay deaktiviert (`hmr: { overlay: false }`)
 - Playwright-Tests (`tests/`) für Video-Call-UI, DataChannel-Delivery, Console-Errors, Unicode-Encoding
 - Favicon (blaues Chat-Icon)
+- rclone installiert — CLAUDE.md Auto-Sync zu Google Drive via git post-commit Hook
+- `sync-claude-md.sh` — manuelles Sync-Script für CLAUDE.md → Google Drive
 
 **UI-Screens**
 - `ChatListScreen`, `ChatScreen`, `PeopleScreen`, `SpacesScreen`
@@ -137,11 +158,7 @@
 
 ## Nächste Schritte (Priorität)
 
-1. **Kalender-Modul Stufe 1** ← aktuell in Arbeit
-   - Kalender-Screen mit Monats/Wochen/Tagesansicht umschaltbar
-   - Termine erstellen: Titel, Datum, Uhrzeit, Dauer, Erinnerung, Farbe
-   - Alles lokal in localStorage
-   - Kalender-Tab in der Navigation
+1. **Kalender-Modul Stufe 1** ✅ Fertig (2026-03-30)
 
 2. **Recovery-Flow erweitern**
    - QR-Code scannen: jsQR-Bibliothek integrieren für echtes Kamera-Scanning (aktuell nur Placeholder-UI)
@@ -231,8 +248,10 @@
 ## Offene Punkte
 
 - Konto-Wiederherstellung via zwei Vertrauenspersonen wurde verworfen (Missbrauchspotenzial). Stattdessen: QR-Code-basierte Wiederherstellung mit lokalem Schlüssel.
-- Kalender- und Pay-Modul noch nicht implementiert.
+- Pay-Modul noch nicht implementiert.
 - Backend-Integration (Supabase) geplant.
+- **Mock-QR URL** in `ChildProfileScreen.tsx:235` und `PeopleScreen.tsx:231` — `api.qrserver.com` mit Dummy-Token muss durch echte QR-Generierung ersetzt werden
+- **Server-IP hardcoded** in `p2p-manager.ts:75-77` — `46.225.115.51` sollte als `VITE_TURN_HOST` Umgebungsvariable ausgelagert werden
 
 ## Arbeitsregel für Claude Code
 
