@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Settings, Search, Plus, User, MoreVertical, Phone, Video, QrCode, ArrowLeft, Users, Calendar, Edit2, MessageSquarePlus } from "lucide-react";
+import { Settings, Search, User, QrCode, ArrowLeft, Edit2, MessageSquarePlus, X, ChevronRight } from "lucide-react";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { ContactDetailModal } from "./ContactDetailModal";
 import { Contact, Tab } from "../types";
 import { TabManagementModal } from "./TabManagementModal";
-import { Chat, MOCK_CHATS } from "@/app/data/mocks";
+import { Chat } from "@/app/data/mocks";
+import { loadContacts } from "@/app/auth/contacts";
+import { loadPersistedChats } from "@/app/lib/chats";
 
 const USER_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800&auto=format&fit=crop&q=60";
 
@@ -18,12 +20,49 @@ interface ChatListScreenProps {
   tabs: Tab[];
   onUpdateTabs: (tabs: Tab[]) => void;
   onChatSelect: (chatId: string) => void;
+  onNewChat?: (contact: Contact) => void;
+  onlineContacts?: Set<string>;
+  /** Inkrementiert bei jeder neuen/gesendeten Nachricht → triggert Live-Refresh */
+  chatListVersion?: number;
 }
 
-export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSettings, onBack, tabs, onUpdateTabs, onChatSelect }: ChatListScreenProps) {
+export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSettings, onBack, tabs, onUpdateTabs, onChatSelect, onNewChat, onlineContacts, chatListVersion }: ChatListScreenProps) {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isTabModalOpen, setIsTabModalOpen] = useState(false);
+  const [showNewChatSheet, setShowNewChatSheet] = useState(false);
+  const [contactSearch, setContactSearch] = useState("");
+  const [persistedChats, setPersistedChats] = useState<Chat[]>([]);
+
+  const refreshPersistedChats = () => {
+    const chats = loadPersistedChats().map((c) => ({
+      id: c.id,
+      name: c.name,
+      lastMessage: c.lastMessage || 'Tippe um zu schreiben...',
+      time: c.time,
+      avatarUrl: c.avatarUrl,
+      unreadCount: c.unreadCount,
+      isGroup: c.isGroup,
+    } as Chat));
+    setPersistedChats(chats);
+  };
+
+  // Refresh: beim Mounten, nach Sheet-Close, und bei jeder neuen Nachricht (chatListVersion)
+  useEffect(() => { refreshPersistedChats(); }, [showNewChatSheet, chatListVersion]);
+
+  const allContacts = useMemo(() => {
+    return loadContacts().map((c) => ({
+      id: c.aregoId,
+      name: c.displayName,
+      categories: ['friends'] as string[],
+      avatar: '',
+      type: 'individual' as const,
+    } as Contact));
+  }, [showNewChatSheet]);
+
+  const filteredPickerContacts = contactSearch.trim()
+    ? allContacts.filter((c) => c.name.toLowerCase().includes(contactSearch.toLowerCase()))
+    : allContacts;
 
   const handleAvatarClick = (e: React.MouseEvent, chat: Chat) => {
     e.stopPropagation(); // Prevent opening the chat
@@ -37,13 +76,15 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
     setSelectedContact(contact);
   };
 
-  const filteredChats = MOCK_CHATS.filter((chat) => {
-    if (activeTab === "all") return true;
-    if (activeTab === "groups") return chat.isGroup;
-    if (activeTab === "private") return !chat.isGroup;
-    // Map existing mock data categories to tabs
-    return chat.category === activeTab;
-  });
+  // Nur echte persistierte Chats anzeigen, nach Tab gefiltert
+  const filteredChats = useMemo(() => {
+    return persistedChats.filter((chat) => {
+      if (activeTab === "all") return true;
+      if (activeTab === "groups") return chat.isGroup;
+      if (activeTab === "private") return !chat.isGroup;
+      return chat.category === activeTab;
+    });
+  }, [activeTab, persistedChats]);
 
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
@@ -125,7 +166,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
       {/* Tabs */}
       <div className="px-5 py-3 flex items-center gap-2 border-b border-gray-800">
         <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth">
-          {tabs.map((tab) => (
+          {tabs.filter(t => !t.hidden).map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -157,7 +198,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => alert("Kontakt suchen...")}
+            onClick={() => { setContactSearch(""); setShowNewChatSheet(true); }}
             className="group flex items-center gap-4 p-3 rounded-xl hover:bg-gray-800/50 cursor-pointer transition-colors mb-2 bg-gradient-to-r from-gray-800/80 to-transparent border border-gray-700/50"
           >
             <div className="w-14 h-14 rounded-full flex items-center justify-center bg-blue-600/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-lg shadow-blue-900/10">
@@ -192,10 +233,9 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  {chat.isGroup && (
+                  {chat.isGroup ? (
                     <div className="absolute -bottom-1 -right-1 bg-gray-900 rounded-full p-0.5">
                       <div className="bg-gray-700 p-1 rounded-full text-gray-300">
-                        {/* Tiny group icon indicator */}
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                           <circle cx="9" cy="7" r="4"></circle>
@@ -204,6 +244,10 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
                         </svg>
                       </div>
                     </div>
+                  ) : (
+                    <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-gray-900 ${
+                      onlineContacts?.has(chat.id) ? 'bg-green-500' : 'bg-gray-600'
+                    }`} />
                   )}
                 </div>
 
@@ -231,33 +275,116 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
             ))
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-              <div className="bg-gray-800 p-4 rounded-full mb-4">
-                <Search size={32} />
+              <div className="bg-gray-800 p-5 rounded-full mb-4">
+                <MessageSquarePlus size={36} className="text-gray-600" />
               </div>
-              <p>Keine Chats in "{tabs.find(t => t.id === activeTab)?.label}" gefunden</p>
+              <p className="text-base font-medium text-gray-400 mb-1">Noch keine Chats</p>
+              <p className="text-sm text-gray-600 text-center px-8">Starte einen neuen Chat mit einem deiner Kontakte</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Floating Action Button (Global) - Removed per request */}
-      
       <ContactDetailModal
         contact={selectedContact}
         onClose={() => setSelectedContact(null)}
-        onUpdateContact={(updated) => {
-          setSelectedContact(updated);
-          // In a real app, you would update the chat list or global contact store here
-        }}
+        onUpdateContact={(updated) => setSelectedContact(updated)}
         tabs={tabs}
+        onStartChat={(contact) => {
+          setSelectedContact(null);
+          onNewChat?.(contact);
+        }}
       />
-      
+
       <TabManagementModal
         isOpen={isTabModalOpen}
         onClose={() => setIsTabModalOpen(false)}
         tabs={tabs}
         onUpdateTabs={onUpdateTabs}
       />
+
+      {/* Neuer Chat — Kontaktliste Sheet */}
+      <AnimatePresence>
+        {showNewChatSheet && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowNewChatSheet(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="fixed inset-x-0 bottom-0 z-50 bg-gray-900 border-t border-gray-800 rounded-t-3xl max-h-[85vh] flex flex-col"
+            >
+              {/* Drag handle */}
+              <div className="flex justify-center pt-3 pb-1 shrink-0">
+                <div className="w-10 h-1 bg-gray-700 rounded-full" />
+              </div>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3 shrink-0">
+                <h2 className="text-lg font-bold text-white">Chat starten</h2>
+                <button
+                  onClick={() => setShowNewChatSheet(false)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Suche */}
+              <div className="px-5 pb-3 shrink-0">
+                <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5">
+                  <Search size={16} className="text-gray-500 shrink-0" />
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Kontakt suchen..."
+                    value={contactSearch}
+                    onChange={(e) => setContactSearch(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Kontaktliste */}
+              <div className="flex-1 overflow-y-auto px-3 pb-8">
+                {filteredPickerContacts.length === 0 ? (
+                  <p className="text-center text-gray-500 py-12 text-sm">Keine Kontakte gefunden</p>
+                ) : (
+                  filteredPickerContacts.map((contact) => (
+                    <motion.button
+                      key={contact.id}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setShowNewChatSheet(false);
+                        onNewChat?.(contact);
+                      }}
+                      className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-gray-800/60 transition-colors group text-left"
+                    >
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-700 border border-gray-600 shrink-0">
+                        <ImageWithFallback src={contact.avatar} alt={contact.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white group-hover:text-blue-400 transition-colors truncate">{contact.name}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {contact.categories.join(', ')}
+                        </p>
+                      </div>
+                      <ChevronRight size={16} className="text-gray-600 group-hover:text-blue-400 transition-colors shrink-0" />
+                    </motion.button>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

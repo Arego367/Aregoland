@@ -53,7 +53,7 @@ export const MOCK_CHATS: Chat[] = [
   {
     id: "5",
     name: "Anna Weber",
-    lastMessage: "Das Foto ist ja cool 😎",
+    lastMessage: "Das Foto ist ja cool",
     time: "Dienstag",
     avatarUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=800&auto=format&fit=crop&q=60",
     unreadCount: 0,

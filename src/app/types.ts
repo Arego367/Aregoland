@@ -24,4 +24,18 @@ export interface Contact {
 export interface Tab {
   id: string;
   label: string;
+  hidden?: boolean;
 }
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string;        // ISO date string YYYY-MM-DD
+  startTime: string;   // HH:mm
+  duration: '15min' | '30min' | '1h' | '2h' | 'allday';
+  reminder: 'none' | '10min' | '30min' | '1h' | '1day';
+  color: string;       // Tailwind color class prefix, e.g. 'blue', 'purple'
+  note?: string;
+}
+
+export type { UserIdentity } from "@/app/auth/identity";

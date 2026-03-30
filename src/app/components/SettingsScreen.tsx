@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, HelpCircle, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Users, Check } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, HelpCircle, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
+import { deleteIdentity } from "@/app/auth/identity";
+import { deleteContacts } from "@/app/auth/contacts";
 
 interface SettingsScreenProps {
   onBack: () => void;
+  onResetAccount?: () => void;
 }
 
 const LANGUAGES = [
@@ -42,7 +46,7 @@ const START_SCREENS = [
   { id: "community", label: "Spaces", icon: LayoutGrid },
 ];
 
-export default function SettingsScreen({ onBack }: SettingsScreenProps) {
+export default function SettingsScreen({ onBack, onResetAccount }: SettingsScreenProps) {
   const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy">("main");
   const [selectedLang, setSelectedLang] = useState(LANGUAGES.find(l => l.code === "de") || LANGUAGES[9]);
   const [darkMode, setDarkMode] = useState(true);
@@ -138,7 +142,49 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
               <LogOut size={20} />
               Abmelden
             </button>
-            
+
+            {/* Konto zurücksetzen */}
+            <AlertDialog.Root>
+              <AlertDialog.Trigger asChild>
+                <button className="w-full flex items-center justify-center gap-2 p-4 text-red-600 font-medium hover:bg-red-500/10 rounded-2xl transition-colors border border-red-900/40">
+                  <Trash2 size={18} />
+                  Konto zurücksetzen
+                </button>
+              </AlertDialog.Trigger>
+
+              <AlertDialog.Portal>
+                <AlertDialog.Overlay className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                <AlertDialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90vw] max-w-sm bg-gray-900 border border-gray-700 rounded-2xl p-6 shadow-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+                  <div className="flex justify-center mb-4">
+                    <div className="bg-red-500/15 p-4 rounded-2xl">
+                      <Trash2 size={32} className="text-red-500" />
+                    </div>
+                  </div>
+                  <AlertDialog.Title className="text-lg font-bold text-white text-center mb-2">
+                    Konto wirklich zurücksetzen?
+                  </AlertDialog.Title>
+                  <AlertDialog.Description className="text-sm text-gray-400 text-center leading-relaxed mb-6">
+                    Dein lokaler Schlüssel und alle gespeicherten Daten werden unwiderruflich gelöscht. Nur der Wiederherstellungs-QR-Code kann dein Konto retten.
+                  </AlertDialog.Description>
+                  <div className="flex flex-col gap-2">
+                    <AlertDialog.Action asChild>
+                      <button
+                        onClick={() => { deleteIdentity(); deleteContacts(); onResetAccount?.(); }}
+                        className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold py-3 px-4 rounded-xl transition-colors"
+                      >
+                        Ja, Konto löschen
+                      </button>
+                    </AlertDialog.Action>
+                    <AlertDialog.Cancel asChild>
+                      <button className="w-full bg-gray-800 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-xl transition-colors border border-gray-700">
+                        Abbrechen
+                      </button>
+                    </AlertDialog.Cancel>
+                  </div>
+                </AlertDialog.Content>
+              </AlertDialog.Portal>
+            </AlertDialog.Root>
+
             <p className="text-center text-xs text-gray-600 mt-4">Version 1.0.0 (Build 2026.01)</p>
           </div>
         </div>

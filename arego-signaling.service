@@ -1,0 +1,25 @@
+[Unit]
+Description=Arego Chat — Signaling Server (Docker)
+Documentation=https://github.com/Aregoland/arego-chat
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+
+# Image muss vor dem Start gebaut sein (start.sh macht das)
+ExecStartPre=-/usr/bin/docker stop arego-signaling
+ExecStartPre=-/usr/bin/docker rm arego-signaling
+ExecStart=/usr/bin/docker run \
+    --rm \
+    --name arego-signaling \
+    -p 127.0.0.1:3001:3001 \
+    --memory=128m \
+    --cpus=0.5 \
+    arego-signaling
+ExecStop=/usr/bin/docker stop arego-signaling
+
+[Install]
+WantedBy=multi-user.target

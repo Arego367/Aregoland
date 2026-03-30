@@ -8,11 +8,12 @@ interface DashboardScreenProps {
   onOpenProfile: () => void;
   onOpenQRCode: () => void;
   onOpenSettings: () => void;
+  chatUnreadCount?: number;
 }
 
 const USER_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800&auto=format&fit=crop&q=60";
 
-export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCode, onOpenSettings }: DashboardScreenProps) {
+export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCode, onOpenSettings, chatUnreadCount = 0 }: DashboardScreenProps) {
   const TILES = [
     { 
       id: "chatList", 
@@ -150,8 +151,13 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
                 {/* Background Glow */}
                 <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 bg-gradient-to-br from-white to-transparent`} />
                 
-                <div className={`p-5 rounded-2xl mb-4 ${tile.color} shadow-lg shadow-black/20 text-white`}>
+                <div className={`relative p-5 rounded-2xl mb-4 ${tile.color} shadow-lg shadow-black/20 text-white`}>
                   <tile.icon size={32} />
+                  {tile.id === 'chatList' && chatUnreadCount > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full shadow-lg">
+                      {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                    </span>
+                  )}
                 </div>
                 <span className="text-lg font-bold text-gray-100">{tile.label}</span>
                 <span className="text-xs text-gray-500 mt-1 font-medium">{tile.description}</span>

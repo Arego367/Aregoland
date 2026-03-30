@@ -1,32 +1,64 @@
-import { useState } from "react";
-import { 
-  ArrowLeft, Search, Plus, Users, Baby, Briefcase, 
-  Heart, MoreVertical, Shield, Smartphone, Check, 
+import { useState, useEffect } from "react";
+import {
+  ArrowLeft, Search, Users, Baby, Briefcase,
+  Heart, MoreVertical, Shield, Smartphone, Check,
   QrCode, Phone, Mail, MapPin, Calendar, Star, X,
-  UserPlus, User, MessageCircle, Video, Edit2
+  UserPlus, User, MessageCircle, Video, Edit2, Trash2
 } from "lucide-react";
+import { AddContactModal } from "./AddContactModal";
+import { StoredContact, loadContacts } from "@/app/auth/contacts";
+import { UserIdentity } from "@/app/auth/identity";
 import { motion, AnimatePresence } from "motion/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import * as ContextMenu from "@radix-ui/react-context-menu";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ContactDetailModal } from "./ContactDetailModal";
-import { MOCK_CONTACTS } from "../data/contacts";
 import { Contact, Tab } from "../types";
 import { TabManagementModal } from "./TabManagementModal";
 
 interface PeopleScreenProps {
   onBack: () => void;
-  onOpenChildProfile: () => void; // Keep for compatibility if needed, though we might handle it internally
+  onOpenChildProfile: () => void;
   tabs: Tab[];
   onUpdateTabs: (tabs: Tab[]) => void;
+  identity?: UserIdentity | null;
+  onStartChat?: (contact: Contact) => void;
+  onStartCall?: (contact: Contact, type: 'audio' | 'video') => void;
+  onlineContacts?: Set<string>;
+  contactsVersion?: number;
+  onRemoveContact?: (contactId: string) => void;
 }
 
-export default function PeopleScreen({ onBack, tabs, onUpdateTabs }: PeopleScreenProps) {
+export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onStartChat, onStartCall, onlineContacts, contactsVersion, onRemoveContact }: PeopleScreenProps) {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [contacts, setContacts] = useState<Contact[]>(MOCK_CONTACTS);
+  const [contacts, setContacts] = useState<Contact[]>(() => {
+    const savedCats: Record<string, string[]> = (() => { try { return JSON.parse(localStorage.getItem('arego_contact_categories') ?? '{}'); } catch { return {}; } })();
+    return loadContacts().map((c) => ({
+      id: c.aregoId,
+      name: c.displayName,
+      categories: savedCats[c.aregoId] ?? ['friends'],
+      avatar: '',
+    } as Contact));
+  });
   const [isTabModalOpen, setIsTabModalOpen] = useState(false);
-  
+  const [isAddContactOpen, setIsAddContactOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<Contact | null>(null);
+
+  // Live-Refresh wenn ein neuer Kontakt hinzugefügt wird (contactsVersion ändert sich)
+  useEffect(() => {
+    const savedCats: Record<string, string[]> = (() => { try { return JSON.parse(localStorage.getItem('arego_contact_categories') ?? '{}'); } catch { return {}; } })();
+    const stored = loadContacts().map((c) => ({
+      id: c.aregoId,
+      name: c.displayName,
+      categories: savedCats[c.aregoId] ?? ['friends'],
+      avatar: '',
+    } as Contact));
+    setContacts(stored);
+  }, [contactsVersion, isAddContactOpen]);
+
   // Child Creation State
   const [isCreatingChild, setIsCreatingChild] = useState(false);
   const [creationStep, setCreationStep] = useState<"fsk" | "qr">("fsk");
@@ -47,6 +79,12 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs }: PeopleScree
   const handleUpdateContact = (updatedContact: Contact) => {
     setContacts(contacts.map(c => c.id === updatedContact.id ? updatedContact : c));
     setSelectedContact(updatedContact);
+    // Kategorien in localStorage persistieren
+    try {
+      const savedCats: Record<string, string[]> = JSON.parse(localStorage.getItem('arego_contact_categories') ?? '{}');
+      savedCats[updatedContact.id] = updatedContact.categories;
+      localStorage.setItem('arego_contact_categories', JSON.stringify(savedCats));
+    } catch { /* ignorieren */ }
   };
 
   const handleCreateChild = () => {
@@ -79,7 +117,7 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs }: PeopleScree
       {!isCreatingChild && (
         <div className="px-5 py-3 flex items-center gap-2 border-b border-gray-800">
           <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth">
-            {tabs.map((tab) => (
+            {tabs.filter(t => !t.hidden).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -214,45 +252,88 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs }: PeopleScree
               exit={{ opacity: 0 }}
               className="p-4 space-y-2 pb-24"
             >
+              {/* Kontakt hinzufügen Kachel */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setIsAddContactOpen(true)}
+                className="group flex items-center gap-4 p-3 rounded-xl hover:bg-gray-800/50 cursor-pointer transition-colors mb-2 bg-gradient-to-r from-gray-800/80 to-transparent border border-gray-700/50"
+              >
+                <div className="w-14 h-14 rounded-full flex items-center justify-center bg-blue-600/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-lg shadow-blue-900/10">
+                  <UserPlus size={26} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">
+                    Kontakt hinzufügen
+                  </h3>
+                  <p className="text-sm text-gray-400 group-hover:text-gray-300">
+                    Per QR-Code oder Kurzcode
+                  </p>
+                </div>
+              </motion.div>
+
               {filteredContacts.length > 0 ? (
                 filteredContacts.map((contact) => (
-                  <motion.div
-                    key={contact.id}
-                    layoutId={contact.id}
-                    onClick={() => setSelectedContact(contact)}
-                    className="flex items-center gap-4 p-4 rounded-2xl bg-gray-800/50 border border-gray-700/50 hover:bg-gray-800 cursor-pointer transition-colors group"
-                  >
-                    <div className="relative">
-                      <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gray-700 group-hover:border-blue-500 transition-colors">
-                        <ImageWithFallback src={contact.avatar} alt={contact.name} className="w-full h-full object-cover" />
-                      </div>
-                      {contact.categories.includes("child") && (
-                        <div className="absolute -bottom-1 -right-1 bg-gray-900 rounded-full p-1">
-                          <Shield size={12} className="text-blue-400" />
+                  <ContextMenu.Root key={contact.id}>
+                    <ContextMenu.Trigger asChild>
+                      <motion.div
+                        layoutId={contact.id}
+                        onClick={() => setSelectedContact(contact)}
+                        className="flex items-center gap-4 p-4 rounded-2xl bg-gray-800/50 border border-gray-700/50 hover:bg-gray-800 cursor-pointer transition-colors group"
+                      >
+                        <div className="relative">
+                          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gray-700 group-hover:border-blue-500 transition-colors">
+                            <ImageWithFallback src={contact.avatar} alt={contact.name} className="w-full h-full object-cover" />
+                          </div>
+                          {contact.categories.includes("child") ? (
+                            <div className="absolute -bottom-1 -right-1 bg-gray-900 rounded-full p-1">
+                              <Shield size={12} className="text-blue-400" />
+                            </div>
+                          ) : (
+                            <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${onlineContacts?.has(contact.id) ? 'bg-green-500' : 'bg-gray-600'}`} />
+                          )}
                         </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-white">{contact.name}</h3>
-                      <p className="text-sm text-gray-400">
-                        {contact.categories.includes("child") ? `FSK ${contact.ageRating}` : contact.categories.map(c => tabs.find(t => t.id === c)?.label || c).join(", ")}
-                      </p>
-                    </div>
-                    
-                    {contact.status && (
-                      <span className="text-xs text-blue-400 bg-blue-500/10 px-2 py-1 rounded-full">
-                        {contact.status}
-                      </span>
-                    )}
-                  </motion.div>
+
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-white">{contact.name}</h3>
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <span className={onlineContacts?.has(contact.id) ? 'text-green-400' : 'text-gray-500'}>
+                              {onlineContacts?.has(contact.id) ? 'Online' : 'Offline'}
+                            </span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </ContextMenu.Trigger>
+                    <ContextMenu.Portal>
+                      <ContextMenu.Content className="min-w-[180px] bg-gray-800 rounded-xl shadow-xl p-1.5 border border-gray-700 z-50 animate-in fade-in zoom-in-95 duration-200">
+                        <ContextMenu.Item
+                          onSelect={() => onStartChat?.(contact)}
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-200 rounded-lg hover:bg-gray-700 outline-none cursor-pointer"
+                        >
+                          <MessageCircle size={16} />
+                          <span>Nachricht senden</span>
+                        </ContextMenu.Item>
+                        {contact.id.startsWith('AC-') && (
+                          <ContextMenu.Item
+                            onSelect={() => setRemoveTarget(contact)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-red-400 rounded-lg hover:bg-red-500/10 outline-none cursor-pointer"
+                          >
+                            <Trash2 size={16} />
+                            <span>Kontakt entfernen</span>
+                          </ContextMenu.Item>
+                        )}
+                      </ContextMenu.Content>
+                    </ContextMenu.Portal>
+                  </ContextMenu.Root>
                 ))
               ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                  <div className="bg-gray-800 p-4 rounded-full mb-4">
-                    <Search size={32} />
+                  <div className="bg-gray-800 p-5 rounded-full mb-4">
+                    <UserPlus size={36} className="text-gray-600" />
                   </div>
-                  <p>Keine Kontakte in "{tabs.find(t => t.id === activeTab)?.label}"</p>
+                  <p className="text-base font-medium text-gray-400 mb-1">Noch keine Kontakte</p>
+                  <p className="text-sm text-gray-600 text-center px-8">Füge Kontakte per QR-Code oder Kurzcode hinzu</p>
                 </div>
               )}
             </motion.div>
@@ -260,12 +341,37 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs }: PeopleScree
         </AnimatePresence>
       </div>
 
+
+      <AddContactModal
+        open={isAddContactOpen}
+        onClose={() => setIsAddContactOpen(false)}
+        identity={identity ?? null}
+        onContactAdded={(contact) => {
+          setContacts((prev: Contact[]) => {
+            if (prev.find((c: Contact) => c.id === contact.aregoId)) return prev;
+            return [
+              ...prev,
+              {
+                id: contact.aregoId,
+                name: contact.displayName,
+                categories: ['friends'],
+                avatar: '',
+                status: 'P2P Kontakt',
+              } as Contact,
+            ];
+          });
+        }}
+      />
+
       {/* Contact Detail Modal */}
       <ContactDetailModal
-        contact={selectedContact} 
+        contact={selectedContact}
         onClose={() => setSelectedContact(null)}
         onUpdateContact={handleUpdateContact}
         tabs={tabs}
+        onStartChat={onStartChat}
+        onStartCall={onStartCall}
+        onRemoveContact={onRemoveContact}
       />
       
       <TabManagementModal
@@ -274,6 +380,44 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs }: PeopleScree
         tabs={tabs}
         onUpdateTabs={onUpdateTabs}
       />
+
+      {/* Kontakt entfernen — Bestätigungsdialog */}
+      <AlertDialog.Root open={!!removeTarget} onOpenChange={(open) => { if (!open) setRemoveTarget(null); }}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="bg-black/50 backdrop-blur-sm fixed inset-0 z-50 animate-in fade-in duration-200" />
+          <AlertDialog.Content className="fixed top-[50%] left-[50%] max-h-[85vh] w-[90vw] max-w-[400px] translate-x-[-50%] translate-y-[-50%] rounded-xl bg-gray-900 border border-gray-800 p-6 shadow-2xl focus:outline-none z-50 animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-red-500/10 rounded-full text-red-500"><Trash2 size={24} /></div>
+                <div>
+                  <AlertDialog.Title className="text-lg font-semibold text-white">
+                    {removeTarget?.name} entfernen?
+                  </AlertDialog.Title>
+                  <AlertDialog.Description className="text-sm text-gray-400 mt-1">
+                    Dieser Kontakt wird von deinem Gerät und vom Gerät des Kontakts entfernt.
+                    Wenn ihr wieder chatten wollt, müsst ihr euch erneut als Kontakte hinzufügen.
+                    Chat- und Anrufhistorie wird nicht gelöscht.
+                  </AlertDialog.Description>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 mt-2">
+                <AlertDialog.Action
+                  onClick={() => {
+                    if (removeTarget) onRemoveContact?.(removeTarget.id);
+                    setRemoveTarget(null);
+                  }}
+                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Entfernen
+                </AlertDialog.Action>
+                <AlertDialog.Cancel className="w-full py-3 bg-transparent hover:bg-gray-800 text-gray-400 hover:text-white rounded-lg font-medium transition-colors border border-gray-700">
+                  Abbrechen
+                </AlertDialog.Cancel>
+              </div>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }

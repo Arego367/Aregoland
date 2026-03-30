@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { X, Trash2, Save, Edit2, ArrowUp, ArrowDown, Plus } from "lucide-react";
+import { X, Trash2, Save, ArrowUp, ArrowDown, Plus, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Tab } from "../types";
 
@@ -12,6 +12,7 @@ interface TabManagementModalProps {
 
 export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabManagementModalProps) {
   const [editedTabs, setEditedTabs] = useState<Tab[]>(tabs);
+  const [newName, setNewName] = useState('');
 
   useEffect(() => {
     setEditedTabs(tabs);
@@ -25,8 +26,12 @@ export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabM
     setEditedTabs(prev => prev.filter(tab => tab.id !== id));
   };
 
+  const handleToggleHidden = (id: string) => {
+    setEditedTabs(prev => prev.map(tab => tab.id === id ? { ...tab, hidden: !tab.hidden } : tab));
+  };
+
   const handleMoveUp = (index: number) => {
-    if (index === 0) return;
+    if (index <= 1) return; // "Alle" bleibt immer oben
     setEditedTabs(prev => {
       const newTabs = [...prev];
       [newTabs[index - 1], newTabs[index]] = [newTabs[index], newTabs[index - 1]];
@@ -35,7 +40,7 @@ export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabM
   };
 
   const handleMoveDown = (index: number) => {
-    if (index === editedTabs.length - 1) return;
+    if (index === 0 || index === editedTabs.length - 1) return;
     setEditedTabs(prev => {
       const newTabs = [...prev];
       [newTabs[index], newTabs[index + 1]] = [newTabs[index + 1], newTabs[index]];
@@ -43,13 +48,16 @@ export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabM
     });
   };
 
-  const handleAddTab = () => {
-    const newId = `custom-${Date.now()}`;
-    setEditedTabs(prev => [...prev, { id: newId, label: "" }]);
+  const handleAdd = () => {
+    const name = newName.trim();
+    if (!name) return;
+    const id = `custom_${Date.now()}`;
+    setEditedTabs(prev => [...prev, { id, label: name }]);
+    setNewName('');
   };
 
   const handleSave = () => {
-    onUpdateTabs(editedTabs);
+    onUpdateTabs(editedTabs.filter(t => t.label.trim()));
     onClose();
   };
 
@@ -65,62 +73,87 @@ export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabM
             </button>
           </div>
 
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
             {editedTabs.map((tab, index) => (
-              <div key={tab.id} className="flex items-center gap-3 bg-gray-800/50 p-3 rounded-xl border border-gray-700/50">
-                 <div className="flex flex-col gap-1">
-                   <button 
-                     onClick={() => handleMoveUp(index)}
-                     disabled={index === 0}
-                     className="text-gray-400 hover:text-blue-400 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"
-                     title="Nach oben"
-                   >
-                     <ArrowUp size={16} />
-                   </button>
-                   <button 
-                     onClick={() => handleMoveDown(index)}
-                     disabled={index === editedTabs.length - 1}
-                     className="text-gray-400 hover:text-blue-400 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"
-                     title="Nach unten"
-                   >
-                     <ArrowDown size={16} />
-                   </button>
-                 </div>
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={tab.label}
-                    onChange={(e) => handleLabelChange(tab.id, e.target.value)}
-                    className="bg-transparent w-full text-white outline-none placeholder-gray-500 focus:border-b focus:border-blue-500 transition-colors"
-                    placeholder="Name"
-                    disabled={tab.id === 'all'} 
-                    autoFocus={tab.label === "" && tab.id.startsWith("custom-")}
-                  />
-                </div>
+              <div key={tab.id} className={`flex items-center gap-2 p-3 rounded-xl border transition-colors ${tab.hidden ? 'bg-gray-800/30 border-gray-800 opacity-50' : 'bg-gray-800/50 border-gray-700/50'}`}>
+                {/* Pfeile (nicht für "Alle") */}
+                {tab.id !== 'all' ? (
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={() => handleMoveUp(index)}
+                      disabled={index <= 1}
+                      className="text-gray-400 hover:text-blue-400 disabled:opacity-20 transition-colors p-0.5"
+                    >
+                      <ArrowUp size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleMoveDown(index)}
+                      disabled={index === editedTabs.length - 1}
+                      className="text-gray-400 hover:text-blue-400 disabled:opacity-20 transition-colors p-0.5"
+                    >
+                      <ArrowDown size={14} />
+                    </button>
+                  </div>
+                ) : <div className="w-[22px]" />}
+
+                {/* Name */}
+                <input
+                  type="text"
+                  value={tab.label}
+                  onChange={(e) => handleLabelChange(tab.id, e.target.value)}
+                  className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-500 min-w-0"
+                  placeholder="Name"
+                  disabled={tab.id === 'all'}
+                />
+
+                {/* Sichtbarkeit Toggle (nicht für "Alle") */}
                 {tab.id !== 'all' && (
-                  <button 
-                    onClick={() => handleDelete(tab.id)}
-                    className="text-red-400 hover:text-red-300 p-2 hover:bg-red-500/10 rounded-lg transition-colors"
-                    title="Löschen"
+                  <button
+                    onClick={() => handleToggleHidden(tab.id)}
+                    className={`p-1.5 rounded-lg transition-colors ${tab.hidden ? 'text-gray-500 hover:text-gray-300' : 'text-blue-400 hover:text-blue-300'}`}
+                    title={tab.hidden ? 'Einblenden' : 'Ausblenden'}
                   >
-                    <Trash2 size={18} />
+                    {tab.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                )}
+
+                {/* Löschen (nur custom Tabs) */}
+                {tab.id !== 'all' && tab.id.startsWith('custom_') && (
+                  <button
+                    onClick={() => handleDelete(tab.id)}
+                    className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                  >
+                    <Trash2 size={16} />
                   </button>
                 )}
               </div>
             ))}
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          {/* Neue Kategorie */}
+          <div className="mt-4 flex items-center gap-2">
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              placeholder="Neue Kategorie..."
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-blue-500"
+            />
             <button
-              onClick={handleAddTab}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-medium transition-all active:scale-95 border border-gray-700"
+              onClick={handleAdd}
+              disabled={!newName.trim()}
+              className="p-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl border border-gray-700 transition-colors disabled:opacity-30"
             >
               <Plus size={18} />
-              <span>Hinzufügen</span>
             </button>
-            <button 
+          </div>
+
+          {/* Speichern */}
+          <div className="mt-6 flex justify-end">
+            <button
               onClick={handleSave}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all active:scale-95"
+              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all active:scale-95"
             >
               <Save size={18} />
               <span>Speichern</span>

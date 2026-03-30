@@ -1,10 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { 
-  X, MessageCircle, Phone, Video, Calendar, Mail, MapPin, 
-  Users, User, Shield, Crown, Briefcase, ListPlus, Check 
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  X, MessageCircle, Phone, Video, Calendar, Mail, MapPin,
+  Users, User, Shield, Crown, Briefcase, ListPlus, Check, Trash2
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import { Contact, Tab } from "@/app/types";
 
@@ -13,14 +14,32 @@ interface ContactDetailModalProps {
   onClose: () => void;
   onUpdateContact: (updatedContact: Contact) => void;
   tabs: Tab[];
+  onStartChat?: (contact: Contact) => void;
+  onStartCall?: (contact: Contact, type: 'audio' | 'video') => void;
+  onRemoveContact?: (contactId: string) => void;
 }
 
-export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs }: ContactDetailModalProps) {
+export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, onStartChat, onStartCall, onRemoveContact }: ContactDetailModalProps) {
   const [showListSelector, setShowListSelector] = useState(false);
+  const [comingSoon, setComingSoon] = useState<string | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const comingSoonTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Close list selector when contact changes/closes
+  // Kategorien = alle Tabs außer "Alle"
+  const categoryTabs = tabs.filter(t => t.id !== 'all');
+
+  const showComingSoon = (feature: string) => {
+    if (comingSoonTimer.current) clearTimeout(comingSoonTimer.current);
+    setComingSoon(feature);
+    comingSoonTimer.current = setTimeout(() => setComingSoon(null), 2500);
+  };
+
   useEffect(() => {
-    if (!contact) setShowListSelector(false);
+    if (!contact) {
+      setShowListSelector(false);
+      setComingSoon(null);
+      setShowRemoveConfirm(false);
+    }
   }, [contact]);
 
   if (!contact) return null;
@@ -98,9 +117,9 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs }: 
               />
               <div className="flex items-center gap-2 text-gray-400 text-sm flex-wrap justify-center">
                 {(contact.categories || []).map(catId => {
-                  const label = tabs.find(t => t.id === catId)?.label || catId;
+                  const label = categoryTabs.find(t => t.id === catId)?.label ?? catId;
                   return (
-                    <span key={catId} className="bg-gray-800 px-2 py-0.5 rounded text-xs border border-gray-700">
+                    <span key={catId} className="bg-blue-500/15 text-blue-400 px-2.5 py-0.5 rounded-full text-xs border border-blue-500/30 font-medium">
                       {label}
                     </span>
                   );
@@ -109,34 +128,52 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs }: 
             </div>
 
             {/* Actions */}
-            <div className="flex justify-center gap-6 mb-8">
-              <button className="flex flex-col items-center gap-2 group" title="Nachricht">
-                <div className={`w-12 h-12 ${isGroup ? 'bg-indigo-600 shadow-indigo-600/30' : 'bg-blue-600 shadow-blue-600/30'} rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
-                  <MessageCircle size={24} className="text-white" />
-                </div>
-                <span className="text-xs text-gray-400 font-medium">Chat</span>
-              </button>
+            <div className="flex flex-col items-center mb-8 gap-3">
+              <div className="flex justify-center gap-6">
+                <button
+                  onClick={() => { if (onStartChat) { onStartChat(contact); onClose(); } }}
+                  className="flex flex-col items-center gap-2 group"
+                  title="Nachricht"
+                >
+                  <div className={`w-12 h-12 ${isGroup ? 'bg-indigo-600 shadow-indigo-600/30' : 'bg-blue-600 shadow-blue-600/30'} rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
+                    <MessageCircle size={24} className="text-white" />
+                  </div>
+                  <span className="text-xs text-gray-400 font-medium">Chat</span>
+                </button>
 
-              <button className="flex flex-col items-center gap-2 group" title={isGroup ? "Sprachanruf" : "Anruf"}>
-                <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center shadow-lg shadow-green-600/30 group-hover:scale-110 transition-transform">
-                  <Phone size={24} className="text-white" />
-                </div>
-                <span className="text-xs text-gray-400 font-medium">Audio</span>
-              </button>
+                <button
+                  onClick={() => { if (onStartCall) { onStartCall(contact, 'audio'); onClose(); } else showComingSoon('Audioanruf'); }}
+                  className="flex flex-col items-center gap-2 group" title="Anruf"
+                >
+                  <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center shadow-lg shadow-green-600/30 group-hover:scale-110 transition-transform">
+                    <Phone size={24} className="text-white" />
+                  </div>
+                  <span className="text-xs text-gray-400 font-medium">Audio</span>
+                </button>
 
-              <button className="flex flex-col items-center gap-2 group" title="Videoanruf">
-                <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-purple-600/30 group-hover:scale-110 transition-transform">
-                  <Video size={24} className="text-white" />
-                </div>
-                <span className="text-xs text-gray-400 font-medium">Video</span>
-              </button>
+                <button
+                  onClick={() => { if (onStartCall) { onStartCall(contact, 'video'); onClose(); } else showComingSoon('Videoanruf'); }}
+                  className="flex flex-col items-center gap-2 group" title="Videoanruf"
+                >
+                  <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-purple-600/30 group-hover:scale-110 transition-transform">
+                    <Video size={24} className="text-white" />
+                  </div>
+                  <span className="text-xs text-gray-400 font-medium">Video</span>
+                </button>
 
-              <button className="flex flex-col items-center gap-2 group" title="Planen">
-                <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/30 group-hover:scale-110 transition-transform">
-                  <Calendar size={24} className="text-white" />
+                <button onClick={() => showComingSoon('Kalender')} className="flex flex-col items-center gap-2 group" title="Planen">
+                  <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/30 group-hover:scale-110 transition-transform">
+                    <Calendar size={24} className="text-white" />
+                  </div>
+                  <span className="text-xs text-gray-400 font-medium">Planen</span>
+                </button>
+              </div>
+
+              {comingSoon && (
+                <div className="text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded-full px-3 py-1.5 animate-in fade-in duration-200">
+                  {comingSoon} kommt bald
                 </div>
-                <span className="text-xs text-gray-400 font-medium">Planen</span>
-              </button>
+              )}
             </div>
             
             {/* Conditional Content */}
@@ -248,13 +285,13 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs }: 
               )}
             </div>
 
-            {/* Add to List Button */}
+            {/* Zu Liste hinzufügen */}
             <div className="mt-8">
-               <button 
+               <button
                  onClick={() => setShowListSelector(!showListSelector)}
                  className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all ${
-                    showListSelector 
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
+                    showListSelector
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
                     : "bg-gray-800 text-gray-300 hover:bg-gray-700"
                  }`}
                >
@@ -265,15 +302,15 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs }: 
                {showListSelector && (
                  <div className="mt-3 bg-gray-800 border border-gray-700 rounded-xl overflow-hidden animate-slideUpAndFade">
                    <div className="p-2 grid grid-cols-2 gap-2">
-                     {tabs.filter(t => t.id !== 'all').map(tab => {
+                     {categoryTabs.map(tab => {
                        const isSelected = (contact.categories || []).includes(tab.id);
                        return (
                          <button
                            key={tab.id}
                            onClick={() => handleToggleList(tab.id)}
                            className={`flex items-center justify-between p-3 rounded-lg text-sm transition-all border ${
-                             isSelected 
-                             ? "bg-blue-500/20 text-blue-400 border-blue-500/50 shadow-sm shadow-blue-500/10" 
+                             isSelected
+                             ? "bg-blue-500/20 text-blue-400 border-blue-500/50 shadow-sm shadow-blue-500/10"
                              : "bg-gray-800/50 hover:bg-gray-700 border-transparent text-gray-300"
                            }`}
                          >
@@ -286,7 +323,59 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs }: 
                  </div>
                )}
             </div>
+
+            {/* Kontakt entfernen — nur für echte P2P-Kontakte */}
+            {contact.id.startsWith('AC-') && (
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowRemoveConfirm(true)}
+                  className="w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
+                >
+                  <Trash2 size={18} />
+                  <span className="font-medium">Kontakt entfernen</span>
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Bestätigungsdialog */}
+          <AlertDialog.Root open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
+            <AlertDialog.Portal>
+              <AlertDialog.Overlay className="bg-black/60 backdrop-blur-sm fixed inset-0 z-[60] animate-in fade-in duration-200" />
+              <AlertDialog.Content className="fixed top-[50%] left-[50%] max-h-[85vh] w-[90vw] max-w-[400px] translate-x-[-50%] translate-y-[-50%] rounded-xl bg-gray-900 border border-gray-800 p-6 shadow-2xl focus:outline-none z-[60] animate-in zoom-in-95 duration-200">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-red-500/10 rounded-full text-red-500"><Trash2 size={24} /></div>
+                    <div>
+                      <AlertDialog.Title className="text-lg font-semibold text-white">
+                        {contact.name} entfernen?
+                      </AlertDialog.Title>
+                      <AlertDialog.Description className="text-sm text-gray-400 mt-1">
+                        Dieser Kontakt wird von deinem Gerät und vom Gerät des Kontakts entfernt.
+                        Wenn ihr wieder chatten wollt, müsst ihr euch erneut als Kontakte hinzufügen.
+                        Chat- und Anrufhistorie wird nicht gelöscht.
+                      </AlertDialog.Description>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 mt-2">
+                    <AlertDialog.Action
+                      onClick={() => {
+                        onRemoveContact?.(contact.id);
+                        setShowRemoveConfirm(false);
+                        onClose();
+                      }}
+                      className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                    >
+                      Entfernen
+                    </AlertDialog.Action>
+                    <AlertDialog.Cancel className="w-full py-3 bg-transparent hover:bg-gray-800 text-gray-400 hover:text-white rounded-lg font-medium transition-colors border border-gray-700">
+                      Abbrechen
+                    </AlertDialog.Cancel>
+                  </div>
+                </div>
+              </AlertDialog.Content>
+            </AlertDialog.Portal>
+          </AlertDialog.Root>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
