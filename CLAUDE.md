@@ -3,10 +3,29 @@
 ## Projekt-Info
 
 - **Besitzer**: Aras
+- **GitHub**: https://github.com/Arego367/aregoland (privat)
 - **Lizenz**: AGPL-3.0 — Open Source. Jeder kann den Code sehen und nutzen, aber muss Änderungen ebenfalls unter AGPL-3.0 veröffentlichen. Auch SaaS-Deployments müssen den Quellcode offenlegen.
 - **Beschreibung**: Arego Chat ist eine moderne Kommunikations- und Organisations-App (Chat, Spaces, Connect, Dokumente, Pay, Kalender).
 - **Figma-Quelle**: https://www.figma.com/design/Smf60PFX7V2nopw1QSzsnc/Aregoland
 - **Stack**: React 18 + TypeScript, Vite, Tailwind CSS v4, Motion, Radix UI, pnpm
+- **Geschäftsmodell**: Kostendeckend, nicht gewinnorientiert
+
+## Infrastruktur & Server
+
+- Hetzner Server, Ubuntu 24.04, IP: 46.225.115.51
+- Claude Code arbeitet in `/root/Aregoland`
+- Signaling Server läuft auf Port 3001 (Docker)
+- App läuft auf Port 443 (Vite Dev-Server, HTTPS)
+- coturn TURN-Server auf Port 3478 (UDP+TCP) und 5349 (TLS)
+- rclone → Google Drive Auto-Sync für CLAUDE.md (post-commit Hook)
+
+## Arbeitsweise
+
+- **Aras** = Visionär & Stratege, kein Entwickler
+- Aras beschreibt die Vision, Claude Code setzt um
+- Kein Figma — Claude Code baut direkt
+- CLAUDE.md ist die einzige Wahrheitsquelle
+- Claude Code aktualisiert CLAUDE.md am Ende jeder Session und lädt sie zu Google Drive hoch
 
 ## Sicherheits- & Auth-Konzept
 
@@ -218,6 +237,7 @@
 - **E2E-Verschlüsselung überall** — der Server sieht niemals Inhalte
 - **Datensparsamkeit** — nur das absolute Minimum speichern
 - **Jede neue Funktion** muss diese Prinzipien einhalten — keine Ausnahmen
+- **Kostendeckend, nicht gewinnorientiert** — kein Upselling, keine Premium-Features die Datenschutz einschränken
 
 ## Kinderschutz-Vision (noch nicht implementiert)
 
