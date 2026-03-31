@@ -1,4 +1,5 @@
 import { ArrowLeft, FileText, Folder, Search, Filter, MoreVertical, Plus } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { motion } from "motion/react";
 
 interface DocumentsScreenProps {
@@ -6,6 +7,7 @@ interface DocumentsScreenProps {
 }
 
 export default function DocumentsScreen({ onBack }: DocumentsScreenProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans overflow-hidden">
       {/* Header */}
@@ -17,7 +19,7 @@ export default function DocumentsScreen({ onBack }: DocumentsScreenProps) {
           >
             <ArrowLeft size={24} />
           </button>
-          <h2 className="text-xl font-bold text-white">Dokumente</h2>
+          <h2 className="text-xl font-bold text-white">{t('documents.title')}</h2>
         </div>
         <div className="flex items-center gap-2">
             <button className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
@@ -37,24 +39,24 @@ export default function DocumentsScreen({ onBack }: DocumentsScreenProps) {
             <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center text-teal-500 mb-2">
                 <FileText size={40} />
             </div>
-            <h3 className="text-xl font-semibold text-white">Deine Dokumente</h3>
+            <h3 className="text-xl font-semibold text-white">{t('documents.yourDocuments')}</h3>
             <p className="text-gray-400 max-w-xs text-sm leading-relaxed">
-                Hier findest du bald alle deine wichtigen Dateien, Verträge und Unterlagen an einem Ort.
+                {t('documents.emptyHint')}
             </p>
             <button className="mt-4 px-6 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-medium flex items-center gap-2 transition-colors">
                 <Plus size={18} />
-                <span>Dokument hochladen</span>
+                <span>{t('documents.upload')}</span>
             </button>
         </div>
 
         {/* Roadmap Functional Block */}
         <div className="mt-8 pt-6 border-t border-gray-800 text-gray-500 text-xs">
-            <h3 className="font-semibold text-gray-400 mb-4 uppercase tracking-wider">Dokumenten-Roadmap</h3>
+            <h3 className="font-semibold text-gray-400 mb-4 uppercase tracking-wider">{t('documents.roadmap')}</h3>
             <div className="grid grid-cols-1 gap-6">
               
               {/* Phase 1 */}
               <div>
-                <strong className="block text-gray-300 mb-1">1. Phase 1 – Minimal (MVP)</strong>
+                <strong className="block text-gray-300 mb-1">{t('documents.phase1')}</strong>
                 <ul className="list-disc pl-4 space-y-0.5 opacity-80">
                   <li>Upload</li>
                   <li>Download</li>
@@ -65,7 +67,7 @@ export default function DocumentsScreen({ onBack }: DocumentsScreenProps) {
 
               {/* Phase 2 */}
               <div>
-                <strong className="block text-gray-300 mb-1">2. Phase 2 – Verwaltung</strong>
+                <strong className="block text-gray-300 mb-1">{t('documents.phase2')}</strong>
                 <ul className="list-disc pl-4 space-y-0.5 opacity-80">
                   <li>Ordner</li>
                   <li>Tags</li>
@@ -78,7 +80,7 @@ export default function DocumentsScreen({ onBack }: DocumentsScreenProps) {
 
               {/* Phase 3 */}
               <div>
-                <strong className="block text-gray-300 mb-1">3. Phase 3 – Integration</strong>
+                <strong className="block text-gray-300 mb-1">{t('documents.phase3')}</strong>
                 <ul className="list-disc pl-4 space-y-0.5 opacity-80">
                   <li>Dokumente an Nachrichten anhängen</li>
                   <li>Dokumente automatisch im Chat anzeigen</li>
@@ -89,7 +91,7 @@ export default function DocumentsScreen({ onBack }: DocumentsScreenProps) {
 
               {/* Phase 4 */}
               <div>
-                <strong className="block text-gray-300 mb-1">4. Phase 4 – Erweiterungen</strong>
+                <strong className="block text-gray-300 mb-1">{t('documents.phase4')}</strong>
                 <ul className="list-disc pl-4 space-y-0.5 opacity-80">
                   <li>Versionierung</li>
                   <li>Office-Vorschau</li>

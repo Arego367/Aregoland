@@ -44,6 +44,30 @@ export function deleteContacts(): void {
   localStorage.removeItem(NONCES_KEY);
 }
 
+// ── Blocklist ──
+
+const BLOCKED_KEY = 'aregoland_blocked';
+
+export function loadBlocked(): string[] {
+  try { return JSON.parse(localStorage.getItem(BLOCKED_KEY) ?? '[]'); }
+  catch { return []; }
+}
+
+export function blockContact(aregoId: string): void {
+  const list = loadBlocked();
+  if (!list.includes(aregoId)) list.push(aregoId);
+  localStorage.setItem(BLOCKED_KEY, JSON.stringify(list));
+}
+
+export function unblockContact(aregoId: string): void {
+  const list = loadBlocked().filter(id => id !== aregoId);
+  localStorage.setItem(BLOCKED_KEY, JSON.stringify(list));
+}
+
+export function isBlocked(aregoId: string): boolean {
+  return loadBlocked().includes(aregoId);
+}
+
 export function markNonceUsed(nonce: string): void {
   const used: string[] = JSON.parse(localStorage.getItem(NONCES_KEY) ?? '[]');
   used.push(nonce);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, Search, Users, Baby, Briefcase,
   Heart, MoreVertical, Shield, Smartphone, Check,
@@ -32,6 +33,7 @@ interface PeopleScreenProps {
 }
 
 export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onStartChat, onStartCall, onlineContacts, contactsVersion, onRemoveContact }: PeopleScreenProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [contacts, setContacts] = useState<Contact[]>(() => {
@@ -65,10 +67,10 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
   const [selectedFSK, setSelectedFSK] = useState<number | null>(null);
 
   const FSK_OPTIONS = [
-    { age: 6, label: "FSK 6", description: "Stark eingeschränkt. Nur freigegebene Kontakte.", color: "bg-green-500" },
-    { age: 12, label: "FSK 12", description: "Eingeschränkt. Kontaktanfragen genehmigen.", color: "bg-yellow-500" },
-    { age: 14, label: "FSK 14", description: "Standard. Voller Chat-Zugriff.", color: "bg-orange-500" },
-    { age: 16, label: "FSK 16", description: "Fast uneingeschränkt.", color: "bg-red-500" },
+    { age: 6, label: "FSK 6", description: t('fsk.fsk6Desc'), color: "bg-green-500" },
+    { age: 12, label: "FSK 12", description: t('fsk.fsk12Desc'), color: "bg-yellow-500" },
+    { age: 14, label: "FSK 14", description: t('fsk.fsk14Desc'), color: "bg-orange-500" },
+    { age: 16, label: "FSK 16", description: t('fsk.fsk16Desc'), color: "bg-red-500" },
   ];
 
   const filteredContacts = contacts.filter(c => {
@@ -105,7 +107,7 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
             <ArrowLeft size={24} />
           </button>
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600">
-            Kontakte
+            {t('people.title')}
           </h1>
         </div>
         <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
@@ -134,7 +136,7 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
           <button
             onClick={() => setIsTabModalOpen(true)}
             className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all shrink-0 ml-1"
-            title="Reiter bearbeiten"
+            title={t('tabs.editTabs')}
           >
             <Edit2 size={18} />
           </button>
@@ -166,8 +168,8 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                      <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-700">
                        <Baby size={32} className="text-blue-400" />
                      </div>
-                     <h2 className="text-xl font-bold">Kinderschutz einrichten</h2>
-                     <p className="text-gray-400 text-sm mt-1">Wähle eine Altersstufe für das neue Profil.</p>
+                     <h2 className="text-xl font-bold">{t('people.setupChildProtection')}</h2>
+                     <p className="text-gray-400 text-sm mt-1">{t('people.chooseAgeLevel')}</p>
                    </div>
                    
                    <div className="space-y-3">
@@ -214,16 +216,16 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                         : "bg-gray-800 text-gray-500 cursor-not-allowed"
                       }`}
                     >
-                      Weiter
+                      {t('common.next')}
                     </button>
                  </div>
                )}
 
                {creationStep === "qr" && (
                  <div className="flex flex-col items-center justify-center text-center space-y-6 pt-10">
-                    <h2 className="text-2xl font-bold">QR-Code scannen</h2>
+                    <h2 className="text-2xl font-bold">{t('welcome.scanQR')}</h2>
                     <p className="text-gray-400 max-w-xs">
-                      Scanne diesen Code mit dem Handy deines Kindes, um das Profil zu aktivieren.
+                      {t('childProfile.scanChildQR')}
                     </p>
                     <div className="bg-white p-4 rounded-3xl shadow-2xl shadow-blue-900/20 relative">
                        <div className="w-64 h-64 bg-gray-100 rounded-xl overflow-hidden relative">
@@ -238,7 +240,7 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                       onClick={() => setIsCreatingChild(false)}
                       className="text-blue-400 hover:text-blue-300 font-medium"
                     >
-                      Fertig
+                      {t('common.done')}
                     </button>
                  </div>
                )}
@@ -265,10 +267,10 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">
-                    Kontakt hinzufügen
+                    {t('people.addContact')}
                   </h3>
                   <p className="text-sm text-gray-400 group-hover:text-gray-300">
-                    Per QR-Code oder Kurzcode
+                    {t('people.addContactDesc')}
                   </p>
                 </div>
               </motion.div>
@@ -299,7 +301,7 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                           <h3 className="text-lg font-semibold text-white">{contact.name}</h3>
                           <div className="flex items-center gap-1.5 text-sm">
                             <span className={onlineContacts?.has(contact.id) ? 'text-green-400' : 'text-gray-500'}>
-                              {onlineContacts?.has(contact.id) ? 'Online' : 'Offline'}
+                              {onlineContacts?.has(contact.id) ? t('common.online') : t('common.offline')}
                             </span>
                           </div>
                         </div>
@@ -312,7 +314,7 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                           className="flex items-center gap-2 px-3 py-2 text-sm text-gray-200 rounded-lg hover:bg-gray-700 outline-none cursor-pointer"
                         >
                           <MessageCircle size={16} />
-                          <span>Nachricht senden</span>
+                          <span>{t('people.sendMessage')}</span>
                         </ContextMenu.Item>
                         {contact.id.startsWith('AC-') && (
                           <ContextMenu.Item
@@ -320,7 +322,7 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                             className="flex items-center gap-2 px-3 py-2 text-sm text-red-400 rounded-lg hover:bg-red-500/10 outline-none cursor-pointer"
                           >
                             <Trash2 size={16} />
-                            <span>Kontakt entfernen</span>
+                            <span>{t('people.removeContact')}</span>
                           </ContextMenu.Item>
                         )}
                       </ContextMenu.Content>
@@ -332,8 +334,8 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                   <div className="bg-gray-800 p-5 rounded-full mb-4">
                     <UserPlus size={36} className="text-gray-600" />
                   </div>
-                  <p className="text-base font-medium text-gray-400 mb-1">Noch keine Kontakte</p>
-                  <p className="text-sm text-gray-600 text-center px-8">Füge Kontakte per QR-Code oder Kurzcode hinzu</p>
+                  <p className="text-base font-medium text-gray-400 mb-1">{t('people.noContacts')}</p>
+                  <p className="text-sm text-gray-600 text-center px-8">{t('people.noContactsDesc')}</p>
                 </div>
               )}
             </motion.div>
@@ -356,7 +358,7 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                 name: contact.displayName,
                 categories: ['friends'],
                 avatar: '',
-                status: 'P2P Kontakt',
+                status: t('people.p2pContact'),
               } as Contact,
             ];
           });
@@ -391,12 +393,10 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                 <div className="p-3 bg-red-500/10 rounded-full text-red-500"><Trash2 size={24} /></div>
                 <div>
                   <AlertDialog.Title className="text-lg font-semibold text-white">
-                    {removeTarget?.name} entfernen?
+                    {t('people.removeConfirmTitle', { name: removeTarget?.name })}
                   </AlertDialog.Title>
                   <AlertDialog.Description className="text-sm text-gray-400 mt-1">
-                    Dieser Kontakt wird von deinem Gerät und vom Gerät des Kontakts entfernt.
-                    Wenn ihr wieder chatten wollt, müsst ihr euch erneut als Kontakte hinzufügen.
-                    Chat- und Anrufhistorie wird nicht gelöscht.
+                    {t('people.removeConfirmDesc')}
                   </AlertDialog.Description>
                 </div>
               </div>
@@ -408,10 +408,10 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
                   }}
                   className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
                 >
-                  Entfernen
+                  {t('common.delete')}
                 </AlertDialog.Action>
                 <AlertDialog.Cancel className="w-full py-3 bg-transparent hover:bg-gray-800 text-gray-400 hover:text-white rounded-lg font-medium transition-colors border border-gray-700">
-                  Abbrechen
+                  {t('common.cancel')}
                 </AlertDialog.Cancel>
               </div>
             </div>

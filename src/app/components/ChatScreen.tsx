@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { ArrowLeft, Phone, Video, MoreVertical, Mic, Send, Smile, Check, CheckCheck, Image as ImageIcon, Camera, FileText, X, Trash2, Reply, Pencil, ShieldCheck, Wifi, WifiOff, Loader2, Clock, Download, Play, Pause, Square, Search, Palette, FolderOpen } from "lucide-react";
+import { ArrowLeft, Phone, Video, MoreVertical, Mic, Send, Smile, Check, CheckCheck, Image as ImageIcon, Camera, FileText, X, Trash2, Reply, Pencil, ShieldCheck, Wifi, WifiOff, Loader2, Clock, Download, Play, Pause, Square, Search, Palette, FolderOpen, Ban } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -10,6 +11,7 @@ import type { P2PStatus, CallSignal } from "@/app/lib/p2p-manager";
 import { buildIceServers } from "@/app/lib/p2p-manager";
 import CallOverlay, { type CallState, type CallType } from './CallOverlay';
 import { ContactDetailModal } from './ContactDetailModal';
+import { blockContact, isBlocked } from "@/app/auth/contacts";
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 
@@ -45,6 +47,7 @@ interface ChatScreenProps {
 }
 
 function P2PBadge({ status, error }: { status: P2PStatus; error: string | null }) {
+  const { t } = useTranslation();
   if (status === 'connected') {
     return (
       <div className="flex items-center gap-1 bg-green-500/15 border border-green-500/30 rounded-full px-2 py-0.5">
@@ -65,7 +68,7 @@ function P2PBadge({ status, error }: { status: P2PStatus; error: string | null }
     return (
       <div className="flex items-center gap-1 bg-gray-700/50 border border-gray-600 rounded-full px-2 py-0.5">
         <Wifi size={10} className="text-gray-400" />
-        <span className="text-[10px] font-medium text-gray-400">Warte</span>
+        <span className="text-[10px] font-medium text-gray-400">{t('chat.waiting')}</span>
       </div>
     );
   }
@@ -73,7 +76,7 @@ function P2PBadge({ status, error }: { status: P2PStatus; error: string | null }
     return (
       <div className="flex items-center gap-1 bg-red-500/10 border border-red-500/20 rounded-full px-2 py-0.5" title={error ?? ''}>
         <WifiOff size={10} className="text-red-400" />
-        <span className="text-[10px] font-medium text-red-400">Offline</span>
+        <span className="text-[10px] font-medium text-red-400">{t('common.offline')}</span>
       </div>
     );
   }
@@ -195,6 +198,7 @@ export default function ChatScreen({
   sendCallSignal, registerCallSignalHandler, unregisterCallSignalHandler,
   onChatCleared,
 }: ChatScreenProps) {
+  const { t } = useTranslation();
   // Nachrichtenverlauf: aus localStorage laden (enthält auch Hintergrund-Nachrichten)
   const [messages, setMessages] = useState<Message[]>(() =>
     loadHistory(roomId)
@@ -711,14 +715,14 @@ export default function ChatScreen({
               </div>
               <p className="text-xs text-gray-400">
                 {p2pStatus === 'connected'
-                  ? 'P2P · Ende-zu-Ende verschlüsselt'
+                  ? t('chat.p2pEncrypted')
                   : p2pStatus === 'waiting'
-                  ? isContactOnline ? 'Online' : 'Offline'
+                  ? isContactOnline ? t('common.online') : t('common.offline')
                   : p2pStatus === 'handshake'
-                  ? 'Verbindung wird aufgebaut...'
+                  ? t('chat.connectingP2P')
                   : p2pStatus === 'error'
-                  ? (p2pError ?? 'Signaling nicht erreichbar')
-                  : isGroup ? 'Tippen für Gruppeninfo' : isContactOnline ? 'Online' : 'Offline'}
+                  ? (p2pError ?? t('chat.signalingUnreachable'))
+                  : isGroup ? t('chat.tapGroupInfo') : isContactOnline ? t('common.online') : t('common.offline')}
               </p>
             </div>
           </div>
@@ -739,6 +743,9 @@ export default function ChatScreen({
                 <DropdownMenu.Item onSelect={() => setShowBgPicker((v) => !v)} className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-gray-700 outline-none cursor-pointer"><Palette size={16} className="text-gray-400" /><span>Hintergrund ändern</span></DropdownMenu.Item>
                 <DropdownMenu.Separator className="h-px bg-gray-700 my-1" />
                 <DropdownMenu.Item onSelect={() => setIsClearDialogOpen(true)} className="flex items-center gap-3 px-3 py-2.5 text-sm text-red-400 rounded-lg hover:bg-red-500/10 outline-none cursor-pointer"><Trash2 size={16} /><span>Chatverlauf löschen</span></DropdownMenu.Item>
+                {!isGroup && !isBlocked(chatId) && (
+                  <DropdownMenu.Item onSelect={() => { blockContact(chatId); onBack(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm text-orange-400 rounded-lg hover:bg-orange-500/10 outline-none cursor-pointer"><Ban size={16} /><span>Blockieren</span></DropdownMenu.Item>
+                )}
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
@@ -984,7 +991,12 @@ export default function ChatScreen({
 
       {/* Input Area */}
       <div className="bg-gray-900 border-t border-gray-800 sticky bottom-0 z-20">
-        {chatLockReason ? (
+        {isBlocked(chatId) ? (
+          <div className="p-4 text-center flex items-center justify-center gap-2">
+            <Ban size={16} className="text-orange-400" />
+            <p className="text-orange-400 text-sm font-medium">{t('chat.blockedBanner')}</p>
+          </div>
+        ) : chatLockReason ? (
           <div className="p-4 text-center">
             <p className="text-gray-500 text-sm">{chatLockReason}</p>
           </div>
@@ -1158,7 +1170,7 @@ export default function ChatScreen({
             name: chatName,
             avatar: chatAvatar,
             categories: [],
-            status: isContactOnline ? 'Online' : 'Offline',
+            status: isContactOnline ? t('common.online') : t('common.offline'),
           }}
           onClose={() => setShowContactDetail(false)}
           onUpdateContact={() => {}}

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { 
-  ArrowLeft, Search, Heart, User, Users, Map, Globe, 
-  Calendar, Lock, CheckCircle, Plus, Info, ChevronRight, X 
+import {
+  ArrowLeft, Search, Heart, User, Users, Map, Globe,
+  Calendar, Lock, CheckCircle, Plus, Info, ChevronRight, X
 } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from "motion/react";
 
 interface ConnectScreenProps {
@@ -21,50 +22,51 @@ interface CategoryInfo {
   image: string;
 }
 
-const CATEGORIES: CategoryInfo[] = [
-  { 
-    id: "dating", 
-    label: "Dating", 
-    description: "Finde deine große Liebe", 
-    icon: Heart, 
-    color: "from-pink-500 to-rose-500",
-    image: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&q=80&w=800"
-  },
-  { 
-    id: "friends", 
-    label: "Freundschaften", 
-    description: "Lerne neue Leute kennen", 
-    icon: Users, 
-    color: "from-blue-500 to-cyan-500",
-    image: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=80&w=800"
-  },
-  { 
-    id: "travel", 
-    label: "Reisen", 
-    description: "Finde Travel-Buddies", 
-    icon: Map, 
-    color: "from-green-500 to-emerald-500",
-    image: "https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&q=80&w=800"
-  },
-  { 
-    id: "events", 
-    label: "Events", 
-    description: "Geh nicht alleine hin", 
-    icon: Calendar, 
-    color: "from-purple-500 to-violet-500",
-    image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=800"
-  },
-  { 
-    id: "networking", 
-    label: "Networking", 
-    description: "Berufliche Kontakte", 
-    icon: Globe, 
-    color: "from-orange-500 to-amber-500",
-    image: "https://images.unsplash.com/photo-1515169067750-d51a73b05121?auto=format&fit=crop&q=80&w=800"
-  }
-];
-
 export default function ConnectScreen({ onBack }: ConnectScreenProps) {
+  const { t } = useTranslation();
+
+  const CATEGORIES: CategoryInfo[] = [
+    {
+      id: "dating",
+      label: t('connect.dating'),
+      description: t('connect.datingDesc'),
+      icon: Heart,
+      color: "from-pink-500 to-rose-500",
+      image: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      id: "friends",
+      label: t('connect.friendships'),
+      description: t('connect.friendshipsDesc'),
+      icon: Users,
+      color: "from-blue-500 to-cyan-500",
+      image: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      id: "travel",
+      label: t('connect.travel'),
+      description: t('connect.travelDesc'),
+      icon: Map,
+      color: "from-green-500 to-emerald-500",
+      image: "https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      id: "events",
+      label: t('connect.events'),
+      description: t('connect.eventsDesc'),
+      icon: Calendar,
+      color: "from-purple-500 to-violet-500",
+      image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      id: "networking",
+      label: t('connect.networking'),
+      description: t('connect.networkingDesc'),
+      icon: Globe,
+      color: "from-orange-500 to-amber-500",
+      image: "https://images.unsplash.com/photo-1515169067750-d51a73b05121?auto=format&fit=crop&q=80&w=800"
+    }
+  ];
   const [view, setView] = useState<"overview" | "create">("overview");
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
 
@@ -96,14 +98,14 @@ export default function ConnectScreen({ onBack }: ConnectScreenProps) {
   if (view === "create") {
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
-        {renderHeader("Connect Space erstellen", () => setView("overview"))}
+        {renderHeader(t('connect.createSpace'), () => setView("overview"))}
         
         <div className="flex-1 overflow-y-auto p-4 pb-24">
           <div className="max-w-md mx-auto space-y-6">
             
             {/* Name */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400 ml-1">Name des Spaces</label>
+              <label className="text-sm font-medium text-gray-400 ml-1">{t('connect.spaceName')}</label>
               <input 
                 type="text" 
                 value={newSpaceName}
@@ -115,7 +117,7 @@ export default function ConnectScreen({ onBack }: ConnectScreenProps) {
 
             {/* Category */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400 ml-1">Kategorie</label>
+              <label className="text-sm font-medium text-gray-400 ml-1">{t('connect.category')}</label>
               <div className="grid grid-cols-2 gap-2">
                 {CATEGORIES.map((cat) => (
                   <button
@@ -136,11 +138,11 @@ export default function ConnectScreen({ onBack }: ConnectScreenProps) {
 
             {/* Description */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400 ml-1">Beschreibung</label>
+              <label className="text-sm font-medium text-gray-400 ml-1">{t('connect.description')}</label>
               <textarea 
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Worum geht es in diesem Space?"
+                placeholder={t('connect.descPlaceholder')}
                 rows={4}
                 className="w-full bg-gray-800 border border-gray-700 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
               />
@@ -148,11 +150,11 @@ export default function ConnectScreen({ onBack }: ConnectScreenProps) {
 
             {/* Identity Rules */}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-400 ml-1">Identität</label>
+              <label className="text-sm font-medium text-gray-400 ml-1">{t('connect.identity')}</label>
               <div className="bg-gray-800 rounded-xl p-1 border border-gray-700 flex">
                 {[
-                  { id: "nickname", label: "Nickname erlaubt" },
-                  { id: "real_name", label: "Echter Name Pflicht" }
+                  { id: "nickname", label: t('connect.nicknameAllowed') },
+                  { id: "real_name", label: t('connect.realNameRequired') }
                 ].map((rule) => (
                   <button
                     key={rule.id}
@@ -176,8 +178,8 @@ export default function ConnectScreen({ onBack }: ConnectScreenProps) {
                   <CheckCircle size={20} />
                 </div>
                 <div>
-                  <div className="font-medium text-sm text-white">Nur verifizierte Profile</div>
-                  <div className="text-xs text-yellow-500/80">Premium Feature</div>
+                  <div className="font-medium text-sm text-white">{t('connect.verifiedOnly')}</div>
+                  <div className="text-xs text-yellow-500/80">{t('connect.premiumFeature')}</div>
                 </div>
               </div>
               <button 
@@ -196,7 +198,7 @@ export default function ConnectScreen({ onBack }: ConnectScreenProps) {
               onClick={handleCreateSpace}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/20"
             >
-              Space erstellen
+              {t('connect.createBtn')}
             </button>
 
           </div>
@@ -207,7 +209,7 @@ export default function ConnectScreen({ onBack }: ConnectScreenProps) {
 
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans relative">
-      {renderHeader("Connect", onBack)}
+      {renderHeader(t('connect.title'), onBack)}
       
       <div className="flex-1 overflow-y-auto p-4 pb-24">
         <div className="max-w-lg mx-auto space-y-6">
@@ -215,9 +217,9 @@ export default function ConnectScreen({ onBack }: ConnectScreenProps) {
           {/* Intro Card */}
           <div className="bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl p-6 relative overflow-hidden border border-white/10">
             <div className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-purple-500/30 blur-3xl rounded-full" />
-            <h2 className="text-2xl font-bold mb-2 relative z-10">Finde deine Community</h2>
+            <h2 className="text-2xl font-bold mb-2 relative z-10">{t('connect.findCommunity')}</h2>
             <p className="text-purple-200 text-sm relative z-10 mb-4 max-w-[80%]">
-              Egal ob Dating, Freundschaften oder Events – entdecke Menschen, die zu dir passen.
+              {t('connect.findCommunityDesc')}
             </p>
             
             {/* Filter Toggle */}
@@ -231,7 +233,7 @@ export default function ConnectScreen({ onBack }: ConnectScreenProps) {
                  onClick={() => setShowVerifiedOnly(!showVerifiedOnly)}
                  className="text-xs font-medium text-white text-left"
                >
-                 Nur verifizierte Profile <span className="text-yellow-400 opacity-80">(Premium)</span>
+                 {t('connect.verifiedOnly')} <span className="text-yellow-400 opacity-80">({t('connect.premium')})</span>
                </button>
             </div>
           </div>
@@ -273,7 +275,7 @@ export default function ConnectScreen({ onBack }: ConnectScreenProps) {
             onClick={() => setView("create")}
             className="w-full bg-gray-800 border border-gray-700 hover:bg-gray-750 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
           >
-            <Plus size={20} className="text-blue-400" /> Neuen Connect-Space erstellen
+            <Plus size={20} className="text-blue-400" /> {t('connect.newConnectSpace')}
           </button>
 
         </div>

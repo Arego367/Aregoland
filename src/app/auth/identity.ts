@@ -13,7 +13,16 @@ export interface UserIdentity {
   createdAt: string;
 }
 
+export interface ChildAccount {
+  aregoId: string;
+  displayName: string;
+  parentId: string;
+  fsk: 6 | 12 | 16 | 18;
+  createdAt: string;
+}
+
 const STORAGE_KEY = "aregoland_identity";
+const CHILDREN_KEY = "aregoland_children";
 
 /** Erstellt eine neue Identität, speichert sie lokal und gibt sie zurück. */
 export async function createIdentity(displayName: string): Promise<UserIdentity> {
@@ -86,4 +95,80 @@ export async function importFromRecoveryPayload(
   } catch {
     return null;
   }
+}
+
+// ── Kind-Konten ──────────────────────────────────────────────────────────────
+
+export function loadChildren(): ChildAccount[] {
+  try {
+    return JSON.parse(localStorage.getItem(CHILDREN_KEY) ?? '[]');
+  } catch { return []; }
+}
+
+export function saveChild(child: ChildAccount): void {
+  const children = loadChildren();
+  const idx = children.findIndex(c => c.aregoId === child.aregoId);
+  if (idx >= 0) children[idx] = child; else children.push(child);
+  localStorage.setItem(CHILDREN_KEY, JSON.stringify(children));
+}
+
+export function removeChild(aregoId: string): void {
+  const children = loadChildren().filter(c => c.aregoId !== aregoId);
+  localStorage.setItem(CHILDREN_KEY, JSON.stringify(children));
+}
+
+/** Erstellt ein Kind-Konto-Linking-Payload als Base64 (TTL 10 Min, einmalig) */
+export function createChildLinkPayload(parentIdentity: UserIdentity): string {
+  const payload = {
+    type: 'child-link' as const,
+    parentId: parentIdentity.aregoId,
+    parentName: parentIdentity.displayName,
+    parentPublicKeyJwk: parentIdentity.publicKeyJwk,
+    exp: Date.now() + 10 * 60 * 1000,
+    n: Array.from(crypto.getRandomValues(new Uint8Array(8)))
+      .map(b => b.toString(16).padStart(2, '0')).join(''),
+  };
+  const json = JSON.stringify(payload);
+  return btoa(
+    new TextEncoder().encode(json).reduce((s, b) => s + String.fromCharCode(b), '')
+  );
+}
+
+/** Dekodiert ein Kind-Konto-Linking-Payload vom Eltern-QR */
+export function decodeChildLinkPayload(encoded: string): {
+  parentId: string; parentName: string; parentPublicKeyJwk: JsonWebKey; exp: number;
+} | null {
+  try {
+    const binary = atob(encoded.trim());
+    const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+    const p = JSON.parse(new TextDecoder().decode(bytes));
+    if (p.type !== 'child-link' || !p.parentId || !p.exp) return null;
+    if (Date.now() > p.exp) return null; // abgelaufen
+    return p;
+  } catch { return null; }
+}
+
+/** Erstellt ein Kind-Konto und speichert es lokal (auf dem Kind-Gerät) */
+export async function createChildIdentity(
+  displayName: string,
+  parentId: string,
+  fsk: 6 | 12 | 16 | 18 = 6
+): Promise<UserIdentity & { accountType: 'child'; parentId: string; fsk: number }> {
+  const keyPair = await generateIdentityKeyPair();
+  const aregoId = await deriveAregoId(keyPair.publicKey);
+  const { publicKeyJwk, privateKeyJwk } = await exportKeyPairAsJWK(keyPair);
+
+  const identity = {
+    aregoId,
+    displayName: displayName.trim() || "Kind",
+    publicKeyJwk,
+    privateKeyJwk,
+    createdAt: new Date().toISOString(),
+    accountType: 'child' as const,
+    parentId,
+    fsk,
+  };
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
+  return identity;
 }

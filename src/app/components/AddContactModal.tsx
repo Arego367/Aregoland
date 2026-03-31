@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X, QrCode, Hash, RefreshCw, Copy, Check, UserPlus,
@@ -25,8 +26,8 @@ type AddTab = 'shortcode' | 'qr';
 
 // ── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return 'Abgelaufen';
+function formatCountdown(ms: number, expiredLabel: string = 'Abgelaufen'): string {
+  if (ms <= 0) return expiredLabel;
   const s = Math.ceil(ms / 1000);
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
@@ -109,6 +110,7 @@ function ShortCodeInput({
 // ── Mein Code Tab ────────────────────────────────────────────────────────────
 
 function MyCodeView({ identity, onContactAdded }: { identity: UserIdentity; onContactAdded: (c: StoredContact) => void }) {
+  const { t } = useTranslation();
   const [qrPayload, setQrPayload] = useState<ContactSharePayload | null>(null);
   const [qrEncoded, setQrEncoded] = useState('');
   const [shortCode, setShortCode] = useState('');
@@ -136,7 +138,7 @@ function MyCodeView({ identity, onContactAdded }: { identity: UserIdentity; onCo
       setShortCode(code);
       setCodeMs(60 * 60 * 1000); // 1h
     } catch {
-      setError('Signaling-Server nicht erreichbar. Kurzcode nicht verfügbar.');
+      setError(t('addContact.serverUnreachable'));
     } finally {
       setLoading(false);
     }
@@ -179,7 +181,7 @@ function MyCodeView({ identity, onContactAdded }: { identity: UserIdentity; onCo
                 className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg"
               >
                 <RefreshCw size={14} />
-                Neu generieren
+                {t('addContact.regenerate')}
               </button>
             </div>
           )}
@@ -190,7 +192,7 @@ function MyCodeView({ identity, onContactAdded }: { identity: UserIdentity; onCo
           qrMs < 60_000 ? 'text-red-400' : 'text-gray-400'
         }`}>
           <Clock size={12} />
-          <span>QR: {formatCountdown(qrMs)}</span>
+          <span>QR: {formatCountdown(qrMs, t('addContact.expired'))}</span>
         </div>
       </div>
 
@@ -199,14 +201,14 @@ function MyCodeView({ identity, onContactAdded }: { identity: UserIdentity; onCo
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Hash size={16} className="text-blue-400" />
-            <span className="text-sm font-semibold text-white">Kurzcode</span>
-            <span className="text-xs text-gray-500">— per Telefon durchsagen</span>
+            <span className="text-sm font-semibold text-white">{t('addContact.shortCode')}</span>
+            <span className="text-xs text-gray-500">— {t('addContact.shortCodeHint')}</span>
           </div>
           <div className={`text-xs font-medium flex items-center gap-1 ${
             codeMs < 300_000 ? 'text-orange-400' : 'text-gray-500'
           }`}>
             <Clock size={11} />
-            {formatCountdown(codeMs)}
+            {formatCountdown(codeMs, t('addContact.expired'))}
           </div>
         </div>
 
@@ -235,7 +237,7 @@ function MyCodeView({ identity, onContactAdded }: { identity: UserIdentity; onCo
         ) : null}
 
         <p className="text-xs text-gray-600 mt-2 text-center">
-          Einmalig verwendbar · automatisch ungültig nach Nutzung
+          {t('addContact.singleUse')}
         </p>
       </div>
 
@@ -243,7 +245,7 @@ function MyCodeView({ identity, onContactAdded }: { identity: UserIdentity; onCo
       <div className="flex items-start gap-2 bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
         <ShieldCheck size={15} className="text-blue-400 shrink-0 mt-0.5" />
         <p className="text-xs text-blue-200/80 leading-relaxed">
-          Der Code enthält nur deinen Namen und öffentlichen Schlüssel. Kein Server speichert deine Kontakte.
+          {t('addContact.privacyInfo')}
         </p>
       </div>
 
@@ -251,7 +253,7 @@ function MyCodeView({ identity, onContactAdded }: { identity: UserIdentity; onCo
       <div className="flex items-start gap-2 bg-gray-800/40 border border-gray-700/50 rounded-xl p-3">
         <ShieldCheck size={14} className="text-gray-500 shrink-0 mt-0.5" />
         <p className="text-xs text-gray-500 leading-relaxed">
-          Sobald jemand deinen Code eingibt, wirst du automatisch gegenseitig als Kontakt gespeichert — auch wenn dieses Fenster geschlossen ist.
+          {t('addContact.autoExchange')}
         </p>
       </div>
 
@@ -261,7 +263,7 @@ function MyCodeView({ identity, onContactAdded }: { identity: UserIdentity; onCo
         className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl transition-all disabled:opacity-50"
       >
         <RefreshCw size={14} />
-        Neue Codes generieren
+        {t('addContact.generateNewCodes')}
       </button>
     </div>
   );
@@ -270,6 +272,7 @@ function MyCodeView({ identity, onContactAdded }: { identity: UserIdentity; onCo
 // ── Hinzufügen Tab ───────────────────────────────────────────────────────────
 
 function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; onContactAdded: (c: StoredContact) => void }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<AddTab>('shortcode');
   const [shortCodeInput, setShortCodeInput] = useState('');
   const [qrInput, setQrInput] = useState('');
@@ -297,11 +300,11 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
 
   const processPayload = (payload: ContactSharePayload) => {
     if (payload.exp < Date.now()) {
-      setError('Dieser Code ist abgelaufen.');
+      setError(t('addContact.codeExpired'));
       return;
     }
     if (isNonceUsed(payload.n)) {
-      setError('Dieser Code wurde bereits verwendet.');
+      setError(t('addContact.codeUsed'));
       return;
     }
     markNonceUsed(payload.n);
@@ -324,12 +327,12 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
     try {
       const payload = await redeemShortCode(shortCodeInput);
       if (!payload) {
-        setError('Code nicht gefunden oder bereits abgelaufen.');
+        setError(t('addContact.codeNotFound'));
         return;
       }
       processPayload(payload);
     } catch {
-      setError('Server nicht erreichbar. Prüfe deine Verbindung.');
+      setError(t('addContact.connectionError'));
     } finally {
       setLoading(false);
     }
@@ -339,7 +342,7 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
     setError('');
     const payload = decodePayload(qrInput.trim());
     if (!payload) {
-      setError('Ungültiger QR-Code Inhalt.');
+      setError(t('addContact.invalidQR'));
       return;
     }
     processPayload(payload);
@@ -359,10 +362,10 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
           <h3 className="text-xl font-bold text-white">{success.displayName}</h3>
           <p className="text-sm text-gray-400 font-mono mt-1">{success.aregoId}</p>
         </div>
-        <p className="text-sm text-gray-400">Kontakt wurde hinzugefügt.</p>
+        <p className="text-sm text-gray-400">{t('addContact.contactAdded')}</p>
         <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-2">
           <ShieldCheck size={14} className="text-green-400" />
-          <span className="text-xs text-green-300">P2P Verschlüsselung bereit</span>
+          <span className="text-xs text-green-300">{t('addContact.p2pReady')}</span>
         </div>
       </motion.div>
     );
@@ -379,7 +382,7 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
           }`}
         >
           <Hash size={15} />
-          Kurzcode
+          {t('addContact.shortCode')}
         </button>
         <button
           onClick={() => { setTab('qr'); setError(''); }}
@@ -402,7 +405,7 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
             className="space-y-4"
           >
             <p className="text-sm text-gray-400 text-center">
-              6-stelligen Code eingeben — per SMS, Telefon oder Messenger erhalten
+              {t('addContact.enterShortCode')}
             </p>
             <ShortCodeInput
               value={shortCodeInput}
@@ -421,7 +424,7 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
               className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <UserPlus size={18} />}
-              {loading ? 'Wird geprüft...' : 'Kontakt hinzufügen'}
+              {loading ? t('addContact.checking') : t('addContact.addContact')}
             </button>
           </motion.div>
         )}
@@ -435,12 +438,12 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
             className="space-y-3"
           >
             <p className="text-sm text-gray-400 text-center">
-              QR-Code Inhalt einfügen
+              {t('addContact.pasteQR')}
             </p>
             <textarea
               value={qrInput}
               onChange={(e) => setQrInput(e.target.value)}
-              placeholder="QR-Code Inhalt hier einfügen..."
+              placeholder={t('addContact.pasteQRPlaceholder')}
               className="w-full bg-gray-800 border border-gray-700 focus:border-blue-500 focus:outline-none rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 font-mono resize-none leading-relaxed transition-colors"
               rows={4}
             />
@@ -456,7 +459,7 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
               className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
             >
               <UserPlus size={18} />
-              Kontakt hinzufügen
+              {t('addContact.addContact')}
             </button>
           </motion.div>
         )}
@@ -468,6 +471,7 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
 // ── Haupt-Modal ──────────────────────────────────────────────────────────────
 
 export function AddContactModal({ open, onClose, identity, onContactAdded }: AddContactModalProps) {
+  const { t } = useTranslation();
   const [mainTab, setMainTab] = useState<MainTab>('mycode');
 
   return (
@@ -482,7 +486,7 @@ export function AddContactModal({ open, onClose, identity, onContactAdded }: Add
 
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-3">
-            <Dialog.Title className="text-lg font-bold text-white">Kontakt hinzufügen</Dialog.Title>
+            <Dialog.Title className="text-lg font-bold text-white">{t('addContact.title')}</Dialog.Title>
             <Dialog.Close asChild>
               <button className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all">
                 <X size={20} />
@@ -499,7 +503,7 @@ export function AddContactModal({ open, onClose, identity, onContactAdded }: Add
               }`}
             >
               <QrCode size={16} />
-              Mein Code
+              {t('addContact.myCode')}
             </button>
             <button
               onClick={() => setMainTab('add')}
@@ -508,7 +512,7 @@ export function AddContactModal({ open, onClose, identity, onContactAdded }: Add
               }`}
             >
               <UserPlus size={16} />
-              Hinzufügen
+              {t('addContact.add')}
             </button>
           </div>
 
@@ -525,7 +529,7 @@ export function AddContactModal({ open, onClose, identity, onContactAdded }: Add
                   {identity ? (
                     <MyCodeView identity={identity} onContactAdded={onContactAdded} />
                   ) : (
-                    <p className="text-center text-gray-500 py-8">Bitte zuerst registrieren.</p>
+                    <p className="text-center text-gray-500 py-8">{t('addContact.registerFirst')}</p>
                   )}
                 </motion.div>
               ) : (

@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Trash2, Save, ArrowUp, ArrowDown, Plus, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import { Tab } from "../types";
 
 interface TabManagementModalProps {
@@ -11,6 +12,7 @@ interface TabManagementModalProps {
 }
 
 export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabManagementModalProps) {
+  const { t } = useTranslation();
   const [editedTabs, setEditedTabs] = useState<Tab[]>(tabs);
   const [newName, setNewName] = useState('');
 
@@ -67,7 +69,7 @@ export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabM
         <Dialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 data-[state=open]:animate-fadeIn" />
         <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-gray-900 rounded-3xl border border-gray-800 shadow-2xl p-6 z-50 data-[state=open]:animate-contentShow">
           <div className="flex justify-between items-center mb-6">
-            <Dialog.Title className="text-xl font-bold text-white">Reiter bearbeiten</Dialog.Title>
+            <Dialog.Title className="text-xl font-bold text-white">{t('tabModal.title')}</Dialog.Title>
             <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
               <X size={24} />
             </button>
@@ -102,7 +104,7 @@ export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabM
                   value={tab.label}
                   onChange={(e) => handleLabelChange(tab.id, e.target.value)}
                   className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-500 min-w-0"
-                  placeholder="Name"
+                  placeholder={t('tabModal.placeholder')}
                   disabled={tab.id === 'all'}
                 />
 
@@ -111,7 +113,7 @@ export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabM
                   <button
                     onClick={() => handleToggleHidden(tab.id)}
                     className={`p-1.5 rounded-lg transition-colors ${tab.hidden ? 'text-gray-500 hover:text-gray-300' : 'text-blue-400 hover:text-blue-300'}`}
-                    title={tab.hidden ? 'Einblenden' : 'Ausblenden'}
+                    title={tab.hidden ? t('tabModal.show') : t('tabModal.hide')}
                   >
                     {tab.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -137,7 +139,7 @@ export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabM
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              placeholder="Neue Kategorie..."
+              placeholder={t('tabModal.newCategory')}
               className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-blue-500"
             />
             <button
@@ -156,7 +158,7 @@ export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabM
               className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all active:scale-95"
             >
               <Save size={18} />
-              <span>Speichern</span>
+              <span>{t('common.save')}</span>
             </button>
           </div>
         </Dialog.Content>

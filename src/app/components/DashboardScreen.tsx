@@ -1,7 +1,8 @@
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { MessageCircle, Calendar, CreditCard, Users, LayoutGrid, CircleDashed, User, Settings, QrCode, LogOut, HeartHandshake, FileText } from "lucide-react";
-import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useTranslation } from 'react-i18next';
 
 interface DashboardScreenProps {
   onNavigate: (screen: "chatList" | "calendar" | "pay" | "community" | "people" | "connect" | "documents") => void;
@@ -11,58 +12,77 @@ interface DashboardScreenProps {
   chatUnreadCount?: number;
 }
 
-const USER_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800&auto=format&fit=crop&q=60";
+function loadAvatar(): { avatarBase64: string | null; initials: string } {
+  try {
+    const profile = JSON.parse(localStorage.getItem("arego_profile") ?? "{}");
+    const identity = JSON.parse(localStorage.getItem("aregoland_identity") ?? "{}");
+    const firstName = profile.firstName ?? identity.displayName?.split(" ")[0] ?? "";
+    const lastName = profile.lastName ?? identity.displayName?.split(" ").slice(1).join(" ") ?? "";
+    const i1 = (firstName[0] ?? "").toUpperCase();
+    const i2 = (lastName[0] ?? firstName[1] ?? "").toUpperCase();
+    return { avatarBase64: profile.avatarBase64 ?? null, initials: i1 + i2 };
+  } catch { return { avatarBase64: null, initials: "" }; }
+}
 
 export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCode, onOpenSettings, chatUnreadCount = 0 }: DashboardScreenProps) {
+  const [avatar, setAvatar] = useState(loadAvatar);
+
+  useEffect(() => {
+    const refresh = () => setAvatar(loadAvatar());
+    window.addEventListener("storage", refresh);
+    window.addEventListener("arego-profile-updated", refresh);
+    return () => { window.removeEventListener("storage", refresh); window.removeEventListener("arego-profile-updated", refresh); };
+  }, []);
+  const { t } = useTranslation();
   const TILES = [
     { 
       id: "chatList", 
-      label: "Chat", 
-      icon: MessageCircle, 
+      label: t('dashboard.chat'),
+      icon: MessageCircle,
       color: "bg-blue-600",
-      description: "Nachrichten & Gruppen" 
+      description: t('dashboard.chatDesc') 
     },
     { 
       id: "calendar", 
-      label: "Kalender", 
-      icon: Calendar, 
+      label: t('dashboard.calendar'),
+      icon: Calendar,
       color: "bg-purple-600",
-      description: "Termine & Events" 
+      description: t('dashboard.calendarDesc') 
     },
     { 
       id: "people", 
-      label: "Kontakte", 
-      icon: Users, 
+      label: t('dashboard.contacts'),
+      icon: Users,
       color: "bg-pink-600",
-      description: "Familie & Freunde" 
+      description: t('dashboard.contactsDesc') 
     },
     { 
       id: "community", 
-      label: "Spaces", 
-      icon: LayoutGrid, 
+      label: t('dashboard.spacesLabel'),
+      icon: LayoutGrid,
       color: "bg-orange-600",
-      description: "Räume & Organisationen" 
+      description: t('dashboard.spacesDesc') 
     },
     { 
       id: "pay", 
-      label: "Pay", 
-      icon: CreditCard, 
+      label: t('dashboard.pay'),
+      icon: CreditCard,
       color: "bg-green-600",
-      description: "Senden & Empfangen" 
+      description: t('dashboard.payDesc') 
     },
     { 
       id: "connect", 
-      label: "Connect", 
-      icon: HeartHandshake, 
+      label: t('dashboard.connect'),
+      icon: HeartHandshake,
       color: "bg-indigo-600",
-      description: "Dating, Freunde & Events" 
+      description: t('dashboard.connectDesc') 
     },
     { 
       id: "documents", 
-      label: "Dokumente", 
-      icon: FileText, 
+      label: t('dashboard.documents'),
+      icon: FileText,
       color: "bg-teal-600",
-      description: "Dateien & Verwaltung" 
+      description: t('dashboard.documentsDesc') 
     },
   ];
 
@@ -72,19 +92,19 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
       <header className="px-6 py-6 flex items-center justify-between bg-gray-900 z-20">
         <div>
           <h1 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600">
-            Willkommen
+            {t('dashboard.welcome')}
           </h1>
-          <p className="text-gray-400 text-sm">Was möchtest du tun?</p>
+          <p className="text-gray-400 text-sm">{t('dashboard.whatToDo')}</p>
         </div>
         
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-gray-700 hover:border-blue-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer">
-              <ImageWithFallback 
-                src={USER_AVATAR} 
-                alt="Profil" 
-                className="w-full h-full object-cover"
-              />
+            <button className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-gray-700 hover:border-blue-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
+              {avatar.avatarBase64 ? (
+                <img src={avatar.avatarBase64} alt="Profil" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-lg font-bold text-white select-none">{avatar.initials}</span>
+              )}
             </button>
           </DropdownMenu.Trigger>
 
@@ -95,7 +115,7 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
               align="end"
             >
               <DropdownMenu.Label className="px-2 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Mein Konto
+                {t('common.myAccount')}
               </DropdownMenu.Label>
               
               <DropdownMenu.Item 
@@ -103,7 +123,7 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
                 className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
               >
                 <User size={18} />
-                <span className="font-medium">Profil</span>
+                <span className="font-medium">{t('common.profile')}</span>
               </DropdownMenu.Item>
               
               <DropdownMenu.Item 
@@ -111,7 +131,7 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
                 className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
               >
                 <QrCode size={18} />
-                <span className="font-medium">QR-Code</span>
+                <span className="font-medium">{t('common.qrCode')}</span>
               </DropdownMenu.Item>
 
               <DropdownMenu.Item 
@@ -119,15 +139,9 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
                 className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
               >
                 <Settings size={18} />
-                <span className="font-medium">Einstellungen</span>
+                <span className="font-medium">{t('common.settings')}</span>
               </DropdownMenu.Item>
 
-              <DropdownMenu.Separator className="h-px bg-gray-700 my-1.5" />
-              
-              <DropdownMenu.Item className="group flex items-center gap-3 px-3 py-2.5 text-sm text-red-400 rounded-lg hover:bg-red-500/10 outline-none cursor-pointer transition-colors">
-                <LogOut size={18} />
-                <span className="font-medium">Abmelden</span>
-              </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>

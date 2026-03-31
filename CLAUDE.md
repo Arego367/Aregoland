@@ -7,15 +7,27 @@
 - **Lizenz**: AGPL-3.0 — Open Source. Jeder kann den Code sehen und nutzen, aber muss Änderungen ebenfalls unter AGPL-3.0 veröffentlichen. Auch SaaS-Deployments müssen den Quellcode offenlegen.
 - **Beschreibung**: Arego Chat ist eine moderne Kommunikations- und Organisations-App (Chat, Spaces, Connect, Dokumente, Pay, Kalender).
 - **Figma-Quelle**: https://www.figma.com/design/Smf60PFX7V2nopw1QSzsnc/Aregoland
-- **Stack**: React 18 + TypeScript, Vite, Tailwind CSS v4, Motion, Radix UI, pnpm
-- **Geschäftsmodell**: Kostendeckend, nicht gewinnorientiert
+- **Stack**: React 18 + TypeScript, Vite, Tailwind CSS v4, Motion, Radix UI, vite-plugin-pwa, i18next + react-i18next, pnpm
+- **Geschäftsmodell**: Kostendeckend, nicht gewinnorientiert — 1 Euro pro Konto pro Jahr, egal wie viele Spaces/Mitglieder/Wiki-Seiten
+- **Kostendeckung**: ab ~1.200 zahlenden Nutzern (Serverkosten ~15 Euro/Monat nach Entwicklungsphase)
+- **Zielgruppen**: Familien, Schulen, Gemeinden, Vereine, Unternehmen, Aemter
+- **Plattform**: PWA (fertig) + Google Play Store + Apple App Store (geplant, Capacitor.js)
+- **Marketing**: Social Media mit KI-Unterstuetzung geplant
 
 ## Infrastruktur & Server
 
-- Hetzner Server, Ubuntu 24.04, IP: 46.225.115.51
+- Hetzner Server, Ubuntu 24.04, IP: 46.225.115.51, IPv6: 2a01:4f8:1c19:951d::1
 - Claude Code arbeitet in `/root/Aregoland`
+- **Domains**: aregoland.de (Hauptdomain), aregoland.com, aregoland.eu — alle leiten auf aregoland.de weiter
+- **Nginx** Reverse Proxy auf Port 80 + 443 (SSL-Terminierung)
+  - HTTP → HTTPS Redirect (alle Domains)
+  - Alle Neben-Domains + www → `https://aregoland.de` (301)
+  - Proxy: `/` → Vite (127.0.0.1:5173), `/ws-signal` → Signaling (127.0.0.1:3001), `/code` → Signaling
+  - Vite HMR WebSocket: `/ws` → Vite
+  - Config: `/etc/nginx/sites-available/aregoland`
+- **SSL**: Let's Encrypt Zertifikate für alle 6 Domains (aregoland.de/com/eu + www), automatische Erneuerung via certbot
+- Vite Dev-Server lauscht auf 127.0.0.1:5173 (nur intern, kein SSL)
 - Signaling Server läuft auf Port 3001 (Docker)
-- App läuft auf Port 443 (Vite Dev-Server, HTTPS)
 - coturn TURN-Server auf Port 3478 (UDP+TCP) und 5349 (TLS)
 - rclone → Google Drive Auto-Sync für CLAUDE.md (post-commit Hook)
 
@@ -32,7 +44,7 @@
 - **Passwordless Authentication**: Es werden **keine Passwörter auf dem Server gespeichert**. Authentifizierung erfolgt ausschließlich über lokale kryptografische Schlüssel.
 - Identität liegt beim Nutzer, nicht beim Server.
 
-## Aktueller Stand (Stand: 2026-03-30)
+## Aktueller Stand (Stand: 2026-04-01)
 
 ### Fertig implementiert
 
@@ -45,7 +57,7 @@
 - Recovery-Payload Import (neues Gerät) via `importFromRecoveryPayload` (`identity.ts`)
 - Unicode-safe Base64 Encoding/Decoding (Umlaute, Emojis sicher)
 - Identität in `localStorage` speichern/laden/löschen
-- QR-Code Screen: Kontakt-QR als PNG downloadbar (`Aregoland-QR-{userId}.png`)
+- QR-Code Screen: vollständig funktional (siehe unten)
 
 **Wiederherstellung** (`WelcomeScreen.tsx`)
 - Recovery-Flow im WelcomeScreen mit 2 Optionen
@@ -96,10 +108,14 @@
 - Eingehende Anrufe: globales Banner auch wenn Chat nicht offen, Annehmen/Ablehnen
 - Anruf starten aus Kontakt-Detail-Modal (Audio/Video)
 
-**Kontakt-Management**
-- Kontakt entfernen (gegenseitig): Bestätigungsdialog, Signal über Inbox-WS + DataChannel
+**Kontakt-Management & Blockieren** ✅ 2026-03-31
+- Kontakt entfernen: Bestätigungsdialog, Signal über Inbox-WS + DataChannel
 - Contact-Status-System: `mutual` (beide hinzugefügt) / `pending` (nur einer) / `removed` (entfernt)
 - Chat-Sperre bei einseitigem Kontakt: Nachrichten empfangen ja, senden nein, mit Hinweis
+- **Blockieren**: Button in Kontakt-Detail-Modal (orange) + Chat-Menü (3-Punkte → Blockieren)
+- Blockiert = Chat zeigt Banner "Du hast diesen Nutzer blockiert", Eingabe deaktiviert
+- Blockliste: `aregoland_blocked` in localStorage, CRUD via `blockContact()`, `unblockContact()`, `isBlocked()`, `loadBlocked()`
+- Blockliste unter Datenschutz & Sicherheit → "Blockierte Nutzer" mit Aufheben-Button + Toast
 - Kontakt-Detail-Modal: Öffnet sich bei Klick auf Name/Avatar im Chat-Header
 - Kontakt-Kategorien: Mehrfachauswahl mit Checkboxen (Familie, Freunde, Arbeit, Schule, Kinder, Spaces, Sonstige + benutzerdefinierte)
 - Kategorien als Badges unter dem Kontaktnamen
@@ -119,6 +135,7 @@
 - Online/Offline Text in Kontaktliste (PeopleScreen)
 - Multi-Tab-Support: erst offline wenn letzter Tab schließt
 - DSGVO: nur aktueller Status im RAM, kein Verlauf, kein Timestamp, bei Disconnect sofort gelöscht
+- **Online-Status verstecken**: Toggle in App Einstellungen "Online-Status anzeigen" (Standard: AN), gespeichert als `aregoland_hide_online` in localStorage
 
 **Signaling-Server v4** (`signaling-server/`)
 - Node.js WebSocket Server (Port 3001)
@@ -148,22 +165,164 @@
 - `CalendarEvent` Interface in `types.ts`
 - Kalender-Kachel auf Dashboard navigiert zu CalendarScreen
 
-**WelcomeScreen** (`WelcomeScreen.tsx`) — bereinigt 2026-03-30
+**WelcomeScreen** (`WelcomeScreen.tsx`) — erweitert 2026-03-31
 - 3 Buttons: "Loslegen" (Registrierung), "Wiederherstellen" (Recovery), "Kind hinzufügen" (Kind-Konto)
-- Sprach-Selector entfernt (kommt mit i18n zurück)
+- Sprach-Selector oben rechts: Flagge + Kürzel, Dropdown mit DE/EN/LT, sofortige Umschaltung
 - Wiederherstellen: Info-Screen → QR-Code scannen (Kamera-Placeholder) oder Schlüssel eingeben (funktional)
-- Kind hinzufügen: eigener Screen mit Kamera-Scanner für Eltern-QR-Code (Placeholder)
+- Kind hinzufügen: Kamera-Scanner (Placeholder) + manuelle Code-Eingabe + Name-Input → `createChildIdentity()`
+- Kind-Konto wird in localStorage als `accountType: "child"` mit `parentId` und `fsk` gespeichert
 - 5 Views: welcome, restore, restoreScan, restoreKey, child
+- Auto-Skip: Bei vorhandener Identität direkt zum gespeicherten Startscreen (kein WelcomeScreen)
+
+**Internationalisierung (i18n)** ✅ 2026-03-31
+- i18next + react-i18next + i18next-browser-languagedetector
+- 3 Sprachen: Deutsch (de), Englisch (en), Litauisch (lt)
+- Sprachdateien: `src/i18n/locales/{de,en,lt}.json` — strukturiert nach Komponenten-Namespaces
+- i18n-Config: `src/i18n/i18n.ts` — Fallback Deutsch, Browser-Spracherkennung, localStorage-Persistierung (`aregoland_language`)
+- Alle UI-Komponenten nutzen `useTranslation()` Hook mit `t('namespace.key')` Aufrufen
+- Sprachwahl in Einstellungen → App Einstellungen → Sprache (alle EU-Sprachen in der Liste, 3 davon übersetzt)
+- Neue Sprachen hinzufügen: JSON-Datei in `src/i18n/locales/` erstellen + in `src/i18n/i18n.ts` importieren
+- HTML-Inhalte (z.B. `<strong>`, `<br/>`) via `dangerouslySetInnerHTML` mit `t()` gerendert
+- Kalender: Monatsnamen, Wochentage, Dauer- und Erinnerungs-Labels vollständig übersetzt
+
+**Familie & Kinder** (`SettingsScreen.tsx`, `identity.ts`) ✅ 2026-03-31
+- Neuer Bereich "Familie & Kinder" in Einstellungen (Pink-Icon, Baby-Symbol)
+- Unterseite: Liste verknüpfter Kind-Konten mit Initialen-Avatar, Name, Arego-ID, FSK-Badge
+- "Kind hinzufügen": QR-Code generieren (TTL 10 Min, einmalig) + Name + FSK-Auswahl
+- FSK-Stufen: FSK 6 (Standard, grün), FSK 12 (wählbar, gelb), FSK 16 + FSK 18 (ausgegraut, Schloss-Icon, "ID-Verifizierung")
+- FSK pro Kind nachträglich änderbar (aufklappbares Panel)
+- Kind-Konto entfernen mit Button
+- `ChildAccount` Interface in `identity.ts`: aregoId, displayName, parentId, fsk, createdAt
+- CRUD-Funktionen: `loadChildren()`, `saveChild()`, `removeChild()`
+- `createChildLinkPayload()`: Base64-kodiertes Linking-Payload mit TTL + Nonce
+- `decodeChildLinkPayload()`: Dekodierung + Ablauf-Prüfung
+- `createChildIdentity()`: Kind-Konto erstellen mit `accountType: "child"`, parentId, fsk
+- WelcomeScreen "Kind hinzufügen": Kamera-Scanner + manuelle Code-Eingabe → Kind-Konto erstellen
+- Kind-Konten in localStorage (`aregoland_children` für Eltern-Liste, `aregoland_identity` auf Kind-Gerät)
+- Alle i18n-Keys in DE/EN/LT vorhanden
+- `qrcode` npm-Paket für QR-Code-Generierung
+
+**PWA (Progressive Web App)** ✅ 2026-03-31
+- `vite-plugin-pwa` mit Workbox Service Worker (autoUpdate)
+- Web App Manifest: Name "Arego", Standalone-Modus, Portrait, Theme-Color #1D4ED8
+- Icons: 192x192, 512x512 (any), 512x512 (maskable), Apple-Touch-Icon 180x180
+- Offline-Fähigkeit: App-Shell gecacht (JS, CSS, HTML, Bilder), keine Nachrichten/API-Calls
+- iOS: `apple-mobile-web-app-capable`, `apple-touch-icon`, `apple-mobile-web-app-status-bar-style`
+- Android: Manifest mit `display: standalone`, "Zum Homescreen hinzufügen" Prompt
+- Signaling-WebSocket (`/ws-signal`) und API (`/code`) explizit vom Caching ausgeschlossen
+- Icon-Quelldateien: `public/icon.svg`, `public/maskable-icon.svg`
+
+**Nginx Reverse Proxy** ✅ 2026-03-31
+- Nginx 1.24 als Reverse Proxy für aregoland.de, aregoland.com, aregoland.eu (+ www-Varianten)
+- Let's Encrypt SSL-Zertifikate für alle 6 Domains, automatische Erneuerung via certbot
+- HTTP → HTTPS Redirect, alle Neben-Domains → aregoland.de (301)
+- Reverse Proxy: `/` → Vite (5173), `/ws-signal` + `/code` → Signaling (3001), `/ws` → Vite HMR
+- Config: `/etc/nginx/sites-available/aregoland`
 
 **Infrastruktur**
-- `start.sh` — systemd Services für Signaling-Server (Docker) + Vite Dev-Server
+- `start.sh` — systemd Services für Signaling-Server (Docker) + Vite Dev-Server + Nginx
 - `arego.bat` — Windows-Batch für SSH + Claude Code
-- Vite HTTPS mit `@vitejs/plugin-basic-ssl`, WebSocket-Proxy für `/ws-signal`
+- Vite Dev-Server auf 127.0.0.1:5173 (nur intern, Nginx macht SSL-Terminierung)
 - HMR Overlay deaktiviert (`hmr: { overlay: false }`)
 - Playwright-Tests (`tests/`) für Video-Call-UI, DataChannel-Delivery, Console-Errors, Unicode-Encoding
 - Favicon (blaues Chat-Icon)
 - rclone installiert — CLAUDE.md Auto-Sync zu Google Drive via git post-commit Hook
 - `sync-claude-md.sh` — manuelles Sync-Script für CLAUDE.md → Google Drive
+
+**Profil-Screen** (`ProfileScreen.tsx`) ✅ 2026-03-31
+- Alle Felder persistent in localStorage (`arego_profile`): Name, Spitzname, Status, Adresse, Social Media, Telefon, E-Mail
+- Beim Laden werden gespeicherte Daten angezeigt, Fallback auf Identity-DisplayName
+- "Speichern" Button speichert in localStorage + aktualisiert `displayName` in Identity
+- Erfolgs-Toast "Profil gespeichert" (grün, animiert, 2.5s)
+- Initialen-Avatar aktualisiert sich live bei Namensänderung
+- Avatar-Upload: Foto auswählen (max 500KB), als Base64 in `arego_profile` gespeichert
+- Avatar entfernen via X-Button (zurück zu Initialen)
+- Arego-ID nicht editierbar, kopierbar
+- Social Media dynamisch: "+ Hinzufügen" Button → Bottom-Sheet mit 12 Plattformen (Instagram, TikTok, YouTube, Discord, Twitch, Mastodon, LinkedIn, X/Twitter, Snapchat, Pinterest, Telegram, Sonstiges)
+- Jede Plattform hat SVG-Icon, Prefix (@), Username-Feld und Löschen-Button
+- Unbegrenzt viele Links hinzufügbar, als `socialLinks[]` Array in localStorage gespeichert
+- Migration: alte feste Felder (`instagram`, `tiktok`, `otherSocial`) werden automatisch in `socialLinks` überführt
+- Adressen dynamisch: "+ Adresse hinzufügen" Button → Inline-Formular mit Label-Presets (Zuhause, Arbeit, Lieferadresse, Rechnungsadresse) oder eigenes Label
+- Jede Adresse als kompakte Karte: Label (blau), Adresse einzeilig, Bearbeiten + Löschen Buttons
+- Unbegrenzt viele Adressen, als `addresses[]` Array in localStorage gespeichert
+- Migration: alte flache Adressfelder (`street`, `houseNumber`, `zipCode`, `city`, `country`) werden automatisch als "Zuhause"-Adresse migriert
+- Kontakte dynamisch: "+ Kontakt hinzufügen" Button → Inline-Formular mit Typ (Telefon, Handy, E-Mail, Fax, Sonstiges) und Label (Privat, Arbeit, Schule, Sonstiges oder eigenes)
+- Jeder Kontakt als kompakte Karte: Icon, Wert, Typ·Label, Bearbeiten + Löschen
+- Unbegrenzt viele Kontakte, als `contactEntries[]` Array in localStorage gespeichert
+- Migration: alte flache Felder (`phone`, `email`) werden automatisch als Kontakteinträge migriert
+
+**Einstellungen — Vollständig** (`SettingsScreen.tsx`) ✅ 2026-03-31
+- 5 Unterseiten: App Einstellungen, Benachrichtigungen, Datenschutz & Sicherheit, Familie & Kinder, Hilfe & Support
+- **Benachrichtigungen**: Push ein/aus (mit Browser Notification Permission Request), Nachrichten ein/aus, Anrufe ein/aus, Töne ein/aus — alles in localStorage (`aregoland_notifications`)
+- **Datenschutz & Sicherheit**: Arego-ID anzeigen + kopieren, Auffindbarkeit (Opt-in mit Signaling-Server /directory Endpoint, Kind-Konten ausgegraut + Hinweis), Profil-Sichtbarkeit pro Kategorie (Persönliche Daten / Adresse / Kontaktdaten / Social Media, je 3 Stufen: Alle Kontakte / Nur Familie / Niemand), Datenspeicher-Anzeige (Chats/Profil/Kontakte getrennt mit KB/MB), Daten löschen (Chat-Verlauf / Profildaten)
+- Auffindbarkeit: `directoryRegister()` / `directoryRemove()` rufen `/directory` POST/DELETE auf dem Signaling-Server auf
+- Privacy-Einstellungen in `aregoland_privacy_visibility` in localStorage gespeichert
+- **Hilfe & Support**: 5 FAQ-Einträge als Akkordeon (Was ist Arego-ID, Kontakt hinzufügen, Geräteverlust, Verschlüsselung, Konto löschen), Link zu aregoland.de, Feedback per E-Mail, Version + Lizenz
+
+**QR-Code Screen** (`QRCodeScreen.tsx`) ✅ 2026-03-31
+- "Mein Code" Tab: Echter Kontakt-QR-Code mit `createSharePayload()` / `encodePayload()` (kompatibel mit AddContactModal)
+- Zeigt echten Namen (aus `arego_profile` / Identity) + Arego-ID unter dem QR-Code
+- Timer: 10 Min TTL, Ablauf-Overlay mit "Neu erstellen" Button
+- "Teilen" Button: Web Share API mit Deep-Link URL, Fallback: Clipboard
+- "Speichern" Button: QR als PNG herunterladen (`Aregoland-QR-{aregoId}.png`)
+- "Scannen" Tab: Echte Kamera via `html5-qrcode` Bibliothek
+- Intelligente QR-Erkennung nach Scan:
+  - Kontakt-Payload → "Möchtest du X hinzufügen?" Dialog mit Avatar + Name + Arego-ID
+  - Kind-Verknüpfungs-QR → Info-Card "Kind-Verknüpfung erkannt"
+  - URL (https://) → "Öffnen" Button (öffnet im Browser)
+  - Unbekannt → Inhalt anzeigen + Kopieren-Button
+- Kontakt hinzufügen: Nonce-Prüfung, Ablauf-Check, `saveContact()` direkt
+- `html5-qrcode` npm-Paket hinzugefügt
+
+**Spaces — Schritt 1: Erstellen mit Vorlagen** (`SpacesScreen.tsx`) ✅ 2026-03-31
+- Mock-Daten (Design Team, Klasse 4b) komplett entfernt
+- 7 Space-Vorlagen: Familie, Schule, Verein/Sport, Unternehmen, Amt/Gemeinde, Community, Benutzerdefiniert
+- Jede Vorlage hat: Icon, Farbgradient, Standard-Identitätsregel, Standard-Einstellungen
+- Erstellungs-Flow: Vorlage wählen → Name + Beschreibung → Relay-Node Info-Banner → Erstellen
+- Space-Daten in localStorage (`aregoland_spaces`): ID, Name, Beschreibung, Template, Farbe, Founder, Mitglieder, Einstellungen
+- Ersteller wird automatisch als Founder (erste Rolle) eingetragen
+- Listen-Ansicht: Spaces als Karten mit Gradient-Header, Template-Icon, Name, Beschreibung, Mitgliederzahl
+- Detail-Ansicht: Header mit Gradient, 4 Tabs (Übersicht, Chats, Mitglieder, Einstellungen)
+- Space löschen mit sofortiger Entfernung aus localStorage
+- "Space erstellen" Button oben in der Liste (wie PeopleScreen-Stil, kein FAB)
+- Drag & Drop Sortierung via `Reorder` (Motion), GripVertical Handle links, Reihenfolge in `aregoland_spaces_order` gespeichert
+- Volle Browserbreite (kein max-width Container)
+- Erfolgs-Toast "Space erstellt"
+- `Space` Interface: id, name, description, template, color, identityRule, founderId, members[], settings{}, createdAt
+
+**Spaces — Schritt 2: Mitglieder & Rollen** (`SpacesScreen.tsx`) ✅ 2026-03-31
+- Mitglied einladen: QR-Code mit `SpaceInvitePayload` (spaceId, spaceName, template, role, exp, nonce)
+- Einstellbare Ablaufzeit: 1h, 24h, 7 Tage, 30 Tage, Unbegrenzt, eigene Dauer (Tage-Eingabe)
+- Admin/Moderator-Einladungen: max 30 Tage (Unbegrenzt ausgegraut mit Hinweis)
+- Rolle beim Einladen als Radio-Liste mit Beschreibung pro Rolle (Admin, Moderator, Mitglied, Gast)
+- Beitritts-Hinweis: automatisch generiert aus Space-Einstellungen (Rolle, ID-Verifizierung, Namensregel)
+- Teilen via Web Share API + Fallback Clipboard
+- Mitglieder-Tab: nach Rollen gruppiert (Gründer → Admin → Moderator → Co-Host → Mitglied → Gast)
+- Farbige Rollen-Badges (Gold/Rot/Blau/Lila/Grau)
+- Rolle ändern: aufklappbares Panel pro Mitglied (nur für Founder/Admin sichtbar)
+- Mitglied entfernen Button
+- Founder kann nicht entfernt/geändert werden
+- `ROLE_ORDER` und `ROLE_COLORS` Konstanten für konsistentes Rollen-Rendering
+
+**Spaces — Schritt 3: Neuigkeiten + Übersicht** (`SpacesScreen.tsx`) ✅ 2026-03-31
+- Neuer "Neuigkeiten" Tab zwischen Übersicht und Chats
+- Beitrag erstellen (nur Admin/Moderator/Founder): Titel, Text, Badge (Ankündigung/Neuigkeit/Termin), Anpinnen
+- Beiträge als Karten: Autor-Avatar, Name, Rolle, Datum, Badge (farbig), Pin-Indikator
+- Angepinnte Beiträge immer oben (gelber Rahmen)
+- Filter-Chips: Alle / Ankündigungen / Neuigkeiten / Termine
+- Upvote pro Beitrag (Toggle, zeigt Anzahl)
+- Kommentare: einklappbar, Eingabefeld mit Enter-Senden
+- Beitrag anpinnen/lösen + löschen (nur Autor oder Founder)
+- `SpacePost` Interface: id, authorId, authorName, authorRole, title, text, badge, pinned, upvotes[], comments[], createdAt
+- `SpaceComment` Interface: id, authorId, authorName, text, createdAt
+- Übersicht-Tab rollenbasiert: Admins sehen Statistiken (Mitglieder/Posts/Chats), alle sehen angepinnte Posts + letzte Ankündigungen
+- Alles in `aregoland_spaces` localStorage (posts[] Array im Space-Objekt)
+- Bug fix: `loadSpaces()` migriert Spaces ohne `posts` Feld (setzt `posts: []`)
+- Bug fix: `handleCreatePost` nutzt `?? []` defensiv gegen undefined posts
+- Termin-Badge: zusätzliche Felder Datum, Uhrzeit, Ort bei Badge "Termin"
+- RSVP-System: Ja / Nein / Vielleicht pro Termin-Beitrag, Anzahl sichtbar, Toggle
+- Push-Benachrichtigung bei neuem Termin: "Neuer Termin: [Titel]" (Browser Notification API)
+- `SpacePost` erweitert: eventDate, eventTime, eventLocation, rsvp (Record<aregoId, response>)
 
 **UI-Screens**
 - `ChatListScreen`, `ChatScreen`, `PeopleScreen`, `SpacesScreen`
@@ -177,50 +336,42 @@
 
 ## Nächste Schritte (Priorität)
 
-1. **Kalender-Modul Stufe 1** ✅ Fertig (2026-03-30)
+1. **Spaces vollständig implementieren** (siehe "Spaces — Vollständige Vision")
+   - Schritt 1: Space erstellen mit Vorlagen ✅ 2026-03-31
+   - Schritt 2: Mitglieder & Rollen ✅ 2026-03-31
+   - Schritt 3: Neuigkeiten-Tab + Übersicht nach Rollen ✅ 2026-03-31
+   - Schritt 4: Wiki/Seiten
 
-2. **Recovery-Flow erweitern**
-   - QR-Code scannen: jsQR-Bibliothek integrieren für echtes Kamera-Scanning (aktuell nur Placeholder-UI)
-   - Datei-Upload: Nutzer wählt gespeicherte `aregoland-recovery-*.txt` Datei aus → `importFromRecoveryPayload()`
-   - Textschlüssel eingeben: ✅ bereits implementiert
+2. **Pay-Modul** — wenn fertig, ist App marktreif
 
-3. **Kalender-Modul Stufe 2 — Kinder-Integration**
-   - Kinder-Profile anlegen (Name, Alter, FSK-Stufe, Avatar)
-   - Kind hat eigenen Stundenplan (Schule, Sport, Aktivitäten)
-   - Eltern-Kind geteilte Termine (z.B. Kinderarzt erscheint bei beiden)
-   - Aufgaben für Kinder: Liste mit Erledigt-Button → Eltern werden benachrichtigt
-   - Kinder-Kalender in Eltern-Ansicht einsehbar (Tippen auf Kind → Stundenplan)
+3. **Google Play Store + Apple App Store** (Capacitor.js oder React Native)
 
-4. **Kalender-Modul Stufe 3 — Teilen & P2P**
-   - Termine P2P mit Kontakten teilen (verschlüsselt, kein Server)
-   - Einladungen mit Annehmen/Ablehnen + optionaler Begründung
-   - Frei/Besetzt-Anzeige für Kontakte (nur mit expliziter Freigabe sichtbar)
-   - Freigabe-Steuerung: pro Kontakt oder Kategorie (Familie, Arbeit, etc.)
+4. **KI-Support** (nach Server-Upgrade auf 8GB RAM)
 
-5. **Kalender-Modul Stufe 4 — Spaces-Integration**
-   - Spaces haben eigenen Kalender (Firma, Schule, Verein etc.)
-   - Termine aus Spaces erscheinen automatisch im Hauptkalender
-   - Termin-Einladungen aus Spaces: Annehmen/Ablehnen mit Begründung
-   - Schul-Space: Elternabend etc. direkt ins Eltern-Hauptkalender
-   - Firmen-Space: Chef sieht nur Frei/Besetzt, keine privaten Details
+5. **Mehrsprachigkeit erweitern** (weitere EU-Sprachen)
 
-6. **Kalender-Import/Export**
-   - iCal (.ics) Import von Google Calendar, Outlook, Apple Calendar
-   - iCal Export (eigene Termine exportieren)
+6. **Öffentliche Suche/Auffindbarkeit** verfeinern (Directory-Endpoint)
 
-7. **TURN-Server** ✅ Fertig (coturn, 2026-03-30)
+7. **Kalender erweitern**
+   - Stufe 2: Kinder-Integration (Grundlage fertig: Name, FSK, Eltern-Verknüpfung)
+   - Stufe 3: Termine P2P teilen
+   - Stufe 4: Spaces-Integration (Termine aus Spaces im Hauptkalender)
+   - Import/Export: iCal (.ics)
 
-8. **Kinderschutz-Features (FSK)** — nach Kinder-Profilen (Stufe 2)
+8. **Kinderschutz-Features (FSK)** — nach Kinder-Profilen
    - Serverseitig: Kinder unter 16 nicht auffindbar/kontaktierbar
    - Kontakt zwischen Kindern nur über gegenseitige Eltern-Zustimmung
    - Medienzeiten basierend auf wissenschaftlichen Empfehlungen (nicht von Eltern änderbar)
 
-9. **Pay-Modul** — noch nicht begonnen
+9. **Recovery-Flow erweitern**
+   - QR-Code scannen: ✅ html5-qrcode integriert
+   - Datei-Upload: Nutzer wählt gespeicherte `aregoland-recovery-*.txt` Datei
+   - Textschlüssel eingeben: ✅ bereits implementiert
 
-10. **Sprach-Selector (i18n)** — kommt wenn Übersetzungen implementiert werden
-    - Sprachauswahl im WelcomeScreen + Einstellungen
-    - Alle EU-Sprachen geplant
-    - UI-Texte über Übersetzungsdateien laden
+### Bereits erledigt:
+- ✅ Kalender-Modul Stufe 1 (2026-03-30)
+- ✅ TURN-Server (coturn, 2026-03-30)
+- ✅ Sprach-Selector i18n (2026-03-31) — 3 Sprachen: DE, EN, LT
 
 ## Datenschutz-Grundprinzipien
 
@@ -253,6 +404,65 @@
 - **Ab FSK 12**: Eltern sehen den Chat nicht mehr, sind aber noch im Space (Vertrauensübergang)
 - **Kind-Konto-Einrichtung**: Scannen-Button auf WelcomeScreen ist der Einstiegspunkt für Kind-Konto-Einrichtung via Eltern-QR-Code
 
+## Spaces — Vollständige Vision (noch nicht implementiert)
+
+### Space-Vorlagen (beim Erstellen auswählbar):
+- Familie — privat, alle sehen alle, geteilter Kalender
+- Schule — Lehrer + Eltern + Kinder, Hausaufgaben, Termine
+- Verein/Sport — Trainer sichtbar, Anwesenheit, Kurstermine
+- Unternehmen — Abteilungen, Rollen, formell
+- Amt/Gemeinde — öffentlich, Ankündigungen, Bürger-Kommunikation
+- Community — offen oder geschlossen
+- Benutzerdefiniert — alles selbst einstellen
+
+### Rollen-System:
+- **Founder** (nicht entfernbar, automatisch Co-Host)
+- **Admin** (vom Founder ernannt)
+- **Moderator/Trainer** (sichtbar, kann in Globalem Chat posten)
+- **Co-Host/Relay-Node** (anonym, freiwillig, Bandbreite teilen)
+- **Mitglied**
+- **Gast** (nur lesen)
+
+### Space-Einstellungen (Admin):
+- Mitglieder sehen sich gegenseitig: Ja/Nein
+- Co-Hosting erlaubt: Ja/Nein + welche Rollen dürfen Co-Host werden
+- Admin sieht nur ANZAHL der Co-Hosts, keine Namen (Privacy!)
+- Öffentlich beitreten: Ja/Nein
+- ID-Verifizierung zum Beitritt: Ja/Nein (Standard: Ja)
+- QR-Code Einladung mit Ablaufzeit
+- Globaler Chat: nur Admins/Moderatoren können posten
+
+### Space-Features:
+- Chats (Gruppen-Chats mit Rollen-Zugriffsrechten)
+- Termine mit Anwesenheit (komme/komme nicht) — Trainer/Admin sieht Übersicht
+- Wiki/Seiten — strukturierte Infoseiten, jeder kann erstellen (je nach Rolle)
+- Ankündigungen — nur Admins/Moderatoren
+- Unterräume — z.B. "Pilates Dienstag 18 Uhr", "Pilates Dienstag 19 Uhr"
+- Mitglieder-Übersicht (nur nach Rollen sichtbar)
+
+### Übersicht-Tab (nach Rollen):
+- Admin sieht alles: Chats, Termine, Mitglieder, Wiki
+- Mitglied sieht nur: Chats wo Zugang, Termine, Ankündigungen
+- Wichtige Termine ganz oben in der Übersicht
+
+### Kinder-Spaces:
+- Elternteil automatisch Co-Host
+- Kinder sehen nur freigegebene Inhalte (FSK-basiert)
+- Eltern können Kinder-Kommunikation untereinander freischalten
+
+### Technische Architektur:
+- Space-Ersteller = primärer Relay-Node
+- Freiwillige Co-Hosts = sekundäre Relay-Nodes (anonym)
+- Nachrichten: P2P Mesh über Relay-Nodes
+- Wenn Founder offline → Co-Host übernimmt automatisch
+- Space-Daten in localStorage + Sync über Relay-Nodes
+
+### Implementierungs-Schritte:
+1. **Schritt 1** — Space erstellen mit Vorlagen: + Button, 7 Vorlagen, Name/Beschreibung, Relay-Node Hinweis, localStorage, Mock-Daten entfernen
+2. **Schritt 2** — Mitglieder & Rollen: QR-Einladung mit Ablaufzeit, Kurzcode, Rollen zuweisen, Co-Host System, Mitglieder-Sichtbarkeit
+3. **Schritt 3** — Übersicht nach Rollen + Termine mit Anwesenheit
+4. **Schritt 4** — Wiki/Seiten
+
 ## Entwicklungsrichtlinien
 
 - Mobile-First, Dark Mode als Standard
@@ -272,6 +482,73 @@
 - Backend-Integration (Supabase) geplant.
 - **Mock-QR URL** in `ChildProfileScreen.tsx:235` und `PeopleScreen.tsx:231` — `api.qrserver.com` mit Dummy-Token muss durch echte QR-Generierung ersetzt werden
 - **Server-IP hardcoded** in `p2p-manager.ts:75-77` — `46.225.115.51` sollte als `VITE_TURN_HOST` Umgebungsvariable ausgelagert werden
+- **Erweiterter Backup/Recovery-Flow** (noch nicht implementiert)
+  - Verschlüsselter Backup-Download als Datei (.arego Format)
+  - Nutzer wählt Inhalt: Identität/Schlüssel, Kontakte, Chat-Historie oder alles
+  - Backup ist E2E-verschlüsselt — nur der Nutzer kann es öffnen
+  - Regelmäßige Erinnerungen ("Du hast seit 6 Monaten kein Backup gemacht")
+  - Nach ~1 Jahr: Backup fast erzwungen bevor Nutzer weitermachen kann
+  - Wiederherstellung: Backup-Datei hochladen → alles zurück
+- **Pay-Modul** (noch nicht implementiert)
+  - Wenn fertig: App ist marktreif
+  - Mehrere verknüpfte Arego-IDs pro Person möglich (z.B. Privat + Arbeit)
+  - Profil-Wechsel in der App (ein Konto, zwei Identitäten)
+  - Arbeitgeber kann für Mitarbeiter zahlen (Firmen-Abo)
+  - Schulen zahlen aktuell 7-20 Euro pro Kind/Monat für schlechte Software — Aregoland ersetzt das für 1 Euro/Jahr
+- **Datenverwaltung & Bereinigung** (noch nicht implementiert)
+  - Unter Einstellungen → "Datenschutz & Sicherheit" → "Speicher verwalten"
+  - Anzeige: wie viel Speicher belegt ist (Chats, Fotos, Dokumente getrennt)
+  - Bereinigung: Nutzer wählt was gelöscht wird (Chats, Fotos, Dokumente)
+  - Bestimmte Chats von Bereinigung ausschließen ("Diesen Chat schützen")
+  - Zeitraum wählbar: älter als 30 Tage / 6 Monate / 1 Jahr / custom
+  - Automatische Bereinigung einstellbar (z.B. jeden Monat)
+  - Konto löschen = sofort alles weg, keine Ausnahmen
+- **Intelligente Datenverwaltung** (noch nicht implementiert)
+  - Gerätespeicher prüfen (Storage API: navigator.storage.estimate())
+  - Warnung wenn Speicher knapp wird (z.B. unter 100MB frei)
+  - Automatische Bereinigung mit Nutzer-Zustimmung wenn kritisch
+  - Nutzer definiert Regeln: was darf automatisch gelöscht werden (alte Chats, Bilder etc.)
+  - Manuelle Bereinigung unter Datenschutz & Sicherheit → Datenspeicher
+- **KI-Support in Hilfe & Support** (noch nicht implementiert)
+  - Voraussetzung: Server-Upgrade auf mind. 8GB RAM
+  - Ollama mit llama3.2:3b oder phi3:mini lokal auf Server
+  - Chat-UI in Hilfe & Support
+  - Aregoland-Dokumentation als Kontext
+  - Klassifizierung: Bug / Feedback / Frage / Kritik
+  - Keine personenbezogenen Daten in Konversationen
+- **Verifizierungs-Filter** (noch nicht implementiert)
+  - Kontakte als "verifiziert" markieren (nach persönlichem Treffen / Video-Call)
+  - Filter in Kontaktliste: nur verifizierte Kontakte anzeigen
+  - Spaces können "nur verifizierte Mitglieder" verlangen
+- **Zwei Profile parallel** (noch nicht implementiert)
+  - Ein Konto, zwei Arego-IDs (z.B. Privat + Arbeit)
+  - Profil-Wechsel in der App, getrennte Kontakte/Chats pro Profil
+  - Arbeitgeber sieht nur Arbeits-Profil
+- **Wiederherstellung erweitern** (noch nicht implementiert)
+  - Option: Wiederherstellung via Vertrauensperson (Kontakt hält verschlüsseltes Fragment)
+  - Option: eID-basierte Wiederherstellung (nach Integration mit nationaler eID)
+  - Dezentrale Wiederherstellung: Schlüssel-Fragmente auf mehrere Geräte verteilen (Shamir's Secret Sharing)
+- **Spaces — Video Calls & Streaming** (noch nicht implementiert)
+  - Meeting-Modus (klein, interaktiv, alle Kameras)
+  - Stream/Webinar-Modus (gross, einseitig, bis 5000+ Teilnehmer)
+  - Automatische Node-Zuweisung: WLAN = automatisch Node, Mobile Daten = fragen ob Flat
+  - Nutzer kann Mobile-Daten-Nutzung als Node deaktivieren
+  - Admin kann manuell Nodes zuweisen
+  - Raised Hand fuer Zuschauer (koennen kurz auf Buehne geholt werden)
+  - Live Q&A Chat waehrend Stream
+  - Baum-Struktur fuer Nodes (Presenter → Relay-Nodes → Sub-Nodes → Zuschauer)
+- **Spaces — Melde-System** (noch nicht implementiert)
+  - Mitglied melden (Grund + Beschreibung)
+  - Nachricht melden als Beweis (Zeitstempel + Inhalt unveraenderlich)
+  - Ab X Meldungen → Admin Benachrichtigung
+  - Kinder-Spaces: Elternteil bekommt alle Meldungen sofort
+- **Spaces — Mitglieder-Kontrolle** (noch nicht implementiert)
+  - Admin-zugewiesene Spitznamen
+  - Online-Status erzwingen/erlauben
+  - Echter Name Pflicht oder Spitzname
+  - Beitritts-Genehmigung durch waehlbare Rollen
+  - Abstimmung moeglich (X von Y muessen zustimmen)
+  - Beitritts-Hinweis: automatisch generiert aus Space-Einstellungen
 
 ## Arbeitsregel für Claude Code
 

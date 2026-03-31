@@ -119,6 +119,17 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Light mode: remap hardcoded dark Tailwind utilities */
+html.light {
+  --bg-gray-900: #f9fafb;
+  --bg-gray-800: #f3f4f6;
+  --bg-gray-700: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --border-color: #e5e7eb;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -127,6 +138,21 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Light mode overrides for hardcoded dark classes */
+  html.light .bg-gray-900 { background-color: #f9fafb !important; }
+  html.light .bg-gray-800 { background-color: #f3f4f6 !important; }
+  html.light .bg-gray-800\/50 { background-color: rgba(243, 244, 246, 0.5) !important; }
+  html.light .bg-gray-700 { background-color: #e5e7eb !important; }
+  html.light .bg-gray-700\/50 { background-color: rgba(229, 231, 235, 0.5) !important; }
+  html.light .text-white { color: #111827 !important; }
+  html.light .text-gray-400 { color: #6b7280 !important; }
+  html.light .text-gray-500 { color: #9ca3af !important; }
+  html.light .text-gray-600 { color: #4b5563 !important; }
+  html.light .border-gray-800 { border-color: #e5e7eb !important; }
+  html.light .border-gray-700 { border-color: #d1d5db !important; }
+  html.light .border-gray-700\/50 { border-color: rgba(209, 213, 219, 0.5) !important; }
+  html.light .placeholder-gray-600::placeholder { color: #9ca3af !important; }
 
   /**
   * Default typography styles for HTML elements (h1-h4, p, label, button, input).

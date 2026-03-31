@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Settings, Search, User, QrCode, ArrowLeft, Edit2, MessageSquarePlus, X, ChevronRight } from "lucide-react";
-import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
+import { useTranslation } from 'react-i18next';
 import { ContactDetailModal } from "./ContactDetailModal";
 import { Contact, Tab } from "../types";
 import { TabManagementModal } from "./TabManagementModal";
@@ -10,7 +10,17 @@ import { Chat } from "@/app/data/mocks";
 import { loadContacts } from "@/app/auth/contacts";
 import { loadPersistedChats } from "@/app/lib/chats";
 
-const USER_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=800&auto=format&fit=crop&q=60";
+function loadAvatar(): { avatarBase64: string | null; initials: string } {
+  try {
+    const profile = JSON.parse(localStorage.getItem("arego_profile") ?? "{}");
+    const identity = JSON.parse(localStorage.getItem("aregoland_identity") ?? "{}");
+    const firstName = profile.firstName ?? identity.displayName?.split(" ")[0] ?? "";
+    const lastName = profile.lastName ?? identity.displayName?.split(" ").slice(1).join(" ") ?? "";
+    const i1 = (firstName[0] ?? "").toUpperCase();
+    const i2 = (lastName[0] ?? firstName[1] ?? "").toUpperCase();
+    return { avatarBase64: profile.avatarBase64 ?? null, initials: i1 + i2 };
+  } catch { return { avatarBase64: null, initials: "" }; }
+}
 
 interface ChatListScreenProps {
   onOpenProfile: () => void;
@@ -27,8 +37,17 @@ interface ChatListScreenProps {
 }
 
 export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSettings, onBack, tabs, onUpdateTabs, onChatSelect, onNewChat, onlineContacts, chatListVersion }: ChatListScreenProps) {
+  const { t } = useTranslation();
+  const [avatar, setAvatar] = useState(loadAvatar);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+
+  useEffect(() => {
+    const refresh = () => setAvatar(loadAvatar());
+    window.addEventListener("storage", refresh);
+    window.addEventListener("arego-profile-updated", refresh);
+    return () => { window.removeEventListener("storage", refresh); window.removeEventListener("arego-profile-updated", refresh); };
+  }, []);
   const [isTabModalOpen, setIsTabModalOpen] = useState(false);
   const [showNewChatSheet, setShowNewChatSheet] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
@@ -38,7 +57,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
     const chats = loadPersistedChats().map((c) => ({
       id: c.id,
       name: c.name,
-      lastMessage: c.lastMessage || 'Tippe um zu schreiben...',
+      lastMessage: c.lastMessage || t('chatList.tapToWrite'),
       time: c.time,
       avatarUrl: c.avatarUrl,
       unreadCount: c.unreadCount,
@@ -98,7 +117,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
             <ArrowLeft size={24} />
           </button>
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600">
-            Chats
+            {t('chatList.title')}
           </h1>
         </div>
         
@@ -109,12 +128,12 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
           
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <button className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                <ImageWithFallback 
-                  src={USER_AVATAR} 
-                  alt="Profil" 
-                  className="w-full h-full object-cover"
-                />
+              <button className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
+                {avatar.avatarBase64 ? (
+                  <img src={avatar.avatarBase64} alt="Profil" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-sm font-bold text-white select-none">{avatar.initials}</span>
+                )}
               </button>
             </DropdownMenu.Trigger>
 
@@ -125,7 +144,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
                 align="end"
               >
                 <DropdownMenu.Label className="px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Mein Konto
+                  {t('common.myAccount')}
                 </DropdownMenu.Label>
                 
                 <DropdownMenu.Item 
@@ -133,7 +152,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
                   className="group flex items-center gap-2 px-2 py-2 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
                 >
                   <User size={16} />
-                  <span>Profil</span>
+                  <span>{t('common.profile')}</span>
                 </DropdownMenu.Item>
                 
                 <DropdownMenu.Item 
@@ -141,7 +160,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
                   className="group flex items-center gap-2 px-2 py-2 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
                 >
                   <QrCode size={16} />
-                  <span>QR-Code</span>
+                  <span>{t('common.qrCode')}</span>
                 </DropdownMenu.Item>
 
                 <DropdownMenu.Item 
@@ -149,14 +168,9 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
                   className="group flex items-center gap-2 px-2 py-2 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
                 >
                   <Settings size={16} />
-                  <span>Einstellungen</span>
+                  <span>{t('common.settings')}</span>
                 </DropdownMenu.Item>
 
-                <DropdownMenu.Separator className="h-px bg-gray-700 my-1" />
-                
-                <DropdownMenu.Item className="group flex items-center gap-2 px-2 py-2 text-sm text-red-400 rounded-lg hover:bg-red-500/10 outline-none cursor-pointer transition-colors">
-                  <span>Abmelden</span>
-                </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
@@ -183,7 +197,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
         <button
           onClick={() => setIsTabModalOpen(true)}
           className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all shrink-0 ml-1"
-          title="Reiter bearbeiten"
+          title={t('tabs.editTabs')}
         >
           <Edit2 size={18} />
         </button>
@@ -207,10 +221,10 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
             
             <div className="flex-1 min-w-0">
                <h3 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">
-                 Neuen Chat beginnen
+                 {t('chatList.newChat')}
                </h3>
                <p className="text-sm text-gray-400 group-hover:text-gray-300">
-                 Schreibe einer Person oder Gruppe...
+                 {t('chatList.newChatDesc')}
                </p>
             </div>
           </motion.div>
@@ -278,8 +292,8 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
               <div className="bg-gray-800 p-5 rounded-full mb-4">
                 <MessageSquarePlus size={36} className="text-gray-600" />
               </div>
-              <p className="text-base font-medium text-gray-400 mb-1">Noch keine Chats</p>
-              <p className="text-sm text-gray-600 text-center px-8">Starte einen neuen Chat mit einem deiner Kontakte</p>
+              <p className="text-base font-medium text-gray-400 mb-1">{t('chatList.noChats')}</p>
+              <p className="text-sm text-gray-600 text-center px-8">{t('chatList.noChatsDesc')}</p>
             </div>
           )}
         </div>
@@ -328,7 +342,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
 
               {/* Header */}
               <div className="flex items-center justify-between px-5 py-3 shrink-0">
-                <h2 className="text-lg font-bold text-white">Chat starten</h2>
+                <h2 className="text-lg font-bold text-white">{t('chatList.startChat')}</h2>
                 <button
                   onClick={() => setShowNewChatSheet(false)}
                   className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
@@ -344,7 +358,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
                   <input
                     autoFocus
                     type="text"
-                    placeholder="Kontakt suchen..."
+                    placeholder={t('chatList.searchContact')}
                     value={contactSearch}
                     onChange={(e) => setContactSearch(e.target.value)}
                     className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none"
@@ -355,7 +369,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
               {/* Kontaktliste */}
               <div className="flex-1 overflow-y-auto px-3 pb-8">
                 {filteredPickerContacts.length === 0 ? (
-                  <p className="text-center text-gray-500 py-12 text-sm">Keine Kontakte gefunden</p>
+                  <p className="text-center text-gray-500 py-12 text-sm">{t('chatList.noContactsFound')}</p>
                 ) : (
                   filteredPickerContacts.map((contact) => (
                     <motion.button

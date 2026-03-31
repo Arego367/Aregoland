@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { CalendarEvent } from "@/app/types";
@@ -29,26 +30,20 @@ const COLORS = [
   { id: "teal", bg: "bg-teal-600", dot: "bg-teal-400", ring: "ring-teal-500" },
 ];
 
-const DURATIONS: { value: CalendarEvent["duration"]; label: string }[] = [
-  { value: "15min", label: "15 Min" },
-  { value: "30min", label: "30 Min" },
-  { value: "1h", label: "1 Std" },
-  { value: "2h", label: "2 Std" },
-  { value: "allday", label: "Ganztägig" },
+const DURATIONS: { value: CalendarEvent["duration"]; labelKey: string }[] = [
+  { value: "15min", labelKey: "calendar.dur15min" },
+  { value: "30min", labelKey: "calendar.dur30min" },
+  { value: "1h", labelKey: "calendar.dur1h" },
+  { value: "2h", labelKey: "calendar.dur2h" },
+  { value: "allday", labelKey: "calendar.durAllDay" },
 ];
 
-const REMINDERS: { value: CalendarEvent["reminder"]; label: string }[] = [
-  { value: "none", label: "Keine" },
-  { value: "10min", label: "10 Min vorher" },
-  { value: "30min", label: "30 Min vorher" },
-  { value: "1h", label: "1 Std vorher" },
-  { value: "1day", label: "1 Tag vorher" },
-];
-
-const WEEKDAYS_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-const MONTHS = [
-  "Januar", "Februar", "März", "April", "Mai", "Juni",
-  "Juli", "August", "September", "Oktober", "November", "Dezember",
+const REMINDERS: { value: CalendarEvent["reminder"]; labelKey: string }[] = [
+  { value: "none", labelKey: "calendar.remNone" },
+  { value: "10min", labelKey: "calendar.rem10min" },
+  { value: "30min", labelKey: "calendar.rem30min" },
+  { value: "1h", labelKey: "calendar.rem1h" },
+  { value: "1day", labelKey: "calendar.rem1day" },
 ];
 
 function toDateStr(d: Date): string {
@@ -143,12 +138,15 @@ interface CalendarScreenProps {
 }
 
 export default function CalendarScreen({ onBack }: CalendarScreenProps) {
+  const { t } = useTranslation();
   const [events, setEvents] = useState<CalendarEvent[]>(loadEvents);
   const [view, setView] = useState<View>("month");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
+  const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
+  const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
 
   // Persist
   useEffect(() => { saveEvents(events); }, [events]);
@@ -211,13 +209,13 @@ export default function CalendarScreen({ onBack }: CalendarScreenProps) {
           <ArrowLeft size={22} />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold truncate">Kalender</h1>
+          <h1 className="text-lg font-bold truncate">{t('calendar.title')}</h1>
         </div>
         <button
           onClick={goToday}
           className="px-3 py-1.5 text-xs font-bold rounded-full bg-blue-600 hover:bg-blue-500 transition-colors"
         >
-          Heute
+          {t('calendar.today')}
         </button>
         <button
           onClick={() => { setEditingEvent(null); setShowForm(true); }}
@@ -237,7 +235,7 @@ export default function CalendarScreen({ onBack }: CalendarScreenProps) {
               view === v ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
             }`}
           >
-            {v === "month" ? "Monat" : v === "week" ? "Woche" : "Tag"}
+            {v === "month" ? t('calendar.month') : v === "week" ? t('calendar.week') : t('calendar.day')}
           </button>
         ))}
       </div>
@@ -325,6 +323,8 @@ function MonthView({
   eventsMap: Map<string, CalendarEvent[]>;
   onSelectDate: (d: Date) => void;
 }) {
+  const { t } = useTranslation();
+  const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
   const grid = useMemo(() => getMonthGrid(date.getFullYear(), date.getMonth()), [date]);
   const MAX_VISIBLE = 2;
 
@@ -368,7 +368,7 @@ function MonthView({
                   ))}
                   {overflow > 0 && (
                     <span className="text-[8px] text-gray-500 font-bold text-center leading-tight">
-                      +{overflow} weitere
+                      {t('calendar.moreEvents', { count: overflow })}
                     </span>
                   )}
                 </div>
@@ -390,6 +390,8 @@ function WeekView({
   eventsMap: Map<string, CalendarEvent[]>;
   onSelectEvent: (ev: CalendarEvent) => void;
 }) {
+  const { t } = useTranslation();
+  const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
   const weekDates = useMemo(() => getWeekDates(date), [date]);
   const hours = Array.from({ length: 16 }, (_, i) => i + 6); // 06:00 - 21:00
 
@@ -529,6 +531,7 @@ function DayView({
 // ── Day Event List (used in Month View below grid) ───────────────────────────
 
 function DayEventList({ events, label, onSelect }: { events: CalendarEvent[]; label: string; onSelect: (ev: CalendarEvent) => void }) {
+  const { t } = useTranslation();
   if (events.length === 0) return null;
   return (
     <div className="mt-4">
@@ -544,7 +547,7 @@ function DayEventList({ events, label, onSelect }: { events: CalendarEvent[]; la
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-100 truncate">{ev.title}</p>
               <p className="text-xs text-gray-400">
-                {ev.duration === "allday" ? "Ganztägig" : `${ev.startTime} Uhr`}
+                {ev.duration === "allday" ? t('calendar.allDay') : t('calendar.atTime', { time: ev.startTime })}
               </p>
             </div>
           </button>
@@ -564,6 +567,7 @@ function EventFormModal({
   onSave: (ev: CalendarEvent) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [date, setDate] = useState(initial?.date ?? defaultDate);
   const [startTime, setStartTime] = useState(initial?.startTime ?? "09:00");
@@ -603,7 +607,7 @@ function EventFormModal({
         className="w-full max-w-lg bg-gray-900 rounded-t-3xl border-t border-gray-700 p-6 max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold">{initial ? "Termin bearbeiten" : "Neuer Termin"}</h2>
+          <h2 className="text-lg font-bold">{initial ? t('calendar.editEvent') : t('calendar.newEvent')}</h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-800"><X size={20} /></button>
         </div>
 
@@ -612,7 +616,7 @@ function EventFormModal({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Titel"
+          placeholder={t('calendar.eventTitle')}
           autoFocus
           className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
         />
@@ -620,7 +624,7 @@ function EventFormModal({
         {/* Date + Time */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div>
-            <label className="text-xs text-gray-500 font-bold mb-1 block">Datum</label>
+            <label className="text-xs text-gray-500 font-bold mb-1 block">{t('calendar.date')}</label>
             <input
               type="date"
               value={date}
@@ -629,7 +633,7 @@ function EventFormModal({
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 font-bold mb-1 block">Uhrzeit</label>
+            <label className="text-xs text-gray-500 font-bold mb-1 block">{t('calendar.time')}</label>
             <input
               type="time"
               value={startTime}
@@ -642,7 +646,7 @@ function EventFormModal({
 
         {/* Duration */}
         <div className="mb-4">
-          <label className="text-xs text-gray-500 font-bold mb-2 block">Dauer</label>
+          <label className="text-xs text-gray-500 font-bold mb-2 block">{t('calendar.duration')}</label>
           <div className="flex flex-wrap gap-2">
             {DURATIONS.map((d) => (
               <button
@@ -652,7 +656,7 @@ function EventFormModal({
                   duration === d.value ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
                 }`}
               >
-                {d.label}
+                {t(d.labelKey)}
               </button>
             ))}
           </div>
@@ -660,7 +664,7 @@ function EventFormModal({
 
         {/* Reminder */}
         <div className="mb-4">
-          <label className="text-xs text-gray-500 font-bold mb-2 block">Erinnerung</label>
+          <label className="text-xs text-gray-500 font-bold mb-2 block">{t('calendar.reminder')}</label>
           <div className="flex flex-wrap gap-2">
             {REMINDERS.map((r) => (
               <button
@@ -670,7 +674,7 @@ function EventFormModal({
                   reminder === r.value ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
                 }`}
               >
-                {r.label}
+                {t(r.labelKey)}
               </button>
             ))}
           </div>
@@ -678,7 +682,7 @@ function EventFormModal({
 
         {/* Color */}
         <div className="mb-4">
-          <label className="text-xs text-gray-500 font-bold mb-2 block">Farbe</label>
+          <label className="text-xs text-gray-500 font-bold mb-2 block">{t('calendar.color')}</label>
           <div className="flex gap-3">
             {COLORS.map((c) => (
               <button
@@ -696,7 +700,7 @@ function EventFormModal({
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Notiz (optional)"
+          placeholder={t('calendar.noteOptional')}
           rows={2}
           className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6 resize-none"
         />
@@ -707,7 +711,7 @@ function EventFormModal({
           disabled={!title.trim()}
           className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {initial ? "Speichern" : "Termin erstellen"}
+          {initial ? t('common.save') : t('calendar.createEvent')}
         </button>
       </motion.div>
     </motion.div>
@@ -724,6 +728,8 @@ function EventDetailModal({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
+  const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
   const [showConfirm, setShowConfirm] = useState(false);
   const c = getColor(event.color);
   const dateObj = parseDate(event.date);
@@ -749,17 +755,17 @@ function EventDetailModal({
         <h2 className="text-xl font-bold text-white mb-1">{event.title}</h2>
         <p className="text-sm text-gray-400 mb-4">
           {dateObj.getDate()}. {MONTHS[dateObj.getMonth()]} {dateObj.getFullYear()}
-          {event.duration !== "allday" && ` | ${event.startTime} Uhr`}
+          {event.duration !== "allday" && ` | ${t('calendar.atTime', { time: event.startTime })}`}
         </p>
 
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
           <Clock size={14} />
-          <span>{DURATIONS.find((d) => d.value === event.duration)?.label}</span>
+          <span>{t(DURATIONS.find((d) => d.value === event.duration)?.labelKey ?? '')}</span>
         </div>
 
         {event.reminder !== "none" && (
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
-            <span>Erinnerung: {REMINDERS.find((r) => r.value === event.reminder)?.label}</span>
+            <span>{t('calendar.reminderLabel', { label: t(REMINDERS.find((r) => r.value === event.reminder)?.labelKey ?? '') })}</span>
           </div>
         )}
 
@@ -772,21 +778,21 @@ function EventDetailModal({
             onClick={onEdit}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-bold transition-colors"
           >
-            <Edit2 size={16} /> Bearbeiten
+            <Edit2 size={16} /> {t('common.edit')}
           </button>
           {!showConfirm ? (
             <button
               onClick={() => setShowConfirm(true)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm font-bold transition-colors"
             >
-              <Trash2 size={16} /> Entfernen
+              <Trash2 size={16} /> {t('common.delete')}
             </button>
           ) : (
             <button
               onClick={onDelete}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold transition-colors animate-pulse"
             >
-              Wirklich entfernen?
+              {t('calendar.confirmDelete')}
             </button>
           )}
         </div>

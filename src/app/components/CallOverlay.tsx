@@ -9,6 +9,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, CameraOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 
 export type CallState = 'idle' | 'ringing' | 'incoming' | 'connecting' | 'active';
@@ -72,6 +73,7 @@ function CallControls({
   callType, cameraUnavailable, isMuted, isCameraOff,
   onToggleMute, onToggleCamera, onHangup,
 }: CallControlsProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex justify-center gap-6">
       {/* Reihe 1: Kern-Controls */}
@@ -79,14 +81,14 @@ function CallControls({
         icon={isMuted ? <MicOff size={24} /> : <Mic size={24} />}
         onClick={onToggleMute}
         active={isMuted}
-        label={isMuted ? 'Mikrofon an' : 'Mikrofon aus'}
+        label={isMuted ? t('call.micOn') : t('call.micOff')}
       />
       {callType === 'video' && !cameraUnavailable && (
         <ControlButton
           icon={isCameraOff ? <VideoOff size={24} /> : <Video size={24} />}
           onClick={onToggleCamera}
           active={isCameraOff}
-          label={isCameraOff ? 'Kamera an' : 'Kamera aus'}
+          label={isCameraOff ? t('call.cameraOn') : t('call.cameraOff')}
         />
       )}
       {/* Platzhalter für zukünftige Buttons:
@@ -98,7 +100,7 @@ function CallControls({
         icon={<PhoneOff size={24} />}
         onClick={onHangup}
         danger
-        label="Auflegen"
+        label={t('call.hangup')}
       />
     </div>
   );
@@ -111,6 +113,7 @@ export default function CallOverlay({
   onAccept, onReject, onHangup, localStream, remoteStream,
   cameraUnavailable,
 }: CallOverlayProps) {
+  const { t } = useTranslation();
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -250,7 +253,7 @@ export default function CallOverlay({
               <div className="w-full h-full bg-gray-800 flex flex-col items-center justify-center gap-2">
                 <CameraOff size={20} className="text-gray-500" />
                 <span className="text-[10px] text-gray-500 text-center px-1">
-                  {cameraUnavailable ? 'Keine Kamera' : 'Kamera aus'}
+                  {cameraUnavailable ? t('call.noCamera') : t('call.cameraOff')}
                 </span>
               </div>
             )}
@@ -266,7 +269,7 @@ export default function CallOverlay({
                 className="absolute top-14 left-4 right-4 z-20 bg-yellow-900/80 border border-yellow-700 rounded-xl px-3 py-2 flex items-center gap-2"
               >
                 <CameraOff size={14} className="text-yellow-400 shrink-0" />
-                <span className="text-xs text-yellow-200">Kamera nicht verfügbar — nur Audio</span>
+                <span className="text-xs text-yellow-200">{t('call.cameraUnavailable')}</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -279,9 +282,9 @@ export default function CallOverlay({
           </div>
           <h2 className="text-2xl font-bold text-white">{contactName}</h2>
           <p className="text-gray-400 text-sm">
-            {callState === 'ringing' && 'Klingeln...'}
-            {callState === 'incoming' && (callType === 'video' ? 'Eingehender Videoanruf' : 'Eingehender Anruf')}
-            {callState === 'connecting' && 'Verbindung wird aufgebaut...'}
+            {callState === 'ringing' && t('call.ringing')}
+            {callState === 'incoming' && (callType === 'video' ? t('call.incomingVideo') : t('call.incomingAudio'))}
+            {callState === 'connecting' && t('call.connecting')}
             {callState === 'active' && formatTime(elapsed)}
           </p>
           {callType === 'audio' && callState === 'active' && <audio ref={remoteVideoRef as any} autoPlay />}
@@ -305,12 +308,12 @@ export default function CallOverlay({
                   icon={<PhoneOff size={28} />}
                   onClick={onReject}
                   danger
-                  label="Ablehnen"
+                  label={t('call.reject')}
                 />
                 <button
                   onClick={onAccept}
                   className="p-5 rounded-full bg-green-600 text-white shadow-lg shadow-green-900/40 hover:bg-green-500 transition-colors"
-                  aria-label="Annehmen"
+                  aria-label={t('call.accept')}
                 >
                   <Phone size={28} />
                 </button>

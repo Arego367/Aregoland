@@ -376,10 +376,26 @@ export default function App() {
     }
   }, [manager, updateContactStatus]);
 
-  // Beim Start prüfen ob bereits eine Identität existiert
+  // Dark Mode beim Start anwenden
+  useEffect(() => {
+    const isDark = localStorage.getItem('aregoland_dark_mode') !== 'false';
+    document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.classList.toggle('light', !isDark);
+  }, []);
+
+  // Beim Start prüfen ob bereits eine Identität existiert → direkt zum Startscreen
   useEffect(() => {
     const existing = loadIdentity();
-    if (existing) setIdentity(existing);
+    if (existing) {
+      setIdentity(existing);
+      const saved = localStorage.getItem("aregoland_start_screen");
+      if (saved && ["dashboard", "chatList", "calendar"].includes(saved)) {
+        setCurrentScreen(saved as any);
+        setReturnTo(saved === "chatList" ? "chatList" : "dashboard");
+      } else {
+        setCurrentScreen("dashboard");
+      }
+    }
   }, []);
 
   // Persistenter Inbox-Listener + Online-Presence
@@ -506,7 +522,7 @@ export default function App() {
     if (!existing) { setCurrentScreen("registration"); return; }
     setIdentity(existing);
     const saved = localStorage.getItem("aregoland_start_screen");
-    if (saved && ["dashboard", "chatList"].includes(saved)) {
+    if (saved && ["dashboard", "chatList", "calendar"].includes(saved)) {
       setCurrentScreen(saved as any);
       setReturnTo(saved === "chatList" ? "chatList" : "dashboard");
     } else {

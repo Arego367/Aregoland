@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ArrowLeft, Plus, User, Shield, Smartphone, ChevronRight, Check, QrCode } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from "motion/react";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 
@@ -14,34 +15,35 @@ interface ChildProfile {
   avatar: string;
 }
 
-const FSK_OPTIONS = [
-  { 
-    age: 6, 
-    label: "FSK 6", 
-    description: "Stark eingeschränkt. Nur freigegebene Kontakte. Keine externen Links.",
-    color: "bg-green-500"
-  },
-  { 
-    age: 12, 
-    label: "FSK 12", 
-    description: "Eingeschränkt. Kontaktanfragen müssen genehmigt werden. Content-Filter aktiv.",
-    color: "bg-yellow-500"
-  },
-  { 
-    age: 14, 
-    label: "FSK 14", 
-    description: "Standard. Voller Chat-Zugriff, aber keine öffentlichen Profile.",
-    color: "bg-orange-500"
-  },
-  { 
-    age: 16, 
-    label: "FSK 16", 
-    description: "Fast uneingeschränkt. Warnhinweise bei sensiblen Inhalten.",
-    color: "bg-red-500"
-  },
-];
-
 export default function ChildProfileScreen({ onBack }: ChildProfileScreenProps) {
+  const { t } = useTranslation();
+
+  const FSK_OPTIONS = [
+    {
+      age: 6,
+      label: "FSK 6",
+      description: t('childProfile.fsk6Desc'),
+      color: "bg-green-500"
+    },
+    {
+      age: 12,
+      label: "FSK 12",
+      description: t('childProfile.fsk12Desc'),
+      color: "bg-yellow-500"
+    },
+    {
+      age: 14,
+      label: "FSK 14",
+      description: t('childProfile.fsk14Desc'),
+      color: "bg-orange-500"
+    },
+    {
+      age: 16,
+      label: "FSK 16",
+      description: t('childProfile.fsk16Desc'),
+      color: "bg-red-500"
+    },
+  ];
   const [view, setView] = useState<"list" | "add" | "qr">("list");
   const [selectedFSK, setSelectedFSK] = useState<number | null>(null);
   
@@ -76,9 +78,9 @@ export default function ChildProfileScreen({ onBack }: ChildProfileScreenProps) 
           <ArrowLeft size={24} />
         </button>
         <h1 className="text-xl font-bold">
-          {view === "list" && "Kinder-Profile"}
-          {view === "add" && "Neues Profil erstellen"}
-          {view === "qr" && "Gerät koppeln"}
+          {view === "list" && t('childProfile.title')}
+          {view === "add" && t('childProfile.newProfile')}
+          {view === "qr" && t('childProfile.pairDevice')}
         </h1>
       </header>
 
@@ -97,13 +99,13 @@ export default function ChildProfileScreen({ onBack }: ChildProfileScreenProps) 
               <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex gap-4 items-start">
                 <Shield className="text-blue-400 shrink-0 mt-1" />
                 <div className="text-sm text-gray-300">
-                  <h3 className="font-bold text-blue-400 mb-1">Kinderschutz aktiv</h3>
-                  <p>Verwalte hier die Konten deiner Kinder. Du kannst Nutzungszeiten und Kontakte einschränken.</p>
+                  <h3 className="font-bold text-blue-400 mb-1">{t('childProfile.childProtectionActive')}</h3>
+                  <p>{t('childProfile.childProtectionDesc')}</p>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">Verknüpfte Profile</h3>
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('childProfile.linkedProfiles')}</h3>
                 
                 {children.map(child => (
                   <div key={child.id} className="bg-gray-800 rounded-2xl p-4 flex items-center justify-between border border-gray-700">
@@ -121,7 +123,7 @@ export default function ChildProfileScreen({ onBack }: ChildProfileScreenProps) 
                           }`}>
                             FSK {child.ageRating}
                           </span>
-                          <span>• Online vor 2 Std.</span>
+                          <span>• {t('childProfile.onlineAgo')}</span>
                         </div>
                       </div>
                     </div>
@@ -138,7 +140,7 @@ export default function ChildProfileScreen({ onBack }: ChildProfileScreenProps) 
                   <div className="bg-gray-700 group-hover:bg-blue-600 p-2 rounded-full transition-colors text-white">
                     <Plus size={20} />
                   </div>
-                  <span className="font-medium">Kind hinzufügen</span>
+                  <span className="font-medium">{t('childProfile.addChild')}</span>
                 </button>
               </div>
             </motion.div>
@@ -157,8 +159,8 @@ export default function ChildProfileScreen({ onBack }: ChildProfileScreenProps) 
                 <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-700">
                   <User size={32} className="text-gray-400" />
                 </div>
-                <h2 className="text-xl font-bold">Altersstufe wählen</h2>
-                <p className="text-gray-400 text-sm mt-1">Wähle eine passende Voreinstellung für dein Kind.</p>
+                <h2 className="text-xl font-bold">{t('childProfile.selectAge')}</h2>
+                <p className="text-gray-400 text-sm mt-1">{t('childProfile.selectAgeDesc')}</p>
               </div>
 
               <div className="space-y-3">
@@ -207,7 +209,7 @@ export default function ChildProfileScreen({ onBack }: ChildProfileScreenProps) 
                     : "bg-gray-800 text-gray-500 cursor-not-allowed"
                   }`}
                 >
-                  Weiter
+                  {t('common.next')}
                 </button>
               </div>
             </motion.div>
@@ -222,9 +224,9 @@ export default function ChildProfileScreen({ onBack }: ChildProfileScreenProps) 
               exit={{ opacity: 0 }}
               className="max-w-lg mx-auto flex flex-col items-center justify-center h-full text-center"
             >
-              <h2 className="text-2xl font-bold mb-2">QR-Code scannen</h2>
+              <h2 className="text-2xl font-bold mb-2">{t('childProfile.scanQR')}</h2>
               <p className="text-gray-400 mb-8 max-w-xs">
-                Öffne die Aregoland App auf dem Handy deines Kindes und scanne diesen Code, um das Profil zu aktivieren.
+                {t('childProfile.scanQRDesc')}
               </p>
 
               <div className="bg-white p-4 rounded-3xl shadow-2xl shadow-blue-900/20 mb-8 relative">
@@ -247,7 +249,7 @@ export default function ChildProfileScreen({ onBack }: ChildProfileScreenProps) 
 
               <div className="flex items-center gap-2 text-sm text-gray-400 bg-gray-800/50 px-4 py-2 rounded-full border border-gray-700">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>Warte auf Scan...</span>
+                <span>{t('childProfile.waitingForScan')}</span>
               </div>
             </motion.div>
           )}

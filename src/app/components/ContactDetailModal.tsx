@@ -3,11 +3,13 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import {
   X, MessageCircle, Phone, Video, Calendar, Mail, MapPin,
-  Users, User, Shield, Crown, Briefcase, ListPlus, Check, Trash2
+  Users, User, Shield, Crown, Briefcase, ListPlus, Check, Trash2, Ban
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from 'react-i18next';
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import { Contact, Tab } from "@/app/types";
+import { blockContact, isBlocked } from "@/app/auth/contacts";
 
 interface ContactDetailModalProps {
   contact: Contact | null;
@@ -17,9 +19,11 @@ interface ContactDetailModalProps {
   onStartChat?: (contact: Contact) => void;
   onStartCall?: (contact: Contact, type: 'audio' | 'video') => void;
   onRemoveContact?: (contactId: string) => void;
+  onBlockContact?: (contactId: string) => void;
 }
 
-export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, onStartChat, onStartCall, onRemoveContact }: ContactDetailModalProps) {
+export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, onStartChat, onStartCall, onRemoveContact, onBlockContact }: ContactDetailModalProps) {
+  const { t } = useTranslation();
   const [showListSelector, setShowListSelector] = useState(false);
   const [comingSoon, setComingSoon] = useState<string | null>(null);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -70,10 +74,10 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
         <Dialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 data-[state=open]:animate-fadeIn" />
         <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-gray-900 rounded-3xl border border-gray-800 shadow-2xl p-0 overflow-hidden z-50 data-[state=open]:animate-contentShow max-h-[90vh] flex flex-col">
           <Dialog.Title className="sr-only">
-            {isGroup ? "Gruppen Details" : "Kontakt Details"}
+            {isGroup ? t('contactDetail.groupDetails') : t('contactDetail.contactDetails')}
           </Dialog.Title>
           <Dialog.Description className="sr-only">
-            Details und Aktionen für {contact.name}
+            {t('contactDetail.detailsFor', { name: contact.name })}
           </Dialog.Description>
           
           {/* Header */}
@@ -89,7 +93,7 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
               <div className="absolute top-4 left-4 flex gap-2">
                  <div className="bg-black/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium text-white flex items-center gap-1">
                    <Users size={12} />
-                   Gruppe
+                   {t('contactDetail.group')}
                  </div>
               </div>
             )}
@@ -101,7 +105,7 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
               <ImageWithFallback src={contact.avatar} alt={contact.name} className="w-full h-full object-cover" />
               {isGroup && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                  <span className="text-xs font-medium">Ändern</span>
+                  <span className="text-xs font-medium">{t('contactDetail.change')}</span>
                 </div>
               )}
             </div>
@@ -138,40 +142,40 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                   <div className={`w-12 h-12 ${isGroup ? 'bg-indigo-600 shadow-indigo-600/30' : 'bg-blue-600 shadow-blue-600/30'} rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
                     <MessageCircle size={24} className="text-white" />
                   </div>
-                  <span className="text-xs text-gray-400 font-medium">Chat</span>
+                  <span className="text-xs text-gray-400 font-medium">{t('chatList.title')}</span>
                 </button>
 
                 <button
-                  onClick={() => { if (onStartCall) { onStartCall(contact, 'audio'); onClose(); } else showComingSoon('Audioanruf'); }}
-                  className="flex flex-col items-center gap-2 group" title="Anruf"
+                  onClick={() => { if (onStartCall) { onStartCall(contact, 'audio'); onClose(); } else showComingSoon(t('contactDetail.audio')); }}
+                  className="flex flex-col items-center gap-2 group" title={t('contactDetail.audio')}
                 >
                   <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center shadow-lg shadow-green-600/30 group-hover:scale-110 transition-transform">
                     <Phone size={24} className="text-white" />
                   </div>
-                  <span className="text-xs text-gray-400 font-medium">Audio</span>
+                  <span className="text-xs text-gray-400 font-medium">{t('contactDetail.audio')}</span>
                 </button>
 
                 <button
-                  onClick={() => { if (onStartCall) { onStartCall(contact, 'video'); onClose(); } else showComingSoon('Videoanruf'); }}
-                  className="flex flex-col items-center gap-2 group" title="Videoanruf"
+                  onClick={() => { if (onStartCall) { onStartCall(contact, 'video'); onClose(); } else showComingSoon(t('contactDetail.video')); }}
+                  className="flex flex-col items-center gap-2 group" title={t('contactDetail.video')}
                 >
                   <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-purple-600/30 group-hover:scale-110 transition-transform">
                     <Video size={24} className="text-white" />
                   </div>
-                  <span className="text-xs text-gray-400 font-medium">Video</span>
+                  <span className="text-xs text-gray-400 font-medium">{t('contactDetail.video')}</span>
                 </button>
 
-                <button onClick={() => showComingSoon('Kalender')} className="flex flex-col items-center gap-2 group" title="Planen">
+                <button onClick={() => showComingSoon(t('contactDetail.plan'))} className="flex flex-col items-center gap-2 group" title={t('contactDetail.plan')}>
                   <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/30 group-hover:scale-110 transition-transform">
                     <Calendar size={24} className="text-white" />
                   </div>
-                  <span className="text-xs text-gray-400 font-medium">Planen</span>
+                  <span className="text-xs text-gray-400 font-medium">{t('contactDetail.plan')}</span>
                 </button>
               </div>
 
               {comingSoon && (
                 <div className="text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded-full px-3 py-1.5 animate-in fade-in duration-200">
-                  {comingSoon} kommt bald
+                  {t('common.comingSoon', { feature: comingSoon })}
                 </div>
               )}
             </div>
@@ -179,7 +183,7 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
             {/* Conditional Content */}
             <div className="space-y-4 pt-4 border-t border-gray-800">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">
-                {isGroup ? "Gruppen Information" : "Persönliche Informationen"}
+                {isGroup ? t('contactDetail.groupInfo') : t('contactDetail.personalInfo')}
               </h3>
               
               {isGroup ? (
@@ -188,11 +192,11 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                    <div className="bg-gray-800/30 p-3 rounded-xl border border-gray-700/50">
                      <div className="flex items-center gap-3 mb-2">
                        <Crown size={18} className="text-yellow-500 shrink-0" />
-                       <span className="text-sm font-medium text-gray-300">Ersteller</span>
+                       <span className="text-sm font-medium text-gray-300">{t('contactDetail.creator')}</span>
                      </div>
-                     <input 
-                       type="text" 
-                       placeholder="Ersteller Name"
+                     <input
+                       type="text"
+                       placeholder={t('contactDetail.creatorPlaceholder')}
                        value={contact.groupCreator || "Du"}
                        onChange={(e) => onUpdateContact({...contact, groupCreator: e.target.value})}
                        className="bg-transparent w-full outline-none text-sm text-white pl-8 placeholder-gray-600"
@@ -202,11 +206,11 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                    <div className="bg-gray-800/30 p-3 rounded-xl border border-gray-700/50">
                      <div className="flex items-center gap-3 mb-2">
                        <Shield size={18} className="text-blue-500 shrink-0" />
-                       <span className="text-sm font-medium text-gray-300">Admin</span>
+                       <span className="text-sm font-medium text-gray-300">{t('contactDetail.admin')}</span>
                      </div>
-                     <input 
-                       type="text" 
-                       placeholder="Admin Name"
+                     <input
+                       type="text"
+                       placeholder={t('contactDetail.adminPlaceholder')}
                        value={contact.groupAdmin || "Du"}
                        onChange={(e) => onUpdateContact({...contact, groupAdmin: e.target.value})}
                        className="bg-transparent w-full outline-none text-sm text-white pl-8 placeholder-gray-600"
@@ -216,11 +220,11 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                    <div className="bg-gray-800/30 p-3 rounded-xl border border-gray-700/50">
                      <div className="flex items-center gap-3 mb-2">
                        <Briefcase size={18} className="text-gray-400 shrink-0" />
-                       <span className="text-sm font-medium text-gray-300">Verwalter</span>
+                       <span className="text-sm font-medium text-gray-300">{t('contactDetail.manager')}</span>
                      </div>
-                     <input 
-                       type="text" 
-                       placeholder="Verwalter hinzufügen"
+                     <input
+                       type="text"
+                       placeholder={t('contactDetail.addManager')}
                        value={contact.groupManagers ? contact.groupManagers.join(", ") : ""}
                        onChange={(e) => onUpdateContact({...contact, groupManagers: e.target.value.split(", ")})}
                        className="bg-transparent w-full outline-none text-sm text-white pl-8 placeholder-gray-600"
@@ -234,7 +238,7 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                     <Phone size={18} className="text-gray-500 shrink-0" />
                     <input 
                       type="text" 
-                      placeholder="Telefonnummer hinzufügen"
+                      placeholder={t('contactDetail.addPhone')}
                       value={contact.phone || ""}
                       onChange={(e) => onUpdateContact({...contact, phone: e.target.value})}
                       className="bg-transparent w-full outline-none text-sm text-white placeholder-gray-600"
@@ -245,7 +249,7 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                     <Mail size={18} className="text-gray-500 shrink-0" />
                     <input 
                       type="email" 
-                      placeholder="Email-Adresse hinzufügen"
+                      placeholder={t('contactDetail.addEmail')}
                       value={contact.email || ""}
                       onChange={(e) => onUpdateContact({...contact, email: e.target.value})}
                       className="bg-transparent w-full outline-none text-sm text-white placeholder-gray-600"
@@ -256,7 +260,7 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                     <MapPin size={18} className="text-gray-500 shrink-0" />
                     <input 
                       type="text" 
-                      placeholder="Adresse hinzufügen"
+                      placeholder={t('contactDetail.addAddress')}
                       value={contact.address || ""}
                       onChange={(e) => onUpdateContact({...contact, address: e.target.value})}
                       className="bg-transparent w-full outline-none text-sm text-white placeholder-gray-600"
@@ -267,7 +271,7 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                     <Calendar size={18} className="text-gray-500 shrink-0 pointer-events-none" />
                     <input 
                       type="date" 
-                      placeholder="Geburtstag hinzufügen"
+                      placeholder={t('contactDetail.addBirthday')}
                       value={contact.birthday ? contact.birthday.split('.').reverse().join('-') : ""}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -296,7 +300,7 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                  }`}
                >
                  <ListPlus size={20} />
-                 <span className="font-medium">Zu Liste hinzufügen</span>
+                 <span className="font-medium">{t('contactDetail.addToList')}</span>
                </button>
 
                {showListSelector && (
@@ -324,16 +328,29 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                )}
             </div>
 
-            {/* Kontakt entfernen — nur für echte P2P-Kontakte */}
+            {/* Kontakt entfernen + Blockieren — nur für echte P2P-Kontakte */}
             {contact.id.startsWith('AC-') && (
-              <div className="mt-6">
+              <div className="mt-6 space-y-2">
                 <button
                   onClick={() => setShowRemoveConfirm(true)}
                   className="w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
                 >
                   <Trash2 size={18} />
-                  <span className="font-medium">Kontakt entfernen</span>
+                  <span className="font-medium">{t('people.removeContact')}</span>
                 </button>
+                {!isBlocked(contact.id) && (
+                  <button
+                    onClick={() => {
+                      blockContact(contact.id);
+                      onBlockContact?.(contact.id);
+                      onClose();
+                    }}
+                    className="w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 transition-colors"
+                  >
+                    <Ban size={18} />
+                    <span className="font-medium">{t('people.blockContact')}</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -348,12 +365,10 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                     <div className="p-3 bg-red-500/10 rounded-full text-red-500"><Trash2 size={24} /></div>
                     <div>
                       <AlertDialog.Title className="text-lg font-semibold text-white">
-                        {contact.name} entfernen?
+                        {t('people.removeConfirmTitle', { name: contact.name })}
                       </AlertDialog.Title>
                       <AlertDialog.Description className="text-sm text-gray-400 mt-1">
-                        Dieser Kontakt wird von deinem Gerät und vom Gerät des Kontakts entfernt.
-                        Wenn ihr wieder chatten wollt, müsst ihr euch erneut als Kontakte hinzufügen.
-                        Chat- und Anrufhistorie wird nicht gelöscht.
+                        {t('people.removeConfirmDesc')}
                       </AlertDialog.Description>
                     </div>
                   </div>
@@ -366,10 +381,10 @@ export function ContactDetailModal({ contact, onClose, onUpdateContact, tabs, on
                       }}
                       className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
                     >
-                      Entfernen
+                      {t('common.delete')}
                     </AlertDialog.Action>
                     <AlertDialog.Cancel className="w-full py-3 bg-transparent hover:bg-gray-800 text-gray-400 hover:text-white rounded-lg font-medium transition-colors border border-gray-700">
-                      Abbrechen
+                      {t('common.cancel')}
                     </AlertDialog.Cancel>
                   </div>
                 </div>

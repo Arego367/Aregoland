@@ -1,5 +1,5 @@
 [Unit]
-Description=Arego Chat — Vite Dev Server (HTTPS :443)
+Description=Arego Chat — Vite Dev Server (HTTP :5173, hinter Nginx)
 Documentation=https://github.com/Aregoland/arego-chat
 After=network.target arego-signaling.service
 Wants=arego-signaling.service
@@ -10,8 +10,7 @@ Restart=always
 RestartSec=5
 WorkingDirectory=/root/Aregoland
 
-# PORT 443 braucht root oder CAP_NET_BIND_SERVICE
-# Läuft als root (Standard wenn kein User= gesetzt)
+# Vite lauscht auf 127.0.0.1:5173, Nginx macht SSL-Terminierung
 Environment=NODE_ENV=development
 ExecStart=/usr/bin/pnpm dev
 

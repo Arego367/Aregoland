@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ArrowRight, Shield, Key, CheckCircle2, ShieldAlert, Copy, Check, Download } from "lucide-react";
 import QRCode from "react-qr-code";
 import { createIdentity, encodeRecoveryPayload, UserIdentity } from "@/app/auth/identity";
+import { useTranslation } from 'react-i18next';
 
 interface RegistrationScreenProps {
   onComplete: (identity: UserIdentity) => void;
@@ -11,6 +12,7 @@ interface RegistrationScreenProps {
 type Step = "intro" | "name" | "generating" | "backup" | "done";
 
 export default function RegistrationScreen({ onComplete }: RegistrationScreenProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<Step>("intro");
   const [displayName, setDisplayName] = useState("");
   const [identity, setIdentity] = useState<UserIdentity | null>(null);
@@ -29,7 +31,7 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
       setRecoveryPayload(payload);
       setStep("backup");
     } catch (e) {
-      setError("Fehler beim Generieren der Identität. Bitte versuche es erneut.");
+      setError(t('registration.generateError'));
       setStep("name");
     }
   };
@@ -80,13 +82,11 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
               </motion.div>
 
               <h1 className="text-3xl font-extrabold mb-3 tracking-tight">
-                Konto erstellen
+                {t('registration.createAccount')}
               </h1>
-              <p className="text-gray-400 text-base mb-3 leading-relaxed">
-                Deine Identität wird <strong className="text-white">lokal auf deinem Gerät</strong> mit einem kryptografischen Schlüsselpaar erstellt.
-              </p>
+              <p className="text-gray-400 text-base mb-3 leading-relaxed" dangerouslySetInnerHTML={{ __html: t('registration.identityLocal') }} />
               <p className="text-gray-500 text-sm mb-10 leading-relaxed">
-                Kein Passwort. Kein Benutzername. Kein Server speichert deine Zugangsdaten.
+                {t('registration.noPassword')}
               </p>
 
               <div className="w-full space-y-3">
@@ -94,7 +94,7 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
                   onClick={() => setStep("name")}
                   className="w-full group bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-600/25 active:scale-98"
                 >
-                  <span className="text-lg">Weiter</span>
+                  <span className="text-lg">{t('common.next')}</span>
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
@@ -115,10 +115,10 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
                   <div className="bg-blue-600/20 p-2 rounded-xl">
                     <Key size={22} className="text-blue-400" />
                   </div>
-                  <h2 className="text-2xl font-bold">Wie heißt du?</h2>
+                  <h2 className="text-2xl font-bold">{t('registration.whatIsYourName')}</h2>
                 </div>
                 <p className="text-gray-400 text-sm ml-1">
-                  Dein Anzeigename — kann später geändert werden.
+                  {t('registration.displayNameHint')}
                 </p>
               </div>
 
@@ -127,13 +127,13 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleGenerateIdentity()}
-                placeholder="z.B. Aras"
+                placeholder={t('registration.namePlaceholder')}
                 maxLength={40}
                 autoFocus
                 className="w-full bg-gray-800 border border-gray-700 focus:border-blue-500 focus:outline-none rounded-xl px-4 py-3.5 text-lg text-white placeholder-gray-500 transition-colors mb-2"
               />
               <p className="text-xs text-gray-600 mb-8 ml-1">
-                Kann auch leer gelassen werden — du kannst ihn jederzeit im Profil ändern.
+                {t('registration.nameOptional')}
               </p>
 
               {error && (
@@ -146,7 +146,7 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
                 onClick={handleGenerateIdentity}
                 className="w-full group bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-600/25 active:scale-98"
               >
-                <span>Identität erstellen</span>
+                <span>{t('registration.createIdentity')}</span>
                 <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
               </button>
             </motion.div>
@@ -166,9 +166,9 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
                 transition={{ repeat: Infinity, duration: 1.2, ease: "linear" }}
                 className="w-16 h-16 border-4 border-blue-600/30 border-t-blue-500 rounded-full mb-8"
               />
-              <h2 className="text-2xl font-bold mb-3">Schlüssel wird generiert</h2>
+              <h2 className="text-2xl font-bold mb-3">{t('registration.generatingKey')}</h2>
               <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
-                Dein kryptografisches Schlüsselpaar wird direkt auf deinem Gerät erstellt (P-256 / ECDSA).
+                {t('registration.generatingKeyDesc')}
               </p>
             </motion.div>
           )}
@@ -183,16 +183,16 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
               className="w-full flex flex-col"
             >
               <div className="mb-5">
-                <h2 className="text-2xl font-bold mb-1">Wiederherstellungs-QR</h2>
+                <h2 className="text-2xl font-bold mb-1">{t('registration.recoveryQR')}</h2>
                 <p className="text-gray-400 text-sm">
-                  Sichere diesen QR-Code — er ist der einzige Weg, dein Konto auf einem neuen Gerät wiederherzustellen.
+                  {t('registration.saveQRHint')}
                 </p>
               </div>
 
               {/* Arego ID */}
               <div className="bg-gray-800/60 border border-gray-700 rounded-2xl px-4 py-3 mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500 mb-0.5">Deine Arego ID</p>
+                  <p className="text-xs text-gray-500 mb-0.5">{t('registration.yourAregoId')}</p>
                   <p className="text-base font-mono font-bold text-blue-400 tracking-widest">
                     {identity.aregoId}
                   </p>
@@ -220,21 +220,21 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
               {/* Recovery Key Text */}
               <div className="bg-gray-800/60 border border-gray-700 rounded-2xl p-3 mb-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-xs text-gray-500">Wiederherstellungs-Schlüssel (Text)</p>
+                  <p className="text-xs text-gray-500">{t('registration.recoveryKeyText')}</p>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={handleDownloadKey}
                       className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
                     >
                       <Download size={14} />
-                      Speichern
+                      {t('registration.download')}
                     </button>
                     <button
                       onClick={handleCopyKey}
                       className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
                     >
                       {copied ? <Check size={14} /> : <Copy size={14} />}
-                      {copied ? "Kopiert" : "Kopieren"}
+                      {copied ? t('common.copied') : t('common.copy')}
                     </button>
                   </div>
                 </div>
@@ -247,7 +247,7 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
               <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 mb-4 flex gap-2.5">
                 <ShieldAlert size={18} className="text-yellow-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-yellow-200/80 leading-relaxed">
-                  Der QR-Code enthält deinen privaten Schlüssel. Speichere ihn sicher und teile ihn mit niemandem.
+                  {t('registration.qrWarning')}
                 </p>
               </div>
 
@@ -264,7 +264,7 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
                   {backupConfirmed && <Check size={12} className="text-white" />}
                 </div>
                 <span className="text-sm text-gray-300 leading-snug">
-                  Ich habe den QR-Code oder Schlüssel sicher gespeichert und verstehe, dass er nicht wiederherstellbar ist.
+                  {t('registration.backupConfirm')}
                 </span>
               </label>
 
@@ -274,7 +274,7 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
                 className="w-full group bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-600/25 active:scale-98"
               >
                 <CheckCircle2 size={20} />
-                <span>Loslegen</span>
+                <span>{t('welcome.getStarted')}</span>
               </button>
             </motion.div>
           )}

@@ -1,8 +1,15 @@
 import { motion, AnimatePresence } from "motion/react";
-import { MessageCircle, ArrowRight, UserPlus, History, Key, ShieldAlert, ChevronLeft, Camera, ScanLine, Loader2 } from "lucide-react";
+import { MessageCircle, ArrowRight, UserPlus, History, Key, ShieldAlert, ChevronLeft, Camera, ScanLine, Loader2, ChevronDown } from "lucide-react";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
-import { useState } from "react";
-import { importFromRecoveryPayload } from "@/app/auth/identity";
+import { useState, useRef, useEffect } from "react";
+import { importFromRecoveryPayload, decodeChildLinkPayload, createChildIdentity } from "@/app/auth/identity";
+import { useTranslation } from 'react-i18next';
+
+const LANGUAGES = [
+  { code: "de", label: "DE", flag: "\uD83C\uDDE9\uD83C\uDDEA", name: "Deutsch" },
+  { code: "en", label: "EN", flag: "\uD83C\uDDEC\uD83C\uDDE7", name: "English" },
+  { code: "lt", label: "LT", flag: "\uD83C\uDDF1\uD83C\uDDF9", name: "Lietuvi\u0173" },
+];
 
 interface WelcomeScreenProps {
   onGetStarted: () => void;
@@ -11,10 +18,26 @@ interface WelcomeScreenProps {
 }
 
 export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode }: WelcomeScreenProps) {
+  const { t, i18n } = useTranslation();
   const [view, setView] = useState<"welcome" | "restore" | "restoreScan" | "restoreKey" | "child">("welcome");
+  const [langOpen, setLangOpen] = useState(false);
+  const langRef = useRef<HTMLDivElement>(null);
+  const currentLang = LANGUAGES.find(l => l.code === i18n.language) || LANGUAGES[0];
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) setLangOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
   const [recoveryKey, setRecoveryKey] = useState("");
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [recovering, setRecovering] = useState(false);
+  const [childName, setChildName] = useState("");
+  const [childLinkKey, setChildLinkKey] = useState("");
+  const [childError, setChildError] = useState<string | null>(null);
+  const [childCreating, setChildCreating] = useState(false);
 
   const handleRecoverWithKey = async () => {
     if (!recoveryKey.trim() || recovering) return;
@@ -25,7 +48,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
       if (identity) {
         onGetStarted();
       } else {
-        setRecoveryError("Ungültiger Schlüssel. Bitte prüfe die Eingabe.");
+        setRecoveryError(t('welcome.invalidKey'));
       }
     } catch {
       setRecoveryError("Ungültiger Schlüssel. Bitte prüfe die Eingabe.");
@@ -36,6 +59,38 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
 
   return (
     <div className="relative w-full h-screen bg-gray-900 text-white overflow-hidden flex flex-col items-center justify-center font-sans">
+      {/* Language Selector — top right */}
+      <div ref={langRef} className="absolute top-4 right-4 z-30">
+        <button
+          onClick={() => setLangOpen(!langOpen)}
+          className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-3 py-1.5 text-sm font-medium hover:bg-white/20 transition-colors"
+        >
+          <span>{currentLang.flag}</span>
+          <span>{currentLang.label}</span>
+          <ChevronDown size={14} className={`transition-transform ${langOpen ? "rotate-180" : ""}`} />
+        </button>
+        {langOpen && (
+          <div className="absolute right-0 mt-2 bg-gray-800/95 backdrop-blur-md border border-gray-700 rounded-xl overflow-hidden shadow-2xl min-w-[160px]">
+            {LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => {
+                  i18n.changeLanguage(lang.code);
+                  localStorage.setItem('aregoland_language', lang.code);
+                  setLangOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                  currentLang.code === lang.code ? "bg-blue-600/20 text-blue-400" : "hover:bg-gray-700/50 text-white"
+                }`}
+              >
+                <span className="text-lg">{lang.flag}</span>
+                <span className="font-medium">{lang.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Background Image with Overlay */}
       <div className="absolute inset-0 z-0">
         <ImageWithFallback
@@ -80,7 +135,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
               transition={{ delay: 0.4, duration: 0.6 }}
               className="text-gray-300 text-lg mb-12 leading-relaxed"
             >
-              Die neue Art der Kommunikation.<br/>Schnell. Sicher. Grenzenlos.
+              <span dangerouslySetInnerHTML={{ __html: t('welcome.tagline') }} />
             </motion.p>
 
             <motion.div
@@ -93,7 +148,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                 onClick={onGetStarted}
                 className="w-full group bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-3 cursor-pointer shadow-lg shadow-blue-600/25 active:scale-98"
               >
-                <span className="text-lg">Loslegen</span>
+                <span className="text-lg">{t('welcome.getStarted')}</span>
                 <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
               </button>
 
@@ -103,7 +158,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                   className="flex-1 group bg-white/10 hover:bg-white/15 text-white font-semibold py-3 px-3 rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer border border-white/5 backdrop-blur-md active:scale-98"
                 >
                   <History size={18} className="text-blue-300" />
-                  <span className="text-sm">Wiederherstellen</span>
+                  <span className="text-sm">{t('welcome.restore')}</span>
                 </button>
 
                 <button
@@ -111,7 +166,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                   className="flex-1 group bg-white/10 hover:bg-white/15 text-white font-semibold py-3 px-3 rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer border border-white/5 backdrop-blur-md active:scale-98"
                 >
                   <UserPlus size={18} className="text-gray-300" />
-                  <span className="text-sm">Kind hinzufügen</span>
+                  <span className="text-sm">{t('welcome.addChild')}</span>
                 </button>
               </div>
             </motion.div>
@@ -134,7 +189,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
               >
                 <ChevronLeft size={28} />
               </button>
-              <h2 className="text-2xl font-bold text-white">Konto wiederherstellen</h2>
+              <h2 className="text-2xl font-bold text-white">{t('welcome.restoreAccount')}</h2>
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar space-y-6">
@@ -145,13 +200,11 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                     <History size={24} className="text-blue-400" />
                   </div>
                   <div className="space-y-2">
-                    <p className="text-sm text-gray-300 leading-relaxed">
-                      Nutzer können ihr Konto mit einem persönlichen <strong className="text-white">Wiederherstellungs‑QR‑Code</strong> oder <strong className="text-white">Wiederherstellungs‑Schlüssel</strong> wiederherstellen.
-                    </p>
+                    <p className="text-sm text-gray-300 leading-relaxed" dangerouslySetInnerHTML={{ __html: t('welcome.restoreInfo') }} />
                     <ul className="text-sm text-gray-400 space-y-2 list-disc pl-4 marker:text-blue-500">
-                      <li>Der Wiederherstellungs‑QR‑Code enthält verschlüsselte Identität, Rollen und Einstellungen.</li>
-                      <li>Chatverläufe und gemeinsame Kalenderdaten werden automatisch von anderen Mitgliedern nachgeladen.</li>
-                      <li>Private Termine und persönliche Einstellungen werden aus dem Wiederherstellungs‑QR geladen.</li>
+                      <li>{t('welcome.restoreBullet1')}</li>
+                      <li>{t('welcome.restoreBullet2')}</li>
+                      <li>{t('welcome.restoreBullet3')}</li>
                     </ul>
                   </div>
                 </div>
@@ -161,7 +214,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
               <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 flex gap-3">
                 <ShieldAlert size={24} className="text-yellow-500 shrink-0 mt-0.5" />
                 <p className="text-xs text-yellow-200/80 leading-relaxed">
-                  Bewahre deinen Wiederherstellungs‑QR‑Code sicher auf. Er ist der einzige Weg, dein Konto nach Geräteverlust wiederherzustellen. Nach jeder Identitäts‑ oder Space‑Änderung wird ein neuer QR‑Code benötigt.
+                  {t('welcome.restoreWarning')}
                 </p>
               </div>
             </div>
@@ -173,7 +226,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                 className="w-full group bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-600/25 active:scale-98"
               >
                 <ScanLine size={20} className="shrink-0" />
-                <span>QR-Code scannen</span>
+                <span>{t('welcome.scanQR')}</span>
               </button>
 
               <button
@@ -181,7 +234,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                 className="w-full group bg-gray-800 hover:bg-gray-700 text-white font-medium py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 border border-gray-700 active:scale-98"
               >
                 <Key size={20} className="text-gray-400 group-hover:text-white transition-colors" />
-                <span>Schlüssel eingeben</span>
+                <span>{t('welcome.enterKey')}</span>
               </button>
             </div>
           </motion.div>
@@ -203,7 +256,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
               >
                 <ChevronLeft size={28} />
               </button>
-              <h2 className="text-2xl font-bold text-white">Konto wiederherstellen</h2>
+              <h2 className="text-2xl font-bold text-white">{t('welcome.restoreAccount')}</h2>
             </div>
 
             <div className="flex-1 flex flex-col items-center justify-center">
@@ -213,8 +266,8 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                   <div className="bg-gray-700/50 p-6 rounded-full">
                     <Camera size={48} className="text-gray-400" />
                   </div>
-                  <p className="text-sm px-6 text-center">Kamerazugriff erforderlich</p>
-                  <button className="text-blue-400 font-medium text-sm hover:underline">Zugriff erlauben</button>
+                  <p className="text-sm px-6 text-center">{t('welcome.cameraRequired')}</p>
+                  <button className="text-blue-400 font-medium text-sm hover:underline">{t('welcome.allowAccess')}</button>
                 </div>
 
                 {/* Scan Frame Overlay */}
@@ -231,7 +284,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
               </div>
 
               <p className="text-gray-400 text-center text-sm mt-6 max-w-xs leading-relaxed">
-                Scanne deinen Wiederherstellungs-QR-Code
+                {t('welcome.scanRecoveryQR')}
               </p>
             </div>
           </motion.div>
@@ -253,18 +306,18 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
               >
                 <ChevronLeft size={28} />
               </button>
-              <h2 className="text-2xl font-bold text-white">Konto wiederherstellen</h2>
+              <h2 className="text-2xl font-bold text-white">{t('welcome.restoreAccount')}</h2>
             </div>
 
             <div className="flex-1 flex flex-col">
               <p className="text-sm text-gray-400 mb-4 leading-relaxed">
-                Füge deinen Wiederherstellungsschlüssel ein, den du bei der Registrierung erhalten hast.
+                {t('welcome.enterRecoveryKey')}
               </p>
 
               <textarea
                 value={recoveryKey}
                 onChange={(e) => { setRecoveryKey(e.target.value); setRecoveryError(null); }}
-                placeholder="Wiederherstellungsschlüssel einfügen..."
+                placeholder={t('welcome.recoveryKeyPlaceholder')}
                 rows={6}
                 autoFocus
                 className="w-full px-4 py-3 rounded-2xl bg-gray-800/80 backdrop-blur-md border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono"
@@ -289,12 +342,12 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
               {recovering ? (
                 <>
                   <Loader2 size={20} className="animate-spin" />
-                  <span>Wird wiederhergestellt...</span>
+                  <span>{t('welcome.recovering')}</span>
                 </>
               ) : (
                 <>
                   <Key size={20} />
-                  <span>Konto wiederherstellen</span>
+                  <span>{t('welcome.restoreAccount')}</span>
                 </>
               )}
             </button>
@@ -312,42 +365,110 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
           >
             <div className="flex items-center gap-4 mb-6">
               <button
-                onClick={() => setView("welcome")}
+                onClick={() => { setView("welcome"); setChildError(null); setChildLinkKey(""); setChildName(""); }}
                 className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
               >
                 <ChevronLeft size={28} />
               </button>
-              <h2 className="text-2xl font-bold text-white">Kind-Profil einrichten</h2>
+              <h2 className="text-2xl font-bold text-white">{t('welcome.setupChildProfile')}</h2>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="relative w-full aspect-[3/4] max-w-[280px] bg-black rounded-3xl overflow-hidden shadow-2xl border border-gray-700">
-                {/* Camera Placeholder */}
-                <div className="absolute inset-0 bg-gray-800 flex flex-col items-center justify-center text-gray-500 gap-4">
-                  <div className="bg-gray-700/50 p-6 rounded-full">
-                    <Camera size={48} className="text-gray-400" />
-                  </div>
-                  <p className="text-sm px-6 text-center">Kamerazugriff erforderlich</p>
-                  <button className="text-blue-400 font-medium text-sm hover:underline">Zugriff erlauben</button>
-                </div>
+            <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar space-y-5">
+              {/* Info */}
+              <div className="bg-pink-500/10 border border-pink-500/20 rounded-2xl p-4 flex gap-3">
+                <UserPlus size={22} className="text-pink-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-pink-200/80 leading-relaxed">
+                  {t('welcome.childInfo')}
+                </p>
+              </div>
 
-                {/* Scan Frame Overlay */}
-                <div className="absolute inset-0 border-[32px] border-black/50 z-10 pointer-events-none" />
+              {/* Camera Scanner Placeholder */}
+              <div className="relative w-full aspect-[3/4] max-w-[240px] mx-auto bg-black rounded-3xl overflow-hidden shadow-2xl border border-gray-700">
+                <div className="absolute inset-0 bg-gray-800 flex flex-col items-center justify-center text-gray-500 gap-4">
+                  <div className="bg-gray-700/50 p-5 rounded-full">
+                    <Camera size={40} className="text-gray-400" />
+                  </div>
+                  <p className="text-xs px-6 text-center">{t('welcome.cameraRequired')}</p>
+                  <button className="text-blue-400 font-medium text-xs hover:underline">{t('welcome.allowAccess')}</button>
+                </div>
+                <div className="absolute inset-0 border-[24px] border-black/50 z-10 pointer-events-none" />
                 <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                  <div className="w-44 h-44 border-2 border-white/50 rounded-xl relative">
-                    <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-500 -mt-1 -ml-1 rounded-tl-lg" />
-                    <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-500 -mt-1 -mr-1 rounded-tr-lg" />
-                    <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-500 -mb-1 -ml-1 rounded-bl-lg" />
-                    <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-500 -mb-1 -mr-1 rounded-br-lg" />
-                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)] animate-[scan_2s_ease-in-out_infinite]" />
+                  <div className="w-36 h-36 border-2 border-white/50 rounded-xl relative">
+                    <div className="absolute top-0 left-0 w-5 h-5 border-t-4 border-l-4 border-pink-500 -mt-1 -ml-1 rounded-tl-lg" />
+                    <div className="absolute top-0 right-0 w-5 h-5 border-t-4 border-r-4 border-pink-500 -mt-1 -mr-1 rounded-tr-lg" />
+                    <div className="absolute bottom-0 left-0 w-5 h-5 border-b-4 border-l-4 border-pink-500 -mb-1 -ml-1 rounded-bl-lg" />
+                    <div className="absolute bottom-0 right-0 w-5 h-5 border-b-4 border-r-4 border-pink-500 -mb-1 -mr-1 rounded-br-lg" />
+                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.8)] animate-[scan_2s_ease-in-out_infinite]" />
                   </div>
                 </div>
               </div>
 
-              <p className="text-gray-400 text-center text-sm mt-6 max-w-xs leading-relaxed">
-                Scanne den QR-Code aus dem Eltern-Gerät um das Kind-Profil einzurichten.
-              </p>
+              <p className="text-gray-500 text-center text-xs">{t('welcome.scanParentQR')}</p>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 px-2">
+                <div className="flex-1 h-px bg-gray-700" />
+                <span className="text-xs text-gray-500 uppercase">{t('welcome.orManual')}</span>
+                <div className="flex-1 h-px bg-gray-700" />
+              </div>
+
+              {/* Child Name */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-400">{t('welcome.childNameLabel')}</label>
+                <input
+                  type="text"
+                  value={childName}
+                  onChange={(e) => setChildName(e.target.value)}
+                  placeholder={t('welcome.childNamePlaceholder')}
+                  className="w-full bg-gray-800/80 backdrop-blur-md border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all"
+                />
+              </div>
+
+              {/* Manual Key Input */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-400">{t('welcome.parentLinkKey')}</label>
+                <textarea
+                  value={childLinkKey}
+                  onChange={(e) => { setChildLinkKey(e.target.value); setChildError(null); }}
+                  placeholder={t('welcome.parentLinkKeyPlaceholder')}
+                  rows={3}
+                  className="w-full bg-gray-800/80 backdrop-blur-md border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 text-xs font-mono focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all resize-none"
+                />
+              </div>
+
+              {childError && (
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-400 font-medium">
+                  {childError}
+                </motion.p>
+              )}
             </div>
+
+            <button
+              onClick={async () => {
+                if (!childName.trim()) { setChildError(t('welcome.childNameRequired')); return; }
+                if (!childLinkKey.trim()) { setChildError(t('welcome.parentKeyRequired')); return; }
+                setChildCreating(true);
+                setChildError(null);
+                try {
+                  const link = decodeChildLinkPayload(childLinkKey.trim());
+                  if (!link) { setChildError(t('welcome.invalidParentKey')); return; }
+                  await createChildIdentity(childName.trim(), link.parentId, 6);
+                  onGetStarted();
+                } catch {
+                  setChildError(t('welcome.childCreateError'));
+                } finally {
+                  setChildCreating(false);
+                }
+              }}
+              disabled={!childName.trim() || !childLinkKey.trim() || childCreating}
+              className="w-full mt-4 bg-pink-600 hover:bg-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-pink-600/25 active:scale-98"
+            >
+              {childCreating ? (
+                <><Loader2 size={20} className="animate-spin" /><span>{t('common.loading')}</span></>
+              ) : (
+                <><UserPlus size={20} /><span>{t('welcome.createChildAccount')}</span></>
+              )}
+            </button>
           </motion.div>
         )}
 

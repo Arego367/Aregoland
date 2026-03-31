@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SIGNALING_SERVICE="arego-signaling"
 VITE_SERVICE="arego-vite"
+NGINX_SERVICE="nginx"
 
 # ── Root-Check ────────────────────────────────────────────────────────────────
 if [[ $EUID -ne 0 ]]; then
@@ -49,7 +50,7 @@ else
   exit 1
 fi
 
-echo "→ Vite Dev-Server starten (HTTPS Port 443) ..."
+echo "→ Vite Dev-Server starten (HTTP Port 5173, hinter Nginx) ..."
 systemctl restart "$VITE_SERVICE"
 sleep 2
 if systemctl is-active --quiet "$VITE_SERVICE"; then
@@ -60,17 +61,31 @@ else
   exit 1
 fi
 
+echo "→ Nginx Reverse Proxy starten (HTTPS Port 443) ..."
+systemctl restart "$NGINX_SERVICE"
+sleep 1
+if systemctl is-active --quiet "$NGINX_SERVICE"; then
+  echo "  ✓ Nginx läuft"
+else
+  echo "  ✗ Nginx-Start fehlgeschlagen — Logs:" >&2
+  journalctl -u "$NGINX_SERVICE" -n 20 --no-pager >&2
+  exit 1
+fi
+
 # ── Status ────────────────────────────────────────────────────────────────────
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo " Arego Chat läuft"
-echo "  App:       https://$(hostname -I | awk '{print $1}')/"
-echo "  Signaling: ws://127.0.0.1:3001  (nur intern, via Vite-Proxy)"
+echo "  App:       https://aregoland.de/"
+echo "  Vite:      http://127.0.0.1:5173  (nur intern)"
+echo "  Signaling: ws://127.0.0.1:3001    (nur intern, via Nginx-Proxy)"
+echo "  Nginx:     HTTPS :443 (SSL-Terminierung, Reverse Proxy)"
 echo ""
 echo " Logs live:"
 echo "  journalctl -fu arego-vite"
 echo "  journalctl -fu arego-signaling"
+echo "  journalctl -fu nginx"
 echo ""
 echo " Stoppen:"
-echo "  systemctl stop arego-vite arego-signaling"
+echo "  systemctl stop arego-vite arego-signaling nginx"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
