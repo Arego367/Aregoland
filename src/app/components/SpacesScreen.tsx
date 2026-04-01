@@ -1088,10 +1088,9 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
       <h1 className="text-xl font-bold text-white flex-1">{title}</h1>
       {action && (
         <button onClick={action.onClick}
-          className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-all text-sm font-medium shadow-lg shadow-blue-600/20">
-          <action.icon size={16} />
+          className="sm:flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center">
+          <action.icon size={18} />
           <span className="hidden sm:inline">{action.label}</span>
-          <span className="hidden max-sm:inline min-[480px]:hidden">{action.shortLabel}</span>
         </button>
       )}
     </header>
@@ -1106,7 +1105,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   if (view === "list") {
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
-        {renderHeader(t('spaces.title'), onBack, { icon: Plus, label: t('spaces.createSpace'), shortLabel: t('spaces.createShort'), onClick: () => setView("templates") })}
+        {renderHeader(t('spaces.title'), onBack, { icon: Plus, label: t('spaces.newSpace'), shortLabel: "", onClick: () => setView("templates") })}
 
         {/* Toast */}
         <AnimatePresence>

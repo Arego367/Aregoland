@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { CalendarEvent } from "@/app/types";
 
@@ -219,9 +219,10 @@ export default function CalendarScreen({ onBack }: CalendarScreenProps) {
         </button>
         <button
           onClick={() => { setEditingEvent(null); setShowForm(true); }}
-          className="p-2 rounded-full bg-blue-600 hover:bg-blue-500 transition-colors"
+          className="sm:flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center"
         >
-          <Plus size={20} />
+          <CalendarPlus size={18} />
+          <span className="hidden sm:inline">{t('calendar.newEvent')}</span>
         </button>
       </header>
 

@@ -112,10 +112,9 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setIsAddContactOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-all text-sm font-medium shadow-lg shadow-blue-600/20">
-            <UserPlus size={16} />
-            <span className="hidden sm:inline">{t('people.addContact')}</span>
-            <span className="hidden max-sm:inline min-[480px]:hidden">{t('people.addShort')}</span>
+            className="sm:flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center">
+            <UserPlus size={18} />
+            <span className="hidden sm:inline">{t('people.addNew')}</span>
           </button>
           <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
             <Search size={22} />
