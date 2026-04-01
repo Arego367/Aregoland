@@ -110,9 +110,17 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
             {t('people.title')}
           </h1>
         </div>
-        <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
-          <Search size={22} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setIsAddContactOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-all text-sm font-medium shadow-lg shadow-blue-600/20">
+            <UserPlus size={16} />
+            <span className="hidden sm:inline">{t('people.addContact')}</span>
+            <span className="hidden max-sm:inline min-[480px]:hidden">{t('people.addShort')}</span>
+          </button>
+          <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
+            <Search size={22} />
+          </button>
+        </div>
       </header>
 
       {/* Tabs */}
@@ -254,27 +262,6 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
               exit={{ opacity: 0 }}
               className="p-4 space-y-2 pb-24"
             >
-              {/* Kontakt hinzufügen Kachel */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setIsAddContactOpen(true)}
-                className="group flex items-center gap-4 p-3 rounded-xl hover:bg-gray-800/50 cursor-pointer transition-colors mb-2 bg-gradient-to-r from-gray-800/80 to-transparent border border-gray-700/50"
-              >
-                <div className="w-14 h-14 rounded-full flex items-center justify-center bg-blue-600/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-lg shadow-blue-900/10">
-                  <UserPlus size={26} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">
-                    {t('people.addContact')}
-                  </h3>
-                  <p className="text-sm text-gray-400 group-hover:text-gray-300">
-                    {t('people.addContactDesc')}
-                  </p>
-                </div>
-              </motion.div>
-
               {filteredContacts.length > 0 ? (
                 filteredContacts.map((contact) => (
                   <ContextMenu.Root key={contact.id}>

@@ -121,7 +121,13 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
           </h1>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <button onClick={() => { setContactSearch(""); setShowNewChatSheet(true); }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-all text-sm font-medium shadow-lg shadow-blue-600/20">
+            <MessageSquarePlus size={16} />
+            <span className="hidden sm:inline">{t('chatList.newChat')}</span>
+            <span className="hidden max-sm:inline min-[480px]:hidden">{t('chatList.newChatShort')}</span>
+          </button>
           <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
             <Search size={22} />
           </button>
@@ -207,28 +213,6 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
       <div className="flex-1 overflow-y-auto">
         <div className="px-3 pb-20 pt-2">
           
-          {/* New Chat Action Item */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => { setContactSearch(""); setShowNewChatSheet(true); }}
-            className="group flex items-center gap-4 p-3 rounded-xl hover:bg-gray-800/50 cursor-pointer transition-colors mb-2 bg-gradient-to-r from-gray-800/80 to-transparent border border-gray-700/50"
-          >
-            <div className="w-14 h-14 rounded-full flex items-center justify-center bg-blue-600/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-lg shadow-blue-900/10">
-              <MessageSquarePlus size={26} />
-            </div>
-            
-            <div className="flex-1 min-w-0">
-               <h3 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">
-                 {t('chatList.newChat')}
-               </h3>
-               <p className="text-sm text-gray-400 group-hover:text-gray-300">
-                 {t('chatList.newChatDesc')}
-               </p>
-            </div>
-          </motion.div>
-
           {filteredChats.length > 0 ? (
             filteredChats.map((chat) => (
               <motion.div
