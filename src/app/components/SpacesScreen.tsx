@@ -1610,8 +1610,20 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
               const myMember = selectedSpace.members.find(m => m.aregoId === identity?.aregoId);
               const myRole = myMember?.role ?? "member";
               const isModerator = myRole === "moderator";
-              const spaceNotifKey = `arego_space_notif_${selectedSpace.id}`;
               const relayKey = `arego_relay_${selectedSpace.id}`;
+              const NOTIF_STORAGE = "aregoland_space_notifications";
+              type NotifMode = "all" | "mute" | "none";
+              type NotifConfig = { mode: NotifMode; messages: boolean; events: boolean; news: boolean; calls: boolean; mentions: boolean; newMembers: boolean };
+              const defaultNotif: NotifConfig = { mode: "all", messages: true, events: true, news: true, calls: true, mentions: true, newMembers: true };
+              const loadNotif = (): NotifConfig => {
+                try { const all = JSON.parse(localStorage.getItem(NOTIF_STORAGE) ?? "{}"); return { ...defaultNotif, ...(all[selectedSpace.id] ?? {}) }; }
+                catch { return defaultNotif; }
+              };
+              const saveNotif = (cfg: NotifConfig) => {
+                try { const all = JSON.parse(localStorage.getItem(NOTIF_STORAGE) ?? "{}"); all[selectedSpace.id] = cfg; localStorage.setItem(NOTIF_STORAGE, JSON.stringify(all)); }
+                catch { /* ignore */ }
+              };
+              const notif = loadNotif();
               return (
                 <>
                   {/* Avatar + Name */}
@@ -1658,23 +1670,44 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                   )}
 
                   {/* Space-Benachrichtigungen */}
-                  <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-medium">{t('spaces.spaceNotifications')}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{t('spaces.spaceNotificationsDesc')}</div>
+                  <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
+                    <div className="p-4 pb-3">
+                      <div className="text-sm font-bold mb-3">{t('spaces.spaceNotifications')}</div>
+                      {/* Modus */}
+                      <div className="flex gap-1.5">
+                        {(["all", "mute", "none"] as NotifMode[]).map(mode => (
+                          <button key={mode}
+                            onClick={() => { const n = { ...notif, mode }; saveNotif(n); updateSpace({ ...selectedSpace }); }}
+                            className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                              notif.mode === mode ? "bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                            }`}>
+                            {t(`spaces.notifMode_${mode}`)}
+                          </button>
+                        ))}
                       </div>
-                      <button
-                        onClick={() => {
-                          const current = localStorage.getItem(spaceNotifKey) !== "off";
-                          localStorage.setItem(spaceNotifKey, current ? "off" : "on");
-                          updateSpace({ ...selectedSpace });
-                        }}
-                        className={`w-11 h-6 rounded-full transition-colors relative ${localStorage.getItem(spaceNotifKey) !== "off" ? "bg-blue-600" : "bg-gray-700"}`}
-                      >
-                        <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${localStorage.getItem(spaceNotifKey) !== "off" ? "translate-x-5" : "translate-x-0.5"}`} />
-                      </button>
                     </div>
+
+                    {/* Einzelne Toggles — nur wenn nicht "Keine" */}
+                    {notif.mode !== "none" && (
+                      <div className="border-t border-gray-700/50">
+                        {(["messages", "events", "news", "calls", "mentions", "newMembers"] as const).map(key => (
+                          <div key={key} className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700/30 last:border-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-300">{t(`spaces.notif_${key}`)}</span>
+                              {key === "mentions" && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-medium">{t('spaces.notifRecommended')}</span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => { const n = { ...notif, [key]: !notif[key] }; saveNotif(n); updateSpace({ ...selectedSpace }); }}
+                              className={`w-9 h-5 rounded-full transition-colors relative ${notif[key] ? "bg-blue-600" : "bg-gray-700"}`}
+                            >
+                              <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${notif[key] ? "translate-x-4" : "translate-x-0.5"}`} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </>
               );

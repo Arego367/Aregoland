@@ -571,7 +571,17 @@
     "perm_writeChats": "Chats schreiben",
     "perm_createEvents": "Termine erstellen",
     "perm_postNews": "Neuigkeiten posten",
-    "perm_inviteMembers": "Mitglieder einladen"
+    "perm_inviteMembers": "Mitglieder einladen",
+    "notifMode_all": "Alle (mit Ton)",
+    "notifMode_mute": "Stumm",
+    "notifMode_none": "Keine",
+    "notif_messages": "Nachrichten",
+    "notif_events": "Termine & RSVP",
+    "notif_news": "Neuigkeiten",
+    "notif_calls": "Anrufe",
+    "notif_mentions": "@Erw\u00e4hnungen",
+    "notif_newMembers": "Neue Mitglieder",
+    "notifRecommended": "empfohlen"
   },
   "childProfile": {
     "title": "Kinder-Profile",

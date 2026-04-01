@@ -56,6 +56,16 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.perm_createEvents` | ja | nein | nein |
 | Spaces | `spaces.perm_postNews` | ja | nein | nein |
 | Spaces | `spaces.perm_inviteMembers` | ja | nein | nein |
+| Spaces | `spaces.notifMode_all` | ja | nein | nein |
+| Spaces | `spaces.notifMode_mute` | ja | nein | nein |
+| Spaces | `spaces.notifMode_none` | ja | nein | nein |
+| Spaces | `spaces.notif_messages` | ja | nein | nein |
+| Spaces | `spaces.notif_events` | ja | nein | nein |
+| Spaces | `spaces.notif_news` | ja | nein | nein |
+| Spaces | `spaces.notif_calls` | ja | nein | nein |
+| Spaces | `spaces.notif_mentions` | ja | nein | nein |
+| Spaces | `spaces.notif_newMembers` | ja | nein | nein |
+| Spaces | `spaces.notifRecommended` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 
