@@ -384,21 +384,32 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const [openSubroom, setOpenSubroom] = useState<SpaceSubroom | null>(null);
 
   // Overview layout
-  type WidgetId = "announcements" | "stats" | "events" | "pinned" | "activeChats" | "membersOnline";
-  const DEFAULT_WIDGETS: { id: WidgetId; visible: boolean }[] = [
+  type WidgetId = "spaceInfo" | "pinned" | "announcements" | "events" | "stats" | "activeChats" | "membersOnline";
+  type LayoutItem = { id: WidgetId; visible: boolean };
+  const DEFAULT_WIDGETS: LayoutItem[] = [
+    { id: "spaceInfo", visible: true },
     { id: "pinned", visible: true },
     { id: "announcements", visible: true },
-    { id: "stats", visible: true },
     { id: "events", visible: true },
+    { id: "stats", visible: true },
     { id: "activeChats", visible: true },
     { id: "membersOnline", visible: true },
   ];
   const [editingLayout, setEditingLayout] = useState(false);
-  const loadLayout = (spaceId: string) => {
-    try { const raw = localStorage.getItem(`aregoland_space_layout_${spaceId}`); return raw ? JSON.parse(raw) as typeof DEFAULT_WIDGETS : DEFAULT_WIDGETS; }
+  const [layoutState, setLayoutState] = useState<LayoutItem[]>([]);
+  const loadLayout = (spaceId: string): LayoutItem[] => {
+    try {
+      const raw: LayoutItem[] = JSON.parse(localStorage.getItem(`aregoland_space_layout_${spaceId}`) ?? "[]");
+      if (!raw.length) return DEFAULT_WIDGETS;
+      // Migrate: add missing widget ids
+      const ids = new Set(raw.map(w => w.id));
+      const migrated = [...raw];
+      for (const d of DEFAULT_WIDGETS) { if (!ids.has(d.id)) migrated.push(d); }
+      return migrated;
+    }
     catch { return DEFAULT_WIDGETS; }
   };
-  const saveLayout = (spaceId: string, layout: typeof DEFAULT_WIDGETS) => {
+  const saveLayout = (spaceId: string, layout: LayoutItem[]) => {
     localStorage.setItem(`aregoland_space_layout_${spaceId}`, JSON.stringify(layout));
   };
 
@@ -1317,10 +1328,21 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
               const pinnedPosts = (selectedSpace.posts ?? []).filter(p => p.pinned).slice(0, 2);
               const recentAnnouncements = (selectedSpace.posts ?? []).filter(p => p.badge === "announcement").slice(0, 3);
               const upcomingEvents = (selectedSpace.posts ?? []).filter(p => p.badge === "event" && p.eventDate && p.eventDate >= new Date().toISOString().slice(0, 10)).slice(0, 3);
-              const layout = loadLayout(selectedSpace.id);
+              // Use layoutState when editing (live preview), otherwise load from storage
+              const layout = editingLayout ? layoutState : loadLayout(selectedSpace.id);
 
               const renderWidget = (id: WidgetId) => {
                 switch (id) {
+                  case "spaceInfo":
+                    return (
+                      <div key={id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                        {selectedSpace.description && <p className="text-sm text-gray-300 mb-2">{selectedSpace.description}</p>}
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <Users size={12} />
+                          <span>{selectedSpace.members.length} {t('spaces.members')}</span>
+                        </div>
+                      </div>
+                    );
                   case "pinned":
                     return pinnedPosts.length > 0 ? (
                       <div key={id} className="space-y-2">
@@ -1374,7 +1396,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                         ))}
                       </div>
                     ) : null;
-                  case "activeChats":
+                  case "activeChats": {
                     const chatsWithMessages = (selectedSpace.channels ?? []).filter(ch => ch.lastMessage).slice(0, 3);
                     return chatsWithMessages.length > 0 ? (
                       <div key={id} className="space-y-2">
@@ -1392,6 +1414,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                         ))}
                       </div>
                     ) : null;
+                  }
                   case "membersOnline":
                     return (
                       <div key={id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
@@ -1416,41 +1439,48 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
 
               // ── Layout Editor ──
               if (editingLayout) {
-                const currentLayout = loadLayout(selectedSpace.id);
                 return (
                   <>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-bold">{t('spaces.customizeLayout')}</h3>
-                      <button onClick={() => setEditingLayout(false)} className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-all">
-                        <Check size={18} />
+                      <button onClick={() => { saveLayout(selectedSpace.id, layoutState); setEditingLayout(false); }}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors">
+                        {t('spaces.saveLayout')}
                       </button>
                     </div>
+
+                    {/* Editor: Drag & Drop + Toggles */}
                     <Reorder.Group
                       axis="y"
-                      values={currentLayout}
-                      onReorder={(newOrder) => { saveLayout(selectedSpace.id, newOrder); }}
-                      className="space-y-2"
+                      values={layoutState}
+                      onReorder={setLayoutState}
+                      className="space-y-2 mb-4"
                     >
-                      {currentLayout.map(widget => (
+                      {layoutState.map(widget => (
                         <Reorder.Item key={widget.id} value={widget} className="list-none">
                           <div className="flex items-center gap-3 bg-gray-800/50 rounded-xl border border-gray-700/50 p-3">
                             <div className="text-gray-600 cursor-grab active:cursor-grabbing touch-none">
                               <GripVertical size={16} />
                             </div>
-                            <span className="text-sm font-medium flex-1">{t(`spaces.widget_${widget.id}`)}</span>
+                            <span className={`text-sm font-medium flex-1 ${widget.visible ? "text-white" : "text-gray-600"}`}>
+                              {t(`spaces.widget_${widget.id}`)}
+                            </span>
                             <button
-                              onClick={() => {
-                                const updated = currentLayout.map(w => w.id === widget.id ? { ...w, visible: !w.visible } : w);
-                                saveLayout(selectedSpace.id, updated);
-                              }}
-                              className={`p-1.5 rounded-lg transition-colors ${widget.visible ? "text-blue-400 bg-blue-500/15" : "text-gray-600 bg-gray-800"}`}
+                              onClick={() => setLayoutState(prev => prev.map(w => w.id === widget.id ? { ...w, visible: !w.visible } : w))}
+                              className={`w-11 h-6 rounded-full transition-colors relative ${widget.visible ? "bg-green-600" : "bg-gray-700"}`}
                             >
-                              <Eye size={14} />
+                              <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${widget.visible ? "translate-x-5" : "translate-x-0.5"}`} />
                             </button>
                           </div>
                         </Reorder.Item>
                       ))}
                     </Reorder.Group>
+
+                    {/* Live preview */}
+                    <div className="border-t border-gray-700/50 pt-4 space-y-4">
+                      <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider">{t('spaces.previewLabel')}</h4>
+                      {layoutState.filter(w => w.visible).map(w => renderWidget(w.id))}
+                    </div>
                   </>
                 );
               }
@@ -1463,16 +1493,11 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                 <>
                   {/* Anpassen Button */}
                   <div className="flex justify-end -mt-2 mb-1">
-                    <button onClick={() => setEditingLayout(true)} className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all" title={t('spaces.customizeLayout')}>
+                    <button onClick={() => { setLayoutState(loadLayout(selectedSpace.id)); setEditingLayout(true); }}
+                      className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all" title={t('spaces.customizeLayout')}>
                       <Edit2 size={15} />
                     </button>
                   </div>
-
-                  {selectedSpace.description && (
-                    <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
-                      <p className="text-sm text-gray-300">{selectedSpace.description}</p>
-                    </div>
-                  )}
 
                   {visibleWidgets.map(w => renderWidget(w.id))}
 

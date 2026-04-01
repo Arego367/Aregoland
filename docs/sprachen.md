@@ -94,7 +94,10 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.widget_stats` | ja | nein | nein |
 | Spaces | `spaces.widget_events` | ja | nein | nein |
 | Spaces | `spaces.widget_activeChats` | ja | nein | nein |
+| Spaces | `spaces.widget_spaceInfo` | ja | nein | nein |
 | Spaces | `spaces.widget_membersOnline` | ja | nein | nein |
+| Spaces | `spaces.saveLayout` | ja | nein | nein |
+| Spaces | `spaces.previewLabel` | ja | nein | nein |
 | Spaces | `spaces.editChat` | ja | nein | nein |
 | Spaces | `spaces.editRole` | ja | nein | nein |
 | Spaces | `spaces.transferFounder` | ja | nein | nein |
