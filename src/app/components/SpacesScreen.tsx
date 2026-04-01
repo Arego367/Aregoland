@@ -14,7 +14,7 @@ import QRCodeSvg from "react-qr-code";
 // ── Types ──
 
 type SpaceTemplate = "family" | "school" | "club" | "work" | "government" | "community" | "custom";
-type SpaceRole = "founder" | "admin" | "moderator" | "cohost" | "member" | "guest";
+type SpaceRole = "founder" | "admin" | "moderator" | "member" | "guest";
 type IdentityRule = "real_name" | "nickname" | "mixed" | "role_based";
 
 interface SpaceMember {
@@ -148,7 +148,7 @@ function createGlobalChannel(spaceId: string): SpaceChannel {
     spaceId,
     name: "Global",
     isGlobal: true,
-    readRoles: ["founder", "admin", "moderator", "cohost", "member", "guest"],
+    readRoles: ["founder", "admin", "moderator", "member", "guest"],
     writeRoles: ["founder", "admin", "moderator"],
     createdAt: new Date().toISOString(),
     unreadCount: 0,
@@ -203,12 +203,11 @@ function createInvitePayload(space: Space, role: SpaceRole, ttlMs: number): stri
   return btoa(new TextEncoder().encode(json).reduce((s, b) => s + String.fromCharCode(b), ""));
 }
 
-const ROLE_ORDER: SpaceRole[] = ["founder", "admin", "moderator", "cohost", "member", "guest"];
+const ROLE_ORDER: SpaceRole[] = ["founder", "admin", "moderator", "member", "guest"];
 const ROLE_COLORS: Record<SpaceRole, { bg: string; text: string }> = {
   founder: { bg: "bg-yellow-500/20", text: "text-yellow-400" },
   admin: { bg: "bg-red-500/20", text: "text-red-400" },
   moderator: { bg: "bg-blue-500/20", text: "text-blue-400" },
-  cohost: { bg: "bg-purple-500/20", text: "text-purple-400" },
   member: { bg: "bg-gray-700/50", text: "text-gray-400" },
   guest: { bg: "bg-gray-800", text: "text-gray-500" },
 };
@@ -334,7 +333,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [channelName, setChannelName] = useState("");
   const [channelWriteRoles, setChannelWriteRoles] = useState<Set<SpaceRole>>(new Set(["founder", "admin", "moderator", "member"]));
-  const [channelReadRoles, setChannelReadRoles] = useState<Set<SpaceRole>>(new Set(["founder", "admin", "moderator", "cohost", "member", "guest"]));
+  const [channelReadRoles, setChannelReadRoles] = useState<Set<SpaceRole>>(new Set(["founder", "admin", "moderator", "member", "guest"]));
   const [openChannel, setOpenChannel] = useState<SpaceChannel | null>(null);
   const [chatMessages, setChatMessages] = useState<SpaceChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -685,7 +684,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
     updateSpace(updated);
     setChannelName("");
     setChannelWriteRoles(new Set(["founder", "admin", "moderator", "member"]));
-    setChannelReadRoles(new Set(["founder", "admin", "moderator", "cohost", "member", "guest"]));
+    setChannelReadRoles(new Set(["founder", "admin", "moderator", "member", "guest"]));
     setShowCreateChannel(false);
   };
 
@@ -709,7 +708,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
       spaceId: selectedSpace.id,
       name: "Allgemein",
       isGlobal: false,
-      readRoles: ["founder", "admin", "moderator", "cohost", "member", "guest"],
+      readRoles: ["founder", "admin", "moderator", "member", "guest"],
       writeRoles: ["founder", "admin", "moderator", "member"],
       createdAt: new Date().toISOString(),
       unreadCount: 0,
@@ -1427,136 +1426,8 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
               // ── Channel List View ──
               return (
                 <>
-                  {/* Create Channel button */}
-                  {canManage && !showCreateChannel && !showCreateSubroom && (
-                    <div className="flex gap-2 mb-2">
-                      <button onClick={() => setShowCreateChannel(true)}
-                        className="flex-1 flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
-                        <Plus size={16} className="text-gray-500" />
-                        <span className="text-xs text-gray-400 font-medium">{t('spaces.createChat')}</span>
-                      </button>
-                      <button onClick={() => setShowCreateSubroom(true)}
-                        className="flex-1 flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-purple-500/50 hover:bg-purple-500/5 transition-all">
-                        <Layers size={16} className="text-gray-500" />
-                        <span className="text-xs text-gray-400 font-medium">{t('spaces.createSubroom')}</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Create Channel form */}
-                  <AnimatePresence>
-                    {showCreateChannel && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                        <div className="bg-gray-800/50 border border-blue-500/30 rounded-xl p-4 space-y-3 mb-3">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-bold">{t('spaces.createChat')}</h4>
-                            <button onClick={() => setShowCreateChannel(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
-                          </div>
-                          <input type="text" value={channelName} onChange={e => setChannelName(e.target.value)} placeholder={t('spaces.chatNamePlaceholder')} autoFocus
-                            className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
-
-                          {/* Write Roles */}
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-gray-400">{t('spaces.writeAccess')}</label>
-                            <div className="flex flex-wrap gap-1.5">
-                              {ROLE_ORDER.filter(r => r !== "founder").map(r => (
-                                <button key={r}
-                                  onClick={() => setChannelWriteRoles(prev => {
-                                    const n = new Set(prev);
-                                    n.has(r) ? n.delete(r) : n.add(r);
-                                    return n;
-                                  })}
-                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                                    channelWriteRoles.has(r)
-                                      ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current`
-                                      : "bg-gray-800 text-gray-600"
-                                  }`}>
-                                  {t(`spaces.role_${r}`)}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Read Roles */}
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-gray-400">{t('spaces.readAccess')}</label>
-                            <div className="flex flex-wrap gap-1.5">
-                              {ROLE_ORDER.filter(r => r !== "founder").map(r => (
-                                <button key={r}
-                                  onClick={() => setChannelReadRoles(prev => {
-                                    const n = new Set(prev);
-                                    n.has(r) ? n.delete(r) : n.add(r);
-                                    return n;
-                                  })}
-                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                                    channelReadRoles.has(r)
-                                      ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current`
-                                      : "bg-gray-800 text-gray-600"
-                                  }`}>
-                                  {t(`spaces.role_${r}`)}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <button onClick={handleCreateChannel} disabled={!channelName.trim()}
-                            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
-                            {t('spaces.createChat')}
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Create Subroom form */}
-                  <AnimatePresence>
-                    {showCreateSubroom && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                        <div className="bg-gray-800/50 border border-purple-500/30 rounded-xl p-4 space-y-3 mb-3">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-bold">{t('spaces.createSubroom')}</h4>
-                            <button onClick={() => setShowCreateSubroom(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
-                          </div>
-                          <input type="text" value={subroomName} onChange={e => setSubroomName(e.target.value)} placeholder={t('spaces.subroomNamePlaceholder')} autoFocus
-                            className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-all" />
-
-                          {/* Mitglieder auswählen */}
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-gray-400">{t('spaces.subroomMembers')}</label>
-                            <div className="max-h-40 overflow-y-auto space-y-1">
-                              {selectedSpace.members.map(m => (
-                                <button key={m.aregoId}
-                                  onClick={() => setSubroomMemberIds(prev => {
-                                    const n = new Set(prev);
-                                    n.has(m.aregoId) ? n.delete(m.aregoId) : n.add(m.aregoId);
-                                    return n;
-                                  })}
-                                  className={`w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all ${
-                                    subroomMemberIds.has(m.aregoId) ? "bg-purple-500/15 border border-purple-500/30" : "bg-gray-800/50 border border-transparent hover:bg-gray-700/50"
-                                  }`}>
-                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                    subroomMemberIds.has(m.aregoId) ? "border-purple-500 bg-purple-500" : "border-gray-600"
-                                  }`}>
-                                    {subroomMemberIds.has(m.aregoId) && <Check size={10} className="text-white" />}
-                                  </div>
-                                  <span className="text-xs font-medium">{m.displayName}</span>
-                                  <span className={`text-[10px] ml-auto ${ROLE_COLORS[m.role].text}`}>{t(`spaces.role_${m.role}`)}</span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <button onClick={handleCreateSubroom} disabled={!subroomName.trim() || subroomMemberIds.size === 0}
-                            className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
-                            {t('spaces.createSubroom')}
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
                   {/* Channel list */}
-                  {channels.length === 0 && !showCreateChannel && (
+                  {channels.length === 0 && (
                     <div className="text-center py-12 text-gray-600">
                       <Hash size={32} className="mx-auto mb-2 opacity-50" />
                       <p className="text-sm">{t('spaces.noChatsYet')}</p>
@@ -1564,41 +1435,34 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                   )}
 
                   {channels.map(ch => (
-                    <div key={ch.id} className="flex items-center gap-3 group">
-                      <button
-                        onClick={() => handleOpenChannel(ch)}
-                        className="flex-1 flex items-center gap-3 p-3 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-gray-600 transition-all text-left"
-                      >
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${ch.isGlobal ? "bg-yellow-500/15 text-yellow-400" : "bg-blue-500/15 text-blue-400"}`}>
-                          {ch.isGlobal ? <Megaphone size={18} /> : <Hash size={18} />}
+                    <button
+                      key={ch.id}
+                      onClick={() => handleOpenChannel(ch)}
+                      className="w-full flex items-center gap-3 p-3 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-gray-600 transition-all text-left"
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${ch.isGlobal ? "bg-yellow-500/15 text-yellow-400" : "bg-blue-500/15 text-blue-400"}`}>
+                        {ch.isGlobal ? <Megaphone size={18} /> : <Hash size={18} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium truncate">{ch.name}</span>
+                          {ch.isGlobal && <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-yellow-500/20 text-yellow-400 font-bold shrink-0">GLOBAL</span>}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium truncate">{ch.name}</span>
-                            {ch.isGlobal && <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-yellow-500/20 text-yellow-400 font-bold shrink-0">GLOBAL</span>}
-                          </div>
-                          {ch.lastMessage && (
-                            <div className="text-xs text-gray-500 truncate mt-0.5">{ch.lastMessage}</div>
-                          )}
-                        </div>
-                        {ch.lastMessageTime && (
-                          <span className="text-[10px] text-gray-600 shrink-0">
-                            {new Date(ch.lastMessageTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </span>
+                        {ch.lastMessage && (
+                          <div className="text-xs text-gray-500 truncate mt-0.5">{ch.lastMessage}</div>
                         )}
-                        {ch.unreadCount > 0 && (
-                          <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                            {ch.unreadCount > 9 ? "9+" : ch.unreadCount}
-                          </span>
-                        )}
-                      </button>
-                      {canManage && !ch.isGlobal && (
-                        <button onClick={() => handleDeleteChannel(ch.id)}
-                          className="p-1.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
-                          <Trash2 size={14} />
-                        </button>
+                      </div>
+                      {ch.lastMessageTime && (
+                        <span className="text-[10px] text-gray-600 shrink-0">
+                          {new Date(ch.lastMessageTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
                       )}
-                    </div>
+                      {ch.unreadCount > 0 && (
+                        <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                          {ch.unreadCount > 9 ? "9+" : ch.unreadCount}
+                        </span>
+                      )}
+                    </button>
                   ))}
 
                   {/* Unterräume */}
@@ -1608,27 +1472,20 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                         <Layers size={12} /> {t('spaces.subrooms')}
                       </h3>
                       {(selectedSpace.subrooms ?? []).map(sr => (
-                        <div key={sr.id} className="flex items-center gap-3 group">
-                          <button
-                            onClick={() => setOpenSubroom(sr)}
-                            className="flex-1 flex items-center gap-3 p-3 bg-gray-800/50 rounded-xl border border-purple-500/20 hover:border-purple-500/40 transition-all text-left"
-                          >
-                            <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
-                              <Layers size={18} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm font-medium truncate block">{sr.name}</span>
-                              <span className="text-xs text-gray-500">{sr.memberIds.length} {t('spaces.members')}</span>
-                            </div>
-                            <ChevronRight size={16} className="text-gray-600 shrink-0" />
-                          </button>
-                          {canManage && (
-                            <button onClick={() => handleDeleteSubroom(sr.id)}
-                              className="p-1.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
+                        <button
+                          key={sr.id}
+                          onClick={() => setOpenSubroom(sr)}
+                          className="w-full flex items-center gap-3 p-3 bg-gray-800/50 rounded-xl border border-purple-500/20 hover:border-purple-500/40 transition-all text-left"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
+                            <Layers size={18} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium truncate block">{sr.name}</span>
+                            <span className="text-xs text-gray-500">{sr.memberIds.length} {t('spaces.members')}</span>
+                          </div>
+                          <ChevronRight size={16} className="text-gray-600 shrink-0" />
+                        </button>
                       ))}
                     </div>
                   )}
@@ -1735,19 +1592,208 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
               );
             })()}
 
-            {activeTab === "settings" && (
-              <div className="space-y-2">
-                <button
-                  onClick={() => handleDeleteSpace(selectedSpace.id)}
-                  className="w-full flex items-center justify-between p-4 bg-gray-800/50 rounded-xl border border-red-900/30 hover:bg-red-500/10 transition-colors"
-                >
-                  <div className="flex items-center gap-3 text-red-400">
-                    <Trash2 size={18} />
-                    <span className="font-medium text-sm">{t('spaces.deleteSpace')}</span>
+            {activeTab === "settings" && (() => {
+              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
+              const canManageSettings = myRole === "founder" || myRole === "admin";
+              return (
+                <div className="space-y-4">
+                  {/* Chats verwalten — nur Admin/Founder */}
+                  {canManageSettings && (
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.manageChats')}</h3>
+
+                      {/* Create Channel / Subroom buttons */}
+                      {!showCreateChannel && !showCreateSubroom && (
+                        <div className="flex gap-2">
+                          <button onClick={() => setShowCreateChannel(true)}
+                            className="flex-1 flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
+                            <Plus size={16} className="text-gray-500" />
+                            <span className="text-xs text-gray-400 font-medium">{t('spaces.createChat')}</span>
+                          </button>
+                          <button onClick={() => setShowCreateSubroom(true)}
+                            className="flex-1 flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-purple-500/50 hover:bg-purple-500/5 transition-all">
+                            <Layers size={16} className="text-gray-500" />
+                            <span className="text-xs text-gray-400 font-medium">{t('spaces.createSubroom')}</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Create Channel form */}
+                      <AnimatePresence>
+                        {showCreateChannel && (
+                          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                            <div className="bg-gray-800/50 border border-blue-500/30 rounded-xl p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-bold">{t('spaces.createChat')}</h4>
+                                <button onClick={() => setShowCreateChannel(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
+                              </div>
+                              <input type="text" value={channelName} onChange={e => setChannelName(e.target.value)} placeholder={t('spaces.chatNamePlaceholder')} autoFocus
+                                className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-gray-400">{t('spaces.writeAccess')}</label>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {ROLE_ORDER.filter(r => r !== "founder").map(r => (
+                                    <button key={r}
+                                      onClick={() => setChannelWriteRoles(prev => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n; })}
+                                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelWriteRoles.has(r) ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current` : "bg-gray-800 text-gray-600"}`}>
+                                      {t(`spaces.role_${r}`)}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-gray-400">{t('spaces.readAccess')}</label>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {ROLE_ORDER.filter(r => r !== "founder").map(r => (
+                                    <button key={r}
+                                      onClick={() => setChannelReadRoles(prev => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n; })}
+                                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelReadRoles.has(r) ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current` : "bg-gray-800 text-gray-600"}`}>
+                                      {t(`spaces.role_${r}`)}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <button onClick={handleCreateChannel} disabled={!channelName.trim()}
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
+                                {t('spaces.createChat')}
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Create Subroom form */}
+                      <AnimatePresence>
+                        {showCreateSubroom && (
+                          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                            <div className="bg-gray-800/50 border border-purple-500/30 rounded-xl p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-bold">{t('spaces.createSubroom')}</h4>
+                                <button onClick={() => setShowCreateSubroom(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
+                              </div>
+                              <input type="text" value={subroomName} onChange={e => setSubroomName(e.target.value)} placeholder={t('spaces.subroomNamePlaceholder')} autoFocus
+                                className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-all" />
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-gray-400">{t('spaces.subroomMembers')}</label>
+                                <div className="max-h-40 overflow-y-auto space-y-1">
+                                  {selectedSpace.members.map(m => (
+                                    <button key={m.aregoId}
+                                      onClick={() => setSubroomMemberIds(prev => { const n = new Set(prev); n.has(m.aregoId) ? n.delete(m.aregoId) : n.add(m.aregoId); return n; })}
+                                      className={`w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all ${subroomMemberIds.has(m.aregoId) ? "bg-purple-500/15 border border-purple-500/30" : "bg-gray-800/50 border border-transparent hover:bg-gray-700/50"}`}>
+                                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${subroomMemberIds.has(m.aregoId) ? "border-purple-500 bg-purple-500" : "border-gray-600"}`}>
+                                        {subroomMemberIds.has(m.aregoId) && <Check size={10} className="text-white" />}
+                                      </div>
+                                      <span className="text-xs font-medium">{m.displayName}</span>
+                                      <span className={`text-[10px] ml-auto ${ROLE_COLORS[m.role].text}`}>{t(`spaces.role_${m.role}`)}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <button onClick={handleCreateSubroom} disabled={!subroomName.trim() || subroomMemberIds.size === 0}
+                                className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
+                                {t('spaces.createSubroom')}
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Existing channels list for management */}
+                      {(selectedSpace.channels ?? []).filter(ch => !ch.isGlobal).length > 0 && (
+                        <div className="space-y-1.5">
+                          {(selectedSpace.channels ?? []).filter(ch => !ch.isGlobal).map(ch => (
+                            <div key={ch.id} className="flex items-center justify-between p-2.5 bg-gray-800/30 rounded-xl border border-gray-700/30">
+                              <div className="flex items-center gap-2">
+                                <Hash size={14} className="text-blue-400" />
+                                <span className="text-xs font-medium">{ch.name}</span>
+                              </div>
+                              <button onClick={() => handleDeleteChannel(ch.id)} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Existing subrooms list for management */}
+                      {(selectedSpace.subrooms ?? []).length > 0 && (
+                        <div className="space-y-1.5">
+                          {(selectedSpace.subrooms ?? []).map(sr => (
+                            <div key={sr.id} className="flex items-center justify-between p-2.5 bg-gray-800/30 rounded-xl border border-purple-500/20">
+                              <div className="flex items-center gap-2">
+                                <Layers size={14} className="text-purple-400" />
+                                <span className="text-xs font-medium">{sr.name}</span>
+                                <span className="text-[10px] text-gray-600">{sr.memberIds.length}</span>
+                              </div>
+                              <button onClick={() => handleDeleteSubroom(sr.id)} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Moderator Co-Host Info */}
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
+                    <div className="flex items-start gap-2.5">
+                      <Info size={16} className="text-blue-400 shrink-0 mt-0.5" />
+                      <p className="text-xs text-blue-200/80 leading-relaxed">
+                        {t('spaces.moderatorCoHostInfo')}
+                      </p>
+                    </div>
                   </div>
-                </button>
-              </div>
-            )}
+
+                  {/* Moderator: toggle relay node */}
+                  {myRole === "moderator" && (
+                    <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium">{t('spaces.relayNodeActive')}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{t('spaces.relayNodeActiveDesc')}</div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            // Toggle relay node status in localStorage
+                            const key = `arego_relay_${selectedSpace.id}`;
+                            const current = localStorage.getItem(key) !== "off";
+                            localStorage.setItem(key, current ? "off" : "on");
+                            // Force re-render
+                            updateSpace({ ...selectedSpace });
+                          }}
+                          className={`w-11 h-6 rounded-full transition-colors relative ${
+                            localStorage.getItem(`arego_relay_${selectedSpace.id}`) !== "off" ? "bg-blue-600" : "bg-gray-700"
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${
+                            localStorage.getItem(`arego_relay_${selectedSpace.id}`) !== "off" ? "translate-x-5" : "translate-x-0.5"
+                          }`} />
+                        </button>
+                      </div>
+                      {localStorage.getItem(`arego_relay_${selectedSpace.id}`) === "off" && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2.5">
+                          <p className="text-[11px] text-yellow-300/80 leading-relaxed">
+                            {t('spaces.relayNodeOffWarning')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Delete Space */}
+                  <button
+                    onClick={() => handleDeleteSpace(selectedSpace.id)}
+                    className="w-full flex items-center justify-between p-4 bg-gray-800/50 rounded-xl border border-red-900/30 hover:bg-red-500/10 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 text-red-400">
+                      <Trash2 size={18} />
+                      <span className="font-medium text-sm">{t('spaces.deleteSpace')}</span>
+                    </div>
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

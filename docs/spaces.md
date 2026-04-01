@@ -12,22 +12,34 @@
 
 ## Rollen-System
 
-- **Founder** (nicht entfernbar, automatisch Co-Host)
+- **Founder** (nicht entfernbar, automatisch Relay-Node)
 - **Admin** (vom Founder ernannt)
-- **Moderator/Trainer** (sichtbar, kann in Globalem Chat posten)
-- **Co-Host/Relay-Node** (anonym, freiwillig, Bandbreite teilen)
+- **Moderator** (kann in Globalem Chat posten + automatisch Co-Host/Relay-Node)
 - **Mitglied**
 - **Gast** (nur lesen)
+
+> **Co-Host ist keine separate Rolle mehr.** Moderatoren sind automatisch Co-Hosts (Relay-Nodes).
+> - Moderatoren helfen den Space stabil zu halten
+> - Je mehr Moderatoren online sind, desto stabiler sind Chats und Calls
+> - Moderator kann Co-Host-Funktion deaktivieren: Toggle "Als Relay-Node aktiv" (Standard: AN)
+> - Bei Deaktivierung: Hinweis "Du hilfst nicht mehr als Relay-Node. Das kann die Qualitaet fuer andere Mitglieder bei schlechtem Internet beeinflussen."
+> - Gruende fuer Deaktivierung: unterwegs, mobiles Daten, schlechtes Internet
 
 ## Space-Einstellungen (Admin)
 
 - Mitglieder sehen sich gegenseitig: Ja/Nein
-- Co-Hosting erlaubt: Ja/Nein + welche Rollen duerfen Co-Host werden
-- Admin sieht nur ANZAHL der Co-Hosts, keine Namen (Privacy!)
 - Oeffentlich beitreten: Ja/Nein
 - ID-Verifizierung zum Beitritt: Ja/Nein (Standard: Ja)
 - QR-Code Einladung mit Ablaufzeit
 - Globaler Chat: nur Admins/Moderatoren koennen posten
+- **Chats verwalten**: Chat erstellen (Name + Rollen-Zugriffsrechte), Unterraeume erstellen, Chats/Unterraeume loeschen
+
+## Chats-Tab
+
+- Zeigt NUR die Liste der vorhandenen Chats (kein "Chat erstellen" Button)
+- Chat erstellen/loeschen → unter Space Einstellungen → "Chats verwalten"
+- Globaler Chat automatisch bei Space-Erstellung
+- Unterraeume als separate Sektion mit lila Icons
 
 ## Space-Features
 
@@ -46,16 +58,16 @@
 
 ## Kinder-Spaces
 
-- Elternteil automatisch Co-Host
+- Elternteil automatisch Moderator (= Co-Host)
 - Kinder sehen nur freigegebene Inhalte (FSK-basiert)
 - Eltern koennen Kinder-Kommunikation untereinander freischalten
 
 ## Technische Architektur
 
 - Space-Ersteller = primaerer Relay-Node
-- Freiwillige Co-Hosts = sekundaere Relay-Nodes (anonym)
+- Moderatoren = sekundaere Relay-Nodes (automatisch, deaktivierbar)
 - Nachrichten: P2P Mesh ueber Relay-Nodes
-- Wenn Founder offline -> Co-Host uebernimmt automatisch
+- Wenn Founder offline → Moderator uebernimmt automatisch
 - Space-Daten in localStorage + Sync ueber Relay-Nodes
 
 ## Implementierungs-Schritte
@@ -84,7 +96,7 @@
 - Neue Nutzer die joinen und Node werden koennen = sofort zu Reserve hinzufuegen
 - Qualitaetsanpassung: genug Nodes = HD, wenige = SD, kritisch = Audio only
 - Admin-Dashboard: Nutzer-Anzahl, aktive Nodes, Reserve-Kapazitaet, Auslastung %, Qualitaet
-- Warnung bei >80% Auslastung -> System fragt neue Nutzer ob sie Node werden wollen
+- Warnung bei >80% Auslastung → System fragt neue Nutzer ob sie Node werden wollen
 
 ## Spaces — Video Calls & Streaming (noch nicht implementiert)
 
@@ -95,13 +107,13 @@
 - Admin kann manuell Nodes zuweisen
 - Raised Hand fuer Zuschauer
 - Live Q&A Chat waehrend Stream
-- Baum-Struktur fuer Nodes (Presenter -> Relay-Nodes -> Sub-Nodes -> Zuschauer)
+- Baum-Struktur fuer Nodes (Presenter → Relay-Nodes → Sub-Nodes → Zuschauer)
 
 ## Spaces — Melde-System (noch nicht implementiert)
 
 - Mitglied melden (Grund + Beschreibung)
 - Nachricht melden als Beweis (Zeitstempel + Inhalt unveraenderlich)
-- Ab X Meldungen -> Admin Benachrichtigung
+- Ab X Meldungen → Admin Benachrichtigung
 - Kinder-Spaces: Elternteil bekommt alle Meldungen sofort
 
 ## Spaces — Mitglieder-Kontrolle (noch nicht implementiert)

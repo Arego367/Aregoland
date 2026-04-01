@@ -39,6 +39,11 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Komponente | Key | DE | EN | LT |
 |------------|-----|----|----|-----|
 | Spaces | `spaces.ttlHours` | ja | nein | nein |
+| Spaces | `spaces.manageChats` | ja | nein | nein |
+| Spaces | `spaces.moderatorCoHostInfo` | ja | nein | nein |
+| Spaces | `spaces.relayNodeActive` | ja | nein | nein |
+| Spaces | `spaces.relayNodeActiveDesc` | ja | nein | nein |
+| Spaces | `spaces.relayNodeOffWarning` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 

@@ -530,7 +530,7 @@
     "rsvp_no": "Nein",
     "rsvp_maybe": "Vielleicht",
     "roleDesc_admin": "Voller Zugriff, kann Mitglieder und Einstellungen verwalten",
-    "roleDesc_moderator": "Kann Beitr\u00e4ge erstellen, Chats moderieren und Termine verwalten",
+    "roleDesc_moderator": "Kann Beitr\u00e4ge erstellen, Chats moderieren, Termine verwalten + automatisch Co-Host (Relay-Node)",
     "roleDesc_member": "Kann an Chats teilnehmen, Beitr\u00e4ge sehen und auf Termine antworten",
     "roleDesc_guest": "Nur lesen \u2014 kann Beitr\u00e4ge und Termine sehen, aber nicht schreiben",
     "ttl_1h": "1 Stunde",
@@ -554,7 +554,12 @@
     "subroomNamePlaceholder": "z.B. Pilates Di 18 Uhr",
     "subroomMembers": "Mitglieder ausw\u00e4hlen",
     "subrooms": "Unterr\u00e4ume",
-    "deleteSubroom": "Unterraum l\u00f6schen"
+    "deleteSubroom": "Unterraum l\u00f6schen",
+    "manageChats": "Chats verwalten",
+    "moderatorCoHostInfo": "Moderatoren sind automatisch Co-Hosts und helfen den Space stabil zu halten. Je mehr Moderatoren online sind, desto stabiler sind Chats und Calls.",
+    "relayNodeActive": "Als Relay-Node aktiv",
+    "relayNodeActiveDesc": "Du hilfst als Relay-Node, Nachrichten und Calls im Space stabil zu verteilen.",
+    "relayNodeOffWarning": "Du hilfst nicht mehr als Relay-Node. Das kann die Qualit\u00e4t f\u00fcr andere Mitglieder bei schlechtem Internet beeinflussen."
   },
   "childProfile": {
     "title": "Kinder-Profile",
