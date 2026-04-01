@@ -43,6 +43,9 @@
 - **Uebersicht**: Beschreibung, angepinnte Posts, Ankuendigungen, Statistiken (Admin)
 - **Neuigkeiten**: Beitraege, Filter, Kommentare, RSVP
 - **Chats**: Nur die Liste der vorhandenen Chats (kein Erstellen-Button). Unterraeume als separate Sektion.
+  - Gruppen-Chat: Text, Fotos/Bilder (inline), Dateien (Download-Link), Sprachnachrichten (Play/Pause)
+  - @Erwaehnung: @ tippen → Mitglieder-Liste, erwaehnte Person bekommt Benachrichtigung
+  - Bueroklammer-Icon fuer Fotos & Dateien, Mikrofon-Icon fuer Voice (gedrueckt halten)
 - **Mitglieder**: Nach Rollen gruppiert, Einladen, Rolle aendern
 - **Profil**: Eigenes Profil im Space — Name, Rolle-Badge, Relay-Node Toggle (Moderator), Benachrichtigungen ein/aus
 - **Einstellungen**: Chats verwalten, Rollen & Rechte, Space loeschen

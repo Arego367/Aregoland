@@ -5,7 +5,8 @@ import {
   Shield, QrCode, Plus, ChevronRight, Hash, User, Trash2, Edit2, Share2,
   School, Briefcase, Heart, Home, FolderOpen, Clock, Landmark, Globe, Wrench,
   Info, Check, X, GripVertical, UserPlus, Crown, Eye, ChevronDown,
-  Pin, ThumbsUp, MessageSquare, Megaphone, Newspaper, Send, Lock, Layers
+  Pin, ThumbsUp, MessageSquare, Megaphone, Newspaper, Send, Lock, Layers,
+  Paperclip, Mic, Play, Pause, Download, AtSign, Image as ImageIcon, FileText, Square
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
@@ -57,6 +58,11 @@ interface SpaceChatMessage {
   authorName: string;
   text: string;
   timestamp: string; // ISO string
+  type?: "text" | "image" | "audio" | "file";
+  fileData?: string;   // Base64
+  fileName?: string;
+  fileMime?: string;
+  mentions?: string[]; // aregoIds
 }
 
 interface SpaceChannel {
@@ -354,6 +360,14 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const [chatInput, setChatInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState("");
 
   // Subrooms
   const [showCreateSubroom, setShowCreateSubroom] = useState(false);
@@ -657,6 +671,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
 
   const handleSendMessage = () => {
     if (!chatInput.trim() || !openChannel || !identity || !wsRef.current) return;
+    const mentions = selectedSpace ? extractMentions(chatInput, selectedSpace.members) : [];
     const msg: SpaceChatMessage = {
       id: `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
       channelId: openChannel.id,
@@ -664,27 +679,144 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
       authorName: identity.displayName,
       text: chatInput.trim(),
       timestamp: new Date().toISOString(),
+      type: "text",
+      ...(mentions.length > 0 ? { mentions } : {}),
     };
-    // Lokal speichern + anzeigen
-    saveSpaceChatMessage(openChannel.id, msg);
+    sendSpaceChatMsg(msg);
+    setChatInput("");
+    setShowMentions(false);
+  };
+
+  const sendSpaceChatMsg = (msg: SpaceChatMessage) => {
+    saveSpaceChatMessage(msg.channelId, msg);
     setChatMessages(prev => [...prev, msg]);
-    // Über WebSocket senden
-    if (wsRef.current.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "space-chat-msg", msg }));
     }
-    // lastMessage updaten
-    if (selectedSpace) {
-      const updated = {
+    if (selectedSpace && openChannel) {
+      const preview = msg.type === "image" ? "[Bild]" : msg.type === "audio" ? "[Sprachnachricht]" : msg.type === "file" ? `[${msg.fileName}]` : msg.text;
+      updateSpace({
         ...selectedSpace,
         channels: selectedSpace.channels.map(ch =>
-          ch.id === openChannel.id
-            ? { ...ch, lastMessage: msg.text, lastMessageTime: msg.timestamp }
-            : ch
+          ch.id === openChannel.id ? { ...ch, lastMessage: preview, lastMessageTime: msg.timestamp } : ch
         ),
-      };
-      updateSpace(updated);
+      });
     }
-    setChatInput("");
+  };
+
+  const handleSendFile = (file: File, type: "image" | "file") => {
+    if (!openChannel || !identity) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      const msg: SpaceChatMessage = {
+        id: `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+        channelId: openChannel.id,
+        authorId: identity.aregoId,
+        authorName: identity.displayName,
+        text: "",
+        timestamp: new Date().toISOString(),
+        type,
+        fileData: base64,
+        fileName: file.name,
+        fileMime: file.type,
+      };
+      sendSpaceChatMsg(msg);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isImage = file.type.startsWith("image/");
+    handleSendFile(file, isImage ? "image" : "file");
+    e.target.value = "";
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm" });
+      audioChunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (!openChannel || !identity) return;
+          const msg: SpaceChatMessage = {
+            id: `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+            channelId: openChannel.id,
+            authorId: identity.aregoId,
+            authorName: identity.displayName,
+            text: "",
+            timestamp: new Date().toISOString(),
+            type: "audio",
+            fileData: reader.result as string,
+            fileMime: "audio/webm",
+          };
+          sendSpaceChatMsg(msg);
+        };
+        reader.readAsDataURL(blob);
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setIsRecording(true);
+    } catch { /* mic not available */ }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const toggleAudioPlayback = (msgId: string, dataUrl: string) => {
+    if (playingAudio === msgId) {
+      audioRefs.current[msgId]?.pause();
+      setPlayingAudio(null);
+      return;
+    }
+    if (playingAudio && audioRefs.current[playingAudio]) {
+      audioRefs.current[playingAudio].pause();
+    }
+    if (!audioRefs.current[msgId]) {
+      const audio = new Audio(dataUrl);
+      audio.onended = () => setPlayingAudio(null);
+      audioRefs.current[msgId] = audio;
+    }
+    audioRefs.current[msgId].play();
+    setPlayingAudio(msgId);
+  };
+
+  const handleChatInputChange = (value: string) => {
+    setChatInput(value);
+    // Detect @mention trigger
+    const lastAt = value.lastIndexOf("@");
+    if (lastAt >= 0 && (lastAt === 0 || value[lastAt - 1] === " ")) {
+      const after = value.slice(lastAt + 1);
+      if (!after.includes(" ")) {
+        setShowMentions(true);
+        setMentionFilter(after.toLowerCase());
+        return;
+      }
+    }
+    setShowMentions(false);
+  };
+
+  const insertMention = (member: { aregoId: string; displayName: string }) => {
+    const lastAt = chatInput.lastIndexOf("@");
+    const before = chatInput.slice(0, lastAt);
+    setChatInput(`${before}@${member.displayName} `);
+    setShowMentions(false);
+  };
+
+  // Extract mentions from text
+  const extractMentions = (text: string, members: { aregoId: string; displayName: string }[]): string[] => {
+    return members.filter(m => text.includes(`@${m.displayName}`)).map(m => m.aregoId);
   };
 
   const handleCreateChannel = () => {
@@ -1343,18 +1475,58 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                       )}
                       {chatMessages.map(msg => {
                         const isMe = msg.authorId === identity?.aregoId;
+                        const msgType = msg.type ?? "text";
+                        // Render @mentions as bold blue
+                        const renderText = (text: string) => {
+                          if (!text) return null;
+                          const parts = text.split(/(@\S+)/g);
+                          return parts.map((part, i) =>
+                            part.startsWith("@") ? <span key={i} className="font-bold text-blue-300">{part}</span> : part
+                          );
+                        };
                         return (
                           <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                             <div className={`max-w-[75%] ${isMe ? "order-2" : ""}`}>
                               {!isMe && (
                                 <span className="text-[10px] text-gray-500 font-medium ml-1 mb-0.5 block">{msg.authorName}</span>
                               )}
-                              <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
-                                isMe
-                                  ? "bg-blue-600 text-white rounded-br-md"
-                                  : "bg-gray-800 text-gray-200 rounded-bl-md"
+                              <div className={`rounded-2xl overflow-hidden ${
+                                isMe ? "bg-blue-600 text-white rounded-br-md" : "bg-gray-800 text-gray-200 rounded-bl-md"
                               }`}>
-                                {msg.text}
+                                {/* Text */}
+                                {msgType === "text" && (
+                                  <div className="px-3 py-2 text-sm leading-relaxed">{renderText(msg.text)}</div>
+                                )}
+                                {/* Image */}
+                                {msgType === "image" && msg.fileData && (
+                                  <div>
+                                    <img src={msg.fileData} alt={msg.fileName ?? "Bild"} className="max-w-full rounded-t-2xl cursor-pointer" onClick={() => window.open(msg.fileData, "_blank")} />
+                                    {msg.text && <div className="px-3 py-1.5 text-sm">{renderText(msg.text)}</div>}
+                                  </div>
+                                )}
+                                {/* Audio */}
+                                {msgType === "audio" && msg.fileData && (
+                                  <div className="px-3 py-2 flex items-center gap-2">
+                                    <button onClick={() => toggleAudioPlayback(msg.id, msg.fileData!)}
+                                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isMe ? "bg-white/20 hover:bg-white/30" : "bg-gray-700 hover:bg-gray-600"} transition-colors`}>
+                                      {playingAudio === msg.id ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
+                                    </button>
+                                    <div className="flex-1">
+                                      <div className={`h-1 rounded-full ${isMe ? "bg-white/30" : "bg-gray-600"}`}>
+                                        <div className={`h-1 rounded-full w-0 ${isMe ? "bg-white/70" : "bg-blue-400"}`} />
+                                      </div>
+                                    </div>
+                                    <Mic size={12} className="opacity-50 shrink-0" />
+                                  </div>
+                                )}
+                                {/* File */}
+                                {msgType === "file" && msg.fileData && (
+                                  <a href={msg.fileData} download={msg.fileName} className="px-3 py-2 flex items-center gap-2 hover:opacity-80 transition-opacity">
+                                    <FileText size={18} className="shrink-0 opacity-70" />
+                                    <span className="text-sm truncate flex-1">{msg.fileName ?? "Datei"}</span>
+                                    <Download size={14} className="shrink-0 opacity-50" />
+                                  </a>
+                                )}
                               </div>
                               <span className={`text-[10px] text-gray-600 mt-0.5 block ${isMe ? "text-right mr-1" : "ml-1"}`}>
                                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -1368,24 +1540,71 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
 
                     {/* Input */}
                     {canWrite ? (
-                      <div className="px-4 py-3 border-t border-gray-800 shrink-0">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={chatInput}
-                            onChange={e => setChatInput(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && handleSendMessage()}
-                            placeholder={t('spaces.chatInputPlaceholder')}
-                            className="flex-1 bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
-                          />
-                          <button
-                            onClick={handleSendMessage}
-                            disabled={!chatInput.trim()}
-                            className="p-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 rounded-xl text-white transition-all"
-                          >
-                            <Send size={18} />
-                          </button>
-                        </div>
+                      <div className="border-t border-gray-800 shrink-0">
+                        {/* @Mentions popup */}
+                        {showMentions && selectedSpace && (
+                          <div className="px-4 py-2 border-b border-gray-800 max-h-32 overflow-y-auto">
+                            {selectedSpace.members
+                              .filter(m => m.displayName.toLowerCase().includes(mentionFilter))
+                              .slice(0, 6)
+                              .map(m => (
+                                <button key={m.aregoId} onClick={() => insertMention(m)}
+                                  className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-800 transition-colors text-left">
+                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                                    {(m.displayName[0] ?? "").toUpperCase()}
+                                  </div>
+                                  <span className="text-xs font-medium text-gray-300">{m.displayName}</span>
+                                  <span className={`text-[9px] ml-auto ${ROLE_COLORS[m.role]?.text ?? "text-gray-500"}`}>{t(`spaces.role_${m.role}`)}</span>
+                                </button>
+                              ))}
+                            {selectedSpace.members.filter(m => m.displayName.toLowerCase().includes(mentionFilter)).length === 0 && (
+                              <p className="text-[10px] text-gray-600 text-center py-1">{t('spaces.noMentionResults')}</p>
+                            )}
+                          </div>
+                        )}
+                        {/* Recording indicator */}
+                        {isRecording && (
+                          <div className="px-4 py-2 flex items-center gap-2 bg-red-500/10 border-b border-red-500/20">
+                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                            <span className="text-xs text-red-400 font-medium flex-1">{t('spaces.recording')}</span>
+                            <button onClick={stopRecording} className="p-1.5 bg-red-500/20 rounded-lg text-red-400 hover:bg-red-500/30 transition-colors">
+                              <Square size={14} />
+                            </button>
+                          </div>
+                        )}
+                        {/* Input bar */}
+                        {!isRecording && (
+                          <div className="px-4 py-3">
+                            <div className="flex items-center gap-1.5">
+                              <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
+                              <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-gray-300 hover:bg-white/5 rounded-lg transition-all">
+                                <Paperclip size={18} />
+                              </button>
+                              <input
+                                type="text"
+                                value={chatInput}
+                                onChange={e => handleChatInputChange(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter" && !showMentions) handleSendMessage(); if (e.key === "Escape") setShowMentions(false); }}
+                                placeholder={t('spaces.chatInputPlaceholder')}
+                                className="flex-1 bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
+                              />
+                              {chatInput.trim() ? (
+                                <button onClick={handleSendMessage} className="p-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-white transition-all">
+                                  <Send size={18} />
+                                </button>
+                              ) : (
+                                <button
+                                  onPointerDown={startRecording}
+                                  onPointerUp={stopRecording}
+                                  onPointerLeave={() => { if (isRecording) stopRecording(); }}
+                                  className="p-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                                >
+                                  <Mic size={18} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="px-4 py-3 border-t border-gray-800 shrink-0">

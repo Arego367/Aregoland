@@ -581,7 +581,9 @@
     "notif_calls": "Anrufe",
     "notif_mentions": "@Erw\u00e4hnungen",
     "notif_newMembers": "Neue Mitglieder",
-    "notifRecommended": "empfohlen"
+    "notifRecommended": "empfohlen",
+    "recording": "Aufnahme l\u00e4uft...",
+    "noMentionResults": "Kein Mitglied gefunden"
   },
   "childProfile": {
     "title": "Kinder-Profile",
