@@ -57,3 +57,25 @@ Aras arbeitet auf zwei Geraeten:
 
 - **PC**: Standard-Modus (auch wenn nichts gesagt wird)
   → Normal arbeiten, CC Befehle bereitstellen und ausfuehren
+
+## Wer ist Aras
+
+- Baut Aregoland fuer sich und seine Familie — kein Druck, kein Investor
+- ADHS ist seine Superkraft: Kopf dreht sich pausenlos,
+  Aregoland ist das Ziel zum Lenken
+- Baut die App nebenbei — beim Zocken, TV schauen, Urlaub
+- Launch-Timing egal — auch in 10 Jahren waere es okay
+- Spass am Bauen ist wichtiger als der Launch
+- Kinder haben Ferien → mehr Zeit zum Basteln
+
+## Launch-Plan (Aras Style)
+
+1. Gewerbe anmelden (UG)
+2. Store Launch vorbereiten (Google Play + Apple)
+3. Feedback-System bereit haben
+4. GitHub Repo oeffentlich machen
+5. Issues offen fuer Community-Bugs
+6. CC kann direkt aus GitHub arbeiten und Bugs fixen
+   — auch ohne Aras aktiv dabei
+7. Nutzer melden Fehler → CC fixt → fertig
+   Aras kriegt es nicht mal mit
