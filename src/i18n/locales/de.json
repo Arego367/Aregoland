@@ -585,7 +585,14 @@
     "recording": "Aufnahme l\u00e4uft...",
     "noMentionResults": "Kein Mitglied gefunden",
     "largeFileWarning": "\"{{name}}\" ist {{size}} MB gro\u00df. Das kann etwas dauern.",
-    "sendAnyway": "Trotzdem senden"
+    "sendAnyway": "Trotzdem senden",
+    "perm_allowNetworkHelper": "Netzwerk-Helfer erlauben",
+    "networkHelperActive": "Netzwerk-Helfer aktiv",
+    "networkHelperDesc": "Du hilfst als Netzwerk-Helfer, Nachrichten und Calls im Space stabil zu verteilen.",
+    "networkHelperOffWarning": "Du hilfst nicht mehr als Netzwerk-Helfer. Das kann die Qualit\u00e4t f\u00fcr andere Mitglieder beeinflussen.",
+    "useMobileData": "Mobile Daten nutzen",
+    "useMobileDataDesc": "Auch mit mobilen Daten als Netzwerk-Helfer aktiv sein",
+    "mobileDataDetected": "Du bist mit mobilen Daten verbunden. Netzwerk-Helfer wurde deaktiviert um dein Datenvolumen zu schonen. Aktiviere \"Mobile Daten nutzen\" wenn du eine Flat hast."
   },
   "childProfile": {
     "title": "Kinder-Profile",

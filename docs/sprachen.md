@@ -70,6 +70,13 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.noMentionResults` | ja | nein | nein |
 | Spaces | `spaces.largeFileWarning` | ja | nein | nein |
 | Spaces | `spaces.sendAnyway` | ja | nein | nein |
+| Spaces | `spaces.perm_allowNetworkHelper` | ja | nein | nein |
+| Spaces | `spaces.networkHelperActive` | ja | nein | nein |
+| Spaces | `spaces.networkHelperDesc` | ja | nein | nein |
+| Spaces | `spaces.networkHelperOffWarning` | ja | nein | nein |
+| Spaces | `spaces.useMobileData` | ja | nein | nein |
+| Spaces | `spaces.useMobileDataDesc` | ja | nein | nein |
+| Spaces | `spaces.mobileDataDetected` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 

@@ -12,18 +12,20 @@
 
 ## Rollen-System
 
-- **Founder** (nicht entfernbar, automatisch Relay-Node)
-- **Admin** (vom Founder ernannt)
-- **Moderator** (kann in Globalem Chat posten + automatisch Co-Host/Relay-Node)
+- **Founder** (nicht entfernbar, automatisch Netzwerk-Helfer)
+- **Admin** (vom Founder ernannt, automatisch Netzwerk-Helfer)
+- **Moderator** (kann in Globalem Chat posten, automatisch Netzwerk-Helfer)
 - **Mitglied**
 - **Gast** (nur lesen)
+- **Eigene Rollen** (Admin erstellt, mit konfigurierbaren Rechten)
 
-> **Co-Host ist keine separate Rolle mehr.** Moderatoren sind automatisch Co-Hosts (Relay-Nodes).
-> - Moderatoren helfen den Space stabil zu halten
-> - Je mehr Moderatoren online sind, desto stabiler sind Chats und Calls
-> - Moderator kann Co-Host-Funktion deaktivieren: Toggle "Als Relay-Node aktiv" (Standard: AN)
-> - Bei Deaktivierung: Hinweis "Du hilfst nicht mehr als Relay-Node. Das kann die Qualitaet fuer andere Mitglieder bei schlechtem Internet beeinflussen."
-> - Gruende fuer Deaktivierung: unterwegs, mobiles Daten, schlechtes Internet
+> **Netzwerk-Helfer** (frueher "Co-Host" / "Relay-Node"):
+> - Founder, Admin, Moderator sind automatisch Netzwerk-Helfer
+> - Bei eigenen Rollen: Admin entscheidet per Toggle "Netzwerk-Helfer erlauben"
+> - Netzwerk-Helfer helfen den Space stabil zu halten (Relay-Node fuer Chats und Calls)
+> - Jeder Netzwerk-Helfer kann die Funktion im Profil-Tab deaktivieren
+> - "Mobile Daten nutzen" Toggle (Standard: AUS) — bei mobilem Internet automatisch deaktiviert
+> - Automatische Erkennung: bei Mobile Daten → Netzwerk-Helfer automatisch AUS + Hinweis
 
 ## Space-Einstellungen (Admin)
 
@@ -34,7 +36,14 @@
 - Globaler Chat: nur Admins/Moderatoren koennen posten
 - **Chats verwalten**: Chat erstellen (Name + Rollen-Zugriffsrechte), Chats loeschen
 - **Rollen & Rechte**: Eigene Rollen erstellen (Name + Farbe + Rechte)
-  - Rechte pro Rolle: Chats lesen, Chats schreiben, Termine erstellen, Neuigkeiten posten, Mitglieder einladen
+  - Rechte pro Rolle:
+    - Chats lesen (Voraussetzung fuer Chats schreiben)
+    - Chats schreiben (ausgegraut wenn Chats lesen deaktiviert)
+    - Termine erstellen
+    - Neuigkeiten posten
+    - Mitglieder einladen
+    - Netzwerk-Helfer erlauben
+  - Rechte-Abhaengigkeit: kein Lesen = kein Schreiben (automatisch deaktiviert + ausgegraut)
   - Founder & Admin haben immer vollen Zugriff (nicht konfigurierbar)
   - Chat-Erstellen Rollen-Auswahl zeigt nur Moderator/Mitglied/Gast
 
@@ -49,7 +58,12 @@
   - @Erwaehnung: @ tippen → Mitglieder-Liste, erwaehnte Person bekommt Benachrichtigung
   - Bueroklammer-Icon fuer Fotos & Dateien, Mikrofon-Icon fuer Voice (gedrueckt halten)
 - **Mitglieder**: Nach Rollen gruppiert, Einladen, Rolle aendern
-- **Profil**: Eigenes Profil im Space — Name, Rolle-Badge, Relay-Node Toggle (Moderator), Benachrichtigungen ein/aus
+- **Profil**: Eigenes Profil im Space:
+  - Name, Rolle-Badge
+  - Netzwerk-Helfer Toggle (nur wenn Rolle es erlaubt)
+  - Mobile Daten Toggle (nur wenn Netzwerk-Helfer aktiv)
+  - Automatische Mobile-Daten-Erkennung mit Hinweis
+  - Benachrichtigungen: 3 Modi (Alle/Stumm/Keine) + 6 einzelne Toggles
 - **Einstellungen**: Chats verwalten, Rollen & Rechte, Space loeschen
 
 ## Space-Features
@@ -68,16 +82,16 @@
 
 ## Kinder-Spaces
 
-- Elternteil automatisch Moderator (= Co-Host)
+- Elternteil automatisch Moderator (= Netzwerk-Helfer)
 - Kinder sehen nur freigegebene Inhalte (FSK-basiert)
 - Eltern koennen Kinder-Kommunikation untereinander freischalten
 
 ## Technische Architektur
 
-- Space-Ersteller = primaerer Relay-Node
-- Moderatoren = sekundaere Relay-Nodes (automatisch, deaktivierbar)
+- Space-Ersteller = primaerer Netzwerk-Helfer (Relay-Node)
+- Moderatoren + Rollen mit "Netzwerk-Helfer erlauben" = sekundaere Relay-Nodes
 - Nachrichten: P2P Mesh ueber Relay-Nodes
-- Wenn Founder offline → Moderator uebernimmt automatisch
+- Wenn Founder offline → naechster Netzwerk-Helfer uebernimmt automatisch
 - Space-Daten in localStorage + Sync ueber Relay-Nodes
 
 ## Implementierungs-Schritte
@@ -86,8 +100,10 @@
 2. Mitglieder & Rollen (2026-03-31)
 3. Uebersicht nach Rollen + Termine mit Anwesenheit (2026-03-31)
 4. Chats-Tab (2026-04-01)
-5. Profil-Tab + Rollen & Rechte + Chat-Rollen vereinfacht (2026-04-01)
-6. Wiki/Seiten
+5. Profil-Tab + Rollen & Rechte (2026-04-01)
+6. Gruppen-Chat: Fotos, Dateien, Voice, @Erwaehnung, Chunked Transfer (2026-04-01)
+7. Rollen-Logik: Rechte-Abhaengigkeit, Netzwerk-Helfer, Mobile-Daten-Erkennung (2026-04-01)
+8. Wiki/Seiten
 
 ---
 

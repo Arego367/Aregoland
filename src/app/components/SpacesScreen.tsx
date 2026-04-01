@@ -88,6 +88,7 @@ interface CustomRole {
     createEvents: boolean;
     postNews: boolean;
     inviteMembers: boolean;
+    allowNetworkHelper: boolean;
   };
 }
 
@@ -381,7 +382,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const [showCreateRole, setShowCreateRole] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleColor, setNewRoleColor] = useState("#3b82f6");
-  const [newRolePerms, setNewRolePerms] = useState({ readChats: true, writeChats: true, createEvents: false, postNews: false, inviteMembers: false });
+  const [newRolePerms, setNewRolePerms] = useState({ readChats: true, writeChats: true, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false });
 
   // News/Posts
   const [showCreatePost, setShowCreatePost] = useState(false);
@@ -1914,8 +1915,11 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
             {activeTab === "profile" && (() => {
               const myMember = selectedSpace.members.find(m => m.aregoId === identity?.aregoId);
               const myRole = myMember?.role ?? "member";
-              const isModerator = myRole === "moderator";
+              // Check if role allows network helper (built-in moderator always can, custom roles check permission)
+              const canBeNetworkHelper = myRole === "moderator" || myRole === "founder" || myRole === "admin"
+                || (selectedSpace.customRoles ?? []).some(cr => cr.name === myRole && cr.permissions.allowNetworkHelper);
               const relayKey = `arego_relay_${selectedSpace.id}`;
+              const mobileDataKey = `arego_relay_mobile_${selectedSpace.id}`;
               const NOTIF_STORAGE = "aregoland_space_notifications";
               type NotifMode = "all" | "mute" | "none";
               type NotifConfig = { mode: NotifMode; messages: boolean; events: boolean; news: boolean; calls: boolean; mentions: boolean; newMembers: boolean };
@@ -1947,32 +1951,67 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                     </div>
                   </div>
 
-                  {/* Relay-Node Toggle — nur Moderatoren */}
-                  {isModerator && (
-                    <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-sm font-medium">{t('spaces.relayNodeActive')}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">{t('spaces.relayNodeActiveDesc')}</div>
+                  {/* Netzwerk-Helfer — nur wenn Rolle es erlaubt */}
+                  {canBeNetworkHelper && (() => {
+                    const isOnMobile = 'connection' in navigator && (navigator as any).connection?.type === 'cellular';
+                    const helperActive = localStorage.getItem(relayKey) !== "off" && !isOnMobile;
+                    const mobileDataAllowed = localStorage.getItem(mobileDataKey) === "on";
+                    const effectiveActive = localStorage.getItem(relayKey) !== "off" && (!isOnMobile || mobileDataAllowed);
+                    return (
+                      <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-medium">{t('spaces.networkHelperActive')}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{t('spaces.networkHelperDesc')}</div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const current = localStorage.getItem(relayKey) !== "off";
+                              localStorage.setItem(relayKey, current ? "off" : "on");
+                              updateSpace({ ...selectedSpace });
+                            }}
+                            className={`w-11 h-6 rounded-full transition-colors relative ${localStorage.getItem(relayKey) !== "off" ? "bg-blue-600" : "bg-gray-700"}`}
+                          >
+                            <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${localStorage.getItem(relayKey) !== "off" ? "translate-x-5" : "translate-x-0.5"}`} />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => {
-                            const current = localStorage.getItem(relayKey) !== "off";
-                            localStorage.setItem(relayKey, current ? "off" : "on");
-                            updateSpace({ ...selectedSpace });
-                          }}
-                          className={`w-11 h-6 rounded-full transition-colors relative ${localStorage.getItem(relayKey) !== "off" ? "bg-blue-600" : "bg-gray-700"}`}
-                        >
-                          <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${localStorage.getItem(relayKey) !== "off" ? "translate-x-5" : "translate-x-0.5"}`} />
-                        </button>
+
+                        {/* Mobile Daten Toggle */}
+                        {localStorage.getItem(relayKey) !== "off" && (
+                          <div className="flex items-center justify-between pt-1 border-t border-gray-700/30">
+                            <div>
+                              <div className="text-xs font-medium text-gray-300">{t('spaces.useMobileData')}</div>
+                              <div className="text-[10px] text-gray-600 mt-0.5">{t('spaces.useMobileDataDesc')}</div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const current = localStorage.getItem(mobileDataKey) === "on";
+                                localStorage.setItem(mobileDataKey, current ? "off" : "on");
+                                updateSpace({ ...selectedSpace });
+                              }}
+                              className={`w-9 h-5 rounded-full transition-colors relative ${mobileDataAllowed ? "bg-blue-600" : "bg-gray-700"}`}
+                            >
+                              <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${mobileDataAllowed ? "translate-x-4" : "translate-x-0.5"}`} />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Mobile Daten erkannt Warnung */}
+                        {isOnMobile && !mobileDataAllowed && localStorage.getItem(relayKey) !== "off" && (
+                          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2.5">
+                            <p className="text-[11px] text-yellow-300/80 leading-relaxed">{t('spaces.mobileDataDetected')}</p>
+                          </div>
+                        )}
+
+                        {/* Deaktiviert Warnung */}
+                        {localStorage.getItem(relayKey) === "off" && (
+                          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2.5">
+                            <p className="text-[11px] text-yellow-300/80 leading-relaxed">{t('spaces.networkHelperOffWarning')}</p>
+                          </div>
+                        )}
                       </div>
-                      {localStorage.getItem(relayKey) === "off" && (
-                        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2.5">
-                          <p className="text-[11px] text-yellow-300/80 leading-relaxed">{t('spaces.relayNodeOffWarning')}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Space-Benachrichtigungen */}
                   <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
@@ -2106,16 +2145,6 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                     <div className="space-y-3">
                       <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.rolesAndPermissions')}</h3>
 
-                      {/* Moderator Co-Host Info */}
-                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
-                        <div className="flex items-start gap-2.5">
-                          <Info size={16} className="text-blue-400 shrink-0 mt-0.5" />
-                          <p className="text-xs text-blue-200/80 leading-relaxed">
-                            {t('spaces.moderatorCoHostInfo')}
-                          </p>
-                        </div>
-                      </div>
-
                       {/* Existing custom roles */}
                       {(selectedSpace.customRoles ?? []).map(cr => (
                         <div key={cr.id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3">
@@ -2155,39 +2184,50 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                             <button onClick={() => setShowCreateRole(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
                           </div>
                           <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={newRoleColor}
-                              onChange={e => setNewRoleColor(e.target.value)}
-                              className="w-8 h-8 rounded-lg border border-gray-700 cursor-pointer bg-transparent"
-                            />
+                            <input type="color" value={newRoleColor} onChange={e => setNewRoleColor(e.target.value)}
+                              className="w-8 h-8 rounded-lg border border-gray-700 cursor-pointer bg-transparent" />
                             <input type="text" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} placeholder={t('spaces.roleNamePlaceholder')} autoFocus
                               className="flex-1 bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
                           </div>
-                          <div className="space-y-2">
-                            {(["readChats", "writeChats", "createEvents", "postNews", "inviteMembers"] as const).map(perm => (
-                              <button key={perm}
-                                onClick={() => setNewRolePerms(prev => ({ ...prev, [perm]: !prev[perm] }))}
-                                className="w-full flex items-center justify-between p-2.5 bg-gray-900/30 rounded-lg hover:bg-gray-800/50 transition-colors">
-                                <span className="text-xs text-gray-300">{t(`spaces.perm_${perm}`)}</span>
-                                <div className={`w-8 h-4.5 rounded-full transition-colors relative ${newRolePerms[perm] ? "bg-blue-600" : "bg-gray-700"}`}>
-                                  <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-transform ${newRolePerms[perm] ? "translate-x-4" : "translate-x-0.5"}`} />
-                                </div>
-                              </button>
-                            ))}
+                          <div className="space-y-1">
+                            {(["readChats", "writeChats", "createEvents", "postNews", "inviteMembers", "allowNetworkHelper"] as const).map(perm => {
+                              // writeChats disabled when readChats is off
+                              const disabled = perm === "writeChats" && !newRolePerms.readChats;
+                              const active = disabled ? false : newRolePerms[perm];
+                              return (
+                                <button key={perm}
+                                  disabled={disabled}
+                                  onClick={() => {
+                                    setNewRolePerms(prev => {
+                                      const next = { ...prev, [perm]: !prev[perm] };
+                                      // If readChats turned off → also turn off writeChats
+                                      if (perm === "readChats" && !next.readChats) next.writeChats = false;
+                                      return next;
+                                    });
+                                  }}
+                                  className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors ${disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-800/50"} bg-gray-900/30`}>
+                                  <span className="text-xs text-gray-300">{t(`spaces.perm_${perm}`)}</span>
+                                  <div className={`w-8 h-5 rounded-full transition-colors relative ${active ? "bg-blue-600" : "bg-gray-700"}`}>
+                                    <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${active ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
                           <button
                             onClick={() => {
                               if (!newRoleName.trim() || !selectedSpace) return;
+                              const perms = { ...newRolePerms };
+                              if (!perms.readChats) perms.writeChats = false;
                               const role: CustomRole = {
                                 id: `role-${Date.now().toString(36)}`,
                                 name: newRoleName.trim(),
                                 color: newRoleColor,
-                                permissions: { ...newRolePerms },
+                                permissions: perms,
                               };
                               updateSpace({ ...selectedSpace, customRoles: [...(selectedSpace.customRoles ?? []), role] });
                               setNewRoleName(""); setNewRoleColor("#3b82f6");
-                              setNewRolePerms({ readChats: true, writeChats: true, createEvents: false, postNews: false, inviteMembers: false });
+                              setNewRolePerms({ readChats: true, writeChats: true, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false });
                               setShowCreateRole(false);
                             }}
                             disabled={!newRoleName.trim()}
