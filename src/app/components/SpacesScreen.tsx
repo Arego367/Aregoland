@@ -2364,12 +2364,14 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                                 </button>
                               </div>
                               <div className="flex flex-wrap gap-1 mt-1.5">
-                                {ch.readRoles.filter(r => r !== "founder" && r !== "admin").map(r => (
-                                  <span key={`r-${r}`} className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-500/15 text-green-400">{String(r)}</span>
-                                ))}
-                                {ch.writeRoles.filter(r => r !== "founder" && r !== "admin").map(r => (
-                                  <span key={`w-${r}`} className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-500/15 text-blue-400">{String(r)}</span>
-                                ))}
+                                {ch.readRoles.filter(r => r !== "founder" && r !== "admin").map(r => {
+                                  const canWrite = ch.writeRoles.includes(r);
+                                  return (
+                                    <span key={String(r)} className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${canWrite ? "bg-green-500/15 text-green-400" : "bg-blue-500/15 text-blue-400"}`}>
+                                      {String(r)} · {canWrite ? t('spaces.badgeWrite') : t('spaces.badgeRead')}
+                                    </span>
+                                  );
+                                })}
                               </div>
                             </div>
                           ))}
@@ -2562,12 +2564,10 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                   {deleteStep === 0 && (
                     <button
                       onClick={() => setDeleteStep(1)}
-                      className="w-full flex items-center justify-between p-4 bg-gray-800/50 rounded-xl border border-red-900/30 hover:bg-red-500/10 transition-colors"
+                      className="w-full flex items-center justify-center gap-2 p-4 text-red-600 font-medium hover:bg-red-500/10 rounded-2xl transition-colors border border-red-900/40"
                     >
-                      <div className="flex items-center gap-3 text-red-400">
-                        <Trash2 size={18} />
-                        <span className="font-medium text-sm">{t('spaces.deleteSpace')}</span>
-                      </div>
+                      <Trash2 size={18} />
+                      {t('spaces.deleteSpace')}
                     </button>
                   )}
 
