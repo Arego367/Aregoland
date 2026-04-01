@@ -11,6 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
 import QRCodeSvg from "react-qr-code";
+import ProfileAvatar from "./ProfileAvatar";
 
 // ── Types ──
 
@@ -330,9 +331,10 @@ function getTemplate(id: SpaceTemplate) {
 
 interface SpacesScreenProps {
   onBack: () => void;
+  onOpenProfile: () => void;
 }
 
-export default function SpacesScreen({ onBack }: SpacesScreenProps) {
+export default function SpacesScreen({ onBack, onOpenProfile }: SpacesScreenProps) {
   const { t } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
   const [spaces, setSpaces] = useState<Space[]>(() => applyOrder(loadSpaces()));
@@ -1095,7 +1097,9 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
           <span className="hidden sm:inline">{action.label}</span>
         </button>
       )}
-      <div className="flex-1" />
+      <div className="flex-1 flex justify-end">
+        <ProfileAvatar onClick={onOpenProfile} />
+      </div>
     </header>
   );
 

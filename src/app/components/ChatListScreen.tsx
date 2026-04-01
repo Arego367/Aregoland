@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Settings, Search, User, QrCode, ArrowLeft, Edit2, MessageSquarePlus, X, ChevronRight } from "lucide-react";
+import { Search, ArrowLeft, Edit2, MessageSquarePlus, X, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from 'react-i18next';
 import { ContactDetailModal } from "./ContactDetailModal";
@@ -9,18 +8,7 @@ import { TabManagementModal } from "./TabManagementModal";
 import { Chat } from "@/app/data/mocks";
 import { loadContacts } from "@/app/auth/contacts";
 import { loadPersistedChats } from "@/app/lib/chats";
-
-function loadAvatar(): { avatarBase64: string | null; initials: string } {
-  try {
-    const profile = JSON.parse(localStorage.getItem("arego_profile") ?? "{}");
-    const identity = JSON.parse(localStorage.getItem("aregoland_identity") ?? "{}");
-    const firstName = profile.firstName ?? identity.displayName?.split(" ")[0] ?? "";
-    const lastName = profile.lastName ?? identity.displayName?.split(" ").slice(1).join(" ") ?? "";
-    const i1 = (firstName[0] ?? "").toUpperCase();
-    const i2 = (lastName[0] ?? firstName[1] ?? "").toUpperCase();
-    return { avatarBase64: profile.avatarBase64 ?? null, initials: i1 + i2 };
-  } catch { return { avatarBase64: null, initials: "" }; }
-}
+import ProfileAvatar from "./ProfileAvatar";
 
 interface ChatListScreenProps {
   onOpenProfile: () => void;
@@ -38,16 +26,8 @@ interface ChatListScreenProps {
 
 export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSettings, onBack, tabs, onUpdateTabs, onChatSelect, onNewChat, onlineContacts, chatListVersion }: ChatListScreenProps) {
   const { t } = useTranslation();
-  const [avatar, setAvatar] = useState(loadAvatar);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-
-  useEffect(() => {
-    const refresh = () => setAvatar(loadAvatar());
-    window.addEventListener("storage", refresh);
-    window.addEventListener("arego-profile-updated", refresh);
-    return () => { window.removeEventListener("storage", refresh); window.removeEventListener("arego-profile-updated", refresh); };
-  }, []);
   const [isTabModalOpen, setIsTabModalOpen] = useState(false);
   const [showNewChatSheet, setShowNewChatSheet] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
@@ -128,54 +108,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
             <Search size={20} />
           </button>
           
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <button className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
-                {avatar.avatarBase64 ? (
-                  <img src={avatar.avatarBase64} alt="Profil" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-sm font-bold text-white select-none">{avatar.initials}</span>
-                )}
-              </button>
-            </DropdownMenu.Trigger>
-
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content 
-                className="min-w-[200px] bg-gray-800 rounded-xl shadow-xl p-1.5 border border-gray-700 data-[side=top]:animate-slideDownAndFade data-[side=right]:animate-slideLeftAndFade data-[side=bottom]:animate-slideUpAndFade data-[side=left]:animate-slideRightAndFade z-50 mr-4"
-                sideOffset={5}
-                align="end"
-              >
-                <DropdownMenu.Label className="px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('common.myAccount')}
-                </DropdownMenu.Label>
-                
-                <DropdownMenu.Item 
-                  onClick={onOpenProfile}
-                  className="group flex items-center gap-2 px-2 py-2 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
-                >
-                  <User size={16} />
-                  <span>{t('common.profile')}</span>
-                </DropdownMenu.Item>
-                
-                <DropdownMenu.Item 
-                  onClick={onOpenQRCode}
-                  className="group flex items-center gap-2 px-2 py-2 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
-                >
-                  <QrCode size={16} />
-                  <span>{t('common.qrCode')}</span>
-                </DropdownMenu.Item>
-
-                <DropdownMenu.Item 
-                  onClick={onOpenSettings}
-                  className="group flex items-center gap-2 px-2 py-2 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
-                >
-                  <Settings size={16} />
-                  <span>{t('common.settings')}</span>
-                </DropdownMenu.Item>
-
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
+          <ProfileAvatar onClick={onOpenProfile} />
         </div>
       </header>
 

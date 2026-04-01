@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus } from "lucide-react";
+import ProfileAvatar from "./ProfileAvatar";
 import { motion, AnimatePresence } from "motion/react";
 import type { CalendarEvent } from "@/app/types";
 
@@ -135,9 +136,10 @@ type View = "month" | "week" | "day";
 
 interface CalendarScreenProps {
   onBack: () => void;
+  onOpenProfile: () => void;
 }
 
-export default function CalendarScreen({ onBack }: CalendarScreenProps) {
+export default function CalendarScreen({ onBack, onOpenProfile }: CalendarScreenProps) {
   const { t } = useTranslation();
   const [events, setEvents] = useState<CalendarEvent[]>(loadEvents);
   const [view, setView] = useState<View>("month");
@@ -218,10 +220,11 @@ export default function CalendarScreen({ onBack }: CalendarScreenProps) {
           <CalendarPlus size={18} />
           <span className="hidden sm:inline">{t('calendar.newEvent')}</span>
         </button>
-        <div className="flex items-center flex-1 justify-end">
+        <div className="flex items-center gap-1.5 flex-1 justify-end">
           <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
             {t('calendar.today')}
           </button>
+          <ProfileAvatar onClick={onOpenProfile} />
         </div>
       </header>
 

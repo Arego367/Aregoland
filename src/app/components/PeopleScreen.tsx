@@ -18,9 +18,11 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ContactDetailModal } from "./ContactDetailModal";
 import { Contact, Tab } from "../types";
 import { TabManagementModal } from "./TabManagementModal";
+import ProfileAvatar from "./ProfileAvatar";
 
 interface PeopleScreenProps {
   onBack: () => void;
+  onOpenProfile: () => void;
   onOpenChildProfile: () => void;
   tabs: Tab[];
   onUpdateTabs: (tabs: Tab[]) => void;
@@ -32,7 +34,7 @@ interface PeopleScreenProps {
   onRemoveContact?: (contactId: string) => void;
 }
 
-export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onStartChat, onStartCall, onlineContacts, contactsVersion, onRemoveContact }: PeopleScreenProps) {
+export default function PeopleScreen({ onBack, onOpenProfile, tabs, onUpdateTabs, identity, onStartChat, onStartCall, onlineContacts, contactsVersion, onRemoveContact }: PeopleScreenProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -110,10 +112,11 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
           <UserPlus size={18} />
           <span className="hidden sm:inline">{t('people.newContact')}</span>
         </button>
-        <div className="flex items-center flex-1 justify-end">
+        <div className="flex items-center gap-1.5 flex-1 justify-end">
           <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
             <Search size={20} />
           </button>
+          <ProfileAvatar onClick={onOpenProfile} />
         </div>
       </header>
 
