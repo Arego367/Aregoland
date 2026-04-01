@@ -150,3 +150,12 @@
 - Optional: Foto/Video anhaengen
 - KI sortiert im Hintergrund: Bug/Idee/Lob/Frage
 - Kein Formular, keine Pflichtfelder, keine Kategorieauswahl
+
+### Erweitertes Chunking & P2P Dateiuebertragung (noch nicht implementiert)
+
+- Chunks durchnummeriert mit Selective ACK
+- Empfaenger meldet welche Chunks fehlen → Sender schickt nur fehlende
+- Resume bei Verbindungsabbruch (weitermachen ab letztem bestaetigten Chunk)
+- Multi-Source Download: mehrere Nodes senden gleichzeitig verschiedene Chunks
+- Video Progressive Playback: Video startet waehrend Rest noch laedt
+- Basis fuer Video-Sharing Spaces und Live-Streaming
