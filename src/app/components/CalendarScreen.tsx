@@ -204,26 +204,25 @@ export default function CalendarScreen({ onBack }: CalendarScreenProps) {
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans overflow-hidden">
       {/* Header */}
-      <header className="px-4 pt-4 pb-2 flex items-center gap-3 bg-gray-900 z-20">
-        <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-gray-800 transition-colors">
-          <ArrowLeft size={22} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold truncate">{t('calendar.title')}</h1>
+      <header className="px-4 py-3 flex items-center bg-gray-900 z-20 border-b border-gray-800">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all shrink-0">
+            <ArrowLeft size={22} />
+          </button>
+          <h1 className="text-lg font-bold text-white truncate">{t('calendar.title')}</h1>
         </div>
         <button
-          onClick={goToday}
-          className="px-3 py-1.5 text-xs font-bold rounded-full bg-blue-600 hover:bg-blue-500 transition-colors"
-        >
-          {t('calendar.today')}
-        </button>
-        <button
           onClick={() => { setEditingEvent(null); setShowForm(true); }}
-          className="sm:flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center"
+          className="flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center mx-2 shrink-0"
         >
           <CalendarPlus size={18} />
           <span className="hidden sm:inline">{t('calendar.newEvent')}</span>
         </button>
+        <div className="flex items-center flex-1 justify-end">
+          <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
+            {t('calendar.today')}
+          </button>
+        </div>
       </header>
 
       {/* View Toggle */}

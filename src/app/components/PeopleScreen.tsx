@@ -98,26 +98,21 @@ export default function PeopleScreen({ onBack, tabs, onUpdateTabs, identity, onS
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans overflow-hidden">
       {/* Header */}
-      <header className="px-5 py-4 flex items-center justify-between bg-gray-900/95 backdrop-blur-md sticky top-0 z-20 border-b border-gray-800">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onBack}
-            className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
-          >
-            <ArrowLeft size={24} />
+      <header className="px-4 py-3 flex items-center bg-gray-900/95 backdrop-blur-md sticky top-0 z-20 border-b border-gray-800">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all shrink-0">
+            <ArrowLeft size={22} />
           </button>
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600">
-            {t('people.title')}
-          </h1>
+          <h1 className="text-lg font-bold text-white truncate">{t('people.title')}</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setIsAddContactOpen(true)}
-            className="sm:flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center">
-            <UserPlus size={18} />
-            <span className="hidden sm:inline">{t('people.addNew')}</span>
-          </button>
+        <button onClick={() => setIsAddContactOpen(true)}
+          className="flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center mx-2 shrink-0">
+          <UserPlus size={18} />
+          <span className="hidden sm:inline">{t('people.newContact')}</span>
+        </button>
+        <div className="flex items-center flex-1 justify-end">
           <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
-            <Search size={22} />
+            <Search size={20} />
           </button>
         </div>
       </header>
