@@ -44,6 +44,8 @@
 - **Neuigkeiten**: Beitraege, Filter, Kommentare, RSVP
 - **Chats**: Nur die Liste der vorhandenen Chats (kein Erstellen-Button). Unterraeume als separate Sektion.
   - Gruppen-Chat: Text, Fotos/Bilder (inline), Dateien (Download-Link), Sprachnachrichten (Play/Pause)
+  - Keine Groessenbeschraenkung: Chunked Transfer (64KB Chunks, durchnummeriert)
+  - Fortschrittsbalken bei grossen Dateien, Warnung bei >50MB
   - @Erwaehnung: @ tippen → Mitglieder-Liste, erwaehnte Person bekommt Benachrichtigung
   - Bueroklammer-Icon fuer Fotos & Dateien, Mikrofon-Icon fuer Voice (gedrueckt halten)
 - **Mitglieder**: Nach Rollen gruppiert, Einladen, Rolle aendern

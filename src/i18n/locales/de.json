@@ -583,7 +583,9 @@
     "notif_newMembers": "Neue Mitglieder",
     "notifRecommended": "empfohlen",
     "recording": "Aufnahme l\u00e4uft...",
-    "noMentionResults": "Kein Mitglied gefunden"
+    "noMentionResults": "Kein Mitglied gefunden",
+    "largeFileWarning": "\"{{name}}\" ist {{size}} MB gro\u00df. Das kann etwas dauern.",
+    "sendAnyway": "Trotzdem senden"
   },
   "childProfile": {
     "title": "Kinder-Profile",

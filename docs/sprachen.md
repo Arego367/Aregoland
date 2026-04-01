@@ -68,6 +68,8 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.notifRecommended` | ja | nein | nein |
 | Spaces | `spaces.recording` | ja | nein | nein |
 | Spaces | `spaces.noMentionResults` | ja | nein | nein |
+| Spaces | `spaces.largeFileWarning` | ja | nein | nein |
+| Spaces | `spaces.sendAnyway` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 

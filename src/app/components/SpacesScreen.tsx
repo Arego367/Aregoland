@@ -368,6 +368,8 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
   const [showMentions, setShowMentions] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
+  const [uploadProgress, setUploadProgress] = useState<{ msgId: string; percent: number; fileName: string } | null>(null);
+  const [showLargeFileWarning, setShowLargeFileWarning] = useState<File | null>(null);
 
   // Subrooms
   const [showCreateSubroom, setShowCreateSubroom] = useState(false);
@@ -704,24 +706,72 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
     }
   };
 
-  const handleSendFile = (file: File, type: "image" | "file") => {
-    if (!openChannel || !identity) return;
+  const CHUNK_SIZE = 64 * 1024; // 64KB per chunk
+
+  const handleSendFile = async (file: File, type: "image" | "file") => {
+    if (!openChannel || !identity || !wsRef.current) return;
+    const msgId = `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    setUploadProgress({ msgId, percent: 0, fileName: file.name });
+
+    // Read file as ArrayBuffer
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+
+    // Send chunks
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const chunk = bytes.slice(start, start + CHUNK_SIZE);
+      // Convert chunk to base64
+      const b64 = btoa(Array.from(chunk, b => String.fromCharCode(b)).join(""));
+
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: "space-chat-chunk",
+          msgId,
+          channelId: openChannel.id,
+          chunkIndex: i,
+          totalChunks,
+          data: b64,
+          // Metadata only on first chunk
+          ...(i === 0 ? { fileName: file.name, fileMime: file.type, msgType: type, authorId: identity.aregoId, authorName: identity.displayName } : {}),
+        }));
+      }
+
+      setUploadProgress({ msgId, percent: Math.round(((i + 1) / totalChunks) * 100), fileName: file.name });
+      // Small delay to avoid flooding WebSocket
+      if (totalChunks > 10 && i < totalChunks - 1) {
+        await new Promise(r => setTimeout(r, 5));
+      }
+    }
+
+    // Also read as dataURL for local display + storage
     const reader = new FileReader();
     reader.onload = () => {
-      const base64 = reader.result as string;
       const msg: SpaceChatMessage = {
-        id: `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+        id: msgId,
         channelId: openChannel.id,
         authorId: identity.aregoId,
         authorName: identity.displayName,
         text: "",
         timestamp: new Date().toISOString(),
         type,
-        fileData: base64,
+        fileData: reader.result as string,
         fileName: file.name,
         fileMime: file.type,
       };
-      sendSpaceChatMsg(msg);
+      saveSpaceChatMessage(openChannel.id, msg);
+      setChatMessages(prev => [...prev, msg]);
+      const preview = type === "image" ? "[Bild]" : `[${file.name}]`;
+      if (selectedSpace) {
+        updateSpace({
+          ...selectedSpace,
+          channels: selectedSpace.channels.map(ch =>
+            ch.id === openChannel.id ? { ...ch, lastMessage: preview, lastMessageTime: msg.timestamp } : ch
+          ),
+        });
+      }
+      setUploadProgress(null);
     };
     reader.readAsDataURL(file);
   };
@@ -729,9 +779,22 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
+    // Warn for files >50MB
+    if (file.size > 50 * 1024 * 1024) {
+      setShowLargeFileWarning(file);
+      return;
+    }
     const isImage = file.type.startsWith("image/");
     handleSendFile(file, isImage ? "image" : "file");
-    e.target.value = "";
+  };
+
+  const confirmLargeFile = () => {
+    if (!showLargeFileWarning) return;
+    const file = showLargeFileWarning;
+    setShowLargeFileWarning(null);
+    const isImage = file.type.startsWith("image/");
+    handleSendFile(file, isImage ? "image" : "file");
   };
 
   const startRecording = async () => {
@@ -1562,6 +1625,29 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                             )}
                           </div>
                         )}
+                        {/* Large file warning */}
+                        {showLargeFileWarning && (
+                          <div className="px-4 py-3 bg-yellow-500/10 border-b border-yellow-500/20 space-y-2">
+                            <p className="text-xs text-yellow-300">{t('spaces.largeFileWarning', { name: showLargeFileWarning.name, size: (showLargeFileWarning.size / (1024 * 1024)).toFixed(0) })}</p>
+                            <div className="flex gap-2">
+                              <button onClick={confirmLargeFile} className="flex-1 py-1.5 bg-yellow-500/20 text-yellow-300 text-xs font-medium rounded-lg hover:bg-yellow-500/30 transition-colors">{t('spaces.sendAnyway')}</button>
+                              <button onClick={() => setShowLargeFileWarning(null)} className="flex-1 py-1.5 bg-gray-800 text-gray-400 text-xs font-medium rounded-lg hover:bg-gray-700 transition-colors">{t('common.cancel')}</button>
+                            </div>
+                          </div>
+                        )}
+                        {/* Upload progress */}
+                        {uploadProgress && (
+                          <div className="px-4 py-2 border-b border-gray-700/50">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Paperclip size={12} className="text-blue-400 shrink-0" />
+                              <span className="text-[11px] text-gray-400 truncate flex-1">{uploadProgress.fileName}</span>
+                              <span className="text-[11px] text-blue-400 font-medium shrink-0">{uploadProgress.percent}%</span>
+                            </div>
+                            <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+                              <div className="h-1 bg-blue-500 rounded-full transition-all duration-150" style={{ width: `${uploadProgress.percent}%` }} />
+                            </div>
+                          </div>
+                        )}
                         {/* Recording indicator */}
                         {isRecording && (
                           <div className="px-4 py-2 flex items-center gap-2 bg-red-500/10 border-b border-red-500/20">
@@ -1576,7 +1662,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                         {!isRecording && (
                           <div className="px-4 py-3">
                             <div className="flex items-center gap-1.5">
-                              <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
+                              <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
                               <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-gray-300 hover:bg-white/5 rounded-lg transition-all">
                                 <Paperclip size={18} />
                               </button>
