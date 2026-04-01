@@ -595,7 +595,11 @@
     "mobileDataDetected": "Du bist mit mobilen Daten verbunden. Netzwerk-Helfer wurde deaktiviert um dein Datenvolumen zu schonen. Aktiviere \"Mobile Daten nutzen\" wenn du eine Flat hast.",
     "createSpaceInfo": "Aregoland speichert nichts. Keine Nachrichten, keine Dateien, keine Daten auf unseren Servern. Alles l\u00e4uft direkt zwischen euren Ger\u00e4ten. Netzwerk-Helfer in deinem Space teilen ihre Bandbreite \u2014 je mehr dabei sind, desto schneller und stabiler wird alles.",
     "networkHelperRoleHint": "Mitglieder dieser Rolle k\u00f6nnen freiwillig als Netzwerk-Helfer beitreten. Sie teilen etwas Bandbreite damit andere Mitglieder schneller und stabiler verbunden sind. Bei 10.000 Mitarbeitern in einem Unternehmen bedeutet das: blitzschnell, 24/7 verf\u00fcgbar, ohne einen einzigen Server von uns.",
-    "networkHelperProfileHint": "Als Netzwerk-Helfer hilfst du anderen Mitgliedern direkt verbunden zu bleiben. Deine Nachrichten und Dateien sieht dabei niemand \u2014 alles bleibt verschl\u00fcsselt."
+    "networkHelperProfileHint": "Als Netzwerk-Helfer hilfst du anderen Mitgliedern direkt verbunden zu bleiben. Deine Nachrichten und Dateien sieht dabei niemand \u2014 alles bleibt verschl\u00fcsselt.",
+    "guestHint": "Gast = Standard f\u00fcr alle ohne zugewiesene Rolle",
+    "chatMembersVisible": "Mitglieder sehen sich gegenseitig",
+    "guestDefault": "Standard",
+    "guestRoleHint": "Gast ist die Standard-Rolle f\u00fcr alle die dem Space beigetreten sind ohne eine Rolle zugewiesen zu bekommen."
   },
   "childProfile": {
     "title": "Kinder-Profile",

@@ -70,8 +70,9 @@ interface SpaceChannel {
   spaceId: string;
   name: string;
   isGlobal: boolean; // Globaler Chat — nur Admin/Moderator/Founder kann schreiben
-  readRoles: SpaceRole[];  // Wer darf lesen
-  writeRoles: SpaceRole[]; // Wer darf schreiben
+  readRoles: (SpaceRole | string)[];  // Wer darf lesen (built-in + custom role names)
+  writeRoles: (SpaceRole | string)[]; // Wer darf schreiben
+  membersVisible: boolean; // Mitglieder sehen sich gegenseitig in diesem Chat
   createdAt: string;
   lastMessage?: string;
   lastMessageTime?: string;
@@ -114,6 +115,7 @@ interface Space {
   channels: SpaceChannel[];
   subrooms: SpaceSubroom[];
   customRoles: CustomRole[];
+  guestPermissions: { readChats: boolean; writeChats: boolean; createEvents: boolean; postNews: boolean; inviteMembers: boolean; allowNetworkHelper: boolean };
   createdAt: string;
   settings: {
     membersVisible: boolean;
@@ -137,6 +139,7 @@ function loadSpaces(): Space[] {
       channels: s.channels ?? [],
       subrooms: s.subrooms ?? [],
       customRoles: s.customRoles ?? [],
+      guestPermissions: s.guestPermissions ?? { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
     }));
   }
   catch { return []; }
@@ -172,6 +175,7 @@ function createGlobalChannel(spaceId: string): SpaceChannel {
     isGlobal: true,
     readRoles: ["founder", "admin", "moderator", "member", "guest"],
     writeRoles: ["founder", "admin", "moderator"],
+    membersVisible: true,
     createdAt: new Date().toISOString(),
     unreadCount: 0,
   };
@@ -354,8 +358,9 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   // Chats
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [channelName, setChannelName] = useState("");
-  const [channelWriteRoles, setChannelWriteRoles] = useState<Set<SpaceRole>>(new Set(["moderator", "member"]));
-  const [channelReadRoles, setChannelReadRoles] = useState<Set<SpaceRole>>(new Set(["moderator", "member", "guest"]));
+  const [channelWriteRoles, setChannelWriteRoles] = useState<Set<string>>(new Set(["moderator", "member"]));
+  const [channelReadRoles, setChannelReadRoles] = useState<Set<string>>(new Set(["moderator", "member"]));
+  const [channelMembersVisible, setChannelMembersVisible] = useState(true);
   const [openChannel, setOpenChannel] = useState<SpaceChannel | null>(null);
   const [chatMessages, setChatMessages] = useState<SpaceChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -426,6 +431,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
       channels: [globalChannel],
       subrooms: [],
       customRoles: [],
+      guestPermissions: { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
       createdAt: new Date().toISOString(),
       settings: { ...tmpl.defaultSettings },
     };
@@ -892,6 +898,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
       isGlobal: false,
       readRoles: ["founder", "admin", ...Array.from(channelReadRoles)],
       writeRoles: ["founder", "admin", ...Array.from(channelWriteRoles)],
+      membersVisible: channelMembersVisible,
       createdAt: new Date().toISOString(),
       unreadCount: 0,
     };
@@ -902,7 +909,8 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
     updateSpace(updated);
     setChannelName("");
     setChannelWriteRoles(new Set(["moderator", "member"]));
-    setChannelReadRoles(new Set(["moderator", "member", "guest"]));
+    setChannelReadRoles(new Set(["moderator", "member"]));
+    setChannelMembersVisible(true);
     setShowCreateChannel(false);
   };
 
@@ -2091,31 +2099,52 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                               </div>
                               <input type="text" value={channelName} onChange={e => setChannelName(e.target.value)} placeholder={t('spaces.chatNamePlaceholder')} autoFocus
                                 className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
-                              <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-gray-400">{t('spaces.writeAccess')}</label>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {(["moderator", "member", "guest"] as SpaceRole[]).map(r => (
-                                    <button key={r}
-                                      onClick={() => setChannelWriteRoles(prev => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n; })}
-                                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelWriteRoles.has(r) ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current` : "bg-gray-800 text-gray-600"}`}>
-                                      {t(`spaces.role_${r}`)}
-                                    </button>
-                                  ))}
-                                </div>
-                                <p className="text-[10px] text-gray-600 px-0.5">{t('spaces.adminAlwaysAccess')}</p>
-                              </div>
-                              <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-gray-400">{t('spaces.readAccess')}</label>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {(["moderator", "member", "guest"] as SpaceRole[]).map(r => (
-                                    <button key={r}
-                                      onClick={() => setChannelReadRoles(prev => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n; })}
-                                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelReadRoles.has(r) ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current` : "bg-gray-800 text-gray-600"}`}>
-                                      {t(`spaces.role_${r}`)}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
+                              {(() => {
+                                // Build role list: built-in (moderator, member) + all custom roles
+                                const allRoles: { id: string; label: string; color: string }[] = [
+                                  { id: "moderator", label: t('spaces.role_moderator'), color: ROLE_COLORS.moderator.text },
+                                  { id: "member", label: t('spaces.role_member'), color: ROLE_COLORS.member.text },
+                                  ...(selectedSpace.customRoles ?? []).map(cr => ({ id: cr.name, label: cr.name, color: "" })),
+                                ];
+                                return (
+                                  <>
+                                    <div className="space-y-1.5">
+                                      <label className="text-xs font-medium text-gray-400">{t('spaces.writeAccess')}</label>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {allRoles.map(r => (
+                                          <button key={r.id}
+                                            onClick={() => setChannelWriteRoles(prev => { const n = new Set(prev); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; })}
+                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelWriteRoles.has(r.id) ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-600"}`}>
+                                            {r.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                      <p className="text-[10px] text-gray-600 px-0.5">{t('spaces.adminAlwaysAccess')}</p>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <label className="text-xs font-medium text-gray-400">{t('spaces.readAccess')}</label>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {allRoles.map(r => (
+                                          <button key={r.id}
+                                            onClick={() => setChannelReadRoles(prev => { const n = new Set(prev); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; })}
+                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelReadRoles.has(r.id) ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-600"}`}>
+                                            {r.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 px-0.5">{t('spaces.guestHint')}</p>
+                                    </div>
+                                    {/* Mitglieder sichtbar Toggle */}
+                                    <div className="flex items-center justify-between p-2.5 bg-gray-900/30 rounded-lg">
+                                      <span className="text-xs text-gray-300">{t('spaces.chatMembersVisible')}</span>
+                                      <button onClick={() => setChannelMembersVisible(!channelMembersVisible)}
+                                        className={`w-9 h-5 rounded-full transition-colors relative ${channelMembersVisible ? "bg-blue-600" : "bg-gray-700"}`}>
+                                        <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${channelMembersVisible ? "translate-x-4" : "translate-x-0.5"}`} />
+                                      </button>
+                                    </div>
+                                  </>
+                                );
+                              })()}
                               <button onClick={handleCreateChannel} disabled={!channelName.trim()}
                                 className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
                                 {t('spaces.createChat')}
@@ -2246,6 +2275,36 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                           </button>
                         </div>
                       )}
+
+                      {/* Gast-Rolle — immer am Ende, nicht löschbar */}
+                      <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-gray-600" />
+                          <span className="text-sm font-medium text-gray-400">{t('spaces.role_guest')}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-500 ml-auto">{t('spaces.guestDefault')}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {(["readChats", "writeChats", "createEvents", "postNews", "inviteMembers"] as const).map(perm => {
+                            const disabled = perm === "writeChats" && !selectedSpace.guestPermissions.readChats;
+                            const active = disabled ? false : selectedSpace.guestPermissions[perm];
+                            return (
+                              <button key={perm} disabled={disabled}
+                                onClick={() => {
+                                  const gp = { ...selectedSpace.guestPermissions, [perm]: !selectedSpace.guestPermissions[perm] };
+                                  if (perm === "readChats" && !gp.readChats) gp.writeChats = false;
+                                  updateSpace({ ...selectedSpace, guestPermissions: gp });
+                                }}
+                                className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors ${disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-800/50"} bg-gray-900/30`}>
+                                <span className="text-[11px] text-gray-400">{t(`spaces.perm_${perm}`)}</span>
+                                <div className={`w-8 h-5 rounded-full transition-colors relative ${active ? "bg-blue-600" : "bg-gray-700"}`}>
+                                  <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${active ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10px] text-gray-600 px-0.5 leading-relaxed">{t('spaces.guestRoleHint')}</p>
+                      </div>
                     </div>
                   )}
 

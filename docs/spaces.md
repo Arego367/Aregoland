@@ -35,7 +35,11 @@
 - QR-Code Einladung mit Ablaufzeit
 - Globaler Chat: nur Admins/Moderatoren koennen posten
 - Bei Space-Erstellung: Info-Box erklaert Privacy + Netzwerk-Helfer Prinzip
-- **Chats verwalten**: Chat erstellen (Name + Rollen-Zugriffsrechte), Chats loeschen
+- **Chats verwalten**: Chat erstellen (Name + Rollen-Zugriffsrechte + Sichtbarkeit), Chats loeschen
+  - Rollen-Auswahl: Moderator, Mitglied + alle eigenen Rollen (dynamisch geladen)
+  - Gast erscheint nicht als Rolle sondern als Hinweis: "Gast = Standard fuer alle ohne zugewiesene Rolle"
+  - Toggle "Mitglieder sehen sich gegenseitig in diesem Chat" (Standard: AN)
+  - Founder & Admin haben immer vollen Zugriff
 - **Rollen & Rechte**: Eigene Rollen erstellen (Name + Farbe + Rechte)
   - Rechte pro Rolle:
     - Chats lesen (Voraussetzung fuer Chats schreiben)
@@ -46,7 +50,9 @@
     - Netzwerk-Helfer erlauben (bei Aktivierung: Erklaerungstext fuer Admin)
   - Rechte-Abhaengigkeit: kein Lesen = kein Schreiben (automatisch deaktiviert + ausgegraut)
   - Founder & Admin haben immer vollen Zugriff (nicht konfigurierbar)
-  - Chat-Erstellen Rollen-Auswahl zeigt nur Moderator/Mitglied/Gast
+  - **Gast-Rolle** am Ende der Liste: nicht loeschbar, Rechte vom Admin anpassbar
+    - Hinweis: "Gast ist die Standard-Rolle fuer alle ohne zugewiesene Rolle"
+    - guestPermissions im Space-Objekt gespeichert
 
 ## Tabs
 
