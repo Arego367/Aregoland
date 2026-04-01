@@ -121,3 +121,34 @@ Belohnungsstufen:
 - Gesamt: ~30-70 Euro/Monat
 
 Break-even: ~100 zahlende Nutzer decken alles.
+
+## eID Integration
+
+### AusweisIDent von Governikus (bevorzugt)
+- Anbieter: Governikus GmbH, Bremen
+- Produkt: AusweisIDent Online
+- Kein eigenes Berechtigungszertifikat noetig
+- Einfache API-Integration (Standardschnittstellen)
+- Preismodell: Setup-Gebuehr (einmalig) + Jahrespauschale + pro Transaktion
+- Paket S: fuer kleine Startups zum Einstieg
+- KOSTENLOSER TEST: AusweisIDent Easy — 100 Testzugaenge, keine Vertragsbindung
+  → Anfragen ueber ausweisident.de
+
+### Postident (Fallback fuer Rentner/ohne NFC)
+- Deutsche Post API
+- Fuer Nutzer ohne NFC-Handy oder ohne eID-PIN
+- Wichtig fuer Barrierefreiheit und aeltere Nutzer
+
+### EUDI Wallet (2027)
+- EU-Verpflichtung: Ende 2026, Deutschland Anfang 2027
+- Governikus baut bereits technische Bruecke eID → EUDI Wallet
+- AusweisIDent heute einbauen = EUDI Wallet automatisch kompatibel
+- Wallet kann: Identifikation, Authentifizierung, Unterschreiben, Bezahlen
+- Fuer Aregoland: Pay-Modul + eID + EUDI Wallet = eine Infrastruktur
+
+### Fahrplan eID + Pay
+1. Jetzt: AusweisIDent Easy kostenlos testen
+2. Paket S anfragen als Startup
+3. eID in Aregoland integrieren (CC Aufgabe)
+4. Stripe fuer Zahlungen parallel einbauen
+5. 2027: EUDI Wallet als Upgrade — nahtlos
