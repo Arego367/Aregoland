@@ -540,6 +540,7 @@
     "ttl_unlimited": "Unbegrenzt",
     "ttl_custom": "Eigene Dauer",
     "ttlDays": "Tage",
+    "ttlHours": "Stunden",
     "ttlMaxForRole": "Max. 30 Tage f\u00fcr diese Rolle",
     "createChat": "Chat erstellen",
     "chatNamePlaceholder": "Chat-Name eingeben",

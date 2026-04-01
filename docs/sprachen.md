@@ -38,7 +38,7 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 
 | Komponente | Key | DE | EN | LT |
 |------------|-----|----|----|-----|
-| *(keine ausstehenden)* | | | | |
+| Spaces | `spaces.ttlHours` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 

@@ -307,16 +307,23 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   // Invite
   const [inviteRole, setInviteRole] = useState<SpaceRole>("member");
   const [inviteTtlId, setInviteTtlId] = useState("24h");
-  const [customTtlDays, setCustomTtlDays] = useState("14");
+  const [customTtlValue, setCustomTtlValue] = useState("14");
+  const [customTtlUnit, setCustomTtlUnit] = useState<"hours" | "days">("days");
   const [inviteEncoded, setInviteEncoded] = useState("");
 
   const getInviteTtlMs = () => {
-    if (inviteTtlId === "custom") return parseInt(customTtlDays || "1") * 24 * 60 * 60 * 1000;
+    if (inviteTtlId === "custom") {
+      const val = parseInt(customTtlValue || "1");
+      return customTtlUnit === "hours" ? val * 60 * 60 * 1000 : val * 24 * 60 * 60 * 1000;
+    }
     return INVITE_TTLS.find(t => t.id === inviteTtlId)?.ms ?? 24 * 60 * 60 * 1000;
   };
 
   const getInviteTtlLabel = () => {
-    if (inviteTtlId === "custom") return `${customTtlDays || "1"} ${t('spaces.ttlDays')}`;
+    if (inviteTtlId === "custom") {
+      const val = customTtlValue || "1";
+      return `${val} ${customTtlUnit === "hours" ? t('spaces.ttlHours') : t('spaces.ttlDays')}`;
+    }
     return t(`spaces.ttl_${inviteTtlId}`);
   };
 
@@ -436,7 +443,9 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
     if (isHighRole(r) && (oldId === "unlimited")) finalTtlId = "30d";
     if (ttlId !== finalTtlId) setInviteTtlId(finalTtlId);
     const ms = finalTtlId === "custom"
-      ? parseInt(customTtlDays || "1") * 24 * 60 * 60 * 1000
+      ? (customTtlUnit === "hours"
+          ? parseInt(customTtlValue || "1") * 60 * 60 * 1000
+          : parseInt(customTtlValue || "1") * 24 * 60 * 60 * 1000)
       : INVITE_TTLS.find(t => t.id === finalTtlId)?.ms ?? 24 * 60 * 60 * 1000;
     setInviteEncoded(createInvitePayload(selectedSpace, r, ms));
   };
@@ -1752,118 +1761,111 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         {renderHeader(t('spaces.inviteMember'), () => { setView("detail"); setActiveTab("members"); })}
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-6">
+          <div className="space-y-4">
 
-            {/* Space info */}
-            <div className="flex items-center gap-3 bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
-              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${selectedSpace.color} flex items-center justify-center`}>
-                <tmpl.icon size={18} className="text-white" />
+            {/* Space info — compact */}
+            <div className="flex items-center gap-3 bg-gray-800/50 border border-gray-700/50 rounded-xl p-2.5">
+              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${selectedSpace.color} flex items-center justify-center`}>
+                <tmpl.icon size={14} className="text-white" />
               </div>
-              <div>
-                <div className="text-sm font-bold">{selectedSpace.name}</div>
-                <div className="text-xs text-gray-500">{selectedSpace.members.length} {t('spaces.members')}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold truncate">{selectedSpace.name}</div>
+              </div>
+              <span className="text-xs text-gray-500">{selectedSpace.members.length} {t('spaces.members')}</span>
+            </div>
+
+            {/* Role + TTL — two dropdowns side by side */}
+            <div className="flex gap-3">
+              {/* Role dropdown */}
+              <div className="flex-1 space-y-1.5">
+                <label className="text-xs font-medium text-gray-400 px-1">{t('spaces.inviteAs')}</label>
+                <select
+                  value={inviteRole}
+                  onChange={e => { const r = e.target.value as SpaceRole; setInviteRole(r); regenerateInvite(r); }}
+                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}
+                >
+                  {INVITABLE_ROLES.map(({ role }) => (
+                    <option key={role} value={role}>{t(`spaces.role_${role}`)}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* TTL dropdown */}
+              <div className="flex-1 space-y-1.5">
+                <label className="text-xs font-medium text-gray-400 px-1">{t('spaces.inviteTtl')}</label>
+                <select
+                  value={inviteTtlId}
+                  onChange={e => {
+                    const id = e.target.value;
+                    // Enforce max 30d for admin/moderator
+                    if (id === "unlimited" && isHighRole(inviteRole)) return;
+                    setInviteTtlId(id);
+                    if (id !== "custom") regenerateInvite(undefined, id);
+                  }}
+                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}
+                >
+                  {INVITE_TTLS.map(ttl => {
+                    const disabled = ttl.id === "unlimited" && isHighRole(inviteRole);
+                    return (
+                      <option key={ttl.id} value={ttl.id} disabled={disabled}>
+                        {t(`spaces.ttl_${ttl.id}`)}{disabled ? ` (${t('spaces.ttlMaxForRole')})` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
             </div>
 
-            {/* Role selector — radio list */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400 px-1">{t('spaces.inviteAs')}</label>
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
-                {INVITABLE_ROLES.map(({ role, descKey }) => (
-                  <button
-                    key={role}
-                    onClick={() => { setInviteRole(role); regenerateInvite(role); }}
-                    className={`w-full flex items-center gap-3 p-4 transition-colors border-b border-gray-700/50 last:border-0 text-left ${
-                      inviteRole === role ? "bg-blue-900/20" : "hover:bg-gray-800"
-                    }`}
-                  >
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      inviteRole === role ? "border-blue-500 bg-blue-500" : "border-gray-600"
-                    }`}>
-                      {inviteRole === role && <div className="w-2 h-2 rounded-full bg-white" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-medium ${inviteRole === role ? "text-blue-400" : "text-white"}`}>{t(`spaces.role_${role}`)}</div>
-                      <div className="text-xs text-gray-500">{t(`spaces.${descKey}`)}</div>
-                    </div>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${ROLE_COLORS[role].bg} ${ROLE_COLORS[role].text}`}>
-                      {t(`spaces.role_${role}`)}
-                    </span>
-                  </button>
-                ))}
+            {/* Custom TTL — inline: number + unit dropdown */}
+            {inviteTtlId === "custom" && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={customTtlUnit === "hours" ? 720 : 365}
+                  value={customTtlValue}
+                  onChange={e => setCustomTtlValue(e.target.value)}
+                  onBlur={() => regenerateInvite(undefined, "custom")}
+                  className="w-20 bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white text-center focus:outline-none focus:border-blue-500 transition-all"
+                />
+                <select
+                  value={customTtlUnit}
+                  onChange={e => { setCustomTtlUnit(e.target.value as "hours" | "days"); setTimeout(() => regenerateInvite(undefined, "custom"), 0); }}
+                  className="bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: "32px" }}
+                >
+                  <option value="hours">{t('spaces.ttlHours')}</option>
+                  <option value="days">{t('spaces.ttlDays')}</option>
+                </select>
               </div>
-            </div>
+            )}
 
-            {/* TTL selector — radio list */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400 px-1">{t('spaces.inviteTtl')}</label>
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
-                {INVITE_TTLS.map(ttl => {
-                  const disabled = ttl.id === "unlimited" && isHighRole(inviteRole);
-                  const isCustom = ttl.id === "custom";
-                  return (
-                    <div key={ttl.id} className={`border-b border-gray-700/50 last:border-0 ${disabled ? "opacity-40" : ""}`}>
-                      <button
-                        disabled={disabled}
-                        onClick={() => {
-                          if (disabled) return;
-                          setInviteTtlId(ttl.id);
-                          if (!isCustom) regenerateInvite(undefined, ttl.id);
-                        }}
-                        className={`w-full flex items-center gap-3 p-4 transition-colors text-left ${
-                          inviteTtlId === ttl.id ? "bg-blue-900/20" : "hover:bg-gray-800"
-                        } ${disabled ? "cursor-not-allowed" : ""}`}
-                      >
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                          inviteTtlId === ttl.id ? "border-blue-500 bg-blue-500" : "border-gray-600"
-                        }`}>
-                          {inviteTtlId === ttl.id && <div className="w-2 h-2 rounded-full bg-white" />}
-                        </div>
-                        <div className="flex-1">
-                          <span className={`text-sm ${inviteTtlId === ttl.id ? "text-blue-400 font-medium" : "text-white"}`}>
-                            {t(`spaces.ttl_${ttl.id}`)}
-                          </span>
-                          {disabled && <span className="text-xs text-gray-600 ml-2">({t('spaces.ttlMaxForRole')})</span>}
-                        </div>
-                      </button>
-                      {/* Custom input */}
-                      {isCustom && inviteTtlId === "custom" && (
-                        <div className="px-4 pb-3 flex items-center gap-2">
-                          <input
-                            type="number"
-                            min={1}
-                            max={365}
-                            value={customTtlDays}
-                            onChange={e => { setCustomTtlDays(e.target.value); }}
-                            onBlur={() => regenerateInvite(undefined, "custom")}
-                            className="w-20 bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white text-center focus:outline-none focus:border-blue-500 transition-all"
-                          />
-                          <span className="text-sm text-gray-400">{t('spaces.ttlDays')}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+            {/* High role warning */}
+            {isHighRole(inviteRole) && (
+              <div className="text-[11px] text-yellow-400/70 px-1">
+                {t('spaces.ttlMaxForRole')}
               </div>
-            </div>
+            )}
 
             {/* QR Code */}
             {inviteEncoded && (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="bg-white p-5 rounded-2xl shadow-xl">
-                  <QRCodeSvg value={inviteEncoded} size={220} bgColor="#fff" fgColor="#111827" />
+              <div className="flex flex-col items-center space-y-3">
+                <div className="bg-white p-4 rounded-2xl shadow-xl">
+                  <QRCodeSvg value={inviteEncoded} size={200} bgColor="#fff" fgColor="#111827" />
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <Clock size={14} />
+                  <Clock size={12} />
                   <span>{t('spaces.inviteValidFor', { time: getInviteTtlLabel() })}</span>
                 </div>
               </div>
             )}
 
-            {/* Beitritts-Hinweis Preview */}
-            <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 space-y-2">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t('spaces.joinPreview')}</p>
-              <div className="text-sm text-gray-300 space-y-1">
+            {/* Beitritts-Hinweis — compact */}
+            <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">{t('spaces.joinPreview')}</p>
+              <div className="text-xs text-gray-300 space-y-0.5">
                 <p>• {t('spaces.joinAs', { role: t(`spaces.role_${inviteRole}`) })}</p>
                 {selectedSpace.settings.idVerification && <p>• {t('spaces.joinIdRequired')}</p>}
                 {selectedSpace.identityRule === "real_name" && <p>• {t('spaces.joinRealName')}</p>}
@@ -1882,9 +1884,9 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                   await navigator.clipboard.writeText(inviteEncoded);
                 }
               }}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2"
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
             >
-              <Share2 size={20} />
+              <Share2 size={18} />
               {t('common.share')}
             </button>
 
