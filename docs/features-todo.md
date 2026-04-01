@@ -70,14 +70,23 @@
 - Warnung wenn Speicher knapp wird
 - Automatische Bereinigung mit Nutzer-Zustimmung
 
-### KI-Support in Hilfe & Support (noch nicht implementiert)
+### Offizieller "Arego" System-Chat (noch nicht implementiert)
 
-- Voraussetzung: Server-Upgrade auf mind. 8GB RAM
-- Ollama mit llama3.2:3b oder phi3:mini lokal auf Server
-- Chat-UI in Hilfe & Support
-- Aregoland-Dokumentation als Kontext
-- Klassifizierung: Bug / Feedback / Frage / Kritik
-- Keine personenbezogenen Daten in Konversationen
+- Automatisch bei jedem Nutzer als erster Chat vorhanden
+- Angepinnt, nicht loeschbar, nicht stummschaltbar
+- Aregoland postet Updates, Neuigkeiten, Patch-Notes
+- Nutzer chattet direkt mit KI: Feedback, Support, Fragen — alles in einem
+- Ersetzt separaten Feedback-Button + KI-Support in Hilfe & Support komplett
+- KI antwortet intelligent (siehe Intelligentes Feedback-System unten)
+- Voraussetzung: Server-Upgrade auf mind. 8GB RAM, Ollama lokal
+
+### Angepinnte Chats (noch nicht implementiert)
+
+- Langer Druck auf Chat in ChatListScreen → Kontextmenue → "Anpinnen"
+- Angepinnte Chats immer oben in der Liste mit Pin-Icon
+- Arego System-Chat automatisch angepinnt
+- Reihenfolge der angepinnten Chats anpassbar
+- In localStorage gespeichert (`aregoland_pinned_chats`)
 
 ### Verifizierungs-Filter (noch nicht implementiert)
 
@@ -141,9 +150,9 @@
 - Spaces beigetreten
 - Fuer Spaces: anonyme Space-Statistiken fuer Admin (keine Namen)
 
-### Intelligentes Feedback-System (noch nicht implementiert, ersetzt aktuellen Feedback-Button)
+### Intelligentes Feedback-System (Teil des Arego System-Chats)
 
-- Chat-aehnlicher Flow mit KI (kein Formular)
+- Laeuft innerhalb des "Arego" System-Chats (kein separater Bereich)
 - Nutzer schreibt Text ODER sendet Voice-Nachricht frei
 - Optional: Foto/Video anhaengen
 - KI fragt am Ende: "Darf ich deine Geraeteinfos haben?" → Ja/Nein
