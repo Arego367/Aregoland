@@ -383,6 +383,25 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const [subroomMemberIds, setSubroomMemberIds] = useState<Set<string>>(new Set());
   const [openSubroom, setOpenSubroom] = useState<SpaceSubroom | null>(null);
 
+  // Overview layout
+  type WidgetId = "announcements" | "stats" | "events" | "pinned" | "activeChats" | "membersOnline";
+  const DEFAULT_WIDGETS: { id: WidgetId; visible: boolean }[] = [
+    { id: "pinned", visible: true },
+    { id: "announcements", visible: true },
+    { id: "stats", visible: true },
+    { id: "events", visible: true },
+    { id: "activeChats", visible: true },
+    { id: "membersOnline", visible: true },
+  ];
+  const [editingLayout, setEditingLayout] = useState(false);
+  const loadLayout = (spaceId: string) => {
+    try { const raw = localStorage.getItem(`aregoland_space_layout_${spaceId}`); return raw ? JSON.parse(raw) as typeof DEFAULT_WIDGETS : DEFAULT_WIDGETS; }
+    catch { return DEFAULT_WIDGETS; }
+  };
+  const saveLayout = (spaceId: string, layout: typeof DEFAULT_WIDGETS) => {
+    localStorage.setItem(`aregoland_space_layout_${spaceId}`, JSON.stringify(layout));
+  };
+
   // Custom Roles
   const [showCreateRole, setShowCreateRole] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
@@ -1246,59 +1265,167 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
               const isAdmin = myRole === "founder" || myRole === "admin";
               const pinnedPosts = (selectedSpace.posts ?? []).filter(p => p.pinned).slice(0, 2);
               const recentAnnouncements = (selectedSpace.posts ?? []).filter(p => p.badge === "announcement").slice(0, 3);
+              const upcomingEvents = (selectedSpace.posts ?? []).filter(p => p.badge === "event" && p.eventDate && p.eventDate >= new Date().toISOString().slice(0, 10)).slice(0, 3);
+              const layout = loadLayout(selectedSpace.id);
+
+              const renderWidget = (id: WidgetId) => {
+                switch (id) {
+                  case "pinned":
+                    return pinnedPosts.length > 0 ? (
+                      <div key={id} className="space-y-2">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Pin size={12} /> {t('spaces.pinnedPosts')}</h3>
+                        {pinnedPosts.map(p => (
+                          <button key={p.id} onClick={() => { setActiveTab("news"); setNewsFilter("all"); }} className="w-full bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 text-left hover:bg-yellow-500/15 transition-colors">
+                            <div className="text-sm font-bold text-yellow-300">{p.title}</div>
+                            <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{p.text}</div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null;
+                  case "announcements":
+                    return recentAnnouncements.length > 0 ? (
+                      <div key={id} className="space-y-2">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Megaphone size={12} /> {t('spaces.recentAnnouncements')}</h3>
+                        {recentAnnouncements.map(p => (
+                          <div key={p.id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                            <div className="text-sm font-medium">{p.title}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{p.authorName} · {new Date(p.createdAt).toLocaleDateString()}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  case "stats":
+                    return isAdmin ? (
+                      <div key={id} className="grid grid-cols-3 gap-2">
+                        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
+                          <div className="text-lg font-bold text-blue-400">{selectedSpace.members.length}</div>
+                          <div className="text-xs text-gray-500">{t('spaces.members')}</div>
+                        </div>
+                        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
+                          <div className="text-lg font-bold text-purple-400">{(selectedSpace.posts ?? []).length}</div>
+                          <div className="text-xs text-gray-500">{t('spaces.tab_news')}</div>
+                        </div>
+                        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
+                          <div className="text-lg font-bold text-green-400">{(selectedSpace.channels ?? []).length}</div>
+                          <div className="text-xs text-gray-500">{t('spaces.tab_chats')}</div>
+                        </div>
+                      </div>
+                    ) : null;
+                  case "events":
+                    return upcomingEvents.length > 0 ? (
+                      <div key={id} className="space-y-2">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Calendar size={12} /> {t('spaces.upcomingEvents')}</h3>
+                        {upcomingEvents.map(p => (
+                          <div key={p.id} className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3">
+                            <div className="text-sm font-medium">{p.title}</div>
+                            <div className="text-xs text-purple-300 mt-0.5">{p.eventDate}{p.eventTime ? ` · ${p.eventTime}` : ""}{p.eventLocation ? ` · ${p.eventLocation}` : ""}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  case "activeChats":
+                    const chatsWithMessages = (selectedSpace.channels ?? []).filter(ch => ch.lastMessage).slice(0, 3);
+                    return chatsWithMessages.length > 0 ? (
+                      <div key={id} className="space-y-2">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><MessageCircle size={12} /> {t('spaces.activeChats')}</h3>
+                        {chatsWithMessages.map(ch => (
+                          <button key={ch.id} onClick={() => { setActiveTab("chats"); handleOpenChannel(ch); }}
+                            className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-left hover:bg-gray-800 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <Hash size={12} className="text-blue-400 shrink-0" />
+                              <span className="text-sm font-medium truncate">{ch.name}</span>
+                              {ch.lastMessageTime && <span className="text-[10px] text-gray-600 ml-auto shrink-0">{new Date(ch.lastMessageTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5 truncate">{ch.lastMessage}</div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null;
+                  case "membersOnline":
+                    return (
+                      <div key={id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1 mb-2"><Users size={12} /> {t('spaces.membersOnline')}</h3>
+                        <div className="flex -space-x-2">
+                          {selectedSpace.members.slice(0, 8).map(m => (
+                            <div key={m.aregoId} className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-[10px] font-bold text-white border-2 border-gray-900">
+                              {(m.displayName[0] ?? "").toUpperCase()}
+                            </div>
+                          ))}
+                          {selectedSpace.members.length > 8 && (
+                            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-400 border-2 border-gray-900">
+                              +{selectedSpace.members.length - 8}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  default: return null;
+                }
+              };
+
+              // ── Layout Editor ──
+              if (editingLayout) {
+                const currentLayout = loadLayout(selectedSpace.id);
+                return (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-bold">{t('spaces.customizeLayout')}</h3>
+                      <button onClick={() => setEditingLayout(false)} className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-all">
+                        <Check size={18} />
+                      </button>
+                    </div>
+                    <Reorder.Group
+                      axis="y"
+                      values={currentLayout}
+                      onReorder={(newOrder) => { saveLayout(selectedSpace.id, newOrder); }}
+                      className="space-y-2"
+                    >
+                      {currentLayout.map(widget => (
+                        <Reorder.Item key={widget.id} value={widget} className="list-none">
+                          <div className="flex items-center gap-3 bg-gray-800/50 rounded-xl border border-gray-700/50 p-3">
+                            <div className="text-gray-600 cursor-grab active:cursor-grabbing touch-none">
+                              <GripVertical size={16} />
+                            </div>
+                            <span className="text-sm font-medium flex-1">{t(`spaces.widget_${widget.id}`)}</span>
+                            <button
+                              onClick={() => {
+                                const updated = currentLayout.map(w => w.id === widget.id ? { ...w, visible: !w.visible } : w);
+                                saveLayout(selectedSpace.id, updated);
+                              }}
+                              className={`p-1.5 rounded-lg transition-colors ${widget.visible ? "text-blue-400 bg-blue-500/15" : "text-gray-600 bg-gray-800"}`}
+                            >
+                              <Eye size={14} />
+                            </button>
+                          </div>
+                        </Reorder.Item>
+                      ))}
+                    </Reorder.Group>
+                  </>
+                );
+              }
+
+              // ── Normal Overview ──
+              const visibleWidgets = layout.filter(w => w.visible);
+              const hasContent = visibleWidgets.some(w => renderWidget(w.id) !== null);
+
               return (
                 <>
+                  {/* Anpassen Button */}
+                  <div className="flex justify-end -mt-2 mb-1">
+                    <button onClick={() => setEditingLayout(true)} className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all" title={t('spaces.customizeLayout')}>
+                      <Edit2 size={15} />
+                    </button>
+                  </div>
+
                   {selectedSpace.description && (
                     <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
                       <p className="text-sm text-gray-300">{selectedSpace.description}</p>
                     </div>
                   )}
 
-                  {/* Pinned posts */}
-                  {pinnedPosts.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Pin size={12} /> {t('spaces.pinnedPosts')}</h3>
-                      {pinnedPosts.map(p => (
-                        <button key={p.id} onClick={() => { setActiveTab("news"); setNewsFilter("all"); }} className="w-full bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 text-left hover:bg-yellow-500/15 transition-colors">
-                          <div className="text-sm font-bold text-yellow-300">{p.title}</div>
-                          <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{p.text}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {visibleWidgets.map(w => renderWidget(w.id))}
 
-                  {/* Recent announcements */}
-                  {recentAnnouncements.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Megaphone size={12} /> {t('spaces.recentAnnouncements')}</h3>
-                      {recentAnnouncements.map(p => (
-                        <div key={p.id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
-                          <div className="text-sm font-medium">{p.title}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">{p.authorName} · {new Date(p.createdAt).toLocaleDateString()}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Quick stats for admins */}
-                  {isAdmin && (
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-                        <div className="text-lg font-bold text-blue-400">{selectedSpace.members.length}</div>
-                        <div className="text-xs text-gray-500">{t('spaces.members')}</div>
-                      </div>
-                      <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-                        <div className="text-lg font-bold text-purple-400">{(selectedSpace.posts ?? []).length}</div>
-                        <div className="text-xs text-gray-500">{t('spaces.tab_news')}</div>
-                      </div>
-                      <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-                        <div className="text-lg font-bold text-green-400">{(selectedSpace.channels ?? []).length}</div>
-                        <div className="text-xs text-gray-500">{t('spaces.tab_chats')}</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {(selectedSpace.posts ?? []).length === 0 && pinnedPosts.length === 0 && (
+                  {!hasContent && (selectedSpace.posts ?? []).length === 0 && (
                     <div className="text-center py-6 text-gray-600">
                       <Newspaper size={32} className="mx-auto mb-2 opacity-50" />
                       <p className="text-sm">{t('spaces.emptyOverview')}</p>

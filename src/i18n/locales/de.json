@@ -600,7 +600,17 @@
     "chatMembersVisible": "Mitglieder sehen sich gegenseitig",
     "guestDefault": "Standard",
     "guestRoleHint": "Gast ist die Standard-Rolle f\u00fcr alle die dem Space beigetreten sind ohne eine Rolle zugewiesen zu bekommen.",
-    "writeRequiresRead": "Schreiben setzt Lesen voraus"
+    "writeRequiresRead": "Schreiben setzt Lesen voraus",
+    "customizeLayout": "Anpassen",
+    "upcomingEvents": "Kommende Termine",
+    "activeChats": "Aktive Chats",
+    "membersOnline": "Mitglieder",
+    "widget_pinned": "Angepinnte Beitr\u00e4ge",
+    "widget_announcements": "Ank\u00fcndigungen",
+    "widget_stats": "Statistiken",
+    "widget_events": "Termine",
+    "widget_activeChats": "Aktive Chats",
+    "widget_membersOnline": "Mitglieder online"
   },
   "childProfile": {
     "title": "Kinder-Profile",

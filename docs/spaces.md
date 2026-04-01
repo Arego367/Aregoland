@@ -56,7 +56,11 @@
 
 ## Tabs
 
-- **Uebersicht**: Beschreibung, angepinnte Posts, Ankuendigungen, Statistiken (Admin)
+- **Uebersicht**: Personalisierbar via Stift-Icon oben rechts
+  - Drag & Drop Editor: Widgets in gewuenschte Reihenfolge ziehen + ein/ausblenden
+  - 6 Widgets: Angepinnte Beitraege, Ankuendigungen, Statistiken, Termine, Aktive Chats, Mitglieder online
+  - Layout pro Nutzer in localStorage (`aregoland_space_layout_{spaceId}`)
+  - Standard-Layout wenn nicht angepasst
 - **Neuigkeiten**: Beitraege, Filter, Kommentare, RSVP
 - **Chats**: Nur die Liste der vorhandenen Chats (kein Erstellen-Button). Unterraeume als separate Sektion.
   - Gruppen-Chat: Text, Fotos/Bilder (inline), Dateien (Download-Link), Sprachnachrichten (Play/Pause)

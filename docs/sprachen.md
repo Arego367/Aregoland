@@ -85,6 +85,16 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.guestDefault` | ja | nein | nein |
 | Spaces | `spaces.guestRoleHint` | ja | nein | nein |
 | Spaces | `spaces.writeRequiresRead` | ja | nein | nein |
+| Spaces | `spaces.customizeLayout` | ja | nein | nein |
+| Spaces | `spaces.upcomingEvents` | ja | nein | nein |
+| Spaces | `spaces.activeChats` | ja | nein | nein |
+| Spaces | `spaces.membersOnline` | ja | nein | nein |
+| Spaces | `spaces.widget_pinned` | ja | nein | nein |
+| Spaces | `spaces.widget_announcements` | ja | nein | nein |
+| Spaces | `spaces.widget_stats` | ja | nein | nein |
+| Spaces | `spaces.widget_events` | ja | nein | nein |
+| Spaces | `spaces.widget_activeChats` | ja | nein | nein |
+| Spaces | `spaces.widget_membersOnline` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 
