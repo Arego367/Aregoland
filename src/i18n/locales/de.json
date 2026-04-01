@@ -599,7 +599,8 @@
     "guestHint": "Gast = Standard f\u00fcr alle ohne zugewiesene Rolle",
     "chatMembersVisible": "Mitglieder sehen sich gegenseitig",
     "guestDefault": "Standard",
-    "guestRoleHint": "Gast ist die Standard-Rolle f\u00fcr alle die dem Space beigetreten sind ohne eine Rolle zugewiesen zu bekommen."
+    "guestRoleHint": "Gast ist die Standard-Rolle f\u00fcr alle die dem Space beigetreten sind ohne eine Rolle zugewiesen zu bekommen.",
+    "writeRequiresRead": "Schreiben setzt Lesen voraus"
   },
   "childProfile": {
     "title": "Kinder-Profile",

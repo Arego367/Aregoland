@@ -2106,34 +2106,50 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                                   { id: "member", label: t('spaces.role_member'), color: ROLE_COLORS.member.text },
                                   ...(selectedSpace.customRoles ?? []).map(cr => ({ id: cr.name, label: cr.name, color: "" })),
                                 ];
+                                const hasAnyRead = channelReadRoles.size > 0;
                                 return (
                                   <>
-                                    <div className="space-y-1.5">
-                                      <label className="text-xs font-medium text-gray-400">{t('spaces.writeAccess')}</label>
-                                      <div className="flex flex-wrap gap-1.5">
-                                        {allRoles.map(r => (
-                                          <button key={r.id}
-                                            onClick={() => setChannelWriteRoles(prev => { const n = new Set(prev); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; })}
-                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelWriteRoles.has(r.id) ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-600"}`}>
-                                            {r.label}
-                                          </button>
-                                        ))}
-                                      </div>
-                                      <p className="text-[10px] text-gray-600 px-0.5">{t('spaces.adminAlwaysAccess')}</p>
-                                    </div>
+                                    {/* Lesezugriff oben */}
                                     <div className="space-y-1.5">
                                       <label className="text-xs font-medium text-gray-400">{t('spaces.readAccess')}</label>
                                       <div className="flex flex-wrap gap-1.5">
                                         {allRoles.map(r => (
                                           <button key={r.id}
-                                            onClick={() => setChannelReadRoles(prev => { const n = new Set(prev); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; })}
+                                            onClick={() => {
+                                              setChannelReadRoles(prev => {
+                                                const n = new Set(prev);
+                                                if (n.has(r.id)) {
+                                                  n.delete(r.id);
+                                                  // Aus Schreibzugriff entfernen wenn Lesen entfernt
+                                                  setChannelWriteRoles(wp => { const w = new Set(wp); w.delete(r.id); return w; });
+                                                } else { n.add(r.id); }
+                                                return n;
+                                              });
+                                            }}
                                             className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelReadRoles.has(r.id) ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-600"}`}>
                                             {r.label}
                                           </button>
                                         ))}
                                       </div>
+                                      <p className="text-[10px] text-gray-600 px-0.5">{t('spaces.adminAlwaysAccess')}</p>
                                       <p className="text-[10px] text-gray-500 px-0.5">{t('spaces.guestHint')}</p>
                                     </div>
+                                    {/* Schreibzugriff — nur wenn mindestens eine Rolle Lesen hat */}
+                                    {hasAnyRead && (
+                                      <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-gray-400">{t('spaces.writeAccess')}</label>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {allRoles.filter(r => channelReadRoles.has(r.id)).map(r => (
+                                            <button key={r.id}
+                                              onClick={() => setChannelWriteRoles(prev => { const n = new Set(prev); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; })}
+                                              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelWriteRoles.has(r.id) ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-600"}`}>
+                                              {r.label}
+                                            </button>
+                                          ))}
+                                        </div>
+                                        <p className="text-[10px] text-gray-500 px-0.5">{t('spaces.writeRequiresRead')}</p>
+                                      </div>
+                                    )}
                                     {/* Mitglieder sichtbar Toggle */}
                                     <div className="flex items-center justify-between p-2.5 bg-gray-900/30 rounded-lg">
                                       <span className="text-xs text-gray-300">{t('spaces.chatMembersVisible')}</span>
