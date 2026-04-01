@@ -159,3 +159,14 @@
 - Multi-Source Download: mehrere Nodes senden gleichzeitig verschiedene Chunks
 - Video Progressive Playback: Video startet waehrend Rest noch laedt
 - Basis fuer Video-Sharing Spaces und Live-Streaming
+
+### P2P Cloud Speicher (Zukunftsvision, noch nicht implementiert)
+
+- Nutzer stellt freiwillig Speicherplatz zur Verfuegung (waehlbar: 10GB/50GB/100GB/eigen)
+- Dateien werden verschluesselt auf mehreren Geraeten verteilt (wie IPFS/BitTorrent)
+- Space-Mitglieder teilen Speicher untereinander
+- Unternehmen: 5000 Laptops x 500GB = 2.500TB kostenlose Unternehmens-Cloud
+- Nutzer kann jederzeit widerrufen
+- Geraet muss eingeschaltet/verbunden sein als "Speicher-Node"
+- DSGVO: alles verschluesselt, niemand sieht fremde Daten
+- Ersetzt AWS/Azure/Google Cloud fuer Unternehmen die Aregoland nutzen
