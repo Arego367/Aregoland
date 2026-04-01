@@ -549,6 +549,61 @@
   - Beitritts-Genehmigung durch waehlbare Rollen
   - Abstimmung moeglich (X von Y muessen zustimmen)
   - Beitritts-Hinweis: automatisch generiert aus Space-Einstellungen
+- **Node-Architektur für Spaces Video/Stream** (noch nicht implementiert)
+  - Jeder Nutzer wird beim Beitritt geprüft ob er Node werden kann
+  - WLAN = automatisch Node-Kandidat, Mobile Daten = fragen ob Flat vorhanden
+  - Formel: verfügbare Nodes / 2 = aktive Nodes (immer gerade Zahl, sonst einer zu Reserve)
+  - 10% Reserve (aufrunden auf nächste ganze Zahl)
+  - Nodes agieren immer in Paaren: A (aktiv) + B (Standby, wartet nur)
+  - Heartbeat: alle 1 Sekunde "Ich lebe" an Admin
+  - Reserve sendet auch Heartbeat an Admin
+  - Bei Ausfall: Admin weist sofort Reserve als neues B zu
+  - Upload-Messung beim Verbindungsaufbau: Node-Kapazität = Upload / 4 Mbit (2x Sicherheitspuffer)
+  - Abrunden bei Kapazitätsberechnung (lieber weniger als überlasten)
+  - Stabiler Node: Admin kann manuell einen Node als "Stabil" markieren (Einzelgänger, kein Partner nötig, z.B. 1GB Leitung)
+  - Neue Nutzer die joinen und Node werden können = sofort zu Reserve hinzufügen
+  - Qualitätsanpassung: genug Nodes = HD, wenige = SD, kritisch = Audio only
+  - Admin-Dashboard: Nutzer-Anzahl, aktive Nodes, Reserve-Kapazität, Auslastung %, Qualität
+  - Warnung bei >80% Auslastung → System fragt neue Nutzer ob sie Node werden wollen
+- **FSK-System für Spaces** (noch nicht implementiert)
+  - Jeder neue Space startet mit FSK 18 (Standard)
+  - Runterstufung nur per Antrag: Admin mit verifizierter ID beantragt niedrigere FSK
+  - Admin muss: im Space sein + Admin-Rechte haben + identifiziert sein + Zugehörigkeit nachweisbar (Schule, Verein, Unternehmen)
+  - Prüfung online (Handelsregister, Schulverzeichnis etc.) — keine Daten danach gespeichert
+  - Nutzer kann Hochstufung beantragen/melden — Missbrauch führt zu Warnung, temporärem oder permanentem ID-Ban
+- **FSK-System für Nutzer** (noch nicht implementiert)
+  - Neu registriert = automatisch FSK 6
+  - ID-Verifizierung = FSK 18 (Nutzer stuft sich selbst hoch)
+  - Kinder-Konto = FSK 6 (Eltern können auf FSK 12 hochstufen, keine ID nötig)
+  - FSK 16/18 für Kinder nur mit ID möglich (ausgegraut)
+- **Politik-Space** (noch nicht implementiert)
+  - Spezieller Space-Typ für demokratische Abstimmungen
+  - Geheime Abstimmungen: niemand sieht wie wer abgestimmt hat, nicht mal Admin
+  - Partei-Zugehörigkeit optional, komplett anonym speicherbar
+  - Ergebnis: nur Gesamtzahlen sichtbar (60% dafür, 40% dagegen)
+  - Gesetze zustimmen/ablehnen
+  - Abstimmungsergebnis nach Partei-Zugehörigkeit auswertbar (ohne Namen)
+  - Technisch: Zero-Knowledge Voting (kryptografisch manipulationssicher)
+- **Aregoland offizieller Space** (noch nicht implementiert)
+  - Offizieller Space von Aras/Aregoland
+  - Updates, Neuigkeiten, Changelog posten
+  - Nutzer können beitreten, lesen, Feedback geben
+- **Öffentliche Space-Suche** (noch nicht implementiert)
+  - Spaces die öffentlich sind können gefunden werden
+  - Suche nach Name, Kategorie, Vorlage
+  - Space-Vorschau vor Beitritt (Name, Beschreibung, Mitgliederzahl, FSK)
+  - Nur Spaces die "öffentlich auffindbar" aktiviert haben erscheinen
+- **Wiederherstellung via Vertrauensperson + eID** (Konzept verfeinert)
+  - Vertrauensperson öffnet App, wählt den zu wiederherstellenden Kontakt aus ihrer Liste
+  - Betroffene Person verifiziert sich mit eID direkt am Gerät der Vertrauensperson
+  - Schlüssel wird im Moment aus der eID abgeleitet — nichts wird gespeichert
+  - Vertrauensperson hat zu keinem Zeitpunkt Zugriff auf den Schlüssel
+- **Dezentrale Daten-Wiederherstellung** (noch nicht implementiert)
+  - Nach Geräteverlust: Kontakte pushen gespeicherte Daten zurück
+  - Kontakte haben Arego-ID gespeichert → pushen Kontaktdaten zurück
+  - Spaces-Mitglieder pushen Space-Daten zurück
+  - Chat-Verlauf: Kontakt kann seine Kopie optional teilen
+  - "Soziales Netzwerk als Backup" — Identität entsteht durch Beziehungen
 
 ## Arbeitsregel für Claude Code
 
