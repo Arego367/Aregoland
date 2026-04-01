@@ -46,3 +46,14 @@
 - Claude (Browser) liest docs ueber Google Drive MCP bei Session-Start
 - NIEMALS Dateien manuell in Drive erstellen — immer ueber CC
 - /docs/ ist die einzige Wahrheitsquelle
+
+## Geraete-Modus
+
+Aras arbeitet auf zwei Geraeten:
+
+- **Handy**: Aras schreibt "ich bin auf Handy"
+  → Nur Ideen aufnehmen, durchdenken, Notizen machen, nachfragen
+  → KEINE CC Befehle formulieren oder ausfuehren
+
+- **PC**: Standard-Modus (auch wenn nichts gesagt wird)
+  → Normal arbeiten, CC Befehle bereitstellen und ausfuehren
