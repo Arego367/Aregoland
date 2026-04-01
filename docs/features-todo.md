@@ -141,15 +141,25 @@
 - Spaces beigetreten
 - Fuer Spaces: anonyme Space-Statistiken fuer Admin (keine Namen)
 
-### Feedback-System (noch nicht implementiert, ersetzt aktuellen Feedback-Button)
+### Intelligentes Feedback-System (noch nicht implementiert, ersetzt aktuellen Feedback-Button)
 
-- Chat-aehnlicher Flow mit KI
-- Nutzer schreibt oder sendet Voice-Nachricht frei
-- KI stellt max. 1-2 kurze Rueckfragen
-- KI fragt am Ende: "Darf ich deine Geraeteinfos haben?" → Ja/Nein (automatisch gesammelt)
+- Chat-aehnlicher Flow mit KI (kein Formular)
+- Nutzer schreibt Text ODER sendet Voice-Nachricht frei
 - Optional: Foto/Video anhaengen
+- KI fragt am Ende: "Darf ich deine Geraeteinfos haben?" → Ja/Nein
+- KI stellt max. 1-2 kurze Rueckfragen wenn noetig
 - KI sortiert im Hintergrund: Bug/Idee/Lob/Frage
 - Kein Formular, keine Pflichtfelder, keine Kategorieauswahl
+
+KI antwortet sofort intelligent:
+- Bug bereits bekannt: "Dieser Bug wurde bereits von X Personen gemeldet, wird im naechsten Patch behoben"
+- Bug neu: "Danke! Ich habe es aufgenommen und weitergeleitet"
+- Idee bereits vorgeschlagen: "Du bist Person Nr. X die das vorschlaegt — steigt auf Prioritaetsliste"
+- Idee einzigartig: "Noch niemand hat das vorgeschlagen, ich leite es weiter"
+- Bereits implementiert: "Das gibt es bereits! Schau unter Einstellungen → XY"
+- Abgelehnte Idee: "Diese Idee wurde bereits diskutiert und erstmal zurueckgestellt weil [Grund]"
+
+Ziel: Nutzer fuehlt sich gehoert, keine doppelten Bug-Reports, Community-Voting ohne Voting-System
 
 ### Erweitertes Chunking & P2P Dateiuebertragung (noch nicht implementiert)
 
