@@ -1154,12 +1154,11 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
               />
             </div>
 
-            {/* Relay-Node Info */}
+            {/* Privacy + Netzwerk-Helfer Info */}
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex gap-3">
               <Info size={20} className="text-blue-400 shrink-0 mt-0.5" />
               <div className="text-sm text-blue-200/80 leading-relaxed">
-                <p className="font-bold mb-1">{t('spaces.relayNodeTitle')}</p>
-                {t('spaces.relayNodeDesc')}
+                {t('spaces.createSpaceInfo')}
               </div>
             </div>
 
@@ -1952,6 +1951,11 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                   </div>
 
                   {/* Netzwerk-Helfer — nur wenn Rolle es erlaubt */}
+                  {canBeNetworkHelper && (
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
+                      <p className="text-[11px] text-blue-200/80 leading-relaxed">{t('spaces.networkHelperProfileHint')}</p>
+                    </div>
+                  )}
                   {canBeNetworkHelper && (() => {
                     const isOnMobile = 'connection' in navigator && (navigator as any).connection?.type === 'cellular';
                     const helperActive = localStorage.getItem(relayKey) !== "off" && !isOnMobile;
@@ -2214,6 +2218,12 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                               );
                             })}
                           </div>
+                          {/* Netzwerk-Helfer Erklärung */}
+                          {newRolePerms.allowNetworkHelper && (
+                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2.5">
+                              <p className="text-[11px] text-blue-200/80 leading-relaxed">{t('spaces.networkHelperRoleHint')}</p>
+                            </div>
+                          )}
                           <button
                             onClick={() => {
                               if (!newRoleName.trim() || !selectedSpace) return;

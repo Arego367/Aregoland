@@ -34,6 +34,7 @@
 - ID-Verifizierung zum Beitritt: Ja/Nein (Standard: Ja)
 - QR-Code Einladung mit Ablaufzeit
 - Globaler Chat: nur Admins/Moderatoren koennen posten
+- Bei Space-Erstellung: Info-Box erklaert Privacy + Netzwerk-Helfer Prinzip
 - **Chats verwalten**: Chat erstellen (Name + Rollen-Zugriffsrechte), Chats loeschen
 - **Rollen & Rechte**: Eigene Rollen erstellen (Name + Farbe + Rechte)
   - Rechte pro Rolle:
@@ -42,7 +43,7 @@
     - Termine erstellen
     - Neuigkeiten posten
     - Mitglieder einladen
-    - Netzwerk-Helfer erlauben
+    - Netzwerk-Helfer erlauben (bei Aktivierung: Erklaerungstext fuer Admin)
   - Rechte-Abhaengigkeit: kein Lesen = kein Schreiben (automatisch deaktiviert + ausgegraut)
   - Founder & Admin haben immer vollen Zugriff (nicht konfigurierbar)
   - Chat-Erstellen Rollen-Auswahl zeigt nur Moderator/Mitglied/Gast
@@ -60,7 +61,7 @@
 - **Mitglieder**: Nach Rollen gruppiert, Einladen, Rolle aendern
 - **Profil**: Eigenes Profil im Space:
   - Name, Rolle-Badge
-  - Netzwerk-Helfer Toggle (nur wenn Rolle es erlaubt)
+  - Netzwerk-Helfer Toggle (nur wenn Rolle es erlaubt) + Erklaerungstext ueber Verschluesselung
   - Mobile Daten Toggle (nur wenn Netzwerk-Helfer aktiv)
   - Automatische Mobile-Daten-Erkennung mit Hinweis
   - Benachrichtigungen: 3 Modi (Alle/Stumm/Keine) + 6 einzelne Toggles

@@ -592,7 +592,10 @@
     "networkHelperOffWarning": "Du hilfst nicht mehr als Netzwerk-Helfer. Das kann die Qualit\u00e4t f\u00fcr andere Mitglieder beeinflussen.",
     "useMobileData": "Mobile Daten nutzen",
     "useMobileDataDesc": "Auch mit mobilen Daten als Netzwerk-Helfer aktiv sein",
-    "mobileDataDetected": "Du bist mit mobilen Daten verbunden. Netzwerk-Helfer wurde deaktiviert um dein Datenvolumen zu schonen. Aktiviere \"Mobile Daten nutzen\" wenn du eine Flat hast."
+    "mobileDataDetected": "Du bist mit mobilen Daten verbunden. Netzwerk-Helfer wurde deaktiviert um dein Datenvolumen zu schonen. Aktiviere \"Mobile Daten nutzen\" wenn du eine Flat hast.",
+    "createSpaceInfo": "Aregoland speichert nichts. Keine Nachrichten, keine Dateien, keine Daten auf unseren Servern. Alles l\u00e4uft direkt zwischen euren Ger\u00e4ten. Netzwerk-Helfer in deinem Space teilen ihre Bandbreite \u2014 je mehr dabei sind, desto schneller und stabiler wird alles.",
+    "networkHelperRoleHint": "Mitglieder dieser Rolle k\u00f6nnen freiwillig als Netzwerk-Helfer beitreten. Sie teilen etwas Bandbreite damit andere Mitglieder schneller und stabiler verbunden sind. Bei 10.000 Mitarbeitern in einem Unternehmen bedeutet das: blitzschnell, 24/7 verf\u00fcgbar, ohne einen einzigen Server von uns.",
+    "networkHelperProfileHint": "Als Netzwerk-Helfer hilfst du anderen Mitgliedern direkt verbunden zu bleiben. Deine Nachrichten und Dateien sieht dabei niemand \u2014 alles bleibt verschl\u00fcsselt."
   },
   "childProfile": {
     "title": "Kinder-Profile",

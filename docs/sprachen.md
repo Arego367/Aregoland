@@ -77,6 +77,9 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.useMobileData` | ja | nein | nein |
 | Spaces | `spaces.useMobileDataDesc` | ja | nein | nein |
 | Spaces | `spaces.mobileDataDetected` | ja | nein | nein |
+| Spaces | `spaces.createSpaceInfo` | ja | nein | nein |
+| Spaces | `spaces.networkHelperRoleHint` | ja | nein | nein |
+| Spaces | `spaces.networkHelperProfileHint` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 
