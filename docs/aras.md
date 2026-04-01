@@ -36,3 +36,13 @@
 ## Wichtig
 - Fruehere Namensideen Knieti und Regulant sind verworfen
 - Einziges aktives Projekt: Aregoland
+
+## Workflow & Dokumentation
+
+- Alle Docs liegen in /root/Aregoland/docs/
+- CC erstellt/aktualisiert Dateien dort und committet
+- git post-commit Hook synct via rclone automatisch zu Google Drive
+- Google Drive = Spiegel von /docs/ (wird zu Google Docs konvertiert)
+- Claude (Browser) liest docs ueber Google Drive MCP bei Session-Start
+- NIEMALS Dateien manuell in Drive erstellen — immer ueber CC
+- /docs/ ist die einzige Wahrheitsquelle
