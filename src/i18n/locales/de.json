@@ -559,7 +559,19 @@
     "moderatorCoHostInfo": "Moderatoren sind automatisch Co-Hosts und helfen den Space stabil zu halten. Je mehr Moderatoren online sind, desto stabiler sind Chats und Calls.",
     "relayNodeActive": "Als Relay-Node aktiv",
     "relayNodeActiveDesc": "Du hilfst als Relay-Node, Nachrichten und Calls im Space stabil zu verteilen.",
-    "relayNodeOffWarning": "Du hilfst nicht mehr als Relay-Node. Das kann die Qualit\u00e4t f\u00fcr andere Mitglieder bei schlechtem Internet beeinflussen."
+    "relayNodeOffWarning": "Du hilfst nicht mehr als Relay-Node. Das kann die Qualit\u00e4t f\u00fcr andere Mitglieder bei schlechtem Internet beeinflussen.",
+    "adminAlwaysAccess": "Founder & Admin haben immer vollen Zugriff.",
+    "tab_profile": "Profil",
+    "spaceNotifications": "Benachrichtigungen",
+    "spaceNotificationsDesc": "Benachrichtigungen f\u00fcr diesen Space ein/aus",
+    "rolesAndPermissions": "Rollen & Rechte",
+    "createRole": "Rolle erstellen",
+    "roleNamePlaceholder": "Rollenname eingeben",
+    "perm_readChats": "Chats lesen",
+    "perm_writeChats": "Chats schreiben",
+    "perm_createEvents": "Termine erstellen",
+    "perm_postNews": "Neuigkeiten posten",
+    "perm_inviteMembers": "Mitglieder einladen"
   },
   "childProfile": {
     "title": "Kinder-Profile",

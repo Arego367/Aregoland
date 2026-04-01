@@ -32,14 +32,20 @@
 - ID-Verifizierung zum Beitritt: Ja/Nein (Standard: Ja)
 - QR-Code Einladung mit Ablaufzeit
 - Globaler Chat: nur Admins/Moderatoren koennen posten
-- **Chats verwalten**: Chat erstellen (Name + Rollen-Zugriffsrechte), Unterraeume erstellen, Chats/Unterraeume loeschen
+- **Chats verwalten**: Chat erstellen (Name + Rollen-Zugriffsrechte), Chats loeschen
+- **Rollen & Rechte**: Eigene Rollen erstellen (Name + Farbe + Rechte)
+  - Rechte pro Rolle: Chats lesen, Chats schreiben, Termine erstellen, Neuigkeiten posten, Mitglieder einladen
+  - Founder & Admin haben immer vollen Zugriff (nicht konfigurierbar)
+  - Chat-Erstellen Rollen-Auswahl zeigt nur Moderator/Mitglied/Gast
 
-## Chats-Tab
+## Tabs
 
-- Zeigt NUR die Liste der vorhandenen Chats (kein "Chat erstellen" Button)
-- Chat erstellen/loeschen → unter Space Einstellungen → "Chats verwalten"
-- Globaler Chat automatisch bei Space-Erstellung
-- Unterraeume als separate Sektion mit lila Icons
+- **Uebersicht**: Beschreibung, angepinnte Posts, Ankuendigungen, Statistiken (Admin)
+- **Neuigkeiten**: Beitraege, Filter, Kommentare, RSVP
+- **Chats**: Nur die Liste der vorhandenen Chats (kein Erstellen-Button). Unterraeume als separate Sektion.
+- **Mitglieder**: Nach Rollen gruppiert, Einladen, Rolle aendern
+- **Profil**: Eigenes Profil im Space — Name, Rolle-Badge, Relay-Node Toggle (Moderator), Benachrichtigungen ein/aus
+- **Einstellungen**: Chats verwalten, Rollen & Rechte, Space loeschen
 
 ## Space-Features
 
@@ -47,7 +53,6 @@
 - Termine mit Anwesenheit — Trainer/Admin sieht Uebersicht
 - Wiki/Seiten — strukturierte Infoseiten (je nach Rolle)
 - Ankuendigungen — nur Admins/Moderatoren
-- Unterraeume — z.B. "Pilates Dienstag 18 Uhr"
 - Mitglieder-Uebersicht (nur nach Rollen sichtbar)
 
 ## Uebersicht-Tab (nach Rollen)

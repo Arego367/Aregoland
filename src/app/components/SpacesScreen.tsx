@@ -72,6 +72,19 @@ interface SpaceChannel {
   unreadCount: number;
 }
 
+interface CustomRole {
+  id: string;
+  name: string;
+  color: string;
+  permissions: {
+    readChats: boolean;
+    writeChats: boolean;
+    createEvents: boolean;
+    postNews: boolean;
+    inviteMembers: boolean;
+  };
+}
+
 interface SpaceSubroom {
   id: string;
   spaceId: string;
@@ -93,6 +106,7 @@ interface Space {
   posts: SpacePost[];
   channels: SpaceChannel[];
   subrooms: SpaceSubroom[];
+  customRoles: CustomRole[];
   createdAt: string;
   settings: {
     membersVisible: boolean;
@@ -115,6 +129,7 @@ function loadSpaces(): Space[] {
       posts: s.posts ?? [],
       channels: s.channels ?? [],
       subrooms: s.subrooms ?? [],
+      customRoles: s.customRoles ?? [],
     }));
   }
   catch { return []; }
@@ -301,7 +316,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const [toast, setToast] = useState(false);
 
   // Detail
-  const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings">("overview");
 
   // Invite
   const [inviteRole, setInviteRole] = useState<SpaceRole>("member");
@@ -332,8 +347,8 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   // Chats
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [channelName, setChannelName] = useState("");
-  const [channelWriteRoles, setChannelWriteRoles] = useState<Set<SpaceRole>>(new Set(["founder", "admin", "moderator", "member"]));
-  const [channelReadRoles, setChannelReadRoles] = useState<Set<SpaceRole>>(new Set(["founder", "admin", "moderator", "member", "guest"]));
+  const [channelWriteRoles, setChannelWriteRoles] = useState<Set<SpaceRole>>(new Set(["moderator", "member"]));
+  const [channelReadRoles, setChannelReadRoles] = useState<Set<SpaceRole>>(new Set(["moderator", "member", "guest"]));
   const [openChannel, setOpenChannel] = useState<SpaceChannel | null>(null);
   const [chatMessages, setChatMessages] = useState<SpaceChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -345,6 +360,12 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const [subroomName, setSubroomName] = useState("");
   const [subroomMemberIds, setSubroomMemberIds] = useState<Set<string>>(new Set());
   const [openSubroom, setOpenSubroom] = useState<SpaceSubroom | null>(null);
+
+  // Custom Roles
+  const [showCreateRole, setShowCreateRole] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleColor, setNewRoleColor] = useState("#3b82f6");
+  const [newRolePerms, setNewRolePerms] = useState({ readChats: true, writeChats: true, createEvents: false, postNews: false, inviteMembers: false });
 
   // News/Posts
   const [showCreatePost, setShowCreatePost] = useState(false);
@@ -387,6 +408,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
       posts: [],
       channels: [globalChannel],
       subrooms: [],
+      customRoles: [],
       createdAt: new Date().toISOString(),
       settings: { ...tmpl.defaultSettings },
     };
@@ -672,8 +694,8 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
       spaceId: selectedSpace.id,
       name: channelName.trim(),
       isGlobal: false,
-      readRoles: Array.from(channelReadRoles),
-      writeRoles: Array.from(channelWriteRoles),
+      readRoles: ["founder", "admin", ...Array.from(channelReadRoles)],
+      writeRoles: ["founder", "admin", ...Array.from(channelWriteRoles)],
       createdAt: new Date().toISOString(),
       unreadCount: 0,
     };
@@ -683,8 +705,8 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
     };
     updateSpace(updated);
     setChannelName("");
-    setChannelWriteRoles(new Set(["founder", "admin", "moderator", "member"]));
-    setChannelReadRoles(new Set(["founder", "admin", "moderator", "member", "guest"]));
+    setChannelWriteRoles(new Set(["moderator", "member"]));
+    setChannelReadRoles(new Set(["moderator", "member", "guest"]));
     setShowCreateChannel(false);
   };
 
@@ -988,7 +1010,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
         {/* Tabs */}
         <div className="px-4 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-6 overflow-x-auto no-scrollbar pb-1">
-            {(["overview", "news", "chats", "members", "settings"] as const).map(tab => {
+            {(["overview", "news", "chats", "members", "profile", "settings"] as const).map(tab => {
               const totalUnread = tab === "chats"
                 ? (selectedSpace.channels ?? []).reduce((sum, ch) => sum + (ch.unreadCount ?? 0), 0)
                 : 0;
@@ -1028,15 +1050,6 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                       <p className="text-sm text-gray-300">{selectedSpace.description}</p>
                     </div>
                   )}
-
-                  {/* Your role */}
-                  <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-bold">{t('spaces.yourRole')}</div>
-                      <div className={`text-xs capitalize ${ROLE_COLORS[myRole as SpaceRole]?.text ?? "text-gray-500"}`}>{t(`spaces.role_${myRole}`)}</div>
-                    </div>
-                    <Shield size={20} className="text-green-500" />
-                  </div>
 
                   {/* Pinned posts */}
                   {pinnedPosts.length > 0 && (
@@ -1592,6 +1605,81 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
               );
             })()}
 
+            {/* ── PROFIL TAB ── */}
+            {activeTab === "profile" && (() => {
+              const myMember = selectedSpace.members.find(m => m.aregoId === identity?.aregoId);
+              const myRole = myMember?.role ?? "member";
+              const isModerator = myRole === "moderator";
+              const spaceNotifKey = `arego_space_notif_${selectedSpace.id}`;
+              const relayKey = `arego_relay_${selectedSpace.id}`;
+              return (
+                <>
+                  {/* Avatar + Name */}
+                  <div className="flex flex-col items-center text-center space-y-3">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-2xl font-bold text-white">
+                      {(myMember?.displayName?.[0] ?? "?").toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold">{myMember?.displayName ?? "?"}</div>
+                      <div className="text-xs text-gray-500 font-mono">{identity?.aregoId}</div>
+                    </div>
+                    {/* Role badge */}
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold ${ROLE_COLORS[myRole as SpaceRole]?.bg ?? "bg-gray-700/50"} ${ROLE_COLORS[myRole as SpaceRole]?.text ?? "text-gray-400"}`}>
+                      <Shield size={12} />
+                      {t(`spaces.role_${myRole}`)}
+                    </div>
+                  </div>
+
+                  {/* Relay-Node Toggle — nur Moderatoren */}
+                  {isModerator && (
+                    <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium">{t('spaces.relayNodeActive')}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{t('spaces.relayNodeActiveDesc')}</div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const current = localStorage.getItem(relayKey) !== "off";
+                            localStorage.setItem(relayKey, current ? "off" : "on");
+                            updateSpace({ ...selectedSpace });
+                          }}
+                          className={`w-11 h-6 rounded-full transition-colors relative ${localStorage.getItem(relayKey) !== "off" ? "bg-blue-600" : "bg-gray-700"}`}
+                        >
+                          <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${localStorage.getItem(relayKey) !== "off" ? "translate-x-5" : "translate-x-0.5"}`} />
+                        </button>
+                      </div>
+                      {localStorage.getItem(relayKey) === "off" && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2.5">
+                          <p className="text-[11px] text-yellow-300/80 leading-relaxed">{t('spaces.relayNodeOffWarning')}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Space-Benachrichtigungen */}
+                  <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium">{t('spaces.spaceNotifications')}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{t('spaces.spaceNotificationsDesc')}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const current = localStorage.getItem(spaceNotifKey) !== "off";
+                          localStorage.setItem(spaceNotifKey, current ? "off" : "on");
+                          updateSpace({ ...selectedSpace });
+                        }}
+                        className={`w-11 h-6 rounded-full transition-colors relative ${localStorage.getItem(spaceNotifKey) !== "off" ? "bg-blue-600" : "bg-gray-700"}`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${localStorage.getItem(spaceNotifKey) !== "off" ? "translate-x-5" : "translate-x-0.5"}`} />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+
             {activeTab === "settings" && (() => {
               const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
               const canManageSettings = myRole === "founder" || myRole === "admin";
@@ -1602,20 +1690,13 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                     <div className="space-y-3">
                       <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.manageChats')}</h3>
 
-                      {/* Create Channel / Subroom buttons */}
-                      {!showCreateChannel && !showCreateSubroom && (
-                        <div className="flex gap-2">
-                          <button onClick={() => setShowCreateChannel(true)}
-                            className="flex-1 flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
-                            <Plus size={16} className="text-gray-500" />
-                            <span className="text-xs text-gray-400 font-medium">{t('spaces.createChat')}</span>
-                          </button>
-                          <button onClick={() => setShowCreateSubroom(true)}
-                            className="flex-1 flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-purple-500/50 hover:bg-purple-500/5 transition-all">
-                            <Layers size={16} className="text-gray-500" />
-                            <span className="text-xs text-gray-400 font-medium">{t('spaces.createSubroom')}</span>
-                          </button>
-                        </div>
+                      {/* Create Channel button */}
+                      {!showCreateChannel && (
+                        <button onClick={() => setShowCreateChannel(true)}
+                          className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
+                          <Plus size={16} className="text-gray-500" />
+                          <span className="text-xs text-gray-400 font-medium">{t('spaces.createChat')}</span>
+                        </button>
                       )}
 
                       {/* Create Channel form */}
@@ -1632,7 +1713,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                               <div className="space-y-1.5">
                                 <label className="text-xs font-medium text-gray-400">{t('spaces.writeAccess')}</label>
                                 <div className="flex flex-wrap gap-1.5">
-                                  {ROLE_ORDER.filter(r => r !== "founder").map(r => (
+                                  {(["moderator", "member", "guest"] as SpaceRole[]).map(r => (
                                     <button key={r}
                                       onClick={() => setChannelWriteRoles(prev => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n; })}
                                       className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelWriteRoles.has(r) ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current` : "bg-gray-800 text-gray-600"}`}>
@@ -1640,11 +1721,12 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                                     </button>
                                   ))}
                                 </div>
+                                <p className="text-[10px] text-gray-600 px-0.5">{t('spaces.adminAlwaysAccess')}</p>
                               </div>
                               <div className="space-y-1.5">
                                 <label className="text-xs font-medium text-gray-400">{t('spaces.readAccess')}</label>
                                 <div className="flex flex-wrap gap-1.5">
-                                  {ROLE_ORDER.filter(r => r !== "founder").map(r => (
+                                  {(["moderator", "member", "guest"] as SpaceRole[]).map(r => (
                                     <button key={r}
                                       onClick={() => setChannelReadRoles(prev => { const n = new Set(prev); n.has(r) ? n.delete(r) : n.add(r); return n; })}
                                       className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${channelReadRoles.has(r) ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current` : "bg-gray-800 text-gray-600"}`}>
@@ -1656,42 +1738,6 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                               <button onClick={handleCreateChannel} disabled={!channelName.trim()}
                                 className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
                                 {t('spaces.createChat')}
-                              </button>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-
-                      {/* Create Subroom form */}
-                      <AnimatePresence>
-                        {showCreateSubroom && (
-                          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                            <div className="bg-gray-800/50 border border-purple-500/30 rounded-xl p-4 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-bold">{t('spaces.createSubroom')}</h4>
-                                <button onClick={() => setShowCreateSubroom(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
-                              </div>
-                              <input type="text" value={subroomName} onChange={e => setSubroomName(e.target.value)} placeholder={t('spaces.subroomNamePlaceholder')} autoFocus
-                                className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-all" />
-                              <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-gray-400">{t('spaces.subroomMembers')}</label>
-                                <div className="max-h-40 overflow-y-auto space-y-1">
-                                  {selectedSpace.members.map(m => (
-                                    <button key={m.aregoId}
-                                      onClick={() => setSubroomMemberIds(prev => { const n = new Set(prev); n.has(m.aregoId) ? n.delete(m.aregoId) : n.add(m.aregoId); return n; })}
-                                      className={`w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all ${subroomMemberIds.has(m.aregoId) ? "bg-purple-500/15 border border-purple-500/30" : "bg-gray-800/50 border border-transparent hover:bg-gray-700/50"}`}>
-                                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${subroomMemberIds.has(m.aregoId) ? "border-purple-500 bg-purple-500" : "border-gray-600"}`}>
-                                        {subroomMemberIds.has(m.aregoId) && <Check size={10} className="text-white" />}
-                                      </div>
-                                      <span className="text-xs font-medium">{m.displayName}</span>
-                                      <span className={`text-[10px] ml-auto ${ROLE_COLORS[m.role].text}`}>{t(`spaces.role_${m.role}`)}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              <button onClick={handleCreateSubroom} disabled={!subroomName.trim() || subroomMemberIds.size === 0}
-                                className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
-                                {t('spaces.createSubroom')}
                               </button>
                             </div>
                           </motion.div>
@@ -1714,68 +1760,102 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                           ))}
                         </div>
                       )}
-
-                      {/* Existing subrooms list for management */}
-                      {(selectedSpace.subrooms ?? []).length > 0 && (
-                        <div className="space-y-1.5">
-                          {(selectedSpace.subrooms ?? []).map(sr => (
-                            <div key={sr.id} className="flex items-center justify-between p-2.5 bg-gray-800/30 rounded-xl border border-purple-500/20">
-                              <div className="flex items-center gap-2">
-                                <Layers size={14} className="text-purple-400" />
-                                <span className="text-xs font-medium">{sr.name}</span>
-                                <span className="text-[10px] text-gray-600">{sr.memberIds.length}</span>
-                              </div>
-                              <button onClick={() => handleDeleteSubroom(sr.id)} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
 
-                  {/* Moderator Co-Host Info */}
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
-                    <div className="flex items-start gap-2.5">
-                      <Info size={16} className="text-blue-400 shrink-0 mt-0.5" />
-                      <p className="text-xs text-blue-200/80 leading-relaxed">
-                        {t('spaces.moderatorCoHostInfo')}
-                      </p>
-                    </div>
-                  </div>
+                  {/* Rollen & Rechte — nur Admin/Founder */}
+                  {canManageSettings && (
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.rolesAndPermissions')}</h3>
 
-                  {/* Moderator: toggle relay node */}
-                  {myRole === "moderator" && (
-                    <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-sm font-medium">{t('spaces.relayNodeActive')}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">{t('spaces.relayNodeActiveDesc')}</div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            // Toggle relay node status in localStorage
-                            const key = `arego_relay_${selectedSpace.id}`;
-                            const current = localStorage.getItem(key) !== "off";
-                            localStorage.setItem(key, current ? "off" : "on");
-                            // Force re-render
-                            updateSpace({ ...selectedSpace });
-                          }}
-                          className={`w-11 h-6 rounded-full transition-colors relative ${
-                            localStorage.getItem(`arego_relay_${selectedSpace.id}`) !== "off" ? "bg-blue-600" : "bg-gray-700"
-                          }`}
-                        >
-                          <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${
-                            localStorage.getItem(`arego_relay_${selectedSpace.id}`) !== "off" ? "translate-x-5" : "translate-x-0.5"
-                          }`} />
-                        </button>
-                      </div>
-                      {localStorage.getItem(`arego_relay_${selectedSpace.id}`) === "off" && (
-                        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2.5">
-                          <p className="text-[11px] text-yellow-300/80 leading-relaxed">
-                            {t('spaces.relayNodeOffWarning')}
+                      {/* Moderator Co-Host Info */}
+                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
+                        <div className="flex items-start gap-2.5">
+                          <Info size={16} className="text-blue-400 shrink-0 mt-0.5" />
+                          <p className="text-xs text-blue-200/80 leading-relaxed">
+                            {t('spaces.moderatorCoHostInfo')}
                           </p>
+                        </div>
+                      </div>
+
+                      {/* Existing custom roles */}
+                      {(selectedSpace.customRoles ?? []).map(cr => (
+                        <div key={cr.id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cr.color }} />
+                              <span className="text-sm font-medium">{cr.name}</span>
+                            </div>
+                            <button onClick={() => {
+                              const updated = { ...selectedSpace, customRoles: (selectedSpace.customRoles ?? []).filter(r => r.id !== cr.id) };
+                              updateSpace(updated);
+                            }} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {Object.entries(cr.permissions).map(([key, val]) => (
+                              <span key={key} className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${val ? "bg-green-500/15 text-green-400" : "bg-gray-800 text-gray-600"}`}>
+                                {t(`spaces.perm_${key}`)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Create custom role */}
+                      {!showCreateRole ? (
+                        <button onClick={() => setShowCreateRole(true)}
+                          className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
+                          <Plus size={16} className="text-gray-500" />
+                          <span className="text-xs text-gray-400 font-medium">{t('spaces.createRole')}</span>
+                        </button>
+                      ) : (
+                        <div className="bg-gray-800/50 border border-blue-500/30 rounded-xl p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-bold">{t('spaces.createRole')}</h4>
+                            <button onClick={() => setShowCreateRole(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={newRoleColor}
+                              onChange={e => setNewRoleColor(e.target.value)}
+                              className="w-8 h-8 rounded-lg border border-gray-700 cursor-pointer bg-transparent"
+                            />
+                            <input type="text" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} placeholder={t('spaces.roleNamePlaceholder')} autoFocus
+                              className="flex-1 bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
+                          </div>
+                          <div className="space-y-2">
+                            {(["readChats", "writeChats", "createEvents", "postNews", "inviteMembers"] as const).map(perm => (
+                              <button key={perm}
+                                onClick={() => setNewRolePerms(prev => ({ ...prev, [perm]: !prev[perm] }))}
+                                className="w-full flex items-center justify-between p-2.5 bg-gray-900/30 rounded-lg hover:bg-gray-800/50 transition-colors">
+                                <span className="text-xs text-gray-300">{t(`spaces.perm_${perm}`)}</span>
+                                <div className={`w-8 h-4.5 rounded-full transition-colors relative ${newRolePerms[perm] ? "bg-blue-600" : "bg-gray-700"}`}>
+                                  <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-transform ${newRolePerms[perm] ? "translate-x-4" : "translate-x-0.5"}`} />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (!newRoleName.trim() || !selectedSpace) return;
+                              const role: CustomRole = {
+                                id: `role-${Date.now().toString(36)}`,
+                                name: newRoleName.trim(),
+                                color: newRoleColor,
+                                permissions: { ...newRolePerms },
+                              };
+                              updateSpace({ ...selectedSpace, customRoles: [...(selectedSpace.customRoles ?? []), role] });
+                              setNewRoleName(""); setNewRoleColor("#3b82f6");
+                              setNewRolePerms({ readChats: true, writeChats: true, createEvents: false, postNews: false, inviteMembers: false });
+                              setShowCreateRole(false);
+                            }}
+                            disabled={!newRoleName.trim()}
+                            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
+                            {t('spaces.createRole')}
+                          </button>
                         </div>
                       )}
                     </div>

@@ -44,6 +44,18 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.relayNodeActive` | ja | nein | nein |
 | Spaces | `spaces.relayNodeActiveDesc` | ja | nein | nein |
 | Spaces | `spaces.relayNodeOffWarning` | ja | nein | nein |
+| Spaces | `spaces.adminAlwaysAccess` | ja | nein | nein |
+| Spaces | `spaces.tab_profile` | ja | nein | nein |
+| Spaces | `spaces.spaceNotifications` | ja | nein | nein |
+| Spaces | `spaces.spaceNotificationsDesc` | ja | nein | nein |
+| Spaces | `spaces.rolesAndPermissions` | ja | nein | nein |
+| Spaces | `spaces.createRole` | ja | nein | nein |
+| Spaces | `spaces.roleNamePlaceholder` | ja | nein | nein |
+| Spaces | `spaces.perm_readChats` | ja | nein | nein |
+| Spaces | `spaces.perm_writeChats` | ja | nein | nein |
+| Spaces | `spaces.perm_createEvents` | ja | nein | nein |
+| Spaces | `spaces.perm_postNews` | ja | nein | nein |
+| Spaces | `spaces.perm_inviteMembers` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 
