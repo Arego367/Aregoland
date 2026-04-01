@@ -51,8 +51,32 @@ Kein Druck. Kein Investor. Keine Melkerei.
 - WeChat-Prinzip — aber niemand ausser dir hat deine Daten
 - Aregoland = Digitale Lebensinfrastruktur
 
+## EUDI Wallet — Das technische Fundament
+
+EUDI Wallet ist das Fundament von Aregoland (siehe [eudi-integration.md](eudi-integration.md)):
+- Identitaet: Nutzer verifiziert sich per EUDI — sicher, EU-weit
+- FSK-Verifizierung: Geburtsdatum kryptografisch bestaetigt
+- Dokumente: Befunde, Zeugnisse, Antraege P2P ueber EUDI
+- Zahlung: EUDI Wallet Zahlfunktion ab 2027
+- Kein eigenes Zahlungssystem noetig. Kein BaFin. Keine Abhaengigkeit.
+- SDK bereits auf GitHub verfuegbar (eu-digital-identity-wallet)
+- Sandbox seit 2026 offen, Marktstart Dezember 2026
+
+## FSK-Automatik per EUDI
+
+Am Geburtstag schaltet EUDI das Alter frei:
+- FSK 6: ab Geburt (Standard)
+- FSK 12: automatisch am 12. Geburtstag
+- FSK 16: automatisch am 16. Geburtstag
+- FSK 18: automatisch am 18. Geburtstag
+
+Kein Elternteil noetig fuer Stufenaufstieg.
+Kein Formular, kein Antrag — einfach Geburtstag feiern.
+EUDI bestaetigt Alter kryptografisch — nicht manipulierbar.
+
 ## Warum es funktionieren kann
 - Bessere Technologie-Basis als alle Vorgaenger (P2P, DSGVO by Design)
+- EUDI Wallet als EU-Infrastruktur — kostenlos, offen, standardisiert
 - Kein Vendor Lock-in
 - Open Source schafft Vertrauen
 - Kinder-Schutz ist eingebaut — kein Nachgedanke

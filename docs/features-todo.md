@@ -32,13 +32,23 @@
 **Institutionen (Stufe 3)**
 - [ ] Spaces fuer Gemeinden/Schulen/Vereine optimieren
 - [ ] Formular-System in Spaces
-- [ ] Digitale Identitaetsbestaetigung
+- [ ] Digitale Identitaetsbestaetigung via EUDI Wallet
 
 **Gesundheit (Stufe 4 — nach Zertifizierung)**
 - [ ] Gesundheitsordner mit Befunden
 - [ ] Arzt-Space Integration
 - [ ] Selbstauskunft-Profil
 - [ ] Gesundheitskarte digital
+
+**EUDI Wallet Integration** (siehe [eudi-integration.md](eudi-integration.md))
+- [ ] EUDI Sandbox Zugang beantragen (Relying Party)
+- [ ] EUDI GitHub SDK einbinden und testen
+- [ ] FSK-Automatik per EUDI Geburtsdatum implementieren
+- [ ] EUDI Wallet Integration vorbereiten
+
+**Social Media Vorbereitung**
+- [ ] Social Media Accounts erstellen (Instagram, TikTok, YouTube, LinkedIn)
+- [ ] Reichweite aufbauen vor Launch
 
 3. **Pay-Modul** — wenn fertig, ist App marktreif (siehe [geschaeftsmodell.md](geschaeftsmodell.md))
 
@@ -130,14 +140,14 @@
 ### Wiederherstellung erweitern (noch nicht implementiert)
 
 - Option: Wiederherstellung via Vertrauensperson (Kontakt haelt verschluesseltes Fragment)
-- Option: eID-basierte Wiederherstellung
+- Option: EUDI Wallet basierte Wiederherstellung
 - Dezentrale Wiederherstellung: Shamir's Secret Sharing
 
-### Wiederherstellung via Vertrauensperson + eID (Konzept verfeinert)
+### Wiederherstellung via Vertrauensperson + EUDI Wallet (Konzept verfeinert)
 
 - Vertrauensperson oeffnet App, waehlt den zu wiederherstellenden Kontakt aus ihrer Liste
-- Betroffene Person verifiziert sich mit eID direkt am Geraet der Vertrauensperson
-- Schluessel wird im Moment aus der eID abgeleitet — nichts wird gespeichert
+- Betroffene Person verifiziert sich mit EUDI Wallet direkt am Geraet der Vertrauensperson
+- Schluessel wird im Moment aus der EUDI Identitaet abgeleitet — nichts wird gespeichert
 - Vertrauensperson hat zu keinem Zeitpunkt Zugriff auf den Schluessel
 
 ### Dezentrale Daten-Wiederherstellung (noch nicht implementiert)
