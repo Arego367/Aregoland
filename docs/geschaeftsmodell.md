@@ -2,11 +2,12 @@
 
 ## Kernprinzip
 
-Kostendeckend, nicht gewinnorientiert — 1 Euro pro Konto pro Jahr, egal wie viele Spaces/Mitglieder/Wiki-Seiten.
+Kostendeckend, nicht gewinnorientiert — 1 Euro pro Konto pro Monat, egal wie viele Spaces/Mitglieder/Wiki-Seiten.
 
 ## Kostendeckung
 
-- Ab ~1.200 zahlenden Nutzern (Serverkosten ~15 Euro/Monat nach Entwicklungsphase)
+- Ab ~100 zahlenden Nutzern (Server traegt sich selbst)
+- Detaillierte Kalkulation in [business-model.md](business-model.md)
 
 ## Zielgruppen
 
@@ -31,7 +32,7 @@ Kostendeckend, nicht gewinnorientiert — 1 Euro pro Konto pro Jahr, egal wie vi
 - Mehrere verknuepfte Arego-IDs pro Person moeglich (z.B. Privat + Arbeit)
 - Profil-Wechsel in der App (ein Konto, zwei Identitaeten)
 - Arbeitgeber kann fuer Mitarbeiter zahlen (Firmen-Abo)
-- Schulen zahlen aktuell 7-20 Euro pro Kind/Monat fuer schlechte Software — Aregoland ersetzt das fuer 1 Euro/Jahr
+- Schulen zahlen aktuell 7-20 Euro pro Kind/Monat fuer schlechte Software — Aregoland ersetzt das fuer 1 Euro/Monat
 
 ## Plattform
 

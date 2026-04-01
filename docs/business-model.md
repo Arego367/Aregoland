@@ -10,16 +10,16 @@
 
 ## Kalkulation (konservativ)
 
-Von jedem 1 Euro bleiben nach allen Gebuehren (App Store, Zahlungsanbieter, MwSt) ~50ct.
-So wird geplant — alles darueber ist Bonus.
+Von jedem 1 Euro/Monat bleiben nach Stripe (~4%) und MwSt (~16%) ca. 80ct netto.
+Bei App Store Zahlung (30% Gebuehr) nur ~55ct. PWA bevorzugen.
 
-| Nutzer | Pro Monat | Pro Jahr |
+| Nutzer | Netto/Monat (PWA) | Netto/Jahr (PWA) |
 |---|---|---|
-| 1.000 | 500 Euro | 6.000 Euro |
-| 5.000 | 2.500 Euro | 30.000 Euro |
-| 10.000 | 5.000 Euro | 60.000 Euro |
-| 50.000 | 25.000 Euro | 300.000 Euro |
-| 100.000 | 50.000 Euro | 600.000 Euro |
+| 500 | 400 Euro | 4.800 Euro |
+| 1.500 | 1.200 Euro | 14.400 Euro |
+| 5.000 | 4.000 Euro | 48.000 Euro |
+| 10.000 | 8.000 Euro | 96.000 Euro |
+| 50.000 | 40.000 Euro | 480.000 Euro |
 
 ## Laufende Kosten (Schaetzung)
 
@@ -33,8 +33,9 @@ So wird geplant — alles darueber ist Bonus.
 
 ## Break-even
 
-- ~150 zahlende Nutzer → Server traegt sich selbst
-- ~500 Nutzer → komfortabel
+- ~100 Nutzer → Server traegt sich selbst
+- ~1.500 Nutzer → bescheidenes Nebengehalt moeglich
+- ~5.000 Nutzer → Vollzeit realistisch
 - Serverkosten wachsen viel langsamer als Einnahmen
 
 ## Zahlungsanbieter

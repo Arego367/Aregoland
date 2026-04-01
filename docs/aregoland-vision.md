@@ -19,7 +19,7 @@ Kein Druck. Kein Investor. Keine Melkerei.
 ### Stufe 1 — Jetzt: Privater Messenger (laeuft)
 - P2P Kommunikation, Spaces, Kalender
 - Fuer Familie, Freunde, kleine Gruppen
-- 1 Euro/Monat Abo zur Kostendeckung
+- 1 Euro/Monat Abo — kostendeckend, kein Gewinnziel
 
 ### Stufe 2 — Dokumente (2026)
 - Dateien und Dokumente P2P versenden
