@@ -1401,17 +1401,23 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                   }
                   case "membersOnline":
                     return (
-                      <div key={id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1 mb-2"><Users size={12} /> {t('spaces.membersOnline')}</h3>
-                        <div className="flex -space-x-2">
+                      <div key={id} className="space-y-2">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Users size={12} /> {t('spaces.membersOnline')}</h3>
+                        <div className="flex flex-wrap gap-3">
                           {selectedSpace.members.slice(0, 8).map(m => (
-                            <div key={m.aregoId} className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-[10px] font-bold text-white border-2 border-gray-900">
-                              {(m.displayName[0] ?? "").toUpperCase()}
+                            <div key={m.aregoId} className="flex flex-col items-center gap-1 w-12">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-xs font-bold text-white">
+                                {(m.displayName[0] ?? "").toUpperCase()}
+                              </div>
+                              <span className="text-[9px] text-gray-500 text-center leading-tight truncate w-full">{m.displayName.split(" ")[0]}</span>
                             </div>
                           ))}
                           {selectedSpace.members.length > 8 && (
-                            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-400 border-2 border-gray-900">
-                              +{selectedSpace.members.length - 8}
+                            <div className="flex flex-col items-center gap-1 w-12">
+                              <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400">
+                                +{selectedSpace.members.length - 8}
+                              </div>
+                              <span className="text-[9px] text-gray-600 text-center">{t('spaces.more')}</span>
                             </div>
                           )}
                         </div>
@@ -2392,8 +2398,8 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                                 {ch.readRoles.filter(r => r !== "founder" && r !== "admin").map(r => {
                                   const canWrite = ch.writeRoles.includes(r);
                                   return (
-                                    <span key={String(r)} className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${canWrite ? "bg-green-500/15 text-green-400" : "bg-blue-500/15 text-blue-400"}`}>
-                                      {String(r)} · {canWrite ? t('spaces.badgeWrite') : t('spaces.badgeRead')}
+                                    <span key={String(r)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${canWrite ? "bg-green-500/15 text-green-400" : "bg-blue-500/15 text-blue-400"}`}>
+                                      {String(r)} · {canWrite ? "schreiben" : "lesen"}
                                     </span>
                                   );
                                 })}
@@ -2430,7 +2436,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                               </button>
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap gap-1">
                             {Object.entries(cr.permissions).map(([key, val]) => (
                               <span key={key} className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${val ? "bg-green-500/15 text-green-400" : "bg-gray-800 text-gray-600"}`}>
                                 {t(`spaces.perm_${key}`)}
