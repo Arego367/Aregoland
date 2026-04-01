@@ -585,7 +585,20 @@
     "ttl_unlimited": "Neribota",
     "ttl_custom": "Pasirinkta trukm\u0117",
     "ttlDays": "dien\u0173",
-    "ttlMaxForRole": "Maks. 30 dien\u0173 \u0161iai rolei"
+    "ttlMaxForRole": "Maks. 30 dien\u0173 \u0161iai rolei",
+    "createChat": "Sukurti pokalb\u012f",
+    "chatNamePlaceholder": "\u012eveskite pokalbio pavadinim\u0105",
+    "writeAccess": "Ra\u0161ymo prieiga",
+    "readAccess": "Skaitymo prieiga",
+    "globalChatHint": "Tik adminai/moderatoriai gali ra\u0161yti",
+    "noMessagesYet": "Dar n\u0117ra \u017einu\u010di\u0173. Para\u0161yk pirm\u0105j\u0105!",
+    "chatInputPlaceholder": "Ra\u0161yti \u017einut\u0119...",
+    "readOnlyChat": "Tik skaitymas \u2014 neturite ra\u0161ymo prieigos",
+    "createSubroom": "Sukurti patalp\u0105",
+    "subroomNamePlaceholder": "pvz. Pilates Ant 18 val.",
+    "subroomMembers": "Pasirinkti narius",
+    "subrooms": "Patalpos",
+    "deleteSubroom": "I\u0161trinti patalp\u0105"
   },
   "childProfile": {
     "title": "Vaikų profiliai",

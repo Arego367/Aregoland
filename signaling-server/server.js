@@ -130,7 +130,8 @@ wss.on('connection', (ws) => {
       const room = rooms.get(roomId);
 
       const isInbox = roomId.startsWith('inbox:');
-      const limit   = isInbox ? 50 : 2;
+      const isSpaceChat = roomId.startsWith('space-chat:');
+      const limit   = isInbox ? 50 : isSpaceChat ? 500 : 2;
       if (room.size >= limit) { ws.close(1008, 'Room full'); return; }
 
       room.add(ws);
@@ -140,8 +141,8 @@ wss.on('connection', (ws) => {
           peer.send(JSON.stringify({ type: 'peer_joined' }));
       }
 
-      // Inbox: gepufferte Nachrichten sofort ausliefern
-      if (isInbox) {
+      // Inbox / Space-Chat: gepufferte Nachrichten sofort ausliefern
+      if (isInbox || isSpaceChat) {
         const pending = inboxPending.get(roomId);
         if (pending?.length) {
           const now = Date.now();
@@ -211,7 +212,7 @@ wss.on('connection', (ws) => {
       }
     }
 
-    if (delivered === 0 && roomId.startsWith('inbox:')) {
+    if (delivered === 0 && (roomId.startsWith('inbox:') || roomId.startsWith('space-chat:'))) {
       storePending(roomId, raw);
     }
   });

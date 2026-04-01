@@ -288,7 +288,7 @@
 - Drag & Drop Sortierung via `Reorder` (Motion), GripVertical Handle links, Reihenfolge in `aregoland_spaces_order` gespeichert
 - Volle Browserbreite (kein max-width Container)
 - Erfolgs-Toast "Space erstellt"
-- `Space` Interface: id, name, description, template, color, identityRule, founderId, members[], settings{}, createdAt
+- `Space` Interface: id, name, description, template, color, identityRule, founderId, members[], channels[], subrooms[], settings{}, createdAt
 
 **Spaces — Schritt 2: Mitglieder & Rollen** (`SpacesScreen.tsx`) ✅ 2026-03-31
 - Mitglied einladen: QR-Code mit `SpaceInvitePayload` (spaceId, spaceName, template, role, exp, nonce)
@@ -324,6 +324,29 @@
 - Push-Benachrichtigung bei neuem Termin: "Neuer Termin: [Titel]" (Browser Notification API)
 - `SpacePost` erweitert: eventDate, eventTime, eventLocation, rsvp (Record<aregoId, response>)
 
+**Spaces — Schritt 4: Chats-Tab + Unterräume** (`SpacesScreen.tsx`) ✅ 2026-04-01
+- Chats-Tab vollständig funktionsfähig: Channel-Liste, Chat erstellen, Gruppen-Chat
+- "Chat erstellen" Button: Name eingeben + Rollen-Zugriffsrechte (Lesen/Schreiben) per Rolle wählbar
+- Globaler Chat wird automatisch bei Space-Erstellung angelegt (nur Admin/Moderator/Founder schreibt, alle lesen)
+- Channel-Liste: Name, letzte Nachricht, Uhrzeit, ungelesene Badge (blau)
+- Globaler Chat immer mit Megaphone-Icon + "GLOBAL" Badge gekennzeichnet
+- Gruppen-Chat Screen: Nachrichtenliste mit Sender-Name, Zeitstempel, eigene Nachrichten rechts (blau), fremde links (grau)
+- Nachrichten über Signaling-Server als verschlüsseltes Relay (WebSocket Room `space-chat:{spaceId}:{channelId}`)
+- Signaling-Server erweitert: `space-chat:` Rooms erlauben bis zu 500 Peers + Offline-Pufferung (24h TTL)
+- Schreibsperre für Nutzer ohne Schreibzugriff (Lock-Icon + Hinweis)
+- Nachrichten in localStorage (`aregoland_space_chats`), max 500 pro Channel
+- Ungelesene Badge im Chats-Tab + auf Space-Karte in der Liste
+- `SpaceChannel` Interface: id, spaceId, name, isGlobal, readRoles[], writeRoles[], unreadCount, lastMessage, lastMessageTime
+- `SpaceChatMessage` Interface: id, channelId, authorId, authorName, text, timestamp
+- Unterräume: Admin kann Unterräume erstellen (z.B. "Pilates Di 18 Uhr")
+- Unterraum hat eigene Mitgliederliste (Teilmenge des Space, per Checkbox auswählbar)
+- Unterraum hat eigene Channels (automatisch "Allgemein" bei Erstellung)
+- Unterräume-Bereich in Chats-Tab mit lila Icons + Badges
+- Unterraum löschen (nur Admin)
+- `SpaceSubroom` Interface: id, spaceId, name, memberIds[], channels[], createdAt
+- `loadSpaces()` migriert Spaces ohne `channels`/`subrooms` Feld
+- Alle i18n-Keys in DE/EN/LT: createChat, writeAccess, readAccess, globalChatHint, readOnlyChat, createSubroom, subroomMembers, subrooms, deleteSubroom
+
 **UI-Screens**
 - `ChatListScreen`, `ChatScreen`, `PeopleScreen`, `SpacesScreen`
 - `ConnectScreen`, `DocumentsScreen`, `DashboardScreen`
@@ -340,7 +363,8 @@
    - Schritt 1: Space erstellen mit Vorlagen ✅ 2026-03-31
    - Schritt 2: Mitglieder & Rollen ✅ 2026-03-31
    - Schritt 3: Neuigkeiten-Tab + Übersicht nach Rollen ✅ 2026-03-31
-   - Schritt 4: Wiki/Seiten
+   - Schritt 4: Chats-Tab + Unterräume ✅ 2026-04-01
+   - Schritt 5: Wiki/Seiten
 
 2. **Pay-Modul** — wenn fertig, ist App marktreif
 

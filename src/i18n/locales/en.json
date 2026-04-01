@@ -540,7 +540,20 @@
     "ttl_unlimited": "Unlimited",
     "ttl_custom": "Custom duration",
     "ttlDays": "days",
-    "ttlMaxForRole": "Max 30 days for this role"
+    "ttlMaxForRole": "Max 30 days for this role",
+    "createChat": "Create chat",
+    "chatNamePlaceholder": "Enter chat name",
+    "writeAccess": "Write access",
+    "readAccess": "Read access",
+    "globalChatHint": "Only admins/moderators can write",
+    "noMessagesYet": "No messages yet. Write the first one!",
+    "chatInputPlaceholder": "Write a message...",
+    "readOnlyChat": "Read only \u2014 you don't have write access",
+    "createSubroom": "Create subroom",
+    "subroomNamePlaceholder": "e.g. Pilates Tue 6pm",
+    "subroomMembers": "Select members",
+    "subrooms": "Subrooms",
+    "deleteSubroom": "Delete subroom"
   },
   "childProfile": {
     "title": "Child Profiles",

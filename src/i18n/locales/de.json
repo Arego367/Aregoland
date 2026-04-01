@@ -540,7 +540,20 @@
     "ttl_unlimited": "Unbegrenzt",
     "ttl_custom": "Eigene Dauer",
     "ttlDays": "Tage",
-    "ttlMaxForRole": "Max. 30 Tage f\u00fcr diese Rolle"
+    "ttlMaxForRole": "Max. 30 Tage f\u00fcr diese Rolle",
+    "createChat": "Chat erstellen",
+    "chatNamePlaceholder": "Chat-Name eingeben",
+    "writeAccess": "Schreibzugriff",
+    "readAccess": "Lesezugriff",
+    "globalChatHint": "Nur Admins/Moderatoren k\u00f6nnen schreiben",
+    "noMessagesYet": "Noch keine Nachrichten. Schreib die erste!",
+    "chatInputPlaceholder": "Nachricht schreiben...",
+    "readOnlyChat": "Nur Lesen \u2014 du hast keinen Schreibzugriff",
+    "createSubroom": "Unterraum erstellen",
+    "subroomNamePlaceholder": "z.B. Pilates Di 18 Uhr",
+    "subroomMembers": "Mitglieder ausw\u00e4hlen",
+    "subrooms": "Unterr\u00e4ume",
+    "deleteSubroom": "Unterraum l\u00f6schen"
   },
   "childProfile": {
     "title": "Kinder-Profile",

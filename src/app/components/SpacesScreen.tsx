@@ -1,11 +1,11 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence, Reorder } from "motion/react";
 import {
   ArrowLeft, Users, LayoutGrid, Calendar, MessageCircle, Settings,
   Shield, QrCode, Plus, ChevronRight, Hash, User, Trash2, Edit2, Share2,
   School, Briefcase, Heart, Home, FolderOpen, Clock, Landmark, Globe, Wrench,
   Info, Check, X, GripVertical, UserPlus, Crown, Eye, ChevronDown,
-  Pin, ThumbsUp, MessageSquare, Megaphone, Newspaper, Send
+  Pin, ThumbsUp, MessageSquare, Megaphone, Newspaper, Send, Lock, Layers
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
@@ -50,6 +50,37 @@ interface SpacePost {
   rsvp?: Record<string, "yes" | "no" | "maybe">; // aregoId → response
 }
 
+interface SpaceChatMessage {
+  id: string;
+  channelId: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  timestamp: string; // ISO string
+}
+
+interface SpaceChannel {
+  id: string;
+  spaceId: string;
+  name: string;
+  isGlobal: boolean; // Globaler Chat — nur Admin/Moderator/Founder kann schreiben
+  readRoles: SpaceRole[];  // Wer darf lesen
+  writeRoles: SpaceRole[]; // Wer darf schreiben
+  createdAt: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
+  unreadCount: number;
+}
+
+interface SpaceSubroom {
+  id: string;
+  spaceId: string;
+  name: string;
+  memberIds: string[]; // Teilmenge der Space-Mitglieder (aregoIds)
+  channels: SpaceChannel[];
+  createdAt: string;
+}
+
 interface Space {
   id: string;
   name: string;
@@ -60,6 +91,8 @@ interface Space {
   founderId: string;
   members: SpaceMember[];
   posts: SpacePost[];
+  channels: SpaceChannel[];
+  subrooms: SpaceSubroom[];
   createdAt: string;
   settings: {
     membersVisible: boolean;
@@ -76,10 +109,50 @@ const SPACES_KEY = "aregoland_spaces";
 function loadSpaces(): Space[] {
   try {
     const raw: Space[] = JSON.parse(localStorage.getItem(SPACES_KEY) ?? "[]");
-    // Ensure posts array exists (migration for spaces created before posts feature)
-    return raw.map(s => ({ ...s, posts: s.posts ?? [] }));
+    // Migration: ensure posts, channels, subrooms arrays exist
+    return raw.map(s => ({
+      ...s,
+      posts: s.posts ?? [],
+      channels: s.channels ?? [],
+      subrooms: s.subrooms ?? [],
+    }));
   }
   catch { return []; }
+}
+
+// ── Space Chat Storage ──
+
+const SPACE_CHATS_KEY = "aregoland_space_chats";
+
+function loadSpaceChatMessages(channelId: string): SpaceChatMessage[] {
+  try {
+    const all: Record<string, SpaceChatMessage[]> = JSON.parse(localStorage.getItem(SPACE_CHATS_KEY) ?? "{}");
+    return all[channelId] ?? [];
+  } catch { return []; }
+}
+
+function saveSpaceChatMessage(channelId: string, msg: SpaceChatMessage) {
+  try {
+    const all: Record<string, SpaceChatMessage[]> = JSON.parse(localStorage.getItem(SPACE_CHATS_KEY) ?? "{}");
+    const msgs = all[channelId] ?? [];
+    msgs.push(msg);
+    // Max 500 Nachrichten pro Channel
+    all[channelId] = msgs.slice(-500);
+    localStorage.setItem(SPACE_CHATS_KEY, JSON.stringify(all));
+  } catch { /* ignore */ }
+}
+
+function createGlobalChannel(spaceId: string): SpaceChannel {
+  return {
+    id: `ch-global-${spaceId}`,
+    spaceId,
+    name: "Global",
+    isGlobal: true,
+    readRoles: ["founder", "admin", "moderator", "cohost", "member", "guest"],
+    writeRoles: ["founder", "admin", "moderator"],
+    createdAt: new Date().toISOString(),
+    unreadCount: 0,
+  };
 }
 
 function saveSpaces(spaces: Space[]) {
@@ -250,6 +323,23 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   // Role editing
   const [editingMember, setEditingMember] = useState<string | null>(null);
 
+  // Chats
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [channelName, setChannelName] = useState("");
+  const [channelWriteRoles, setChannelWriteRoles] = useState<Set<SpaceRole>>(new Set(["founder", "admin", "moderator", "member"]));
+  const [channelReadRoles, setChannelReadRoles] = useState<Set<SpaceRole>>(new Set(["founder", "admin", "moderator", "cohost", "member", "guest"]));
+  const [openChannel, setOpenChannel] = useState<SpaceChannel | null>(null);
+  const [chatMessages, setChatMessages] = useState<SpaceChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  // Subrooms
+  const [showCreateSubroom, setShowCreateSubroom] = useState(false);
+  const [subroomName, setSubroomName] = useState("");
+  const [subroomMemberIds, setSubroomMemberIds] = useState<Set<string>>(new Set());
+  const [openSubroom, setOpenSubroom] = useState<SpaceSubroom | null>(null);
+
   // News/Posts
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [postTitle, setPostTitle] = useState("");
@@ -273,8 +363,10 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const handleCreateSpace = () => {
     if (!name.trim() || !selectedTemplate || !identity) return;
     const tmpl = getTemplate(selectedTemplate);
+    const spaceId = `space-${Date.now().toString(36)}`;
+    const globalChannel = createGlobalChannel(spaceId);
     const space: Space = {
-      id: `space-${Date.now().toString(36)}`,
+      id: spaceId,
       name: name.trim(),
       description: description.trim(),
       template: selectedTemplate,
@@ -287,6 +379,8 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
         role: "founder",
       }],
       posts: [],
+      channels: [globalChannel],
+      subrooms: [],
       createdAt: new Date().toISOString(),
       settings: { ...tmpl.defaultSettings },
     };
@@ -452,6 +546,193 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
     setSelectedSpace(null);
   };
 
+  // ── WebSocket für Space-Chat ──
+
+  const connectToChannel = useCallback((channel: SpaceChannel) => {
+    // Alte Verbindung schließen
+    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+
+    const roomId = `space-chat:${channel.spaceId}:${channel.id}`;
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${proto}//${location.host}/ws-signal`);
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: "join", roomId }));
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === "joined" || data.type === "peer_joined" || data.type === "peer_left") return;
+        // Space-Chat-Nachricht empfangen
+        if (data.type === "space-chat-msg" && data.msg) {
+          const msg = data.msg as SpaceChatMessage;
+          saveSpaceChatMessage(channel.id, msg);
+          setChatMessages(prev => [...prev, msg]);
+          // lastMessage updaten
+          if (selectedSpace) {
+            const updated = {
+              ...selectedSpace,
+              channels: selectedSpace.channels.map(ch =>
+                ch.id === channel.id
+                  ? { ...ch, lastMessage: msg.text, lastMessageTime: msg.timestamp }
+                  : ch
+              ),
+            };
+            updateSpace(updated);
+          }
+        }
+      } catch { /* ignore */ }
+    };
+
+    ws.onerror = () => ws.close();
+    wsRef.current = ws;
+  }, [selectedSpace]);
+
+  // Cleanup WebSocket on unmount or channel change
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+    };
+  }, []);
+
+  // Auto-scroll to bottom when new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const handleOpenChannel = (channel: SpaceChannel) => {
+    setOpenChannel(channel);
+    setChatMessages(loadSpaceChatMessages(channel.id));
+    setChatInput("");
+    connectToChannel(channel);
+    // Reset unread
+    if (selectedSpace) {
+      const updated = {
+        ...selectedSpace,
+        channels: selectedSpace.channels.map(ch =>
+          ch.id === channel.id ? { ...ch, unreadCount: 0 } : ch
+        ),
+      };
+      updateSpace(updated);
+    }
+  };
+
+  const handleCloseChannel = () => {
+    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+    setOpenChannel(null);
+    setChatMessages([]);
+    setChatInput("");
+  };
+
+  const handleSendMessage = () => {
+    if (!chatInput.trim() || !openChannel || !identity || !wsRef.current) return;
+    const msg: SpaceChatMessage = {
+      id: `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      channelId: openChannel.id,
+      authorId: identity.aregoId,
+      authorName: identity.displayName,
+      text: chatInput.trim(),
+      timestamp: new Date().toISOString(),
+    };
+    // Lokal speichern + anzeigen
+    saveSpaceChatMessage(openChannel.id, msg);
+    setChatMessages(prev => [...prev, msg]);
+    // Über WebSocket senden
+    if (wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "space-chat-msg", msg }));
+    }
+    // lastMessage updaten
+    if (selectedSpace) {
+      const updated = {
+        ...selectedSpace,
+        channels: selectedSpace.channels.map(ch =>
+          ch.id === openChannel.id
+            ? { ...ch, lastMessage: msg.text, lastMessageTime: msg.timestamp }
+            : ch
+        ),
+      };
+      updateSpace(updated);
+    }
+    setChatInput("");
+  };
+
+  const handleCreateChannel = () => {
+    if (!channelName.trim() || !selectedSpace) return;
+    const channel: SpaceChannel = {
+      id: `ch-${Date.now().toString(36)}`,
+      spaceId: selectedSpace.id,
+      name: channelName.trim(),
+      isGlobal: false,
+      readRoles: Array.from(channelReadRoles),
+      writeRoles: Array.from(channelWriteRoles),
+      createdAt: new Date().toISOString(),
+      unreadCount: 0,
+    };
+    const updated = {
+      ...selectedSpace,
+      channels: [...(selectedSpace.channels ?? []), channel],
+    };
+    updateSpace(updated);
+    setChannelName("");
+    setChannelWriteRoles(new Set(["founder", "admin", "moderator", "member"]));
+    setChannelReadRoles(new Set(["founder", "admin", "moderator", "cohost", "member", "guest"]));
+    setShowCreateChannel(false);
+  };
+
+  const handleDeleteChannel = (channelId: string) => {
+    if (!selectedSpace) return;
+    const updated = {
+      ...selectedSpace,
+      channels: selectedSpace.channels.filter(ch => ch.id !== channelId),
+    };
+    updateSpace(updated);
+    if (openChannel?.id === channelId) handleCloseChannel();
+  };
+
+  // ── Unterräume ──
+
+  const handleCreateSubroom = () => {
+    if (!subroomName.trim() || !selectedSpace) return;
+    const subroomId = `sub-${Date.now().toString(36)}`;
+    const generalChannel: SpaceChannel = {
+      id: `ch-sub-${subroomId}`,
+      spaceId: selectedSpace.id,
+      name: "Allgemein",
+      isGlobal: false,
+      readRoles: ["founder", "admin", "moderator", "cohost", "member", "guest"],
+      writeRoles: ["founder", "admin", "moderator", "member"],
+      createdAt: new Date().toISOString(),
+      unreadCount: 0,
+    };
+    const subroom: SpaceSubroom = {
+      id: subroomId,
+      spaceId: selectedSpace.id,
+      name: subroomName.trim(),
+      memberIds: Array.from(subroomMemberIds),
+      channels: [generalChannel],
+      createdAt: new Date().toISOString(),
+    };
+    const updated = {
+      ...selectedSpace,
+      subrooms: [...(selectedSpace.subrooms ?? []), subroom],
+    };
+    updateSpace(updated);
+    setSubroomName("");
+    setSubroomMemberIds(new Set());
+    setShowCreateSubroom(false);
+  };
+
+  const handleDeleteSubroom = (subroomId: string) => {
+    if (!selectedSpace) return;
+    const updated = {
+      ...selectedSpace,
+      subrooms: (selectedSpace.subrooms ?? []).filter(sr => sr.id !== subroomId),
+    };
+    updateSpace(updated);
+    if (openSubroom?.id === subroomId) setOpenSubroom(null);
+  };
+
   const renderHeader = (title: string, backAction: () => void) => (
     <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
       <button onClick={backAction} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all">
@@ -547,6 +828,14 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                           {space.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{space.description}</p>}
                           <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
                             <span className="flex items-center gap-1"><Users size={11} /> {space.members.length}</span>
+                            {(() => {
+                              const unread = (space.channels ?? []).reduce((s, ch) => s + (ch.unreadCount ?? 0), 0);
+                              return unread > 0 ? (
+                                <span className="ml-auto w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
+                                  {unread > 9 ? "9+" : unread}
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
                         </div>
                       </button>
@@ -691,17 +980,27 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
         {/* Tabs */}
         <div className="px-4 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-6 overflow-x-auto no-scrollbar pb-1">
-            {(["overview", "news", "chats", "members", "settings"] as const).map(tab => (
+            {(["overview", "news", "chats", "members", "settings"] as const).map(tab => {
+              const totalUnread = tab === "chats"
+                ? (selectedSpace.channels ?? []).reduce((sum, ch) => sum + (ch.unreadCount ?? 0), 0)
+                : 0;
+              return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                className={`py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors relative ${
                   activeTab === tab ? "border-blue-500 text-blue-400" : "border-transparent text-gray-400 hover:text-gray-200"
                 }`}
               >
                 {t(`spaces.tab_${tab}`)}
+                {totalUnread > 0 && (
+                  <span className="absolute -top-0.5 -right-2 w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center">
+                    {totalUnread > 9 ? "9+" : totalUnread}
+                  </span>
+                )}
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -769,7 +1068,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                         <div className="text-xs text-gray-500">{t('spaces.tab_news')}</div>
                       </div>
                       <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-                        <div className="text-lg font-bold text-green-400">0</div>
+                        <div className="text-lg font-bold text-green-400">{(selectedSpace.channels ?? []).length}</div>
                         <div className="text-xs text-gray-500">{t('spaces.tab_chats')}</div>
                       </div>
                     </div>
@@ -987,12 +1286,346 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
               );
             })()}
 
-            {activeTab === "chats" && (
-              <div className="text-center py-12 text-gray-600">
-                <Hash size={32} className="mx-auto mb-2 opacity-50" />
-                <p className="text-sm">{t('spaces.noChatsYet')}</p>
-              </div>
-            )}
+            {activeTab === "chats" && (() => {
+              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "guest";
+              const canManage = myRole === "founder" || myRole === "admin";
+              const channels = (selectedSpace.channels ?? []).filter(ch =>
+                ch.readRoles.includes(myRole)
+              );
+
+              // ── Open Channel View (Gruppen-Chat) ──
+              if (openChannel) {
+                const canWrite = openChannel.writeRoles.includes(myRole);
+                return (
+                  <div className="flex flex-col -m-4 h-[calc(100vh-12rem)]">
+                    {/* Channel header */}
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800 shrink-0">
+                      <button onClick={handleCloseChannel} className="p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-all">
+                        <ArrowLeft size={18} />
+                      </button>
+                      <Hash size={16} className="text-gray-500" />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-bold truncate">{openChannel.name}</h3>
+                        {openChannel.isGlobal && (
+                          <span className="text-[10px] text-yellow-400">{t('spaces.globalChatHint')}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                      {chatMessages.length === 0 && (
+                        <div className="text-center py-10 text-gray-600">
+                          <MessageCircle size={28} className="mx-auto mb-2 opacity-50" />
+                          <p className="text-xs">{t('spaces.noMessagesYet')}</p>
+                        </div>
+                      )}
+                      {chatMessages.map(msg => {
+                        const isMe = msg.authorId === identity?.aregoId;
+                        return (
+                          <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                            <div className={`max-w-[75%] ${isMe ? "order-2" : ""}`}>
+                              {!isMe && (
+                                <span className="text-[10px] text-gray-500 font-medium ml-1 mb-0.5 block">{msg.authorName}</span>
+                              )}
+                              <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                                isMe
+                                  ? "bg-blue-600 text-white rounded-br-md"
+                                  : "bg-gray-800 text-gray-200 rounded-bl-md"
+                              }`}>
+                                {msg.text}
+                              </div>
+                              <span className={`text-[10px] text-gray-600 mt-0.5 block ${isMe ? "text-right mr-1" : "ml-1"}`}>
+                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Input */}
+                    {canWrite ? (
+                      <div className="px-4 py-3 border-t border-gray-800 shrink-0">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={chatInput}
+                            onChange={e => setChatInput(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && handleSendMessage()}
+                            placeholder={t('spaces.chatInputPlaceholder')}
+                            className="flex-1 bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
+                          />
+                          <button
+                            onClick={handleSendMessage}
+                            disabled={!chatInput.trim()}
+                            className="p-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 rounded-xl text-white transition-all"
+                          >
+                            <Send size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="px-4 py-3 border-t border-gray-800 shrink-0">
+                        <div className="flex items-center gap-2 text-gray-500 text-xs justify-center">
+                          <Lock size={14} />
+                          <span>{t('spaces.readOnlyChat')}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // ── Open Subroom View ──
+              if (openSubroom) {
+                const subroomChannels = openSubroom.channels ?? [];
+                return (
+                  <div className="space-y-3 -mt-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <button onClick={() => setOpenSubroom(null)} className="p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-all">
+                        <ArrowLeft size={18} />
+                      </button>
+                      <Layers size={16} className="text-purple-400" />
+                      <h3 className="text-sm font-bold">{openSubroom.name}</h3>
+                      <span className="text-xs text-gray-500 ml-auto">{openSubroom.memberIds.length} {t('spaces.members')}</span>
+                    </div>
+                    {subroomChannels.map(ch => (
+                      <button
+                        key={ch.id}
+                        onClick={() => handleOpenChannel(ch)}
+                        className="w-full flex items-center gap-3 p-3 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-gray-600 transition-all text-left"
+                      >
+                        <Hash size={16} className="text-gray-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{ch.name}</div>
+                          {ch.lastMessage && (
+                            <div className="text-xs text-gray-500 truncate mt-0.5">{ch.lastMessage}</div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                    {canManage && (
+                      <button onClick={() => handleDeleteSubroom(openSubroom.id)} className="w-full flex items-center justify-center gap-2 p-2 text-red-400 text-xs hover:bg-red-500/10 rounded-xl transition-colors mt-2">
+                        <Trash2 size={14} /> {t('spaces.deleteSubroom')}
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+
+              // ── Channel List View ──
+              return (
+                <>
+                  {/* Create Channel button */}
+                  {canManage && !showCreateChannel && !showCreateSubroom && (
+                    <div className="flex gap-2 mb-2">
+                      <button onClick={() => setShowCreateChannel(true)}
+                        className="flex-1 flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
+                        <Plus size={16} className="text-gray-500" />
+                        <span className="text-xs text-gray-400 font-medium">{t('spaces.createChat')}</span>
+                      </button>
+                      <button onClick={() => setShowCreateSubroom(true)}
+                        className="flex-1 flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-purple-500/50 hover:bg-purple-500/5 transition-all">
+                        <Layers size={16} className="text-gray-500" />
+                        <span className="text-xs text-gray-400 font-medium">{t('spaces.createSubroom')}</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Create Channel form */}
+                  <AnimatePresence>
+                    {showCreateChannel && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                        <div className="bg-gray-800/50 border border-blue-500/30 rounded-xl p-4 space-y-3 mb-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-bold">{t('spaces.createChat')}</h4>
+                            <button onClick={() => setShowCreateChannel(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
+                          </div>
+                          <input type="text" value={channelName} onChange={e => setChannelName(e.target.value)} placeholder={t('spaces.chatNamePlaceholder')} autoFocus
+                            className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
+
+                          {/* Write Roles */}
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-gray-400">{t('spaces.writeAccess')}</label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {ROLE_ORDER.filter(r => r !== "founder").map(r => (
+                                <button key={r}
+                                  onClick={() => setChannelWriteRoles(prev => {
+                                    const n = new Set(prev);
+                                    n.has(r) ? n.delete(r) : n.add(r);
+                                    return n;
+                                  })}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                                    channelWriteRoles.has(r)
+                                      ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current`
+                                      : "bg-gray-800 text-gray-600"
+                                  }`}>
+                                  {t(`spaces.role_${r}`)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Read Roles */}
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-gray-400">{t('spaces.readAccess')}</label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {ROLE_ORDER.filter(r => r !== "founder").map(r => (
+                                <button key={r}
+                                  onClick={() => setChannelReadRoles(prev => {
+                                    const n = new Set(prev);
+                                    n.has(r) ? n.delete(r) : n.add(r);
+                                    return n;
+                                  })}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                                    channelReadRoles.has(r)
+                                      ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current`
+                                      : "bg-gray-800 text-gray-600"
+                                  }`}>
+                                  {t(`spaces.role_${r}`)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <button onClick={handleCreateChannel} disabled={!channelName.trim()}
+                            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
+                            {t('spaces.createChat')}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Create Subroom form */}
+                  <AnimatePresence>
+                    {showCreateSubroom && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                        <div className="bg-gray-800/50 border border-purple-500/30 rounded-xl p-4 space-y-3 mb-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-bold">{t('spaces.createSubroom')}</h4>
+                            <button onClick={() => setShowCreateSubroom(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
+                          </div>
+                          <input type="text" value={subroomName} onChange={e => setSubroomName(e.target.value)} placeholder={t('spaces.subroomNamePlaceholder')} autoFocus
+                            className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-all" />
+
+                          {/* Mitglieder auswählen */}
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-gray-400">{t('spaces.subroomMembers')}</label>
+                            <div className="max-h-40 overflow-y-auto space-y-1">
+                              {selectedSpace.members.map(m => (
+                                <button key={m.aregoId}
+                                  onClick={() => setSubroomMemberIds(prev => {
+                                    const n = new Set(prev);
+                                    n.has(m.aregoId) ? n.delete(m.aregoId) : n.add(m.aregoId);
+                                    return n;
+                                  })}
+                                  className={`w-full flex items-center gap-2 p-2 rounded-lg text-left transition-all ${
+                                    subroomMemberIds.has(m.aregoId) ? "bg-purple-500/15 border border-purple-500/30" : "bg-gray-800/50 border border-transparent hover:bg-gray-700/50"
+                                  }`}>
+                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                    subroomMemberIds.has(m.aregoId) ? "border-purple-500 bg-purple-500" : "border-gray-600"
+                                  }`}>
+                                    {subroomMemberIds.has(m.aregoId) && <Check size={10} className="text-white" />}
+                                  </div>
+                                  <span className="text-xs font-medium">{m.displayName}</span>
+                                  <span className={`text-[10px] ml-auto ${ROLE_COLORS[m.role].text}`}>{t(`spaces.role_${m.role}`)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <button onClick={handleCreateSubroom} disabled={!subroomName.trim() || subroomMemberIds.size === 0}
+                            className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
+                            {t('spaces.createSubroom')}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Channel list */}
+                  {channels.length === 0 && !showCreateChannel && (
+                    <div className="text-center py-12 text-gray-600">
+                      <Hash size={32} className="mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">{t('spaces.noChatsYet')}</p>
+                    </div>
+                  )}
+
+                  {channels.map(ch => (
+                    <div key={ch.id} className="flex items-center gap-3 group">
+                      <button
+                        onClick={() => handleOpenChannel(ch)}
+                        className="flex-1 flex items-center gap-3 p-3 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-gray-600 transition-all text-left"
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${ch.isGlobal ? "bg-yellow-500/15 text-yellow-400" : "bg-blue-500/15 text-blue-400"}`}>
+                          {ch.isGlobal ? <Megaphone size={18} /> : <Hash size={18} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium truncate">{ch.name}</span>
+                            {ch.isGlobal && <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-yellow-500/20 text-yellow-400 font-bold shrink-0">GLOBAL</span>}
+                          </div>
+                          {ch.lastMessage && (
+                            <div className="text-xs text-gray-500 truncate mt-0.5">{ch.lastMessage}</div>
+                          )}
+                        </div>
+                        {ch.lastMessageTime && (
+                          <span className="text-[10px] text-gray-600 shrink-0">
+                            {new Date(ch.lastMessageTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        )}
+                        {ch.unreadCount > 0 && (
+                          <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {ch.unreadCount > 9 ? "9+" : ch.unreadCount}
+                          </span>
+                        )}
+                      </button>
+                      {canManage && !ch.isGlobal && (
+                        <button onClick={() => handleDeleteChannel(ch.id)}
+                          className="p-1.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Unterräume */}
+                  {(selectedSpace.subrooms ?? []).length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 px-1">
+                        <Layers size={12} /> {t('spaces.subrooms')}
+                      </h3>
+                      {(selectedSpace.subrooms ?? []).map(sr => (
+                        <div key={sr.id} className="flex items-center gap-3 group">
+                          <button
+                            onClick={() => setOpenSubroom(sr)}
+                            className="flex-1 flex items-center gap-3 p-3 bg-gray-800/50 rounded-xl border border-purple-500/20 hover:border-purple-500/40 transition-all text-left"
+                          >
+                            <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
+                              <Layers size={18} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium truncate block">{sr.name}</span>
+                              <span className="text-xs text-gray-500">{sr.memberIds.length} {t('spaces.members')}</span>
+                            </div>
+                            <ChevronRight size={16} className="text-gray-600 shrink-0" />
+                          </button>
+                          {canManage && (
+                            <button onClick={() => handleDeleteSubroom(sr.id)}
+                              className="p-1.5 text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {activeTab === "members" && (() => {
               const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role;
