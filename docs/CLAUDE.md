@@ -29,6 +29,7 @@
 | [aregoland-vision.md](aregoland-vision.md) | Die grosse Vision: 5 Stufen von Messenger bis Lebensinfrastruktur |
 | [business-model.md](business-model.md) | 1 Euro/Monat, UG, Institutionen-Potenzial |
 | [eudi-integration.md](eudi-integration.md) | EUDI Wallet Fundament, FSK-Automatik, Zeitplan |
+| [marketing.md](marketing.md) | Marketing-Strategie, Creator, Experten, Slogans |
 
 ## Arbeitsweise
 
