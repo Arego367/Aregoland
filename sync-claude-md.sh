@@ -1,9 +1,11 @@
 #!/bin/bash
-# Syncs CLAUDE.md to Google Drive via rclone
-# Requires: rclone configured with remote "gdrive" (see setup below)
+# Syncs /docs/*.md to Google Drive via rclone
+# Also keeps CLAUDE.md root as backup
 
-REMOTE="gdrive:Aregoland/"
-SOURCE="/root/Aregoland/CLAUDE.md"
+REMOTE_DOCS="gdrive:Aregoland-Docs/"
+REMOTE_ROOT="gdrive:"
+DOCS_DIR="/root/Aregoland/docs/"
+ROOT_FILE="/root/Aregoland/CLAUDE.md"
 
 if ! command -v rclone &>/dev/null; then
   echo "[sync] rclone nicht installiert"
@@ -11,9 +13,10 @@ if ! command -v rclone &>/dev/null; then
 fi
 
 if ! rclone listremotes 2>/dev/null | grep -q "^gdrive:"; then
-  echo "[sync] Remote 'gdrive' nicht konfiguriert. Bitte 'rclone config' ausführen."
+  echo "[sync] Remote 'gdrive' nicht konfiguriert. Bitte 'rclone config' ausfuehren."
   exit 1
 fi
 
-rclone copy "$SOURCE" "$REMOTE" --log-level NOTICE 2>&1
-echo "[sync] CLAUDE.md -> Google Drive hochgeladen"
+rclone copy "$ROOT_FILE" "$REMOTE_ROOT" --log-level NOTICE 2>&1
+rclone copy "$DOCS_DIR" "$REMOTE_DOCS" --include "*.md" --log-level NOTICE 2>&1
+echo "[sync] CLAUDE.md + docs/ -> Google Drive hochgeladen"
