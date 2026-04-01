@@ -22,6 +22,24 @@
    - Bildschirmzeit-Enforcement
    - Oeffentliche URLs (aregoland.de/world/...)
 
+### Zukuenftige Feature-Bereiche (Langfrist-Roadmap, siehe [aregoland-vision.md](aregoland-vision.md))
+
+**Dokumente (Stufe 2)**
+- [ ] Datei/Dokument P2P versenden
+- [ ] Ordner-System (z.B. "Gesundheit", "Schule", "Behoerden")
+- [ ] Dokument-Ablaufdatum (nach X Tagen automatisch weg)
+
+**Institutionen (Stufe 3)**
+- [ ] Spaces fuer Gemeinden/Schulen/Vereine optimieren
+- [ ] Formular-System in Spaces
+- [ ] Digitale Identitaetsbestaetigung
+
+**Gesundheit (Stufe 4 — nach Zertifizierung)**
+- [ ] Gesundheitsordner mit Befunden
+- [ ] Arzt-Space Integration
+- [ ] Selbstauskunft-Profil
+- [ ] Gesundheitskarte digital
+
 3. **Pay-Modul** — wenn fertig, ist App marktreif (siehe [geschaeftsmodell.md](geschaeftsmodell.md))
 
 4. **Google Play Store + Apple App Store** (Capacitor.js oder React Native)

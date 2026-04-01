@@ -26,6 +26,8 @@
 | [sprachen.md](sprachen.md) | i18n Übersetzungs-Tracking |
 | [aras.md](aras.md) | Persönliches Profil von Aras |
 | [world-concept.md](world-concept.md) | World Social Media Konzept, FSK-Feed, Bildschirmzeit |
+| [aregoland-vision.md](aregoland-vision.md) | Die grosse Vision: 5 Stufen von Messenger bis Lebensinfrastruktur |
+| [business-model.md](business-model.md) | 1 Euro/Monat, UG, Institutionen-Potenzial |
 
 ## Arbeitsweise
 

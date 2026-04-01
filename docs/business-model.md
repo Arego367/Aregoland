@@ -64,3 +64,27 @@ Kein gemeinnuetziger Verein — aber ethisches Unternehmen:
 Alle DSGVO-Vorschriften DE und EU gelten ausnahmslos.
 P2P-Architektur = keine Serverdaten = nichts zu verstecken.
 Vorteil besonders fuer: Schulen, Behoerden, Unternehmen, Eltern.
+
+## Langfristiges Potenzial (Institutionen)
+
+Wenn Aregoland waechst — organisch, ohne Druck:
+
+| Zielgruppe | DE gesamt | Modell |
+|---|---|---|
+| Arztpraxen | ~400.000 | Lizenz/Monat |
+| Gemeinden | ~11.000 | Lizenz/Monat |
+| Schulen | ~33.000 | Lizenz/Monat |
+| Krankenhaeuser | ~1.900 | Enterprise |
+
+Zum Vergleich: Doctolib ~170 Euro/Monat pro Praxis.
+Aregoland Ansatz: Bruchteile davon — trotzdem nachhaltig.
+
+Hinweis: Gesundheitsbereich braucht Zertifizierungen (ISO 27001,
+BSI, Gematik). Erst ab Stufe 4 relevant. Kein Druck.
+
+## Wachstumsstrategie
+- Kein bezahltes Marketing
+- Aras nutzt App selbst mit Familie
+- App in Stores (Google Play + Apple)
+- Gelegentliche Reels/Posts in Social Media
+- Wenn es gut ist, kommt Werbung von alleine
