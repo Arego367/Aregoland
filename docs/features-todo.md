@@ -8,8 +8,9 @@
    - Schritt 1: Space erstellen mit Vorlagen (2026-03-31)
    - Schritt 2: Mitglieder & Rollen (2026-03-31)
    - Schritt 3: Neuigkeiten-Tab + Uebersicht nach Rollen (2026-03-31)
-   - Schritt 4: Chats-Tab + Unterraeume (2026-04-01)
-   - Schritt 5: Wiki/Seiten
+   - Schritt 4: Chats-Tab (2026-04-01)
+   - Schritt 5: Profil-Tab + Rollen & Rechte (2026-04-01)
+   - Schritt 6: Wiki/Seiten
 
 2. **Pay-Modul** — wenn fertig, ist App marktreif (siehe [geschaeftsmodell.md](geschaeftsmodell.md))
 
@@ -129,3 +130,23 @@
 - Spaces die oeffentlich sind koennen gefunden werden
 - Suche nach Name, Kategorie, Vorlage
 - Space-Vorschau vor Beitritt (Name, Beschreibung, Mitgliederzahl, FSK)
+
+### Persoenliche Statistiken (noch nicht implementiert)
+
+- Lokal auf Geraet, nur fuer den Nutzer selbst sichtbar
+- Genutzte Zeit pro App-Bereich
+- Nachrichten gesendet/empfangen
+- Selbst getippte Zeichen
+- Termine erstellt, Anrufe gemacht + Dauer
+- Spaces beigetreten
+- Fuer Spaces: anonyme Space-Statistiken fuer Admin (keine Namen)
+
+### Feedback-System (noch nicht implementiert, ersetzt aktuellen Feedback-Button)
+
+- Chat-aehnlicher Flow mit KI
+- Nutzer schreibt oder sendet Voice-Nachricht frei
+- KI stellt max. 1-2 kurze Rueckfragen
+- KI fragt am Ende: "Darf ich deine Geraeteinfos haben?" → Ja/Nein (automatisch gesammelt)
+- Optional: Foto/Video anhaengen
+- KI sortiert im Hintergrund: Bug/Idee/Lob/Frage
+- Kein Formular, keine Pflichtfelder, keine Kategorieauswahl

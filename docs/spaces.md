@@ -80,8 +80,9 @@
 1. Space erstellen mit Vorlagen (2026-03-31)
 2. Mitglieder & Rollen (2026-03-31)
 3. Uebersicht nach Rollen + Termine mit Anwesenheit (2026-03-31)
-4. Chats-Tab + Unterraeume (2026-04-01)
-5. Wiki/Seiten
+4. Chats-Tab (2026-04-01)
+5. Profil-Tab + Rollen & Rechte + Chat-Rollen vereinfacht (2026-04-01)
+6. Wiki/Seiten
 
 ---
 
