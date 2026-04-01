@@ -1791,56 +1791,55 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                 </select>
               </div>
 
-              {/* TTL dropdown */}
+              {/* TTL dropdown + custom input inline */}
               <div className="flex-1 space-y-1.5">
                 <label className="text-xs font-medium text-gray-400 px-1">{t('spaces.inviteTtl')}</label>
-                <select
-                  value={inviteTtlId}
-                  onChange={e => {
-                    const id = e.target.value;
-                    // Enforce max 30d for admin/moderator
-                    if (id === "unlimited" && isHighRole(inviteRole)) return;
-                    setInviteTtlId(id);
-                    if (id !== "custom") regenerateInvite(undefined, id);
-                  }}
-                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}
-                >
-                  {INVITE_TTLS.map(ttl => {
-                    const disabled = ttl.id === "unlimited" && isHighRole(inviteRole);
-                    return (
-                      <option key={ttl.id} value={ttl.id} disabled={disabled}>
-                        {t(`spaces.ttl_${ttl.id}`)}{disabled ? ` (${t('spaces.ttlMaxForRole')})` : ""}
-                      </option>
-                    );
-                  })}
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={inviteTtlId}
+                    onChange={e => {
+                      const id = e.target.value;
+                      if (id === "unlimited" && isHighRole(inviteRole)) return;
+                      setInviteTtlId(id);
+                      if (id !== "custom") regenerateInvite(undefined, id);
+                    }}
+                    className={`bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer ${inviteTtlId === "custom" ? "w-auto shrink-0" : "w-full"}`}
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: "32px" }}
+                  >
+                    {INVITE_TTLS.map(ttl => {
+                      const disabled = ttl.id === "unlimited" && isHighRole(inviteRole);
+                      return (
+                        <option key={ttl.id} value={ttl.id} disabled={disabled}>
+                          {t(`spaces.ttl_${ttl.id}`)}{disabled ? ` (${t('spaces.ttlMaxForRole')})` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {inviteTtlId === "custom" && (
+                    <>
+                      <input
+                        type="number"
+                        min={1}
+                        max={customTtlUnit === "hours" ? 720 : 365}
+                        value={customTtlValue}
+                        onChange={e => setCustomTtlValue(e.target.value)}
+                        onBlur={() => regenerateInvite(undefined, "custom")}
+                        className="w-16 bg-gray-800/50 border border-gray-700 rounded-xl px-2 py-2.5 text-sm text-white text-center focus:outline-none focus:border-blue-500 transition-all"
+                      />
+                      <select
+                        value={customTtlUnit}
+                        onChange={e => { setCustomTtlUnit(e.target.value as "hours" | "days"); setTimeout(() => regenerateInvite(undefined, "custom"), 0); }}
+                        className="bg-gray-800/50 border border-gray-700 rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center", paddingRight: "28px" }}
+                      >
+                        <option value="hours">{t('spaces.ttlHours')}</option>
+                        <option value="days">{t('spaces.ttlDays')}</option>
+                      </select>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-
-            {/* Custom TTL — inline: number + unit dropdown */}
-            {inviteTtlId === "custom" && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  max={customTtlUnit === "hours" ? 720 : 365}
-                  value={customTtlValue}
-                  onChange={e => setCustomTtlValue(e.target.value)}
-                  onBlur={() => regenerateInvite(undefined, "custom")}
-                  className="w-20 bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white text-center focus:outline-none focus:border-blue-500 transition-all"
-                />
-                <select
-                  value={customTtlUnit}
-                  onChange={e => { setCustomTtlUnit(e.target.value as "hours" | "days"); setTimeout(() => regenerateInvite(undefined, "custom"), 0); }}
-                  className="bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: "32px" }}
-                >
-                  <option value="hours">{t('spaces.ttlHours')}</option>
-                  <option value="days">{t('spaces.ttlDays')}</option>
-                </select>
-              </div>
-            )}
 
             {/* High role warning */}
             {isHighRole(inviteRole) && (
