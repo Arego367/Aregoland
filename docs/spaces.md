@@ -35,7 +35,9 @@
 - QR-Code Einladung mit Ablaufzeit
 - Globaler Chat: nur Admins/Moderatoren koennen posten
 - Bei Space-Erstellung: Info-Box erklaert Privacy + Netzwerk-Helfer Prinzip
-- **Chats verwalten**: Chat erstellen (Name + Rollen-Zugriffsrechte + Sichtbarkeit), Chats loeschen
+- **Chats verwalten**: Chat erstellen/bearbeiten (Name + Rollen-Zugriffsrechte + Sichtbarkeit), Chats loeschen
+  - Jeder Chat zeigt: Name + Rollen-Badges (Lesen gruen, Schreiben blau)
+  - Bearbeiten-Stift oeffnet vorausgefuellten Dialog
   - Rollen-Auswahl: Moderator, Mitglied + alle eigenen Rollen (dynamisch geladen)
   - Gast erscheint nicht als Rolle sondern als Hinweis: "Gast = Standard fuer alle ohne zugewiesene Rolle"
   - Toggle "Mitglieder sehen sich gegenseitig in diesem Chat" (Standard: AN)
@@ -53,6 +55,12 @@
   - **Gast-Rolle** am Ende der Liste: nicht loeschbar, Rechte vom Admin anpassbar
     - Hinweis: "Gast ist die Standard-Rolle fuer alle ohne zugewiesene Rolle"
     - guestPermissions im Space-Objekt gespeichert
+  - Jede Rolle: Bearbeiten-Stift oeffnet vorausgefuellten Editor
+- **Gruender-Rechte uebertragen**: Founder waehlt Admin → Bestaetigung → alter Founder wird Admin
+- **Space loeschen**: Mehrstufiger Dialog:
+  1. "Moechtest du diesen Space wirklich loeschen?" + Warnung
+  2. "Moechtest du den Space lieber uebertragen?" → Ja/Nein
+  3. "Ich verstehe, alles wird geloescht" → Endgueltig loeschen
 
 ## Tabs
 
@@ -75,7 +83,7 @@
   - Mobile Daten Toggle (nur wenn Netzwerk-Helfer aktiv)
   - Automatische Mobile-Daten-Erkennung mit Hinweis
   - Benachrichtigungen: 3 Modi (Alle/Stumm/Keine) + 6 einzelne Toggles
-- **Einstellungen**: Chats verwalten, Rollen & Rechte, Space loeschen
+- **Einstellungen**: Chats verwalten, Rollen & Rechte (bearbeitbar), Gruender-Rechte uebertragen, Space loeschen (mehrstufig)
 
 ## Space-Features
 

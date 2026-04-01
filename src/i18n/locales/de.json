@@ -610,7 +610,22 @@
     "widget_stats": "Statistiken",
     "widget_events": "Termine",
     "widget_activeChats": "Aktive Chats",
-    "widget_membersOnline": "Mitglieder online"
+    "widget_membersOnline": "Mitglieder online",
+    "editChat": "Chat bearbeiten",
+    "editRole": "Rolle bearbeiten",
+    "transferFounder": "Gr\u00fcnder-Rechte \u00fcbertragen",
+    "transferFounderDesc": "W\u00e4hle einen Admin, dem du die Gr\u00fcnder-Rechte \u00fcbertragen m\u00f6chtest. Du wirst danach zum Admin herabgestuft. Das kann nicht r\u00fcckg\u00e4ngig gemacht werden.",
+    "selectMember": "Mitglied ausw\u00e4hlen...",
+    "transferFounderButton": "Gr\u00fcnder-Rechte \u00fcbertragen",
+    "transferFounderConfirm": "Du verlierst alle Gr\u00fcnder-Rechte. Das kann nicht r\u00fcckg\u00e4ngig gemacht werden. Fortfahren?",
+    "deleteConfirmTitle": "M\u00f6chtest du diesen Space wirklich l\u00f6schen?",
+    "deleteConfirmDesc": "Alle Nachrichten, Neuigkeiten, Chats und Mitgliedschaften werden unwiderruflich gel\u00f6scht.",
+    "deleteYes": "Ja, l\u00f6schen",
+    "deleteTransferTitle": "M\u00f6chtest du den Space lieber an ein anderes Mitglied \u00fcbertragen?",
+    "deleteTransferYes": "Ja, \u00fcbertragen",
+    "deleteTransferNo": "Nein, endg\u00fcltig l\u00f6schen",
+    "deleteFinalTitle": "Ich verstehe, alles wird gel\u00f6scht",
+    "deleteFinalConfirm": "Endg\u00fcltig l\u00f6schen"
   },
   "childProfile": {
     "title": "Kinder-Profile",

@@ -407,6 +407,10 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleColor, setNewRoleColor] = useState("#3b82f6");
   const [newRolePerms, setNewRolePerms] = useState({ readChats: true, writeChats: true, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false });
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
+  const [deleteStep, setDeleteStep] = useState(0); // 0=none, 1=confirm, 2=transfer, 3=final
+  const [transferToMember, setTransferToMember] = useState<string | null>(null);
 
   // News/Posts
   const [showCreatePost, setShowCreatePost] = useState(false);
@@ -910,27 +914,74 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
 
   const handleCreateChannel = () => {
     if (!channelName.trim() || !selectedSpace) return;
-    const channel: SpaceChannel = {
-      id: `ch-${Date.now().toString(36)}`,
-      spaceId: selectedSpace.id,
-      name: channelName.trim(),
-      isGlobal: false,
-      readRoles: ["founder", "admin", ...Array.from(channelReadRoles)],
-      writeRoles: ["founder", "admin", ...Array.from(channelWriteRoles)],
-      membersVisible: channelMembersVisible,
-      createdAt: new Date().toISOString(),
-      unreadCount: 0,
-    };
-    const updated = {
-      ...selectedSpace,
-      channels: [...(selectedSpace.channels ?? []), channel],
-    };
-    updateSpace(updated);
+    if (editingChannelId) {
+      // Update existing channel
+      const updated = {
+        ...selectedSpace,
+        channels: selectedSpace.channels.map(ch =>
+          ch.id === editingChannelId ? {
+            ...ch,
+            name: channelName.trim(),
+            readRoles: ["founder", "admin", ...Array.from(channelReadRoles)],
+            writeRoles: ["founder", "admin", ...Array.from(channelWriteRoles)],
+            membersVisible: channelMembersVisible,
+          } : ch
+        ),
+      };
+      updateSpace(updated);
+    } else {
+      // Create new channel
+      const channel: SpaceChannel = {
+        id: `ch-${Date.now().toString(36)}`,
+        spaceId: selectedSpace.id,
+        name: channelName.trim(),
+        isGlobal: false,
+        readRoles: ["founder", "admin", ...Array.from(channelReadRoles)],
+        writeRoles: ["founder", "admin", ...Array.from(channelWriteRoles)],
+        membersVisible: channelMembersVisible,
+        createdAt: new Date().toISOString(),
+        unreadCount: 0,
+      };
+      updateSpace({ ...selectedSpace, channels: [...(selectedSpace.channels ?? []), channel] });
+    }
     setChannelName("");
     setChannelWriteRoles(new Set(["moderator", "member"]));
     setChannelReadRoles(new Set(["moderator", "member"]));
     setChannelMembersVisible(true);
     setShowCreateChannel(false);
+    setEditingChannelId(null);
+  };
+
+  const startEditChannel = (ch: SpaceChannel) => {
+    setChannelName(ch.name);
+    setChannelReadRoles(new Set(ch.readRoles.filter(r => r !== "founder" && r !== "admin")));
+    setChannelWriteRoles(new Set(ch.writeRoles.filter(r => r !== "founder" && r !== "admin")));
+    setChannelMembersVisible(ch.membersVisible ?? true);
+    setEditingChannelId(ch.id);
+    setShowCreateChannel(true);
+  };
+
+  const startEditRole = (cr: CustomRole) => {
+    setNewRoleName(cr.name);
+    setNewRoleColor(cr.color);
+    setNewRolePerms({ ...cr.permissions });
+    setEditingRoleId(cr.id);
+    setShowCreateRole(true);
+  };
+
+  const handleTransferFounder = (toAregoId: string) => {
+    if (!selectedSpace || !identity) return;
+    const updated = {
+      ...selectedSpace,
+      founderId: toAregoId,
+      members: selectedSpace.members.map(m => {
+        if (m.aregoId === toAregoId) return { ...m, role: "founder" as SpaceRole };
+        if (m.aregoId === identity.aregoId && m.role === "founder") return { ...m, role: "admin" as SpaceRole };
+        return m;
+      }),
+    };
+    updateSpace(updated);
+    setTransferToMember(null);
   };
 
   const handleDeleteChannel = (channelId: string) => {
@@ -2221,8 +2272,8 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                             <div className="bg-gray-800/50 border border-blue-500/30 rounded-xl p-4 space-y-3">
                               <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-bold">{t('spaces.createChat')}</h4>
-                                <button onClick={() => setShowCreateChannel(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
+                                <h4 className="text-sm font-bold">{editingChannelId ? t('spaces.editChat') : t('spaces.createChat')}</h4>
+                                <button onClick={() => { setShowCreateChannel(false); setEditingChannelId(null); setChannelName(""); }} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
                               </div>
                               <input type="text" value={channelName} onChange={e => setChannelName(e.target.value)} placeholder={t('spaces.chatNamePlaceholder')} autoFocus
                                 className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
@@ -2301,14 +2352,25 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                       {(selectedSpace.channels ?? []).filter(ch => !ch.isGlobal).length > 0 && (
                         <div className="space-y-1.5">
                           {(selectedSpace.channels ?? []).filter(ch => !ch.isGlobal).map(ch => (
-                            <div key={ch.id} className="flex items-center justify-between p-2.5 bg-gray-800/30 rounded-xl border border-gray-700/30">
+                            <div key={ch.id} className="bg-gray-800/30 rounded-xl border border-gray-700/30 p-2.5">
                               <div className="flex items-center gap-2">
-                                <Hash size={14} className="text-blue-400" />
-                                <span className="text-xs font-medium">{ch.name}</span>
+                                <Hash size={14} className="text-blue-400 shrink-0" />
+                                <span className="text-xs font-medium flex-1">{ch.name}</span>
+                                <button onClick={() => startEditChannel(ch)} className="p-1 text-gray-600 hover:text-blue-400 transition-colors">
+                                  <Edit2 size={13} />
+                                </button>
+                                <button onClick={() => handleDeleteChannel(ch.id)} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
+                                  <Trash2 size={13} />
+                                </button>
                               </div>
-                              <button onClick={() => handleDeleteChannel(ch.id)} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
-                                <Trash2 size={13} />
-                              </button>
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {ch.readRoles.filter(r => r !== "founder" && r !== "admin").map(r => (
+                                  <span key={`r-${r}`} className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-500/15 text-green-400">{String(r)}</span>
+                                ))}
+                                {ch.writeRoles.filter(r => r !== "founder" && r !== "admin").map(r => (
+                                  <span key={`w-${r}`} className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-500/15 text-blue-400">{String(r)}</span>
+                                ))}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -2329,12 +2391,17 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cr.color }} />
                               <span className="text-sm font-medium">{cr.name}</span>
                             </div>
-                            <button onClick={() => {
-                              const updated = { ...selectedSpace, customRoles: (selectedSpace.customRoles ?? []).filter(r => r.id !== cr.id) };
-                              updateSpace(updated);
-                            }} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
-                              <Trash2 size={13} />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => startEditRole(cr)} className="p-1 text-gray-600 hover:text-blue-400 transition-colors">
+                                <Edit2 size={13} />
+                              </button>
+                              <button onClick={() => {
+                                const updated = { ...selectedSpace, customRoles: (selectedSpace.customRoles ?? []).filter(r => r.id !== cr.id) };
+                                updateSpace(updated);
+                              }} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {Object.entries(cr.permissions).map(([key, val]) => (
@@ -2356,8 +2423,8 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                       ) : (
                         <div className="bg-gray-800/50 border border-blue-500/30 rounded-xl p-4 space-y-3">
                           <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-bold">{t('spaces.createRole')}</h4>
-                            <button onClick={() => setShowCreateRole(false)} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
+                            <h4 className="text-sm font-bold">{editingRoleId ? t('spaces.editRole') : t('spaces.createRole')}</h4>
+                            <button onClick={() => { setShowCreateRole(false); setEditingRoleId(null); setNewRoleName(""); setNewRoleColor("#3b82f6"); }} className="p-1 text-gray-500 hover:text-white"><X size={18} /></button>
                           </div>
                           <div className="flex items-center gap-2">
                             <input type="color" value={newRoleColor} onChange={e => setNewRoleColor(e.target.value)}
@@ -2401,16 +2468,27 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                               if (!newRoleName.trim() || !selectedSpace) return;
                               const perms = { ...newRolePerms };
                               if (!perms.readChats) perms.writeChats = false;
-                              const role: CustomRole = {
-                                id: `role-${Date.now().toString(36)}`,
-                                name: newRoleName.trim(),
-                                color: newRoleColor,
-                                permissions: perms,
-                              };
-                              updateSpace({ ...selectedSpace, customRoles: [...(selectedSpace.customRoles ?? []), role] });
+                              if (editingRoleId) {
+                                // Update existing role
+                                updateSpace({
+                                  ...selectedSpace,
+                                  customRoles: (selectedSpace.customRoles ?? []).map(r =>
+                                    r.id === editingRoleId ? { ...r, name: newRoleName.trim(), color: newRoleColor, permissions: perms } : r
+                                  ),
+                                });
+                              } else {
+                                const role: CustomRole = {
+                                  id: `role-${Date.now().toString(36)}`,
+                                  name: newRoleName.trim(),
+                                  color: newRoleColor,
+                                  permissions: perms,
+                                };
+                                updateSpace({ ...selectedSpace, customRoles: [...(selectedSpace.customRoles ?? []), role] });
+                              }
                               setNewRoleName(""); setNewRoleColor("#3b82f6");
                               setNewRolePerms({ readChats: true, writeChats: true, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false });
                               setShowCreateRole(false);
+                              setEditingRoleId(null);
                             }}
                             disabled={!newRoleName.trim()}
                             className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
@@ -2451,16 +2529,88 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                     </div>
                   )}
 
-                  {/* Delete Space */}
-                  <button
-                    onClick={() => handleDeleteSpace(selectedSpace.id)}
-                    className="w-full flex items-center justify-between p-4 bg-gray-800/50 rounded-xl border border-red-900/30 hover:bg-red-500/10 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 text-red-400">
-                      <Trash2 size={18} />
-                      <span className="font-medium text-sm">{t('spaces.deleteSpace')}</span>
+                  {/* Gründer-Rechte übertragen — nur Founder */}
+                  {myRole === "founder" && (
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.transferFounder')}</h3>
+                      <div className="bg-gray-800/50 rounded-xl border border-yellow-900/30 p-4 space-y-3">
+                        <p className="text-xs text-gray-400 leading-relaxed">{t('spaces.transferFounderDesc')}</p>
+                        <select
+                          value={transferToMember ?? ""}
+                          onChange={e => setTransferToMember(e.target.value || null)}
+                          className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-yellow-500 transition-all appearance-none cursor-pointer"
+                          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: "32px" }}
+                        >
+                          <option value="">{t('spaces.selectMember')}</option>
+                          {selectedSpace.members.filter(m => m.role === "admin").map(m => (
+                            <option key={m.aregoId} value={m.aregoId}>{m.displayName}</option>
+                          ))}
+                        </select>
+                        {transferToMember && (
+                          <button
+                            onClick={() => { if (confirm(t('spaces.transferFounderConfirm'))) handleTransferFounder(transferToMember); }}
+                            className="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-semibold py-2.5 rounded-xl transition-all text-sm"
+                          >
+                            {t('spaces.transferFounderButton')}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </button>
+                  )}
+
+                  {/* Delete Space — mehrstufig */}
+                  {deleteStep === 0 && (
+                    <button
+                      onClick={() => setDeleteStep(1)}
+                      className="w-full flex items-center justify-between p-4 bg-gray-800/50 rounded-xl border border-red-900/30 hover:bg-red-500/10 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 text-red-400">
+                        <Trash2 size={18} />
+                        <span className="font-medium text-sm">{t('spaces.deleteSpace')}</span>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Schritt 1: Bestätigung */}
+                  {deleteStep === 1 && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 space-y-3">
+                      <p className="text-sm font-bold text-red-400">{t('spaces.deleteConfirmTitle')}</p>
+                      <p className="text-xs text-gray-400 leading-relaxed">{t('spaces.deleteConfirmDesc')}</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setDeleteStep(2)} className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-xl transition-colors">{t('spaces.deleteYes')}</button>
+                        <button onClick={() => setDeleteStep(0)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-xs font-medium rounded-xl hover:bg-gray-700 transition-colors">{t('common.cancel')}</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Schritt 2: Übertragen? */}
+                  {deleteStep === 2 && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 space-y-3">
+                      <p className="text-sm font-bold text-yellow-300">{t('spaces.deleteTransferTitle')}</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => {
+                          setDeleteStep(0);
+                          // Scroll to transfer section
+                          if (myRole === "founder") {
+                            setTransferToMember(null);
+                          }
+                        }} className="flex-1 py-2.5 bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-medium rounded-xl transition-colors">{t('spaces.deleteTransferYes')}</button>
+                        <button onClick={() => setDeleteStep(3)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-xs font-medium rounded-xl hover:bg-gray-700 transition-colors">{t('spaces.deleteTransferNo')}</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Schritt 3: Endgültig */}
+                  {deleteStep === 3 && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 space-y-3">
+                      <p className="text-sm font-bold text-red-400">{t('spaces.deleteFinalTitle')}</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => { handleDeleteSpace(selectedSpace.id); setDeleteStep(0); }}
+                          className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-xl transition-colors">{t('spaces.deleteFinalConfirm')}</button>
+                        <button onClick={() => setDeleteStep(0)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-xs font-medium rounded-xl hover:bg-gray-700 transition-colors">{t('common.cancel')}</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}

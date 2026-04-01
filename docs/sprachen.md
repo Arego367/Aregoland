@@ -95,6 +95,21 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.widget_events` | ja | nein | nein |
 | Spaces | `spaces.widget_activeChats` | ja | nein | nein |
 | Spaces | `spaces.widget_membersOnline` | ja | nein | nein |
+| Spaces | `spaces.editChat` | ja | nein | nein |
+| Spaces | `spaces.editRole` | ja | nein | nein |
+| Spaces | `spaces.transferFounder` | ja | nein | nein |
+| Spaces | `spaces.transferFounderDesc` | ja | nein | nein |
+| Spaces | `spaces.selectMember` | ja | nein | nein |
+| Spaces | `spaces.transferFounderButton` | ja | nein | nein |
+| Spaces | `spaces.transferFounderConfirm` | ja | nein | nein |
+| Spaces | `spaces.deleteConfirmTitle` | ja | nein | nein |
+| Spaces | `spaces.deleteConfirmDesc` | ja | nein | nein |
+| Spaces | `spaces.deleteYes` | ja | nein | nein |
+| Spaces | `spaces.deleteTransferTitle` | ja | nein | nein |
+| Spaces | `spaces.deleteTransferYes` | ja | nein | nein |
+| Spaces | `spaces.deleteTransferNo` | ja | nein | nein |
+| Spaces | `spaces.deleteFinalTitle` | ja | nein | nein |
+| Spaces | `spaces.deleteFinalConfirm` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 
