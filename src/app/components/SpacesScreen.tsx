@@ -384,14 +384,13 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const [openSubroom, setOpenSubroom] = useState<SpaceSubroom | null>(null);
 
   // Overview layout
-  type WidgetId = "spaceInfo" | "pinned" | "announcements" | "events" | "stats" | "activeChats" | "membersOnline";
+  type WidgetId = "spaceInfo" | "pinned" | "announcements" | "events" | "activeChats" | "membersOnline";
   type LayoutItem = { id: WidgetId; visible: boolean };
   const DEFAULT_WIDGETS: LayoutItem[] = [
     { id: "spaceInfo", visible: true },
     { id: "pinned", visible: true },
     { id: "announcements", visible: true },
     { id: "events", visible: true },
-    { id: "stats", visible: true },
     { id: "activeChats", visible: true },
     { id: "membersOnline", visible: true },
   ];
@@ -401,9 +400,10 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
     try {
       const raw: LayoutItem[] = JSON.parse(localStorage.getItem(`aregoland_space_layout_${spaceId}`) ?? "[]");
       if (!raw.length) return DEFAULT_WIDGETS;
-      // Migrate: add missing widget ids
-      const ids = new Set(raw.map(w => w.id));
-      const migrated = [...raw];
+      // Migrate: remove deprecated "stats" widget, add missing ids
+      const filtered = raw.filter(w => w.id !== "stats");
+      const ids = new Set(filtered.map(w => w.id));
+      const migrated = [...filtered];
       for (const d of DEFAULT_WIDGETS) { if (!ids.has(d.id)) migrated.push(d); }
       return migrated;
     }
@@ -1323,8 +1323,6 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
           <div className="space-y-4">
 
             {activeTab === "overview" && (() => {
-              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
-              const isAdmin = myRole === "founder" || myRole === "admin";
               const pinnedPosts = (selectedSpace.posts ?? []).filter(p => p.pinned).slice(0, 2);
               const recentAnnouncements = (selectedSpace.posts ?? []).filter(p => p.badge === "announcement").slice(0, 3);
               const upcomingEvents = (selectedSpace.posts ?? []).filter(p => p.badge === "event" && p.eventDate && p.eventDate >= new Date().toISOString().slice(0, 10)).slice(0, 3);
@@ -1335,11 +1333,14 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                 switch (id) {
                   case "spaceInfo":
                     return (
-                      <div key={id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
-                        {selectedSpace.description && <p className="text-sm text-gray-300 mb-2">{selectedSpace.description}</p>}
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                          <Users size={12} />
-                          <span>{selectedSpace.members.length} {t('spaces.members')}</span>
+                      <div key={id} className="space-y-2">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Info size={12} /> {t('spaces.widget_spaceInfo')}</h3>
+                        <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                          {selectedSpace.description && <p className="text-sm text-gray-300 mb-2">{selectedSpace.description}</p>}
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <Users size={12} />
+                            <span>{selectedSpace.members.length} {t('spaces.members')}</span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1365,23 +1366,6 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                             <div className="text-xs text-gray-500 mt-0.5">{p.authorName} · {new Date(p.createdAt).toLocaleDateString()}</div>
                           </div>
                         ))}
-                      </div>
-                    ) : null;
-                  case "stats":
-                    return isAdmin ? (
-                      <div key={id} className="grid grid-cols-3 gap-2">
-                        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-                          <div className="text-lg font-bold text-blue-400">{selectedSpace.members.length}</div>
-                          <div className="text-xs text-gray-500">{t('spaces.members')}</div>
-                        </div>
-                        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-                          <div className="text-lg font-bold text-purple-400">{(selectedSpace.posts ?? []).length}</div>
-                          <div className="text-xs text-gray-500">{t('spaces.tab_news')}</div>
-                        </div>
-                        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-                          <div className="text-lg font-bold text-green-400">{(selectedSpace.channels ?? []).length}</div>
-                          <div className="text-xs text-gray-500">{t('spaces.tab_chats')}</div>
-                        </div>
                       </div>
                     ) : null;
                   case "events":
@@ -2032,6 +2016,22 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
 
               return (
                 <>
+                  {/* Stats summary */}
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
+                      <div className="text-lg font-bold text-blue-400">{selectedSpace.members.length}</div>
+                      <div className="text-xs text-gray-500">{t('spaces.members')}</div>
+                    </div>
+                    <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
+                      <div className="text-lg font-bold text-purple-400">{(selectedSpace.posts ?? []).length}</div>
+                      <div className="text-xs text-gray-500">{t('spaces.tab_news')}</div>
+                    </div>
+                    <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
+                      <div className="text-lg font-bold text-green-400">{(selectedSpace.channels ?? []).length}</div>
+                      <div className="text-xs text-gray-500">{t('spaces.tab_chats')}</div>
+                    </div>
+                  </div>
+
                   {/* Invite button */}
                   {canManage && (
                     <button
