@@ -83,9 +83,41 @@ Aregoland Ansatz: Bruchteile davon — trotzdem nachhaltig.
 Hinweis: Gesundheitsbereich braucht Zertifizierungen (ISO 27001,
 BSI, Gematik). Erst ab Stufe 4 relevant. Kein Druck.
 
-## Wachstumsstrategie
-- Kein bezahltes Marketing
-- Aras nutzt App selbst mit Familie
-- App in Stores (Google Play + Apple)
-- Gelegentliche Reels/Posts in Social Media
-- Wenn es gut ist, kommt Werbung von alleine
+## Finanzierung vor dem Launch
+
+### Crowdfunding (bevorzugt)
+Plattform: Startnext (deutsch, datenschutzfreundlich)
+Ziel: ~2.000-3.000 Euro fuer eID Integration + Launch-Kosten
+
+Belohnungsstufen:
+- 5-20 Euro → Danke + Name in App-Credits
+- 50 Euro → 5 Jahre kostenloses Abo
+- 100 Euro → 10 Jahre kostenloses Abo
+- 200+ Euro → Lebenslanges Abo
+- Geschichte: Alleinerziehender Vater baut sicheren
+  Messenger fuer seine Kinder — das ist keine Marketing,
+  das ist die Wahrheit.
+
+### KfW Startgeld (alternativ)
+- Bis 125.000 Euro, auch ohne Eigenkapital
+- Ueber Hausbank beantragen
+- Geeignet fuer Nebengewerbe-Gruendung
+- Vorher Bankgespraech noetig
+
+## Wachstumsstrategie / Marketing
+
+- Keine bezahlten Ads
+- YouTube Creator ansprechen (Datenschutz, Papa/Mama, Tech)
+- Kein bezahltes Sponsoring — App zeigen, sie entscheiden
+- Reels/Posts gelegentlich selbst erstellen
+- Wenn die App gut ist, kommt Werbung von alleine
+
+## Monatliche Fixkosten (Betrieb)
+
+- Apple Developer Account: ~9 Euro/Monat (99 Euro/Jahr)
+- Google Play: einmalig 25 Euro
+- Hetzner Server: ~15-50 Euro/Monat je nach Nutzerzahl
+- Domain: ~5 Euro/Monat
+- Gesamt: ~30-70 Euro/Monat
+
+Break-even: ~100 zahlende Nutzer decken alles.
