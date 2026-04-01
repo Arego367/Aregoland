@@ -25,6 +25,7 @@
 | [geschaeftsmodell.md](geschaeftsmodell.md) | 1 Euro/Jahr, Zielgruppen, Pay-Modul |
 | [sprachen.md](sprachen.md) | i18n Übersetzungs-Tracking |
 | [aras.md](aras.md) | Persönliches Profil von Aras |
+| [world-concept.md](world-concept.md) | World Social Media Konzept, FSK-Feed, Bildschirmzeit |
 
 ## Arbeitsweise
 

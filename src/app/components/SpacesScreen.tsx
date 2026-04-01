@@ -327,7 +327,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
   const [toast, setToast] = useState(false);
 
   // Detail
-  const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings" | "world">("overview");
 
   // Invite
   const [inviteRole, setInviteRole] = useState<SpaceRole>("member");
@@ -1294,7 +1294,7 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
         {/* Tabs */}
         <div className="px-4 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-6 overflow-x-auto no-scrollbar pb-1">
-            {(["overview", "news", "chats", "members", "profile", "settings"] as const).map(tab => {
+            {(["overview", "news", "chats", "members", "profile", "settings", "world"] as const).map(tab => {
               const totalUnread = tab === "chats"
                 ? (selectedSpace.channels ?? []).reduce((sum, ch) => sum + (ch.unreadCount ?? 0), 0)
                 : 0;
@@ -2639,6 +2639,28 @@ export default function SpacesScreen({ onBack }: SpacesScreenProps) {
                 </div>
               );
             })()}
+
+            {/* ── WORLD TAB ── */}
+            {activeTab === "world" && (
+              <div className="flex flex-col items-center text-center py-10 space-y-5">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-3xl shadow-lg shadow-emerald-600/20">
+                  <Globe size={36} className="text-white" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-xl font-bold text-white">{t('spaces.worldTitle')}</h2>
+                  <p className="text-sm text-gray-400 max-w-xs leading-relaxed">{t('spaces.worldDesc')}</p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2 max-w-xs">
+                  {["FSK 6", "FSK 12", "FSK 16", "FSK 18"].map(fsk => (
+                    <span key={fsk} className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gray-800 border border-gray-700/50 text-gray-400">{fsk}</span>
+                  ))}
+                </div>
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 max-w-xs">
+                  <p className="text-xs text-emerald-300/80 leading-relaxed">{t('spaces.worldPrivacy')}</p>
+                </div>
+                <span className="px-4 py-2 rounded-full bg-gray-800 border border-gray-700/50 text-xs font-medium text-gray-500">{t('spaces.comingSoon')}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

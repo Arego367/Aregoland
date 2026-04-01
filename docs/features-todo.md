@@ -12,25 +12,35 @@
    - Schritt 5: Profil-Tab + Rollen & Rechte (2026-04-01)
    - Schritt 6: Wiki/Seiten
 
-2. **Pay-Modul** — wenn fertig, ist App marktreif (siehe [geschaeftsmodell.md](geschaeftsmodell.md))
+2. **World — Social Media** (siehe [world-concept.md](world-concept.md))
+   - World-Tab in Spaces (Coming Soon Hinweis)
+   - World-Kachel auf Hauptscreen (Coming Soon Hinweis)
+   - Backend: oeffentlicher Feed-Endpoint
+   - FSK-gefilterter Feed
+   - Post-Erstellung fuer Space-Admins
+   - KI-gestuetzte Post-Erstellung
+   - Bildschirmzeit-Enforcement
+   - Oeffentliche URLs (aregoland.de/world/...)
 
-3. **Google Play Store + Apple App Store** (Capacitor.js oder React Native)
+3. **Pay-Modul** — wenn fertig, ist App marktreif (siehe [geschaeftsmodell.md](geschaeftsmodell.md))
 
-4. **KI-Support** (nach Server-Upgrade auf 8GB RAM)
+4. **Google Play Store + Apple App Store** (Capacitor.js oder React Native)
 
-5. **Mehrsprachigkeit erweitern** (weitere EU-Sprachen, siehe [sprachen.md](sprachen.md))
+5. **KI-Support** (nach Server-Upgrade auf 8GB RAM)
 
-6. **Oeffentliche Suche/Auffindbarkeit** verfeinern (Directory-Endpoint)
+6. **Mehrsprachigkeit erweitern** (weitere EU-Sprachen, siehe [sprachen.md](sprachen.md))
 
-7. **Kalender erweitern**
+7. **Oeffentliche Suche/Auffindbarkeit** verfeinern (Directory-Endpoint)
+
+8. **Kalender erweitern**
    - Stufe 2: Kinder-Integration
    - Stufe 3: Termine P2P teilen
    - Stufe 4: Spaces-Integration
    - Import/Export: iCal (.ics)
 
-8. **Kinderschutz-Features (FSK)** — siehe [kinderschutz.md](kinderschutz.md)
+9. **Kinderschutz-Features (FSK)** — siehe [kinderschutz.md](kinderschutz.md)
 
-9. **Recovery-Flow erweitern**
+10. **Recovery-Flow erweitern**
    - QR-Code scannen: erledigt (html5-qrcode)
    - Datei-Upload: Nutzer waehlt gespeicherte `aregoland-recovery-*.txt` Datei
    - Textschluessel eingeben: erledigt

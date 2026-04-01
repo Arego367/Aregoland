@@ -98,6 +98,15 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.widget_membersOnline` | ja | nein | nein |
 | Spaces | `spaces.saveLayout` | ja | nein | nein |
 | Spaces | `spaces.previewLabel` | ja | nein | nein |
+| Spaces | `spaces.tab_world` | ja | nein | nein |
+| Spaces | `spaces.worldTitle` | ja | nein | nein |
+| Spaces | `spaces.worldDesc` | ja | nein | nein |
+| Spaces | `spaces.worldPrivacy` | ja | nein | nein |
+| Spaces | `spaces.comingSoon` | ja | nein | nein |
+| Dashboard | `dashboard.world` | ja | nein | nein |
+| Dashboard | `dashboard.worldDesc` | ja | nein | nein |
+| Dashboard | `dashboard.comingSoon` | ja | nein | nein |
+| Dashboard | `dashboard.worldComingSoonToast` | ja | nein | nein |
 | Spaces | `spaces.editChat` | ja | nein | nein |
 | Spaces | `spaces.editRole` | ja | nein | nein |
 | Spaces | `spaces.transferFounder` | ja | nein | nein |

@@ -104,7 +104,11 @@
     "connect": "Connect",
     "connectDesc": "Dating, Freunde & Events",
     "documents": "Dokumente",
-    "documentsDesc": "Dateien & Verwaltung"
+    "documentsDesc": "Dateien & Verwaltung",
+    "world": "World",
+    "worldDesc": "Social Media",
+    "comingSoon": "Bald",
+    "worldComingSoonToast": "World kommt bald!"
   },
   "chatList": {
     "title": "Chats",
@@ -613,6 +617,11 @@
     "widget_membersOnline": "Mitglieder online",
     "saveLayout": "Speichern",
     "previewLabel": "Vorschau",
+    "tab_world": "World",
+    "worldTitle": "World kommt bald",
+    "worldDesc": "Der \u00f6ffentliche Social-Media-Bereich von Aregoland. Spaces ver\u00f6ffentlichen Inhalte — sichtbar f\u00fcr alle Nutzer entsprechend ihrer FSK-Stufe. Kein Algorithmus. Chronologisch. Sicher f\u00fcr Kinder.",
+    "worldPrivacy": "Kein Sucht-Algorithmus. Kein Autoplay. Keine Empfehlungs-Fallen. Bildschirmzeit-Limits basierend auf Wissenschaft — nicht von Eltern \u00e4nderbar.",
+    "comingSoon": "Bald verf\u00fcgbar",
     "editChat": "Chat bearbeiten",
     "editRole": "Rolle bearbeiten",
     "transferFounder": "Gr\u00fcnder-Rechte \u00fcbertragen",
