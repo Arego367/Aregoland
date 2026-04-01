@@ -125,11 +125,34 @@ Break-even: ~100 zahlende Nutzer decken alles.
 ## Zahlung
 
 - Phase 1: App Store (Apple/Google) — einfachster Start
-- Phase 2: EUDI Wallet Zahlfunktion (2027) — direkt integriert
-- Phase 3: Wero als zusaetzliche Option wenn verbreitet
+- Phase 2: EUDI Wallet Zahlungsautorisierung + Wero (2027)
+- Phase 3: Eigenes P2P System mit BaFin-Lizenz (Zukunft)
 - Stripe nur als letzter Fallback fuer Nicht-EU
-- Kein eigenes Zahlungssystem, kein BaFin
 - Keine Abhaengigkeit von Investoren — niemals
+
+## Zahlung — Klarstellung
+
+EUDI Wallet ist KEIN Geldspeicher — es ist ein Identitaets-
+und Autorisierungskanal. Geld liegt immer auf einem Bankkonto.
+
+### Was EUDI fuer Zahlung ermoeglicht:
+- Identitaet bestaetigen beim Bezahlen (kostenlos)
+- Starke Kundenauthentifizierung (SCA) ersetzen
+- Autorisierung: "Ich bin es — ueberweise jetzt"
+- Das eigentliche Geld bewegt sich ueber SEPA/Wero
+
+### Aregoland Pay — Langfristvision (Stufe 5):
+- Eigenes P2P Zahlungssystem zwischen Aregoland-Nutzern
+- Blumenhaendler QR-Code → Kunde zahlt → direkt
+- Braucht BaFin ZAG-Lizenz (~60.000-200.000 Euro Startkapital)
+- Erst sinnvoll ab 50.000+ aktive Nutzer
+- Dann Crowdfunding mit Community fuer Lizenz
+- NIEMALS mit Investorengeldern
+
+### Fahrplan Zahlung:
+- Phase 1 (jetzt): App Store Apple/Google
+- Phase 2 (2027): EUDI Wallet Zahlungsautorisierung + Wero
+- Phase 3 (Zukunft): Eigenes P2P System mit BaFin-Lizenz
 
 ## Identitaet
 
