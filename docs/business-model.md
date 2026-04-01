@@ -42,3 +42,25 @@ So wird geplant — alles darueber ist Bonus.
 - **Stripe** (bevorzugt): guenstigste EU-Gebuehren, Google/Apple Pay, SEPA, DSGVO-konform
 - **PayPal**: zusaetzlich anbieten
 - **App Store vermeiden** solange moeglich → PWA = keine 30% Apple/Google Gebuehr
+
+## Rechtsform
+
+- **UG (haftungsbeschraenkt)** — Mini-GmbH ab 1 Euro Stammkapital
+- Haftungsschutz fuer Aras persoenlich
+- Ermoeglicht Stripe, PayPal, offizielles Geschaeftskonto
+- Spaeter in GmbH umwandelbar wenn gewachsen
+
+## Unternehmensphilosophie
+
+Kein gemeinnuetziger Verein — aber ethisches Unternehmen:
+- Keine Dark Patterns
+- Keine Nutzerdaten verkaufen
+- Faire Preise nur zur Kostendeckung
+- Community kann mitgestalten (Open Source, AGPL)
+- Transparenz ueber Kosten und Einnahmen
+
+## Datenschutz
+
+Alle DSGVO-Vorschriften DE und EU gelten ausnahmslos.
+P2P-Architektur = keine Serverdaten = nichts zu verstecken.
+Vorteil besonders fuer: Schulen, Behoerden, Unternehmen, Eltern.
