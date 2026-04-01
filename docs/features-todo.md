@@ -217,6 +217,21 @@ Ziel: Nutzer fuehlt sich gehoert, keine doppelten Bug-Reports, Community-Voting 
 - Video Progressive Playback: Video startet waehrend Rest noch laedt
 - Basis fuer Video-Sharing Spaces und Live-Streaming
 
+### Transparenz-Kasse fuer Schulen/Vereine (noch nicht implementiert)
+
+- Klassengelder digital verwalten
+- Jeder Euro fuer alle Eltern sichtbar
+- Wer hat fuer was bezahlt — transparent
+- Keine schwarzen Kassen mehr
+- Automatische Abrechnung bei Klassenfahrten
+
+### Handwerker-Space (noch nicht implementiert)
+
+- Digitale Rechnungen direkt hochladen
+- Kunde empfaengt sofort auf seinem Geraet
+- Zahlung direkt ueber Space
+- Angebote, Auftraege, Rechnungen — alles an einem Ort
+
 ### P2P Cloud Speicher (Zukunftsvision, noch nicht implementiert)
 
 - Nutzer stellt freiwillig Speicherplatz zur Verfuegung (waehlbar: 10GB/50GB/100GB/eigen)
