@@ -102,3 +102,11 @@ Mischung aus:
 - Mastodon: kostenlos, Open Source
 - CapCut/DaVinci Resolve: Reel-Schnitt (kostenlos)
 - Claude in Chrome: kann bei Mastodon Posts helfen
+
+## Reel-Idee: Aras als Gesicht
+
+- Eigenes Gesicht, Stimme und Akzent nutzen fuer Reels
+- Authentischer als anonymer Kanal
+- Akzent ist ein Asset — macht es persoenlich
+- Claude kann Skripte, Konzepte und Untertitel liefern
+- Tools: CapCut/DaVinci (kostenlos) + Canva
