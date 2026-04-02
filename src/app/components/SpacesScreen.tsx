@@ -1541,7 +1541,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   if (view === "detail" && selectedSpace?.id === AREGOLAND_OFFICIAL_ID) {
     const officialTabs = ["news", "about", "support", "world"] as const;
     type OfficialTab = typeof officialTabs[number];
-    const officialTabLabel: Record<OfficialTab, string> = { news: "Neuigkeiten", about: "Übersicht", support: "Support", world: "World" };
+    const officialTabLabel: Record<OfficialTab, string> = { news: "Neuigkeiten", about: "Über", support: "Support", world: "World" };
     const currentOfficialTab = (["news", "about", "support", "world"].includes(activeTab as string) ? activeTab : "news") as OfficialTab;
 
     return (
