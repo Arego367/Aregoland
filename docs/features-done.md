@@ -195,6 +195,13 @@
 - Gast-Rolle am Ende, nicht loeschbar, Hinweis "Standard fuer alle ohne Rolle"
 - Eigene Rollen: Erstellen/Bearbeiten/Loeschen mit 6 Berechtigungen + Farbe
 
+## Chats — Suche (2026-04-02)
+
+- Suche-Icon oben rechts im Chats-Header funktioniert jetzt
+- Klick oeffnet expandierbare Suchleiste mit Animation
+- Filtert Chats nach Kontaktname in Echtzeit
+- X-Button schliesst die Suche
+
 ## Einheitlicher Header — AppHeader.tsx (2026-04-02)
 
 - Neue wiederverwendbare Komponente `AppHeader.tsx`

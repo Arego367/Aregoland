@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Search, ArrowLeft, Edit2, MessageSquarePlus, X, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from 'react-i18next';
@@ -32,6 +32,9 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
   const [isTabModalOpen, setIsTabModalOpen] = useState(false);
   const [showNewChatSheet, setShowNewChatSheet] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
+  const [chatSearchOpen, setChatSearchOpen] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const chatSearchRef = useRef<HTMLInputElement>(null);
   const [persistedChats, setPersistedChats] = useState<Chat[]>([]);
 
   const refreshPersistedChats = () => {
@@ -76,15 +79,20 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
     setSelectedContact(contact);
   };
 
-  // Nur echte persistierte Chats anzeigen, nach Tab gefiltert
+  // Nur echte persistierte Chats anzeigen, nach Tab + Suche gefiltert
   const filteredChats = useMemo(() => {
-    return persistedChats.filter((chat) => {
+    let result = persistedChats.filter((chat) => {
       if (activeTab === "all") return true;
       if (activeTab === "groups") return chat.isGroup;
       if (activeTab === "private") return !chat.isGroup;
       return chat.category === activeTab;
     });
-  }, [activeTab, persistedChats]);
+    if (chatSearchQuery.trim()) {
+      const q = chatSearchQuery.toLowerCase().trim();
+      result = result.filter(chat => chat.name.toLowerCase().includes(q));
+    }
+    return result;
+  }, [activeTab, persistedChats, chatSearchQuery]);
 
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
@@ -96,11 +104,34 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
         onOpenSettings={onOpenSettings}
         action={{ icon: MessageSquarePlus, label: t('chatList.newChat'), onClick: () => { setContactSearch(""); setShowNewChatSheet(true); } }}
         rightExtra={
-          <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
+          <button onClick={() => { setChatSearchOpen(!chatSearchOpen); if (!chatSearchOpen) { setChatSearchQuery(""); setTimeout(() => chatSearchRef.current?.focus(), 100); } }}
+            className={`p-2 rounded-full transition-all ${chatSearchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
             <Search size={20} />
           </button>
         }
       />
+
+      {/* Expandable search bar */}
+      <AnimatePresence>
+        {chatSearchOpen && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-b border-gray-800">
+            <div className="px-4 py-2.5 relative">
+              <Search size={16} className="absolute left-7 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+              <input
+                ref={chatSearchRef}
+                type="text"
+                value={chatSearchQuery}
+                onChange={e => setChatSearchQuery(e.target.value)}
+                placeholder={t('chatList.searchPlaceholder')}
+                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-9 pr-9 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
+              />
+              <button onClick={() => { setChatSearchOpen(false); setChatSearchQuery(""); }} className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Tabs */}
       <div className="px-5 py-3 flex items-center gap-2 border-b border-gray-800">

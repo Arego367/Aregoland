@@ -120,7 +120,8 @@
     "startChat": "Chat starten",
     "searchContact": "Kontakt suchen...",
     "noContactsFound": "Keine Kontakte gefunden",
-    "tapToWrite": "Tippe um zu schreiben..."
+    "tapToWrite": "Tippe um zu schreiben...",
+    "searchPlaceholder": "Chats suchen..."
   },
   "chat": {
     "waiting": "Warte",
