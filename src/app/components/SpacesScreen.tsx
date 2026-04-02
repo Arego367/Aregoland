@@ -1209,8 +1209,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
         <div className="flex-1 overflow-y-auto px-4 py-3">
 
-          {/* Tag-Filter Chips */}
-          {spaces.length > 0 && (() => {
+          {/* Tag-Filter Chips — nur bei offener Suche */}
+          {searchOpen && spaces.length > 0 && (() => {
             const allTags = Array.from(new Set(spaces.flatMap(s => s.tags ?? [])));
             if (allTags.length === 0) return null;
             return (
@@ -1262,12 +1262,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         onClick={() => { if (isDragging.current) return; setSelectedSpace(space); setActiveTab("overview"); setView("detail"); }}
                         className="w-full text-left min-w-0"
                       >
-                        <div className="flex items-center justify-center pt-4 pb-2">
-                          <div className={`p-3 rounded-full bg-white/15 backdrop-blur-sm ${tmpl.color}`}>
-                            <Icon size={32} />
-                          </div>
-                        </div>
-                        <div className="p-3 pt-1 relative bg-gradient-to-t from-gray-900/90 via-gray-900/60 to-transparent">
+                        <div className="p-3 relative">
                           <div className="flex items-center gap-2 mb-0.5">
                             <div className={`p-1 rounded-md bg-gray-800 border border-gray-700 ${tmpl.color}`}>
                               <Icon size={12} />
