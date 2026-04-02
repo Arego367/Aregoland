@@ -351,7 +351,10 @@ export default function SpacesScreen({ onBack, onOpenProfile }: SpacesScreenProp
 
   // Search & filter
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [filterTag, setFilterTag] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const isDragging = useRef(false);
 
   // Create form
   const [name, setName] = useState("");
@@ -1141,15 +1144,67 @@ export default function SpacesScreen({ onBack, onOpenProfile }: SpacesScreenProp
   );
 
   const handleReorder = (newOrder: Space[]) => {
+    isDragging.current = true;
     setSpaces(newOrder);
     saveOrder(newOrder);
+    setTimeout(() => { isDragging.current = false; }, 200);
   };
 
   // ── LIST VIEW ──
   if (view === "list") {
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
-        {renderHeader(t('spaces.title'), onBack, { icon: Plus, label: t('spaces.newSpace'), onClick: () => setView("templates") })}
+        {/* Custom header with search icon */}
+        <header className="px-4 py-3 flex items-center bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all shrink-0">
+              <ArrowLeft size={22} />
+            </button>
+            <h1 className="text-lg font-bold text-white truncate">{t('spaces.title')}</h1>
+          </div>
+          <button onClick={() => setView("templates")}
+            className="flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center mx-2 shrink-0">
+            <Plus size={18} />
+            <span className="hidden sm:inline">{t('spaces.newSpace')}</span>
+          </button>
+          <div className="flex items-center gap-1.5 flex-1 justify-end">
+            {spaces.length > 0 && (
+              <button onClick={() => { setSearchOpen(!searchOpen); if (!searchOpen) setTimeout(() => searchInputRef.current?.focus(), 100); }}
+                className={`p-2 rounded-full transition-all ${searchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
+                <Search size={20} />
+              </button>
+            )}
+            <ProfileAvatar onClick={onOpenProfile} />
+          </div>
+        </header>
+
+        {/* Expandable search bar */}
+        <AnimatePresence>
+          {searchOpen && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-b border-gray-800">
+              <div className="px-4 py-2.5 relative">
+                <Search size={16} className="absolute left-7 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder={t('spaces.searchPlaceholder')}
+                  className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-9 pr-9 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
+                />
+                {searchQuery ? (
+                  <button onClick={() => setSearchQuery("")} className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
+                    <X size={16} />
+                  </button>
+                ) : (
+                  <button onClick={() => { setSearchOpen(false); setSearchQuery(""); }} className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Toast */}
         <AnimatePresence>
@@ -1163,24 +1218,6 @@ export default function SpacesScreen({ onBack, onOpenProfile }: SpacesScreenProp
         </AnimatePresence>
 
         <div className="flex-1 overflow-y-auto px-4 py-3">
-          {/* Suchfeld */}
-          {spaces.length > 0 && (
-            <div className="mb-3 relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder={t('spaces.searchPlaceholder')}
-                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-9 pr-9 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-          )}
 
           {/* Tag-Filter Chips */}
           {spaces.length > 0 && (() => {
@@ -1237,7 +1274,7 @@ export default function SpacesScreen({ onBack, onOpenProfile }: SpacesScreenProp
 
                       {/* Card content — clickable */}
                       <button
-                        onClick={() => { setSelectedSpace(space); setActiveTab("overview"); setView("detail"); }}
+                        onClick={() => { if (isDragging.current) return; setSelectedSpace(space); setActiveTab("overview"); setView("detail"); }}
                         className="flex-1 text-left min-w-0"
                       >
                         <div className={`h-20 w-full bg-gradient-to-br ${space.color} flex items-center justify-center relative`}>

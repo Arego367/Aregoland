@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search } from "lucide-react";
 import ProfileAvatar from "./ProfileAvatar";
 import { motion, AnimatePresence } from "motion/react";
 import type { CalendarEvent } from "@/app/types";
@@ -147,6 +147,9 @@ export default function CalendarScreen({ onBack, onOpenProfile }: CalendarScreen
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
+  const [calSearchOpen, setCalSearchOpen] = useState(false);
+  const [calSearchQuery, setCalSearchQuery] = useState("");
+  const calSearchRef = useRef<HTMLInputElement>(null);
   const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
 
@@ -168,6 +171,14 @@ export default function CalendarScreen({ onBack, onOpenProfile }: CalendarScreen
     }
     return m;
   }, [events]);
+
+  const searchResults = useMemo(() => {
+    if (!calSearchQuery.trim()) return [];
+    const q = calSearchQuery.toLowerCase().trim();
+    return events
+      .filter(ev => ev.title.toLowerCase().includes(q) || (ev.note ?? "").toLowerCase().includes(q))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [events, calSearchQuery]);
 
   const todayStr = toDateStr(new Date());
 
@@ -221,12 +232,66 @@ export default function CalendarScreen({ onBack, onOpenProfile }: CalendarScreen
           <span className="hidden sm:inline">{t('calendar.newEvent')}</span>
         </button>
         <div className="flex items-center gap-1.5 flex-1 justify-end">
+          <button onClick={() => { setCalSearchOpen(!calSearchOpen); if (!calSearchOpen) { setCalSearchQuery(""); setTimeout(() => calSearchRef.current?.focus(), 100); } }}
+            className={`p-2 rounded-full transition-all ${calSearchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
+            <Search size={20} />
+          </button>
           <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
             {t('calendar.today')}
           </button>
           <ProfileAvatar onClick={onOpenProfile} />
         </div>
       </header>
+
+      {/* Expandable search bar */}
+      <AnimatePresence>
+        {calSearchOpen && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-b border-gray-800 bg-gray-900">
+            <div className="px-4 py-2.5 relative">
+              <Search size={16} className="absolute left-7 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+              <input
+                ref={calSearchRef}
+                type="text"
+                value={calSearchQuery}
+                onChange={e => setCalSearchQuery(e.target.value)}
+                placeholder={t('calendar.searchPlaceholder')}
+                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-9 pr-9 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
+              />
+              <button onClick={() => { setCalSearchOpen(false); setCalSearchQuery(""); }} className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            {/* Search results */}
+            {calSearchQuery.trim() && (
+              <div className="px-4 pb-3 max-h-64 overflow-y-auto space-y-1.5">
+                {searchResults.length === 0 ? (
+                  <p className="text-xs text-gray-500 text-center py-3">{t('calendar.noSearchResults')}</p>
+                ) : (
+                  searchResults.map(ev => {
+                    const [y, m, d] = ev.date.split("-").map(Number);
+                    return (
+                      <button key={ev.id}
+                        onClick={() => {
+                          setSelectedDate(new Date(y, m - 1, d));
+                          setView("day");
+                          setCalSearchOpen(false);
+                          setCalSearchQuery("");
+                        }}
+                        className="w-full flex items-center gap-3 p-2.5 bg-gray-800/50 rounded-xl hover:bg-gray-800 transition-colors text-left">
+                        <div className={`w-2 h-8 rounded-full bg-${ev.color}-500 shrink-0`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{ev.title}</div>
+                          <div className="text-[11px] text-gray-500">{d}. {MONTHS[m - 1]} {y}{ev.startTime !== "00:00" ? ` · ${ev.startTime}` : ""}</div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* View Toggle */}
       <div className="px-4 pb-2 flex gap-1 bg-gray-900">

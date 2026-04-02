@@ -195,6 +195,15 @@
 - Gast-Rolle am Ende, nicht loeschbar, Hinweis "Standard fuer alle ohne Rolle"
 - Eigene Rollen: Erstellen/Bearbeiten/Loeschen mit 6 Berechtigungen + Farbe
 
+## Kalender — Suche (2026-04-02)
+
+- Suche-Icon oben rechts im Kalender-Header
+- Expandierbare Suchleiste mit Animation
+- Suche nach Event-Titeln und Beschreibungen (Notizen)
+- Ergebnisse als Liste mit Farbindikator, Datum, Uhrzeit
+- Klick auf Ergebnis springt zum Datum (Tagesansicht)
+- Leerer Zustand: "Kein Termin gefunden"
+
 ## Spaces — Schritt 7: Mobile Daten Erkennung (2026-04-02)
 
 - navigator.connection API Pruefung
@@ -204,9 +213,11 @@
 
 ## Spaces — Tags + Suche (2026-04-02)
 
-- Suchfeld oben in Spaces-Liste (Name + Tags, Echtzeit)
-- X-Button zum Leeren der Suche
+- Suche-Icon oben rechts in Titelzeile (gleicher Stil wie Chats)
+- Klick klappt Suchleiste auf mit Animation
+- X-Button zum Leeren/Schliessen der Suche
 - Leerer Zustand: "Kein Space gefunden"
+- Drag & Drop: kein versehentlicher Klick nach Drag (isDragging-Guard)
 - 10 vordefinierte Tags: Familie, Schule, Verein, Handwerk, Community, Gemeinde, Sport, Musik, Gaming, Sonstiges
 - Tag-Auswahl bei Space-Erstellung
 - Tags als kleine Chips unter Space-Name (Liste + Detail-Header)

@@ -382,7 +382,9 @@
     "rem1h": "1 Std vorher",
     "rem1day": "1 Tag vorher",
     "months": ["Januar", "Februar", "M\u00e4rz", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
-    "weekdaysShort": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+    "weekdaysShort": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+    "searchPlaceholder": "Termine suchen...",
+    "noSearchResults": "Kein Termin gefunden"
   },
   "call": {
     "micOn": "Mikrofon an",
