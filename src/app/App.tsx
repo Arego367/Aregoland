@@ -51,7 +51,7 @@ function loadTabs(): Tab[] {
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<"welcome" | "registration" | "dashboard" | "chatList" | "profile" | "qrcode" | "settings" | "childProfile" | "people" | "spaces" | "connect" | "chatConversation" | "documents" | "calendar">("welcome");
-  const [returnTo, setReturnTo] = useState<"dashboard" | "chatList" | "welcome">("dashboard");
+  const [returnTo, setReturnTo] = useState<"dashboard" | "chatList" | "welcome" | "people" | "spaces" | "calendar" | "connect" | "documents">("dashboard");
   const [qrCodeMode, setQrCodeMode] = useState<"display" | "scan">("display");
   const [tabs, setTabsRaw] = useState<Tab[]>(loadTabs);
   const setTabs = useCallback((newTabs: Tab[]) => {
@@ -538,8 +538,10 @@ export default function App() {
   };
 
   const navigateTo = (screen: "profile" | "qrcode" | "settings") => {
-    if (currentScreen === "dashboard") setReturnTo("dashboard");
-    else if (currentScreen === "chatList") setReturnTo("chatList");
+    // returnTo setzen fuer alle Screens die ueber AppHeader-Dropdown navigieren
+    if (currentScreen !== "profile" && currentScreen !== "qrcode" && currentScreen !== "settings") {
+      setReturnTo(currentScreen as any);
+    }
     if (screen === "qrcode") setQrCodeMode("display");
     setCurrentScreen(screen);
   };

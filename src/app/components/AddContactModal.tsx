@@ -97,7 +97,7 @@ function ShortCodeInput({
           disabled={disabled}
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKey(i, e)}
-          onClick={() => refs[i].current?.select()}
+          onClick={() => inputRefs.current[i]?.select()}
           className={`w-11 h-14 text-center text-xl font-mono font-bold rounded-xl border-2 bg-gray-800 text-white outline-none transition-all
             ${value[i] ? 'border-blue-500 text-blue-300' : 'border-gray-700'}
             ${disabled ? 'opacity-50 cursor-not-allowed' : 'focus:border-blue-400'}
