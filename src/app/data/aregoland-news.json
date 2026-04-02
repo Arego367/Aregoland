@@ -16,5 +16,11 @@
     "date": "2026-04-02",
     "title": "Übersicht-Tab — Hintergrund & Unterstützung",
     "text": "Der Aregoland Official Space zeigt jetzt die Hintergrundgeschichte und Möglichkeiten das Projekt zu unterstützen (PayPal, Ko-fi, Patreon, GitHub Sponsors)."
+  },
+  {
+    "id": "news-004",
+    "date": "2026-04-02",
+    "title": "Startbildschirm — alle Optionen verfügbar",
+    "text": "Spaces, Kontakte, Connect, Dokumente und weitere Bildschirme können jetzt als Startbildschirm festgelegt werden. Einstellung unter Einstellungen → App → Startbildschirm."
   }
 ]

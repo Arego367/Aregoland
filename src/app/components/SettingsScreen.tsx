@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, HelpCircle, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ExternalLink, Mail, ChevronDown, ChevronUp, HardDrive, MapPin, Link as LinkIcon, Ban } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, HelpCircle, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ExternalLink, Mail, ChevronDown, ChevronUp, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, loadChildren, saveChild, removeChild, createChildLinkPayload, type ChildAccount } from "@/app/auth/identity";
@@ -127,15 +127,22 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
     { id: "dashboard", label: t('settings.dashboardDefault'), icon: LayoutGrid },
     { id: "chatList", label: t('chatList.title'), icon: MessageCircle },
     { id: "calendar", label: t('dashboard.calendar'), icon: Calendar },
-    { id: "pay", label: "Pay", icon: CreditCard },
-    { id: "community", label: "Spaces", icon: LayoutGrid },
+    { id: "people", label: t('dashboard.contacts'), icon: Users },
+    { id: "spaces", label: t('dashboard.spacesLabel'), icon: LayoutGrid },
+    { id: "connect", label: t('dashboard.connect'), icon: HeartHandshake },
+    { id: "documents", label: t('dashboard.documents'), icon: FileText },
+    { id: "pay", label: t('dashboard.pay'), icon: CreditCard, disabled: true },
+    { id: "world", label: t('dashboard.world'), icon: Globe, disabled: true },
   ];
 
   // Load saved settings on mount
   useEffect(() => {
     const savedStartScreen = localStorage.getItem("aregoland_start_screen");
     if (savedStartScreen) {
-      setStartScreen(savedStartScreen);
+      // Migration: "community" → "spaces"
+      const mapped = savedStartScreen === "community" ? "spaces" : savedStartScreen;
+      if (mapped !== savedStartScreen) localStorage.setItem("aregoland_start_screen", mapped);
+      setStartScreen(mapped);
     }
   }, []);
 
@@ -312,8 +319,9 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
                  {START_SCREENS.map((screen) => (
                    <button
                      key={screen.id}
-                     onClick={() => handleStartScreenChange(screen.id)}
+                     onClick={() => !("disabled" in screen && screen.disabled) && handleStartScreenChange(screen.id)}
                      className={`w-full flex items-center justify-between p-4 transition-colors border-b border-gray-700/50 last:border-0 ${
+                       "disabled" in screen && screen.disabled ? "opacity-40 cursor-not-allowed" :
                        startScreen === screen.id ? "bg-blue-900/20 hover:bg-blue-900/30" : "hover:bg-gray-800"
                      }`}
                    >
@@ -324,6 +332,9 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
                        <span className={`font-medium ${startScreen === screen.id ? "text-blue-400" : "text-white"}`}>
                          {screen.label}
                        </span>
+                       {"disabled" in screen && screen.disabled && (
+                         <span className="text-[10px] text-gray-600 ml-1">(bald)</span>
+                       )}
                      </div>
                      {startScreen === screen.id && (
                        <div className="bg-blue-500 rounded-full p-0.5">

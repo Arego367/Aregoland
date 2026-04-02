@@ -410,9 +410,12 @@ export default function App() {
     if (existing) {
       setIdentity(existing);
       const saved = localStorage.getItem("aregoland_start_screen");
-      if (saved && ["dashboard", "chatList", "calendar"].includes(saved)) {
-        setCurrentScreen(saved as any);
-        setReturnTo(saved === "chatList" ? "chatList" : "dashboard");
+      const screenMap: Record<string, string> = { community: "spaces" };
+      const mapped = screenMap[saved ?? ""] ?? saved;
+      const validScreens = ["dashboard", "chatList", "calendar", "people", "spaces", "connect", "documents", "pay"];
+      if (mapped && validScreens.includes(mapped)) {
+        setCurrentScreen(mapped as any);
+        setReturnTo(mapped === "chatList" ? "chatList" : "dashboard");
       } else {
         setCurrentScreen("dashboard");
       }
@@ -543,9 +546,12 @@ export default function App() {
     if (!existing) { setCurrentScreen("registration"); return; }
     setIdentity(existing);
     const saved = localStorage.getItem("aregoland_start_screen");
-    if (saved && ["dashboard", "chatList", "calendar"].includes(saved)) {
-      setCurrentScreen(saved as any);
-      setReturnTo(saved === "chatList" ? "chatList" : "dashboard");
+    const screenMap: Record<string, string> = { community: "spaces" };
+    const mapped = screenMap[saved ?? ""] ?? saved;
+    const validScreens = ["dashboard", "chatList", "calendar", "people", "spaces", "connect", "documents", "pay"];
+    if (mapped && validScreens.includes(mapped)) {
+      setCurrentScreen(mapped as any);
+      setReturnTo(mapped === "chatList" ? "chatList" : "dashboard");
     } else {
       setCurrentScreen("dashboard");
       setReturnTo("dashboard");
