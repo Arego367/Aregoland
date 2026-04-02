@@ -363,6 +363,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  const [customTagInput, setCustomTagInput] = useState("");
   const [toast, setToast] = useState(false);
   // Space appearance
   const [spaceIcon, setSpaceIcon] = useState<{ type: "emoji" | "image"; value: string } | null>(null);
@@ -374,6 +376,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
   // Detail
   const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings" | "world">("overview");
+
+  // Settings tag picker
+  const [showSettingsTagPicker, setShowSettingsTagPicker] = useState(false);
+  const [settingsCustomTag, setSettingsCustomTag] = useState("");
 
   // Invite
   const [inviteRole, setInviteRole] = useState<SpaceRole>("member");
@@ -1442,16 +1448,55 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               <label className="text-xs font-medium text-gray-400 px-1 flex items-center gap-1.5">
                 <Tag size={12} /> {t('spaces.tags')}
               </label>
-              <div className="flex flex-wrap gap-1.5">
-                {SPACE_TAGS.map(tag => (
-                  <button key={tag} onClick={() => toggleTag(tag)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      selectedTags.has(tag) ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
-                    }`}>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {Array.from(selectedTags).map(tag => (
+                  <span key={tag} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50">
                     {tag}
-                  </button>
+                    <button onClick={() => toggleTag(tag)} className="hover:text-white transition-colors"><X size={12} /></button>
+                  </span>
                 ))}
+                <button onClick={() => setShowTagPicker(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200 transition-all flex items-center gap-1">
+                  <Plus size={12} /> Tag
+                </button>
               </div>
+              <AnimatePresence>
+                {showTagPicker && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                    <div className="bg-gray-800/80 border border-gray-700 rounded-xl p-3 space-y-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {SPACE_TAGS.map(tag => (
+                          <button key={tag} onClick={() => toggleTag(tag)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                              selectedTags.has(tag) ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-700 text-gray-400 hover:bg-gray-600"
+                            }`}>
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="text" value={customTagInput} onChange={e => setCustomTagInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter" && customTagInput.trim()) {
+                              toggleTag(customTagInput.trim());
+                              setCustomTagInput("");
+                            }
+                          }}
+                          placeholder={t('spaces.customTag') || "Eigenen Tag erstellen"}
+                          className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500" />
+                        <button onClick={() => { if (customTagInput.trim()) { toggleTag(customTagInput.trim()); setCustomTagInput(""); } }}
+                          disabled={!customTagInput.trim()}
+                          className="p-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors disabled:opacity-30">
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                      <button onClick={() => setShowTagPicker(false)} className="w-full text-center text-xs text-gray-500 hover:text-gray-300 pt-1">
+                        {t('common.close') || "Schließen"}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Privacy Info */}
@@ -1485,8 +1530,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         {/* Header with gradient or custom banner */}
         <div className={`relative h-36 shrink-0 ${headerBannerClass}`} style={headerBannerStyle}>
           {!appearance.banner && <Icon size={80} className="absolute right-4 bottom-2 text-white/10" />}
-          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900" />
-          <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-10">
+          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900 pointer-events-none" />
+          <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
             <ArrowLeft size={20} />
           </button>
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
@@ -2605,24 +2650,71 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1 flex items-center gap-1.5">
                         <Tag size={11} /> {t('spaces.tags')}
                       </h3>
-                      <div className="flex flex-wrap gap-1.5">
-                        {SPACE_TAGS.map(tag => {
-                          const active = (selectedSpace.tags ?? []).includes(tag);
-                          return (
-                            <button key={tag}
-                              onClick={() => {
-                                const current = selectedSpace.tags ?? [];
-                                const next = active ? current.filter(t => t !== tag) : [...current, tag];
-                                updateSpace({ ...selectedSpace, tags: next });
-                              }}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                                active ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-600 hover:bg-gray-700"
-                              }`}>
-                              {tag}
-                            </button>
-                          );
-                        })}
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        {(selectedSpace.tags ?? []).map(tag => (
+                          <span key={tag} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50">
+                            {tag}
+                            <button onClick={() => updateSpace({ ...selectedSpace, tags: (selectedSpace.tags ?? []).filter(t => t !== tag) })}
+                              className="hover:text-white transition-colors"><X size={11} /></button>
+                          </span>
+                        ))}
+                        <button onClick={() => setShowSettingsTagPicker(p => !p)}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-800 text-gray-500 hover:bg-gray-700 hover:text-gray-300 transition-all flex items-center gap-1">
+                          <Plus size={11} /> Tag
+                        </button>
                       </div>
+                      <AnimatePresence>
+                        {showSettingsTagPicker && (
+                          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                            <div className="bg-gray-800/80 border border-gray-700 rounded-xl p-3 space-y-2">
+                              <div className="flex flex-wrap gap-1.5">
+                                {SPACE_TAGS.map(tag => {
+                                  const active = (selectedSpace.tags ?? []).includes(tag);
+                                  return (
+                                    <button key={tag}
+                                      onClick={() => {
+                                        const current = selectedSpace.tags ?? [];
+                                        const next = active ? current.filter(t => t !== tag) : [...current, tag];
+                                        updateSpace({ ...selectedSpace, tags: next });
+                                      }}
+                                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                                        active ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-700 text-gray-500 hover:bg-gray-600"
+                                      }`}>
+                                      {tag}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input type="text" value={settingsCustomTag} onChange={e => setSettingsCustomTag(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter" && settingsCustomTag.trim()) {
+                                      const current = selectedSpace.tags ?? [];
+                                      if (!current.includes(settingsCustomTag.trim())) updateSpace({ ...selectedSpace, tags: [...current, settingsCustomTag.trim()] });
+                                      setSettingsCustomTag("");
+                                    }
+                                  }}
+                                  placeholder={t('spaces.customTag') || "Eigenen Tag erstellen"}
+                                  className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-blue-500" />
+                                <button onClick={() => {
+                                    if (settingsCustomTag.trim()) {
+                                      const current = selectedSpace.tags ?? [];
+                                      if (!current.includes(settingsCustomTag.trim())) updateSpace({ ...selectedSpace, tags: [...current, settingsCustomTag.trim()] });
+                                      setSettingsCustomTag("");
+                                    }
+                                  }}
+                                  disabled={!settingsCustomTag.trim()}
+                                  className="p-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors disabled:opacity-30">
+                                  <Plus size={14} />
+                                </button>
+                              </div>
+                              <button onClick={() => setShowSettingsTagPicker(false)} className="w-full text-center text-xs text-gray-500 hover:text-gray-300 pt-1">
+                                {t('common.close') || "Schließen"}
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )}
 

@@ -58,9 +58,7 @@ const DEFAULT_TABS: Tab[] = [
   { id: "family", label: "Familie" },
   { id: "friends", label: "Freunde" },
   { id: "work", label: "Arbeit" },
-  { id: "school", label: "Schule" },
   { id: "child", label: "Kinder" },
-  { id: "space", label: "Spaces" },
   { id: "other", label: "Sonstige" },
 ];
 

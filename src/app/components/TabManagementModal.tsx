@@ -120,7 +120,7 @@ export function TabManagementModal({ isOpen, onClose, tabs, onUpdateTabs }: TabM
                 )}
 
                 {/* Löschen (nur custom Tabs) */}
-                {tab.id !== 'all' && tab.id.startsWith('custom_') && (
+                {tab.id !== 'all' && (
                   <button
                     onClick={() => handleDelete(tab.id)}
                     className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"

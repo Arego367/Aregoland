@@ -128,6 +128,7 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.searchPlaceholder` | ja | nein | nein |
 | Spaces | `spaces.noSearchResults` | ja | nein | nein |
 | Spaces | `spaces.tags` | ja | nein | nein |
+| Spaces | `spaces.customTag` | ja | nein | nein |
 | Kalender | `calendar.searchPlaceholder` | ja | nein | nein |
 | Kalender | `calendar.noSearchResults` | ja | nein | nein |
 | ChatList | `chatList.searchPlaceholder` | ja | nein | nein |

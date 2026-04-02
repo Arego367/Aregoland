@@ -664,7 +664,8 @@
     "mobileDataManualWarning": "Du bist aktuell mit mobilen Daten verbunden. Als Netzwerk-Helfer wird zus\u00e4tzliches Datenvolumen verbraucht. Nur aktivieren wenn du eine Flatrate hast.",
     "searchPlaceholder": "Space suchen...",
     "noSearchResults": "Kein Space gefunden",
-    "tags": "Tags"
+    "tags": "Tags",
+    "customTag": "Eigenen Tag erstellen"
   },
   "childProfile": {
     "title": "Kinder-Profile",
