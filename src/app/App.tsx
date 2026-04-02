@@ -1,4 +1,27 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Component, type ReactNode, type ErrorInfo } from "react";
+
+// ── Error Boundary ──────────────────────────────────────────────────────────
+class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('[ErrorBoundary]', error, info.componentStack); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 24, color: '#f87171', background: '#111827', minHeight: '100vh', fontFamily: 'monospace' }}>
+          <h2 style={{ fontSize: 18, marginBottom: 12 }}>Fehler beim Rendern</h2>
+          <pre style={{ fontSize: 12, whiteSpace: 'pre-wrap', color: '#fca5a5' }}>{this.state.error.message}</pre>
+          <pre style={{ fontSize: 10, whiteSpace: 'pre-wrap', color: '#6b7280', marginTop: 8 }}>{this.state.error.stack}</pre>
+          <button onClick={() => { this.setState({ error: null }); window.location.reload(); }}
+            style={{ marginTop: 16, padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+            Neu laden
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import WelcomeScreen from "@/app/components/WelcomeScreen";
 import RegistrationScreen from "@/app/components/RegistrationScreen";
 import ChatListScreen from "@/app/components/ChatListScreen";
@@ -694,6 +717,7 @@ export default function App() {
   const activeP2P = p2pStatuses[activeRoomId];
 
   return (
+    <AppErrorBoundary>
     <div className="size-full">
       {currentScreen === "welcome" && (
         <WelcomeScreen
@@ -865,5 +889,6 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+    </AppErrorBoundary>
   );
 }

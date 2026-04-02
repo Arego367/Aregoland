@@ -198,6 +198,7 @@ export default function ChatScreen({
   sendCallSignal, registerCallSignalHandler, unregisterCallSignalHandler,
   onChatCleared,
 }: ChatScreenProps) {
+  console.log('[ChatScreen] render', { chatId, chatName, roomId, p2pStatus });
   const { t } = useTranslation();
   // Nachrichtenverlauf: aus localStorage laden (enthält auch Hintergrund-Nachrichten)
   const [messages, setMessages] = useState<Message[]>(() =>
