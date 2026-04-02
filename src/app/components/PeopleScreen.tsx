@@ -7,6 +7,7 @@ import {
   UserPlus, User, MessageCircle, Video, Edit2, Trash2
 } from "lucide-react";
 import { AddContactModal } from "./AddContactModal";
+import AppHeader from "./AppHeader";
 import { StoredContact, loadContacts } from "@/app/auth/contacts";
 import { UserIdentity } from "@/app/auth/identity";
 import { motion, AnimatePresence } from "motion/react";
@@ -23,6 +24,8 @@ import ProfileAvatar from "./ProfileAvatar";
 interface PeopleScreenProps {
   onBack: () => void;
   onOpenProfile: () => void;
+  onOpenQRCode: () => void;
+  onOpenSettings: () => void;
   onOpenChildProfile: () => void;
   tabs: Tab[];
   onUpdateTabs: (tabs: Tab[]) => void;
@@ -34,7 +37,7 @@ interface PeopleScreenProps {
   onRemoveContact?: (contactId: string) => void;
 }
 
-export default function PeopleScreen({ onBack, onOpenProfile, tabs, onUpdateTabs, identity, onStartChat, onStartCall, onlineContacts, contactsVersion, onRemoveContact }: PeopleScreenProps) {
+export default function PeopleScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, tabs, onUpdateTabs, identity, onStartChat, onStartCall, onlineContacts, contactsVersion, onRemoveContact }: PeopleScreenProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -99,26 +102,19 @@ export default function PeopleScreen({ onBack, onOpenProfile, tabs, onUpdateTabs
 
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans overflow-hidden">
-      {/* Header */}
-      <header className="px-4 py-3 flex items-center bg-gray-900/95 backdrop-blur-md sticky top-0 z-20 border-b border-gray-800">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all shrink-0">
-            <ArrowLeft size={22} />
-          </button>
-          <h1 className="text-lg font-bold text-white truncate">{t('people.title')}</h1>
-        </div>
-        <button onClick={() => setIsAddContactOpen(true)}
-          className="flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center mx-2 shrink-0">
-          <UserPlus size={18} />
-          <span className="hidden sm:inline">{t('people.newContact')}</span>
-        </button>
-        <div className="flex items-center gap-1.5 flex-1 justify-end">
+      <AppHeader
+        title={t('people.title')}
+        onBack={onBack}
+        onOpenProfile={onOpenProfile}
+        onOpenQRCode={onOpenQRCode}
+        onOpenSettings={onOpenSettings}
+        action={{ icon: UserPlus, label: t('people.newContact'), onClick: () => setIsAddContactOpen(true) }}
+        rightExtra={
           <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
             <Search size={20} />
           </button>
-          <ProfileAvatar onClick={onOpenProfile} />
-        </div>
-      </header>
+        }
+      />
 
       {/* Tabs */}
       {!isCreatingChild && (

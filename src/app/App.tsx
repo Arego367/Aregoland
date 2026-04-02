@@ -792,6 +792,8 @@ export default function App() {
         <PeopleScreen
           onBack={() => setCurrentScreen("dashboard")}
           onOpenProfile={() => navigateTo("profile")}
+          onOpenQRCode={() => navigateTo("qrcode")}
+          onOpenSettings={() => navigateTo("settings")}
           onOpenChildProfile={() => setCurrentScreen("childProfile")}
           tabs={tabs} onUpdateTabs={setTabs} identity={identity} onStartChat={handleStartChat}
           onStartCall={(contact, type) => { handleStartChat(contact); /* Chat öffnen, dann Anruf starten via setTimeout */ setTimeout(() => { const evt = new CustomEvent('arego-start-call', { detail: { type } }); window.dispatchEvent(evt); }, 300); }}
@@ -800,8 +802,8 @@ export default function App() {
         />
       )}
       {currentScreen === "childProfile" && <ChildProfileScreen onBack={() => setCurrentScreen("people")} />}
-      {currentScreen === "calendar" && <CalendarScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} />}
-      {currentScreen === "spaces" && <SpacesScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} />}
+      {currentScreen === "calendar" && <CalendarScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} />}
+      {currentScreen === "spaces" && <SpacesScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} />}
       {currentScreen === "connect" && <ConnectScreen onBack={() => setCurrentScreen("dashboard")} />}
       {currentScreen === "documents" && <DocumentsScreen onBack={() => setCurrentScreen("dashboard")} />}
 

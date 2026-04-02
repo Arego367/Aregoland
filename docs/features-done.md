@@ -195,6 +195,16 @@
 - Gast-Rolle am Ende, nicht loeschbar, Hinweis "Standard fuer alle ohne Rolle"
 - Eigene Rollen: Erstellen/Bearbeiten/Loeschen mit 6 Berechtigungen + Farbe
 
+## Einheitlicher Header — AppHeader.tsx (2026-04-02)
+
+- Neue wiederverwendbare Komponente `AppHeader.tsx`
+- Identisches Layout in allen Screens: Chats, Kontakte, Kalender, Spaces
+- Links: Zurueck-Pfeil + Titel
+- Mitte: Primaer-Button (gleiche Hoehe wie Avatar)
+- Rechts: Optionale Extra-Buttons + Profil-Avatar mit Dropdown-Menue
+- Profil-Avatar Klick oeffnet Dropdown: Profil, QR-Code, Einstellungen
+- Radix UI DropdownMenu (gleich wie Dashboard)
+
 ## Kalender — Suche (2026-04-02)
 
 - Suche-Icon oben rechts im Kalender-Header

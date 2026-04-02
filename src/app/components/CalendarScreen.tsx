@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search } from "lucide-react";
 import ProfileAvatar from "./ProfileAvatar";
+import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
 import type { CalendarEvent } from "@/app/types";
 
@@ -137,9 +138,11 @@ type View = "month" | "week" | "day";
 interface CalendarScreenProps {
   onBack: () => void;
   onOpenProfile: () => void;
+  onOpenQRCode: () => void;
+  onOpenSettings: () => void;
 }
 
-export default function CalendarScreen({ onBack, onOpenProfile }: CalendarScreenProps) {
+export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings }: CalendarScreenProps) {
   const { t } = useTranslation();
   const [events, setEvents] = useState<CalendarEvent[]>(loadEvents);
   const [view, setView] = useState<View>("month");
@@ -216,22 +219,14 @@ export default function CalendarScreen({ onBack, onOpenProfile }: CalendarScreen
 
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans overflow-hidden">
-      {/* Header */}
-      <header className="px-4 py-3 flex items-center bg-gray-900 z-20 border-b border-gray-800">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all shrink-0">
-            <ArrowLeft size={22} />
-          </button>
-          <h1 className="text-lg font-bold text-white truncate">{t('calendar.title')}</h1>
-        </div>
-        <button
-          onClick={() => { setEditingEvent(null); setShowForm(true); }}
-          className="flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center mx-2 shrink-0"
-        >
-          <CalendarPlus size={18} />
-          <span className="hidden sm:inline">{t('calendar.newEvent')}</span>
-        </button>
-        <div className="flex items-center gap-1.5 flex-1 justify-end">
+      <AppHeader
+        title={t('calendar.title')}
+        onBack={onBack}
+        onOpenProfile={onOpenProfile}
+        onOpenQRCode={onOpenQRCode}
+        onOpenSettings={onOpenSettings}
+        action={{ icon: CalendarPlus, label: t('calendar.newEvent'), onClick: () => { setEditingEvent(null); setShowForm(true); } }}
+        rightExtra={<>
           <button onClick={() => { setCalSearchOpen(!calSearchOpen); if (!calSearchOpen) { setCalSearchQuery(""); setTimeout(() => calSearchRef.current?.focus(), 100); } }}
             className={`p-2 rounded-full transition-all ${calSearchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
             <Search size={20} />
@@ -239,9 +234,8 @@ export default function CalendarScreen({ onBack, onOpenProfile }: CalendarScreen
           <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
             {t('calendar.today')}
           </button>
-          <ProfileAvatar onClick={onOpenProfile} />
-        </div>
-      </header>
+        </>}
+      />
 
       {/* Expandable search bar */}
       <AnimatePresence>

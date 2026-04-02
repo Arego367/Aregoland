@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
 import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
+import AppHeader from "./AppHeader";
 
 // ── Types ──
 
@@ -339,9 +340,11 @@ function getTemplate(id: SpaceTemplate) {
 interface SpacesScreenProps {
   onBack: () => void;
   onOpenProfile: () => void;
+  onOpenQRCode: () => void;
+  onOpenSettings: () => void;
 }
 
-export default function SpacesScreen({ onBack, onOpenProfile }: SpacesScreenProps) {
+export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings }: SpacesScreenProps) {
   const { t } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
   const [spaces, setSpaces] = useState<Space[]>(() => applyOrder(loadSpaces()));
@@ -1123,24 +1126,14 @@ export default function SpacesScreen({ onBack, onOpenProfile }: SpacesScreenProp
   };
 
   const renderHeader = (title: string, backAction: () => void, action?: { icon: typeof Plus; label: string; onClick: () => void }) => (
-    <header className="px-4 py-3 flex items-center bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <button onClick={backAction} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all shrink-0">
-          <ArrowLeft size={22} />
-        </button>
-        <h1 className="text-lg font-bold text-white truncate">{title}</h1>
-      </div>
-      {action && (
-        <button onClick={action.onClick}
-          className="flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center mx-2 shrink-0">
-          <action.icon size={18} />
-          <span className="hidden sm:inline">{action.label}</span>
-        </button>
-      )}
-      <div className="flex-1 flex justify-end">
-        <ProfileAvatar onClick={onOpenProfile} />
-      </div>
-    </header>
+    <AppHeader
+      title={title}
+      onBack={backAction}
+      onOpenProfile={onOpenProfile}
+      onOpenQRCode={onOpenQRCode}
+      onOpenSettings={onOpenSettings}
+      action={action}
+    />
   );
 
   const handleReorder = (newOrder: Space[]) => {
@@ -1154,29 +1147,20 @@ export default function SpacesScreen({ onBack, onOpenProfile }: SpacesScreenProp
   if (view === "list") {
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
-        {/* Custom header with search icon */}
-        <header className="px-4 py-3 flex items-center bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all shrink-0">
-              <ArrowLeft size={22} />
+        <AppHeader
+          title={t('spaces.title')}
+          onBack={onBack}
+          onOpenProfile={onOpenProfile}
+          onOpenQRCode={onOpenQRCode}
+          onOpenSettings={onOpenSettings}
+          action={{ icon: Plus, label: t('spaces.newSpace'), onClick: () => setView("templates") }}
+          rightExtra={spaces.length > 0 ? (
+            <button onClick={() => { setSearchOpen(!searchOpen); if (!searchOpen) setTimeout(() => searchInputRef.current?.focus(), 100); }}
+              className={`p-2 rounded-full transition-all ${searchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
+              <Search size={20} />
             </button>
-            <h1 className="text-lg font-bold text-white truncate">{t('spaces.title')}</h1>
-          </div>
-          <button onClick={() => setView("templates")}
-            className="flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center mx-2 shrink-0">
-            <Plus size={18} />
-            <span className="hidden sm:inline">{t('spaces.newSpace')}</span>
-          </button>
-          <div className="flex items-center gap-1.5 flex-1 justify-end">
-            {spaces.length > 0 && (
-              <button onClick={() => { setSearchOpen(!searchOpen); if (!searchOpen) setTimeout(() => searchInputRef.current?.focus(), 100); }}
-                className={`p-2 rounded-full transition-all ${searchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
-                <Search size={20} />
-              </button>
-            )}
-            <ProfileAvatar onClick={onOpenProfile} />
-          </div>
-        </header>
+          ) : undefined}
+        />
 
         {/* Expandable search bar */}
         <AnimatePresence>
