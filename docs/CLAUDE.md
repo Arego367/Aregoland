@@ -26,6 +26,7 @@
 | [sprachen.md](sprachen.md) | i18n Übersetzungs-Tracking |
 | [aras.md](aras.md) | Persönliches Profil von Aras |
 | [world-concept.md](world-concept.md) | World Social Media Konzept, FSK-Feed, Bildschirmzeit |
+| [world.md](world.md) | World Konzept & Sicherheit: EUDI-Posting, FSK-Stufen, Moderation |
 | [aregoland-vision.md](aregoland-vision.md) | Die grosse Vision: 5 Stufen von Messenger bis Lebensinfrastruktur |
 | [business-model.md](business-model.md) | 1 Euro/Monat, UG, Institutionen-Potenzial |
 | [eudi-integration.md](eudi-integration.md) | EUDI Wallet Fundament, FSK-Automatik, Zeitplan |

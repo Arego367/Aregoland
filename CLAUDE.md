@@ -18,6 +18,7 @@ Die vollstaendige Projektdokumentation befindet sich in `/docs/`:
 - **[docs/geschaeftsmodell.md](docs/geschaeftsmodell.md)** — 1 Euro/Jahr, Zielgruppen, Pay-Modul
 - **[docs/sprachen.md](docs/sprachen.md)** — i18n Uebersetzungs-Tracking
 - **[docs/aras.md](docs/aras.md)** — Persoenliches Profil von Aras
+- **[docs/world.md](docs/world.md)** — World Konzept & Sicherheit: EUDI-Posting, FSK-Stufen, Moderation
 
 ## Arbeitsregel fuer Claude Code
 

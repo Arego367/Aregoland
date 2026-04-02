@@ -28,5 +28,23 @@
     "date": "2026-04-02",
     "title": "Space-Design — Icon zentriert, Banner nur Farbe",
     "text": "Space-Icons werden jetzt groß und zentriert im Banner angezeigt. Bild-Upload für Icons möglich, Fallback zeigt den ersten Buchstaben. Banner sind jetzt nur noch Farbverläufe."
+  },
+  {
+    "id": "news-006",
+    "date": "2026-04-02",
+    "title": "Roadmap im Über-Tab",
+    "text": "Der Aregoland Official Space zeigt jetzt eine visuelle Roadmap im Über-Tab — mit Timeline-Darstellung für fertige, aktuelle und geplante Features."
+  },
+  {
+    "id": "news-007",
+    "date": "2026-04-02",
+    "title": "Roadmap — klappbar mit Feature-Beschreibungen",
+    "text": "Jede Roadmap-Kategorie ist jetzt aufklappbar. Standardmäßig ist nur 'In Arbeit' offen. Jedes Feature zeigt beim Aufklappen eine kurze Beschreibung."
+  },
+  {
+    "id": "news-008",
+    "date": "2026-04-02",
+    "title": "Spaces — Sichtbarkeit, Suche & Sortierung",
+    "text": "Spaces können jetzt öffentlich oder privat sein. Die Suche zeigt auch öffentliche Spaces anderer Nutzer. Neue Sortierung: Aktivität, Name, Tags oder Beitrittsdatum."
   }
 ]

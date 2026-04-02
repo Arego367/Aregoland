@@ -13,15 +13,17 @@
    - Schritt 6: Wiki/Seiten
    - Schritt 7: Mobile Daten Erkennung (2026-04-02)
 
-2. **World — Social Media** (siehe [world-concept.md](world-concept.md))
-   - World-Tab in Spaces (Coming Soon Hinweis)
-   - World-Kachel auf Hauptscreen (Coming Soon Hinweis)
-   - Backend: oeffentlicher Feed-Endpoint
-   - FSK-gefilterter Feed
-   - Post-Erstellung fuer Space-Admins
-   - KI-gestuetzte Post-Erstellung
-   - Bildschirmzeit-Enforcement
-   - Oeffentliche URLs (aregoland.de/world/...)
+2. **Eigene Kacheln / Hauptnavigation**
+   - **World** — oeffentlicher FSK-gefilterter Feed, eigene Kachel im Dashboard, Konzept dokumentiert in [world.md](world.md)
+     - Backend: oeffentlicher Feed-Endpoint
+     - Post-Erstellung fuer verifizierte Nutzer
+     - KI-gestuetzte Post-Erstellung
+     - Bildschirmzeit-Enforcement
+     - Oeffentliche URLs (aregoland.de/world/...)
+   - **Politik-Kachel** — Bundestagsgesetze + EU-Gesetze in Alltagssprache, KI-Uebersetzung, Parteien-Uebersicht
+     - Geheime Abstimmungen: niemand sieht wie wer abgestimmt hat
+     - Partei-Zugehoerigkeit optional, komplett anonym
+     - Zero-Knowledge Voting (kryptografisch manipulationssicher)
 
 ### Zukuenftige Feature-Bereiche (Langfrist-Roadmap, siehe [aregoland-vision.md](aregoland-vision.md))
 
@@ -159,14 +161,6 @@
 - Chat-Verlauf: Kontakt kann seine Kopie optional teilen
 - "Soziales Netzwerk als Backup" — Identitaet entsteht durch Beziehungen
 
-### Politik-Space (noch nicht implementiert)
-
-- Spezieller Space-Typ fuer demokratische Abstimmungen
-- Geheime Abstimmungen: niemand sieht wie wer abgestimmt hat, nicht mal Admin
-- Partei-Zugehoerigkeit optional, komplett anonym speicherbar
-- Ergebnis: nur Gesamtzahlen sichtbar
-- Zero-Knowledge Voting (kryptografisch manipulationssicher)
-
 ### Aregoland offizieller Space (noch nicht implementiert)
 
 - Offizieller Space von Aras/Aregoland
@@ -254,7 +248,7 @@ Ziel: Nutzer fuehlt sich gehoert, keine doppelten Bug-Reports, Community-Voting 
 ### Spaces - Kachel-Navigation (geplant)
 
 - Tab-Leiste ersetzen durch Kacheln auf der Uebersicht
-- Feste Kacheln: Neuigkeiten, Chats, Mitglieder, World, Einstellungen
+- Feste Kacheln: Neuigkeiten, Chats, Mitglieder, Einstellungen
 - Nutzer kann Reihenfolge per Drag & Drop selbst bestimmen
 - Badge auf Kacheln (ungelesene Nachrichten, neue Posts)
 - 2 Kacheln pro Reihe, responsive

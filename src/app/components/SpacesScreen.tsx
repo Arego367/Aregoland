@@ -7,7 +7,7 @@ import {
   Info, Check, X, GripVertical, UserPlus, Crown, Eye, ChevronDown,
   Pin, ThumbsUp, MessageSquare, Megaphone, Newspaper, Send, Lock, Layers,
   Paperclip, Mic, Play, Pause, Download, AtSign, Image as ImageIcon, FileText, Square,
-  Search, Tag
+  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
@@ -125,6 +125,7 @@ interface Space {
   tags?: string[];
   guestPermissions: { readChats: boolean; writeChats: boolean; createEvents: boolean; postNews: boolean; inviteMembers: boolean; allowNetworkHelper: boolean };
   createdAt: string;
+  visibility: "public" | "private";
   settings: {
     membersVisible: boolean;
     coHostingAllowed: boolean;
@@ -171,6 +172,7 @@ const AREGOLAND_OFFICIAL_SPACE: Space = {
   customRoles: [],
   guestPermissions: { readChats: false, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
   createdAt: "2026-04-02T00:00:00.000Z",
+  visibility: "public",
   settings: { membersVisible: false, coHostingAllowed: false, publicJoin: false, idVerification: false },
 };
 
@@ -381,10 +383,12 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [selectedTemplate, setSelectedTemplate] = useState<SpaceTemplate | null>(null);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
 
-  // Search & filter
+  // Search & filter & sort
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<"activity" | "name" | "tags" | "joined">("activity");
+  const [showSortMenu, setShowSortMenu] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const isDragging = useRef(false);
 
@@ -519,6 +523,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [commentText, setCommentText] = useState<Record<string, string>>({});
 
+  // Roadmap collapsible state
+  const [openRoadmap, setOpenRoadmap] = useState<Record<string, boolean>>({ done: false, wip: true, planned: false });
+  const toggleRoadmap = (key: string) => setOpenRoadmap(prev => ({ ...prev, [key]: !prev[key] }));
+
   const handleSelectTemplate = (templateId: SpaceTemplate) => {
     setSelectedTemplate(templateId);
     setName("");
@@ -537,6 +545,17 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // Filtered spaces for list view
   const filteredSpaces = useMemo(() => {
     let result = [...spaces];
+
+    // When searching, also include public spaces from localStorage (simulated discovery)
+    if (searchQuery.trim()) {
+      try {
+        const allStored: Space[] = JSON.parse(localStorage.getItem(SPACES_KEY) ?? "[]");
+        const myIds = new Set(spaces.map(s => s.id));
+        const publicExtras = allStored.filter(s => !myIds.has(s.id) && (s.visibility ?? "private") === "public");
+        result = [...result, ...publicExtras];
+      } catch { /* ignore */ }
+    }
+
     if (filterTag) {
       result = result.filter(s => s.id === AREGOLAND_OFFICIAL_ID || (s.tags ?? []).includes(filterTag));
     }
@@ -547,8 +566,27 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         (s.tags ?? []).some(tag => tag.toLowerCase().includes(q))
       );
     }
-    return result;
-  }, [spaces, searchQuery, filterTag]);
+
+    // Sort
+    const official = result.filter(s => s.id === AREGOLAND_OFFICIAL_ID);
+    const rest = result.filter(s => s.id !== AREGOLAND_OFFICIAL_ID);
+    switch (sortMode) {
+      case "name":
+        rest.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "tags":
+        rest.sort((a, b) => ((a.tags ?? [])[0] ?? "zzz").localeCompare((b.tags ?? [])[0] ?? "zzz"));
+        break;
+      case "joined":
+        rest.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        break;
+      case "activity":
+      default:
+        // Keep current order (most recently active first = default localStorage order)
+        break;
+    }
+    return [...official, ...rest];
+  }, [spaces, searchQuery, filterTag, sortMode]);
 
   const handleCreateSpace = () => {
     if (!name.trim() || !selectedTemplate || !identity) return;
@@ -576,6 +614,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       tags: Array.from(selectedTags),
       guestPermissions: { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
       createdAt: new Date().toISOString(),
+      visibility: "private",
       settings: { ...tmpl.defaultSettings },
     };
     const updated = [...spaces, space];
@@ -1194,10 +1233,39 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           onOpenSettings={onOpenSettings}
           action={{ icon: Plus, label: t('spaces.newSpace'), onClick: () => setView("templates") }}
           rightExtra={spaces.length > 0 ? (
-            <button onClick={() => { setSearchOpen(!searchOpen); if (!searchOpen) setTimeout(() => searchInputRef.current?.focus(), 100); }}
-              className={`p-2 rounded-full transition-all ${searchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
-              <Search size={20} />
-            </button>
+            <div className="flex items-center gap-1">
+              <div className="relative">
+                <button onClick={() => setShowSortMenu(!showSortMenu)}
+                  className={`p-2 rounded-full transition-all ${showSortMenu ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
+                  <ArrowUpDown size={20} />
+                </button>
+                <AnimatePresence>
+                  {showSortMenu && (
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                      className="absolute right-0 top-full mt-1 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                      {([
+                        { id: "activity" as const, label: "Aktivität" },
+                        { id: "name" as const, label: "Name A–Z" },
+                        { id: "tags" as const, label: "Tags" },
+                        { id: "joined" as const, label: "Zuletzt beigetreten" },
+                      ]).map(opt => (
+                        <button key={opt.id} onClick={() => { setSortMode(opt.id); setShowSortMenu(false); }}
+                          className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors flex items-center justify-between ${
+                            sortMode === opt.id ? "text-blue-400 bg-blue-500/10" : "text-gray-300 hover:bg-gray-700/50"
+                          }`}>
+                          {opt.label}
+                          {sortMode === opt.id && <Check size={14} />}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <button onClick={() => { setSearchOpen(!searchOpen); if (!searchOpen) setTimeout(() => searchInputRef.current?.focus(), 100); }}
+                className={`p-2 rounded-full transition-all ${searchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
+                <Search size={20} />
+              </button>
+            </div>
           ) : undefined}
         />
 
@@ -1299,28 +1367,16 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <h3 className="text-base font-bold truncate">{space.name}</h3>
                           {!isOfficial && space.description && <p className="text-xs text-gray-300/80 mt-0.5 line-clamp-1">{space.description}</p>}
-                          {!isOfficial && (space.tags ?? []).length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {(space.tags ?? []).map(tag => (
-                                <span key={tag} className="px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-white/10 text-white/70">
-                                  {tag}
+                          {!isOfficial && (() => {
+                            const unread = (space.channels ?? []).reduce((s, ch) => s + (ch.unreadCount ?? 0), 0);
+                            return unread > 0 ? (
+                              <div className="flex items-center mt-1">
+                                <span className="ml-auto w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
+                                  {unread > 9 ? "9+" : unread}
                                 </span>
-                              ))}
-                            </div>
-                          )}
-                          {!isOfficial && (
-                            <div className="flex items-center gap-3 mt-1 text-xs text-white/50">
-                              <span className="flex items-center gap-1"><Users size={11} /> {space.members.length}</span>
-                              {(() => {
-                                const unread = (space.channels ?? []).reduce((s, ch) => s + (ch.unreadCount ?? 0), 0);
-                                return unread > 0 ? (
-                                  <span className="ml-auto w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
-                                    {unread > 9 ? "9+" : unread}
-                                  </span>
-                                ) : null;
-                              })()}
-                            </div>
-                          )}
+                              </div>
+                            ) : null;
+                          })()}
                         </div>
                       </button>
                     </div>
@@ -1586,6 +1642,119 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 </p>
               </div>
 
+              {/* Roadmap */}
+              {(() => {
+                const roadmapSections = [
+                  {
+                    key: "done",
+                    label: "Bereits fertig",
+                    icon: <CheckCircle2 size={10} className="text-white" />,
+                    chevronColor: "text-emerald-400",
+                    dotClass: "bg-emerald-500",
+                    labelColor: "text-emerald-400",
+                    cardBg: "bg-emerald-500/10 border-emerald-500/20",
+                    cardIcon: <CheckCircle2 size={12} className="text-emerald-400 mt-0.5 shrink-0" />,
+                    items: [
+                      { title: "Passwordlose Registrierung & Login", desc: "Kein Passwort, kein Datenleck — dein Gerät ist dein Schlüssel." },
+                      { title: "E2E verschlüsselter P2P Chat", desc: "Nachrichten gehen direkt von Gerät zu Gerät, kein Server speichert sie." },
+                      { title: "WebRTC Audio/Video Calls", desc: "Audio & Video direkt P2P, ohne Umweg über unsere Server." },
+                      { title: "Sprachnachrichten, Datei & Bildversand", desc: "Alles verschlüsselt, alles direkt." },
+                      { title: "Kontakte per QR-Code & Kurzcode", desc: "Einfach scannen oder Code eingeben, fertig." },
+                      { title: "Online/Offline Status", desc: "Sieh wer gerade da ist — in Echtzeit." },
+                      { title: "Browser-Benachrichtigungen", desc: "Verpasse keine Nachricht, auch wenn die App im Hintergrund läuft." },
+                      { title: "Spaces — Räume & Organisationen", desc: "Räume für Familie, Vereine, Firmen — mit Rollen & Rechten." },
+                      { title: "Kalender (Monats-, Wochen-, Tagesansicht)", desc: "Termine & Events, bald auch in Spaces integriert." },
+                    ],
+                  },
+                  {
+                    key: "wip",
+                    label: "In Arbeit",
+                    icon: <Hammer size={10} className="text-white" />,
+                    chevronColor: "text-amber-400",
+                    dotClass: "bg-amber-500 animate-pulse",
+                    labelColor: "text-amber-400",
+                    cardBg: "bg-amber-500/10 border-amber-500/20",
+                    cardIcon: <Hammer size={12} className="text-amber-400 mt-0.5 shrink-0" />,
+                    items: [
+                      { title: "Aregoland Official Space (dieser Space)", desc: "Der zentrale Ort für Neuigkeiten, Support und Community." },
+                      { title: "Spaces Verbesserungen (Melde-System, Mitglieder-Kontrolle)", desc: "Mehr Sicherheit und Kontrolle für Space-Admins." },
+                      { title: "World — öffentlicher Feed", desc: "Öffentlicher Feed — nur verifizierte Nutzer posten, FSK-System schützt Kinder." },
+                    ],
+                  },
+                  {
+                    key: "planned",
+                    label: "Geplant",
+                    icon: <Sparkles size={10} className="text-white" />,
+                    chevronColor: "text-purple-400",
+                    dotClass: "bg-purple-500",
+                    labelColor: "text-purple-400",
+                    cardBg: "bg-purple-500/10 border-purple-500/20",
+                    cardIcon: <Sparkles size={12} className="text-purple-400 mt-0.5 shrink-0" />,
+                    items: [
+                      { title: "KI-basierter Support", desc: "Dein persönlicher Assistent direkt in der App." },
+                      { title: "EUDI Wallet Integration (2027)", desc: "Europäische digitale Identität — sicher, datenschutzkonform." },
+                      { title: "Spaces Shop-System", desc: "Verkaufen direkt im Space." },
+                      { title: "P2P Dokumentenaustausch (Behörden, Schulen, Arzt)", desc: "Behörden, Schulen, Arzt — alles sicher digital." },
+                      { title: "Politik-Kachel — Gesetze in Alltagssprache", desc: "Gesetze in Alltagssprache, verständlich für jeden." },
+                    ],
+                  },
+                ];
+
+                return (
+                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">
+                    <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+                      <Map size={14} className="text-purple-400" /> Roadmap
+                    </h3>
+
+                    <div className="relative space-y-4 pl-6 before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-emerald-500 before:via-amber-500 before:to-purple-500">
+                      {roadmapSections.map((section) => (
+                        <div key={section.key} className="relative">
+                          <div className={`absolute -left-6 top-0.5 w-4 h-4 rounded-full ${section.dotClass} flex items-center justify-center`}>
+                            {section.icon}
+                          </div>
+                          <button
+                            onClick={() => toggleRoadmap(section.key)}
+                            className="flex items-center gap-2 w-full text-left group"
+                          >
+                            <h4 className={`text-xs font-bold ${section.labelColor} uppercase tracking-wider`}>
+                              {section.label}
+                            </h4>
+                            <span className={`text-[10px] ${section.labelColor} opacity-60`}>({section.items.length})</span>
+                            <ChevronDown
+                              size={14}
+                              className={`${section.chevronColor} transition-transform duration-200 ${openRoadmap[section.key] ? "rotate-180" : ""}`}
+                            />
+                          </button>
+                          <AnimatePresence>
+                            {openRoadmap[section.key] && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="grid grid-cols-1 gap-2 mt-3">
+                                  {section.items.map((item, i) => (
+                                    <div key={i} className={`flex items-start gap-2 ${section.cardBg} border rounded-lg px-3 py-2`}>
+                                      {section.cardIcon}
+                                      <div className="min-w-0">
+                                        <span className="text-xs text-gray-200 font-medium">{item.title}</span>
+                                        <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{item.desc}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Projekt unterstützen */}
               <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">
                 <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Heart size={14} className="text-blue-400" /> Projekt unterstützen</h3>
@@ -1675,13 +1844,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           </div>
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
             <h1 className="text-2xl font-bold">{selectedSpace.name}</h1>
-            {(selectedSpace.tags ?? []).length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {(selectedSpace.tags ?? []).map(tag => (
-                  <span key={tag} className="px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-white/10 text-white/70">{tag}</span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
@@ -2885,6 +3047,33 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           </motion.div>
                         )}
                       </AnimatePresence>
+                    </div>
+                  )}
+
+                  {/* Sichtbarkeit — nur Admin/Founder */}
+                  {canManageSettings && (
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1 flex items-center gap-1.5">
+                        <Eye size={11} /> Sichtbarkeit
+                      </h3>
+                      <div className="flex gap-2">
+                        {([
+                          { id: "public" as const, label: "Öffentlich", icon: <Globe size={14} />, desc: "In der Suche sichtbar" },
+                          { id: "private" as const, label: "Privat", icon: <EyeOff size={14} />, desc: "Nur per Einladung" },
+                        ]).map(opt => (
+                          <button key={opt.id}
+                            onClick={() => updateSpace({ ...selectedSpace, visibility: opt.id })}
+                            className={`flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${
+                              (selectedSpace.visibility ?? "private") === opt.id
+                                ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
+                                : "border-gray-700/50 bg-gray-800/50 text-gray-500 hover:border-gray-600"
+                            }`}>
+                            {opt.icon}
+                            <span className="text-xs font-bold">{opt.label}</span>
+                            <span className="text-[10px] opacity-70">{opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
 

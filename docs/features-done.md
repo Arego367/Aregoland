@@ -252,13 +252,21 @@
 - Tags nachtraeglich bearbeiten in Einstellungen-Tab (Admin/Founder)
 - Tags UX: Chips mit X zum Entfernen, "+ Tag" Dropdown mit eigenem Tag erstellen (2026-04-02)
 
+## Spaces — Sichtbarkeit, Suche & Sortierung (2026-04-02)
+
+- Sichtbarkeit (oeffentlich/privat) als Einstellung im Settings-Tab (Admin/Founder)
+- Sichtbarkeit gespeichert im Space-Objekt (`visibility: "public" | "private"`)
+- Suche zeigt bei aktiver Eingabe auch oeffentliche Spaces anderer Nutzer (aus localStorage simuliert)
+- Sort-Icon neben Suchleiste mit Dropdown: Aktivitaet, Name A-Z, Tags, Zuletzt beigetreten
+- Sortierung wird auf alle Spaces angewendet (Aregoland Official immer oben)
+
 ## Aregoland Official Space (2026-04-02)
 
 - Hardcodierter "Aregoland" Space bei jedem Nutzer automatisch sichtbar
 - Nicht loeschbar, nicht verlassbar
 - 4 Tabs: Neuigkeiten, Uebersicht, Support, World
 - Neuigkeiten aus aregoland-news.json (automatisch befuellt bei CC-Commits)
-- Uebersicht: Hintergrundgeschichte + App-Version
+- Uebersicht: Hintergrundgeschichte + App-Version + visuelle Roadmap (Timeline mit fertig/in Arbeit/geplant)
 - Support: "Kommt bald" mit KI-Support-Vorschau
 - World: "Kommt bald" mit World-Vorschau
 - Gradient blau/lila (Aregoland Branding), Globe-Icon
