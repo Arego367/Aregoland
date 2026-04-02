@@ -1,5 +1,7 @@
 # Spaces — Vollstaendige Vision
 
+> Stand: 2026-04-02
+
 ## Space-Vorlagen (beim Erstellen waehlbar)
 
 - ✅ Familie — privat, alle sehen alle, geteilter Kalender
@@ -35,7 +37,7 @@
 - ✅ QR-Code Einladung mit Ablaufzeit
 - ✅ Globaler Chat: nur Admins/Moderatoren koennen posten
 - ✅ Bei Space-Erstellung: Info-Box erklaert Privacy + Netzwerk-Helfer Prinzip
-- ✅ **Sichtbarkeit**: Oeffentlich oder Privat (2026-04-02)
+- ✅ **Sichtbarkeit**: Oeffentlich oder Privat
   - Oeffentlich: Space erscheint in der Suche anderer Nutzer
   - Privat: nur per Einladung erreichbar
 - ✅ **Chats verwalten**: Chat erstellen/bearbeiten (Name + Rollen-Zugriffsrechte + Sichtbarkeit), Chats loeschen
@@ -81,7 +83,8 @@
   - Fortschrittsbalken bei grossen Dateien, Warnung bei >50MB
   - @Erwaehnung: @ tippen → Mitglieder-Liste, erwaehnte Person bekommt Benachrichtigung
   - Bueroklammer-Icon fuer Fotos & Dateien, Mikrofon-Icon fuer Voice (gedrueckt halten)
-- ✅ **Mitglieder**: Nach Rollen gruppiert, Einladen, Rolle aendern, Sortierung (Rolle/Name/Datum)
+- ✅ **Mitglieder**: Nach Rollen gruppiert, Einladen, Rolle aendern
+  - Sortierung: nach Rolle, Name, Beitrittsdatum + Uhrzeit
 - ✅ **Profil**: Eigenes Profil im Space:
   - Name, Rolle-Badge
   - Netzwerk-Helfer Toggle (nur wenn Rolle es erlaubt) + Erklaerungstext ueber Verschluesselung
@@ -89,29 +92,42 @@
   - Automatische Mobile-Daten-Erkennung mit Hinweis
   - Benachrichtigungen: 3 Modi (Alle/Stumm/Keine) + 6 einzelne Toggles
 - ✅ **Einstellungen**: Erscheinungsbild, Tags, Sichtbarkeit, Chats verwalten, Rollen & Rechte, Gruender-Rechte uebertragen, Space loeschen
-- 🔲 **Wiki/Seiten** — strukturierte Infoseiten (je nach Rolle)
 
-## Spaces-Uebersichtsliste (2026-04-02)
+## Spaces-Uebersichtsliste
 
-- ✅ Space-Karten mit Icon, Name, Beschreibung
+- ✅ Space-Karten: Gradient fuellt ganze Karte, Icon mit Buchstaben-Fallback (Initials) zentriert im Banner, Bild-Upload fuer Icon moeglich
+- ✅ Mitgliederzahl und Tags aus Space-Karten entfernt (Tags nur fuer Suche im Hintergrund)
+- ✅ Template/Schablonen-Label entfernt ueberall
 - ✅ Aregoland Official Space immer oben
 - ✅ Drag & Drop Sortierung (Reorder)
 - ✅ Unread-Badge auf Space-Karten
-- ✅ Suche (Name + Tags), auch oeffentliche Spaces anderer Nutzer bei aktiver Suche (2026-04-02)
-- ✅ Sortierung: Aktivitaet, Name A-Z, Tags, Zuletzt beigetreten (2026-04-02)
-- ✅ Tags fuer Suche im Hintergrund (nicht mehr auf Karten angezeigt, 2026-04-02)
+- ✅ Suche (Name + Tags), oeffentliche Spaces anderer Nutzer bei aktiver Suche sichtbar
+- ✅ Tag-Filter nur bei aktiver Suche sichtbar
+- ✅ Sortierung: Aktivitaet, Name A-Z, Tags, Zuletzt beigetreten (Sort-Icon neben Suchleiste)
+
+## Aregoland Official Space
+
+- ✅ Hardcodiert, nicht loeschbar, nicht verlassbar, stummschaltbar
+- ✅ 4 Tabs: Neuigkeiten, Ueber, Support, World (Coming Soon)
+- ✅ Neuigkeiten aus `aregoland-news.json` (automatisch befuellt bei Commits)
+- ✅ Ueber-Tab: Hintergrundgeschichte + App-Version
+- ✅ Ueber-Tab: Roadmap klappbar (Fertig/In Arbeit/Geplant) mit Feature-Beschreibungen
+- ✅ Ueber-Tab: Spenden-Sektion mit PayPal/Ko-fi/Patreon/GitHub Sponsors Platzhalter
+- ✅ Support-Tab: "Kommt bald" mit KI-Support-Vorschau
+- ✅ World-Tab: "Kommt bald" mit World-Vorschau
+- ✅ Gradient blau/lila (Aregoland Branding), Globe-Icon
+- ✅ App-Version via vite define (`__APP_VERSION__`) aus package.json
 
 ## Space-Features
 
 - ✅ Chats (Gruppen-Chats mit Rollen-Zugriffsrechten)
-- 🔲 Termine mit Anwesenheit — Trainer/Admin sieht Uebersicht
-- 🔲 Wiki/Seiten — strukturierte Infoseiten (je nach Rolle)
 - ✅ Ankuendigungen — nur Admins/Moderatoren
 - ✅ Mitglieder-Uebersicht (nur nach Rollen sichtbar)
+- 🔲 Termine mit Anwesenheit — Trainer/Admin sieht Uebersicht
 
 ## Uebersicht-Tab (nach Rollen)
 
-- ✅ Admin sieht alles: Chats, Termine, Mitglieder, Wiki
+- ✅ Admin sieht alles: Chats, Termine, Mitglieder
 - ✅ Mitglied sieht nur: Chats wo Zugang, Termine, Ankuendigungen
 - ✅ Wichtige Termine ganz oben in der Uebersicht
 
@@ -141,11 +157,45 @@
 8. ✅ Tags + Suche + Sortierung + Sichtbarkeit (2026-04-02)
 9. ✅ Erscheinungsbild: Icon + Banner-Farbe (2026-04-02)
 10. ✅ Aregoland Official Space mit Roadmap (2026-04-02)
-11. 🔲 Wiki/Seiten
+11. ✅ Space-Karten Design: Gradient, Icon zentriert, Template-Label entfernt (2026-04-02)
+12. ✅ Mitglieder-Tab Sortierung: Rolle, Name, Beitrittsdatum+Uhrzeit (2026-04-02)
 
 ---
 
-## Node-Architektur fuer Spaces Video/Stream (noch nicht implementiert)
+## 🔲 Kurzfristig offen
+
+### Melde-System
+
+- 🔲 Mitglied melden (Grund + Beschreibung)
+- 🔲 Nachricht melden als Beweis (Zeitstempel + Inhalt unveraenderlich)
+- 🔲 Ab X Meldungen → Admin Benachrichtigung
+- 🔲 Kinder-Spaces: Elternteil bekommt alle Meldungen sofort
+
+### Mitglieder-Kontrolle
+
+- 🔲 Admin-zugewiesene Spitznamen
+- 🔲 Online-Status erzwingen/erlauben
+- 🔲 Echter Name Pflicht oder Spitzname
+- 🔲 Beitritts-Genehmigung durch waehlbare Rollen
+- 🔲 Abstimmung moeglich (X von Y muessen zustimmen)
+- 🔲 Beitritts-Hinweis: automatisch generiert aus Space-Einstellungen
+
+---
+
+## 🔲 Langfristig offen
+
+### Video Calls & Streaming
+
+- 🔲 Meeting-Modus (klein, interaktiv, alle Kameras)
+- 🔲 Stream/Webinar-Modus (gross, einseitig, bis 5000+ Teilnehmer)
+- 🔲 Automatische Node-Zuweisung: WLAN = automatisch Node, Mobile Daten = fragen ob Flat
+- 🔲 Nutzer kann Mobile-Daten-Nutzung als Node deaktivieren
+- 🔲 Admin kann manuell Nodes zuweisen
+- 🔲 Raised Hand fuer Zuschauer
+- 🔲 Live Q&A Chat waehrend Stream
+- 🔲 Baum-Struktur fuer Nodes (Presenter → Relay-Nodes → Sub-Nodes → Zuschauer)
+
+### Netzwerk-Helfer Node-Architektur
 
 - 🔲 Jeder Nutzer wird beim Beitritt geprueft ob er Node werden kann
 - 🔲 WLAN = automatisch Node-Kandidat, Mobile Daten = fragen ob Flat vorhanden
@@ -157,35 +207,35 @@
 - 🔲 Bei Ausfall: Admin weist sofort Reserve als neues B zu
 - 🔲 Upload-Messung beim Verbindungsaufbau: Node-Kapazitaet = Upload / 4 Mbit (2x Sicherheitspuffer)
 - 🔲 Abrunden bei Kapazitaetsberechnung (lieber weniger als ueberlasten)
-- 🔲 Stabiler Node: Admin kann manuell einen Node als "Stabil" markieren (Einzelgaenger, kein Partner noetig, z.B. 1GB Leitung)
-- 🔲 Neue Nutzer die joinen und Node werden koennen = sofort zu Reserve hinzufuegen
+- 🔲 Stabiler Node: Admin kann manuell einen Node als "Stabil" markieren
 - 🔲 Qualitaetsanpassung: genug Nodes = HD, wenige = SD, kritisch = Audio only
 - 🔲 Admin-Dashboard: Nutzer-Anzahl, aktive Nodes, Reserve-Kapazitaet, Auslastung %, Qualitaet
 - 🔲 Warnung bei >80% Auslastung → System fragt neue Nutzer ob sie Node werden wollen
 
-## Spaces — Video Calls & Streaming (noch nicht implementiert)
+### Transparenz-Kasse
 
-- 🔲 Meeting-Modus (klein, interaktiv, alle Kameras)
-- 🔲 Stream/Webinar-Modus (gross, einseitig, bis 5000+ Teilnehmer)
-- 🔲 Automatische Node-Zuweisung: WLAN = automatisch Node, Mobile Daten = fragen ob Flat
-- 🔲 Nutzer kann Mobile-Daten-Nutzung als Node deaktivieren
-- 🔲 Admin kann manuell Nodes zuweisen
-- 🔲 Raised Hand fuer Zuschauer
-- 🔲 Live Q&A Chat waehrend Stream
-- 🔲 Baum-Struktur fuer Nodes (Presenter → Relay-Nodes → Sub-Nodes → Zuschauer)
+- 🔲 Klassengelder digital verwalten
+- 🔲 Jeder Euro fuer alle Eltern sichtbar
+- 🔲 Wer hat fuer was bezahlt — transparent
+- 🔲 Automatische Abrechnung bei Klassenfahrten
 
-## Spaces — Melde-System (noch nicht implementiert)
+### Handwerker-Space
 
-- 🔲 Mitglied melden (Grund + Beschreibung)
-- 🔲 Nachricht melden als Beweis (Zeitstempel + Inhalt unveraenderlich)
-- 🔲 Ab X Meldungen → Admin Benachrichtigung
-- 🔲 Kinder-Spaces: Elternteil bekommt alle Meldungen sofort
+- 🔲 Digitale Rechnungen direkt hochladen
+- 🔲 Kunde empfaengt sofort auf seinem Geraet
+- 🔲 Zahlung direkt ueber Space
+- 🔲 Angebote, Auftraege, Rechnungen — alles an einem Ort
 
-## Spaces — Mitglieder-Kontrolle (noch nicht implementiert)
+### Spaces Shop-System
 
-- 🔲 Admin-zugewiesene Spitznamen
-- 🔲 Online-Status erzwingen/erlauben
-- 🔲 Echter Name Pflicht oder Spitzname
-- 🔲 Beitritts-Genehmigung durch waehlbare Rollen
-- 🔲 Abstimmung moeglich (X von Y muessen zustimmen)
-- 🔲 Beitritts-Hinweis: automatisch generiert aus Space-Einstellungen
+- 🔲 Verkaufen direkt im Space
+- 🔲 Produkte/Dienstleistungen anbieten
+- 🔲 Zahlung ueber Pay-Modul
+
+### P2P Cloud Speicher
+
+- 🔲 Nutzer stellt freiwillig Speicherplatz zur Verfuegung
+- 🔲 Dateien verschluesselt auf mehreren Geraeten verteilt (wie IPFS/BitTorrent)
+- 🔲 Space-Mitglieder teilen Speicher untereinander
+- 🔲 Unternehmen: 5000 Laptops x 500GB = 2.500TB kostenlose Unternehmens-Cloud
+- 🔲 DSGVO: alles verschluesselt, niemand sieht fremde Daten
