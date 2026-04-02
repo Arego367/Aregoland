@@ -209,7 +209,7 @@ function createGlobalChannel(spaceId: string): SpaceChannel {
 }
 
 function saveSpaces(spaces: Space[]) {
-  localStorage.setItem(SPACES_KEY, JSON.stringify(spaces));
+  localStorage.setItem(SPACES_KEY, JSON.stringify(spaces.filter(s => s.id !== AREGOLAND_OFFICIAL_ID)));
 }
 
 const APPEARANCE_KEY = "aregoland_space_appearance";
@@ -370,7 +370,11 @@ interface SpacesScreenProps {
 export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings }: SpacesScreenProps) {
   const { t } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
-  const [spaces, setSpaces] = useState<Space[]>(() => applyOrder(loadSpaces()));
+  const [spaces, setSpaces] = useState<Space[]>(() => {
+    const userSpaces = loadSpaces().filter(s => s.id !== AREGOLAND_OFFICIAL_ID);
+    const all = [AREGOLAND_OFFICIAL_SPACE, ...userSpaces];
+    return applyOrder(all);
+  });
   const [view, setView] = useState<"list" | "templates" | "create" | "detail" | "invite">("list");
   const [selectedTemplate, setSelectedTemplate] = useState<SpaceTemplate | null>(null);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
@@ -528,9 +532,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
   // Filtered spaces for list view
   const filteredSpaces = useMemo(() => {
-    let result = spaces.filter(s => s.id !== AREGOLAND_OFFICIAL_ID);
+    let result = [...spaces];
     if (filterTag) {
-      result = result.filter(s => (s.tags ?? []).includes(filterTag));
+      result = result.filter(s => s.id === AREGOLAND_OFFICIAL_ID || (s.tags ?? []).includes(filterTag));
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -539,9 +543,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         (s.tags ?? []).some(tag => tag.toLowerCase().includes(q))
       );
     }
-    // Official Space immer zuerst (außer bei Suche die nicht matcht)
-    const showOfficial = !searchQuery.trim() || "aregoland".includes(searchQuery.toLowerCase().trim());
-    if (showOfficial && !filterTag) result = [AREGOLAND_OFFICIAL_SPACE, ...result];
     return result;
   }, [spaces, searchQuery, filterTag]);
 
@@ -735,6 +736,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   };
 
   const handleDeleteSpace = (id: string) => {
+    if (id === AREGOLAND_OFFICIAL_ID) return; // Official Space nicht löschbar
     const updated = spaces.filter(s => s.id !== id);
     setSpaces(updated);
     saveSpaces(updated);
@@ -1273,7 +1275,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 const tmpl = getTemplate(space.template);
                 const Icon = tmpl.icon;
                 return (
-                  <Reorder.Item key={space.id} value={space} className="list-none" dragListener={!isOfficial}>
+                  <Reorder.Item key={space.id} value={space} className="list-none">
                     <div
                       className={`group relative overflow-hidden rounded-2xl border border-gray-700/50 text-left bg-gradient-to-br ${space.color}`}
                     >
