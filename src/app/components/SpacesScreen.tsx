@@ -1257,31 +1257,29 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     <div
                       className={`group relative overflow-hidden rounded-2xl border border-gray-700/50 text-left bg-gradient-to-br ${space.color}`}
                     >
-                      {/* Card content — clickable */}
+                      {/* Card content — clickable, horizontal layout */}
                       <button
                         onClick={() => { if (isDragging.current) return; setSelectedSpace(space); setActiveTab("overview"); setView("detail"); }}
-                        className="w-full text-left min-w-0"
+                        className="w-full text-left min-w-0 flex items-center gap-3 p-3"
                       >
-                        <div className="p-3 relative">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <div className={`p-1 rounded-md bg-gray-800 border border-gray-700 ${tmpl.color}`}>
-                              <Icon size={12} />
-                            </div>
-                          </div>
-                          <h3 className="text-base font-bold">{space.name}</h3>
-                          {space.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{space.description}</p>}
-                          {/* Tags */}
+                        {/* Icon — 2/3 Kartenhöhe, quadratisch, linksbündig */}
+                        <div className={`shrink-0 w-16 h-16 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ${tmpl.color}`}>
+                          <Icon size={28} />
+                        </div>
+                        {/* Text-Block rechts */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          <h3 className="text-base font-bold truncate">{space.name}</h3>
+                          {space.description && <p className="text-xs text-gray-300/80 mt-0.5 line-clamp-1">{space.description}</p>}
                           {(space.tags ?? []).length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {(space.tags ?? []).map(tag => (
-                                <button key={tag} onClick={(e) => { e.stopPropagation(); setFilterTag(tag); }}
-                                  className="px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-blue-500/10 text-blue-400/80 hover:bg-blue-500/20 transition-colors">
+                                <span key={tag} className="px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-white/10 text-white/70">
                                   {tag}
-                                </button>
+                                </span>
                               ))}
                             </div>
                           )}
-                          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                          <div className="flex items-center gap-3 mt-1 text-xs text-white/50">
                             <span className="flex items-center gap-1"><Users size={11} /> {space.members.length}</span>
                             {(() => {
                               const unread = (space.channels ?? []).reduce((s, ch) => s + (ch.unreadCount ?? 0), 0);
