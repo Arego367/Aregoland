@@ -251,6 +251,26 @@ Ziel: Nutzer fuehlt sich gehoert, keine doppelten Bug-Reports, Community-Voting 
   * Familie: Kalender, Einkaufsliste, Fotos
   * Gemeinde: Neuigkeiten, Antraege, Abstimmungen
 
+### Spaces - Kachel-Navigation (geplant)
+
+- Tab-Leiste ersetzen durch Kacheln auf der Uebersicht
+- Feste Kacheln: Neuigkeiten, Chats, Mitglieder, World, Einstellungen
+- Nutzer kann Reihenfolge per Drag & Drop selbst bestimmen
+- Badge auf Kacheln (ungelesene Nachrichten, neue Posts)
+- 2 Kacheln pro Reihe, responsive
+
+### Spaces - Eigene Seiten/Wiki (geplant, Schritt 8)
+
+- Admin erstellt freie Seiten mit eigenem Namen
+- Einfacher Text-Editor (fett, kursiv, Bilder)
+- Beispiele: "Ueber uns", "Preisliste", "Regeln", "Team"
+- Nur Admin kann erstellen/bearbeiten, Mitglieder lesen
+
+### Spaces - Schablonen (geplant)
+
+- Familie, Schule, Verein, Handwerker, Gemeinde
+- Bestimmt welche Tabs/Kacheln beim Erstellen aktiv sind
+
 ### Social Media Content-Strategie (noch nicht implementiert)
 
 - Fuer jede App-Funktion ein kurzes Erklaervideo erstellen
