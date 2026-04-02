@@ -1,6 +1,6 @@
 # Roadmap & Offene Punkte
 
-> Stand: 2026-04-01
+> Stand: 2026-04-02
 
 ## Naechste Schritte (Prioritaet)
 
@@ -231,6 +231,40 @@ Ziel: Nutzer fuehlt sich gehoert, keine doppelten Bug-Reports, Community-Voting 
 - Kunde empfaengt sofort auf seinem Geraet
 - Zahlung direkt ueber Space
 - Angebote, Auftraege, Rechnungen — alles an einem Ort
+
+### Spaces Tags + Suche (noch nicht implementiert)
+
+- Spaces bekommen Tags bei Erstellung (z.B. Familie, Schule, Verein, Handwerk)
+- Oeffentliche Spaces ueber Tags auffindbar
+- Suchfunktion fuer Spaces (Name, Tag, Kategorie)
+- Space-Vorschau vor Beitritt
+
+### Eigene Reiter in Spaces (noch nicht implementiert)
+
+- Space-Admin kann eigene Tabs erstellen
+- Tab-Typen: Shop, Auftraege, Neuigkeiten, Dokumente, Abstimmungen etc.
+- Schablonen/Templates fuer schnellen Start:
+  * Schule: Neuigkeiten, Termine, Dokumente, Transparenzkasse
+  * Verein: Mitglieder, Termine, Shop, Kasse
+  * Handwerker: Auftraege, Rechnungen, Angebote
+  * Familie: Kalender, Einkaufsliste, Fotos
+  * Gemeinde: Neuigkeiten, Antraege, Abstimmungen
+
+### Social Media Content-Strategie (noch nicht implementiert)
+
+- Fuer jede App-Funktion ein kurzes Erklaervideo erstellen
+- Als organische Werbung auf Instagram/TikTok/YouTube posten
+- Authentisch: auch zeigen was noch nicht funktioniert
+
+### Emma & Mia Projekt (Nebenprojekt, kein Zeitdruck)
+
+- YouTube Kanal: "Emma & Mia mit Papa"
+- KI-Geschichten ueber Emma (9) und Mia (7) und ihre Abenteuer
+- KI-Musik ohne Lizenzgebuehren (Suno oder Udio)
+- Gleichmaessige Lautstaerke, keine Werbung — fuers Einschlafen
+- Kostenlos, persoenlich, liebevoll
+- Claude generiert die Geschichten
+- Doppelt als Werbung fuer Aregoland nutzbar
 
 ### P2P Cloud Speicher (Zukunftsvision, noch nicht implementiert)
 
