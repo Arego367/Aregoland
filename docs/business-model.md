@@ -1,12 +1,34 @@
 # Business Model — Aregoland
 
-> Stand: 2026-04-01
+> Stand: 2026-04-02
+
+## Netto-Ziel
+
+**~6 Euro pro Nutzer pro Jahr** — soll laufende Serverkosten und Infrastruktur decken.
+Die konkreten Preise sind noch nicht final und werden spaeter angepasst je nach Zahlungsweg und Gebuehrenstruktur.
 
 ## Preismodell
 
-- 1 Euro Abo pro Nutzer/Monat
+- Basis: 1 Euro/Monat
 - Non-profit: keine Gewinnausschuettung, aber kostendeckend
 - Geschaeftsfuehrergehalt ist erlaubt
+
+### Preisplaene (Entwurf, nicht final)
+
+Idee: gestaffelte Plaene mit Rabatt — Rabatt so kalkulieren dass Netto-Ziel ~6 Euro/Jahr erreicht wird.
+
+| Plan | Preis | Netto (30% Store) | Netto (15% Store) |
+|---|---|---|---|
+| Monatlich | 1 Euro/Monat | ~0,70 Euro (abzgl. Fixgebuehr) | ~0,85 Euro |
+| 3 Monate | tbd | tbd | tbd |
+| 6 Monate | tbd | tbd | tbd |
+| Jaehrlich | ~8 Euro/Jahr | ~5,60 Euro | ~6,80 Euro |
+
+**Beispielrechnung (zur Orientierung):**
+- App Store / Google Play: 30% Gebuehr (15% fuer kleine Entwickler moeglich)
+- Bei 8 Euro/Jahr: ~5,60 Euro netto (30%) oder ~6,80 Euro netto (15%)
+- Bei monatlich: zusaetzliche Fixgebuehren pro Transaktion fressen Marge
+- Jaehrlich bevorzugt — weniger Transaktionskosten, bessere Planbarkeit
 
 ## Kalkulation (konservativ)
 
@@ -122,12 +144,11 @@ Belohnungsstufen:
 
 Break-even: ~100 zahlende Nutzer decken alles.
 
-## Zahlung
+## Zahlungswege (Roadmap)
 
-- Phase 1: App Store (Apple/Google) — einfachster Start
-- Phase 2: EUDI Wallet Zahlungsautorisierung + Wero (2027)
-- Phase 3: Eigenes P2P System mit BaFin-Lizenz (Zukunft)
-- Stripe nur als letzter Fallback fuer Nicht-EU
+- **Phase 1**: App Store (Apple) + Google Play — bekannt, vertraut, kein Erklaerungsbedarf
+- **Phase 2**: EUDI Wallet Zahlungsautorisierung + Wero (Ziel, ab 2027)
+- **Phase 3**: Stripe als Fallback (optional, spaeter) — fuer Nicht-EU oder PWA-Nutzer
 - Keine Abhaengigkeit von Investoren — niemals
 
 ## Zahlung — Klarstellung
