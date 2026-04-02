@@ -1595,12 +1595,44 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
           {currentOfficialTab === "about" && (
             <div className="space-y-4">
+              {/* Hintergrund */}
               <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">
-                <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Heart size={14} className="text-pink-400" /> Die Geschichte</h3>
+                <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Heart size={14} className="text-pink-400" /> Hintergrund</h3>
+                <p className="text-sm text-gray-300 leading-relaxed mb-3">
+                  Aregoland entstand aus einer einfachen Frage: Warum gibt es keine App, der man wirklich vertrauen kann?
+                </p>
                 <p className="text-sm text-gray-300 leading-relaxed">
-                  Aregoland entstand aus einer einfachen Frage: Warum gibt es keine App, der man wirklich vertrauen kann? Ein Vater, zwei Töchter, und die Sorge um ihre digitale Zukunft. Keine Server die Nachrichten speichern, keine Algorithmen die süchtig machen, kein Datenhunger. Nur Menschen die miteinander reden — sicher, privat, auf Augenhöhe. Aregoland ist kein Startup. Es ist ein Projekt aus Überzeugung.
+                  Als alleinerziehender Vater von zwei Töchtern im Grundschulalter wollte ich einen Ort schaffen, an dem Familien sicher miteinander kommunizieren können — ohne Datenhunger, ohne Algorithmen die süchtig machen, ohne Kompromisse beim Datenschutz. Aregoland ist kein Startup. Es ist ein Projekt aus Überzeugung, gebaut in den Abendstunden neben einem Vollzeitjob.
                 </p>
               </div>
+
+              {/* Projekt unterstützen */}
+              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">
+                <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Heart size={14} className="text-blue-400" /> Projekt unterstützen</h3>
+                <p className="text-sm text-gray-300 leading-relaxed mb-2">
+                  Aregoland ist und bleibt für 1€ pro Monat nutzbar — kein Datenhunger, keine Werbung, keine Kompromisse. Aber wenn du die Entwicklung zusätzlich beschleunigen möchtest und mich unterstützen willst, freue ich mich sehr darüber.
+                </p>
+                <p className="text-sm text-gray-300 leading-relaxed mb-4">
+                  Jeder Betrag hilft mir, mehr Zeit in Aregoland zu investieren — und vielleicht eines Tages nur noch daran zu arbeiten.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <a href="#" className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 text-sm font-medium hover:bg-blue-600/30 transition-colors">
+                    <span>💙</span> PayPal
+                  </a>
+                  <a href="#" className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-yellow-600/20 border border-yellow-500/30 text-yellow-400 text-sm font-medium hover:bg-yellow-600/30 transition-colors">
+                    <span>☕</span> Ko-fi
+                  </a>
+                  <a href="#" className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-orange-600/20 border border-orange-500/30 text-orange-400 text-sm font-medium hover:bg-orange-600/30 transition-colors">
+                    <span>🎗️</span> Patreon
+                  </a>
+                  <a href="#" className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 text-sm font-medium hover:bg-purple-600/30 transition-colors">
+                    <span>⭐</span> GitHub Sponsors
+                  </a>
+                </div>
+                <p className="text-[10px] text-gray-600 text-center mt-2">Links werden in Kürze eingerichtet.</p>
+              </div>
+
+              {/* App-Version */}
               <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 flex items-center gap-3">
                 <Info size={16} className="text-blue-400 shrink-0" />
                 <div>

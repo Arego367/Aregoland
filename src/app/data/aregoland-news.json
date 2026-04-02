@@ -10,5 +10,11 @@
     "date": "2026-04-02",
     "title": "Mitglieder-Tab — Sortierung & Beitrittsdatum",
     "text": "Der Mitglieder-Tab in Spaces zeigt jetzt das Beitrittsdatum jedes Mitglieds an. Sortierung nach Rolle, Name oder Beitrittsdatum mit einem Klick."
+  },
+  {
+    "id": "news-003",
+    "date": "2026-04-02",
+    "title": "Übersicht-Tab — Hintergrund & Unterstützung",
+    "text": "Der Aregoland Official Space zeigt jetzt die Hintergrundgeschichte und Möglichkeiten das Projekt zu unterstützen (PayPal, Ko-fi, Patreon, GitHub Sponsors)."
   }
 ]
