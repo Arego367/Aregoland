@@ -1684,22 +1684,23 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         {/* Header with gradient or custom banner */}
         <div className={`relative h-36 shrink-0 ${headerBannerClass}`} style={headerBannerStyle}>
-          {!appearance.banner && <Icon size={80} className="absolute right-4 bottom-2 text-white/10" />}
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900 pointer-events-none" />
           <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
             <ArrowLeft size={20} />
           </button>
+          {/* Space-Icon zentriert im Banner */}
+          <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
+            {appearance.icon?.type === "emoji" ? (
+              <span className="text-5xl">{appearance.icon.value}</span>
+            ) : appearance.icon?.type === "image" ? (
+              <img src={appearance.icon.value} className="w-20 h-20 rounded-xl object-cover" />
+            ) : (
+              <div className={`w-20 h-20 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ${tmpl.color}`}>
+                <Icon size={36} />
+              </div>
+            )}
+          </div>
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
-            <div className="flex items-center gap-2 mb-1">
-              {appearance.icon?.type === "emoji" ? (
-                <span className="text-sm">{appearance.icon.value}</span>
-              ) : appearance.icon?.type === "image" ? (
-                <img src={appearance.icon.value} className="w-6 h-6 rounded-md object-cover" />
-              ) : (
-                <div className={`p-1 rounded-md bg-white/10 ${tmpl.color}`}><Icon size={12} /></div>
-              )}
-              <span className="text-xs text-gray-300 capitalize">{t(`spaces.tmpl_${selectedSpace.template}`)}</span>
-            </div>
             <h1 className="text-2xl font-bold">{selectedSpace.name}</h1>
             {(selectedSpace.tags ?? []).length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
