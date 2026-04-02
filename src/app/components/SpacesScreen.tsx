@@ -1553,12 +1553,12 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
             <ArrowLeft size={20} />
           </button>
+          {/* Icon zentriert im Banner */}
+          <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
+            <img src="/aregoland_space_icon_notxt.svg" alt="Aregoland" className="w-20 h-20 rounded-xl object-cover" />
+          </div>
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
-            <div className="flex items-center gap-2">
-              <img src="/aregoland_space_icon_notxt.svg" alt="Aregoland" className="w-7 h-7 rounded-md" />
-              <h1 className="text-2xl font-bold">Aregoland</h1>
-            </div>
-            <p className="text-xs text-gray-300/80 mt-0.5">v{__APP_VERSION__}</p>
+            <h1 className="text-2xl font-bold">Aregoland</h1>
           </div>
         </div>
 
