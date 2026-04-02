@@ -1709,9 +1709,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 ))}
               </div>
             )}
-            <p className="text-xs text-gray-300 opacity-80 flex items-center gap-1 mt-0.5">
-              <Users size={10} /> {selectedSpace.members.length} {t('spaces.members')}
-            </p>
           </div>
         </div>
 
