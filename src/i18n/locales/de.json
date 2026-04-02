@@ -651,7 +651,10 @@
     "deleteFinalConfirm": "Endg\u00fcltig l\u00f6schen",
     "fullAccess": "Voller Zugriff",
     "fullAccessHint": "Founder & Admin haben immer vollen Zugriff — nicht konfigurierbar.",
-    "mobileDataManualWarning": "Du bist aktuell mit mobilen Daten verbunden. Als Netzwerk-Helfer wird zus\u00e4tzliches Datenvolumen verbraucht. Nur aktivieren wenn du eine Flatrate hast."
+    "mobileDataManualWarning": "Du bist aktuell mit mobilen Daten verbunden. Als Netzwerk-Helfer wird zus\u00e4tzliches Datenvolumen verbraucht. Nur aktivieren wenn du eine Flatrate hast.",
+    "searchPlaceholder": "Space suchen...",
+    "noSearchResults": "Kein Space gefunden",
+    "tags": "Tags"
   },
   "childProfile": {
     "title": "Kinder-Profile",

@@ -202,6 +202,18 @@
 - Hinweis: "Mobile Daten erkannt — Netzwerk-Helfer deaktiviert"
 - Manuelle Aktivierung mit Warnung moeglich
 
+## Spaces — Tags + Suche (2026-04-02)
+
+- Suchfeld oben in Spaces-Liste (Name + Tags, Echtzeit)
+- X-Button zum Leeren der Suche
+- Leerer Zustand: "Kein Space gefunden"
+- 10 vordefinierte Tags: Familie, Schule, Verein, Handwerk, Community, Gemeinde, Sport, Musik, Gaming, Sonstiges
+- Tag-Auswahl bei Space-Erstellung
+- Tags als kleine Chips unter Space-Name (Liste + Detail-Header)
+- Tags klickbar → filtert Spaces-Liste nach Tag
+- Tag-Filter Chips ueber der Liste
+- Tags nachtraeglich bearbeiten in Einstellungen-Tab (Admin/Founder)
+
 ## Nginx Reverse Proxy (2026-03-31)
 
 - Siehe [architecture.md](architecture.md)
