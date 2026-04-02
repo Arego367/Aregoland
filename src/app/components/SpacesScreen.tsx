@@ -1255,28 +1255,23 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 return (
                   <Reorder.Item key={space.id} value={space} className="list-none">
                     <div
-                      className="group relative overflow-hidden bg-gray-800/50 rounded-2xl border border-gray-700/50 text-left flex"
+                      className={`group relative overflow-hidden rounded-2xl border border-gray-700/50 text-left bg-gradient-to-br ${space.color}`}
                     >
-                      {/* Drag handle */}
-                      <div className="flex items-center px-2 text-gray-600 hover:text-gray-400 cursor-grab active:cursor-grabbing shrink-0 touch-none">
-                        <GripVertical size={18} />
-                      </div>
-
                       {/* Card content — clickable */}
                       <button
                         onClick={() => { if (isDragging.current) return; setSelectedSpace(space); setActiveTab("overview"); setView("detail"); }}
-                        className="flex-1 text-left min-w-0"
+                        className="w-full text-left min-w-0"
                       >
-                        <div className={`h-20 w-full bg-gradient-to-br ${space.color} flex items-center justify-center relative`}>
-                          <Icon size={36} className="text-white/20" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
+                        <div className="flex items-center justify-center pt-4 pb-2">
+                          <div className={`p-3 rounded-full bg-white/15 backdrop-blur-sm ${tmpl.color}`}>
+                            <Icon size={32} />
+                          </div>
                         </div>
-                        <div className="p-3 -mt-5 relative">
+                        <div className="p-3 pt-1 relative bg-gradient-to-t from-gray-900/90 via-gray-900/60 to-transparent">
                           <div className="flex items-center gap-2 mb-0.5">
                             <div className={`p-1 rounded-md bg-gray-800 border border-gray-700 ${tmpl.color}`}>
                               <Icon size={12} />
                             </div>
-                            <span className="text-xs text-gray-500">{t(`spaces.tmpl_${space.template}`)}</span>
                           </div>
                           <h3 className="text-base font-bold">{space.name}</h3>
                           {space.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{space.description}</p>}
