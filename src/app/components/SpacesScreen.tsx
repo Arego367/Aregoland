@@ -28,6 +28,7 @@ interface SpaceMember {
   aregoId: string;
   displayName: string;
   role: SpaceRole;
+  joinedAt?: string;
 }
 
 interface SpaceComment {
@@ -146,6 +147,7 @@ function loadSpaces(): Space[] {
       channels: s.channels ?? [],
       subrooms: s.subrooms ?? [],
       customRoles: s.customRoles ?? [],
+      members: (s.members ?? []).map(m => ({ ...m, joinedAt: m.joinedAt ?? s.createdAt })),
       guestPermissions: s.guestPermissions ?? { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
     }));
   }
@@ -433,6 +435,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
   // Role editing
   const [editingMember, setEditingMember] = useState<string | null>(null);
+  const [memberSort, setMemberSort] = useState<"role" | "name" | "date">("role");
+  const [memberSortDateAsc, setMemberSortDateAsc] = useState(false);
 
   // Chats
   const [showCreateChannel, setShowCreateChannel] = useState(false);
@@ -563,6 +567,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         aregoId: identity.aregoId,
         displayName: identity.displayName,
         role: "founder",
+        joinedAt: new Date().toISOString(),
       }],
       posts: [],
       channels: [globalChannel],
@@ -2401,10 +2406,101 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
             {activeTab === "members" && (() => {
               const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role;
               const canManage = myRole === "founder" || myRole === "admin";
-              const grouped = ROLE_ORDER.map(role => ({
-                role,
-                members: selectedSpace.members.filter(m => m.role === role),
-              })).filter(g => g.members.length > 0);
+
+              // Mitglieder mit joinedAt Fallback
+              const membersWithDate = selectedSpace.members.map(m => ({
+                ...m,
+                joinedAt: m.joinedAt ?? selectedSpace.createdAt,
+              }));
+
+              // Sortierung
+              const sortedMembers = [...membersWithDate].sort((a, b) => {
+                if (memberSort === "role") {
+                  return ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role);
+                }
+                if (memberSort === "name") {
+                  return a.displayName.localeCompare(b.displayName);
+                }
+                // date
+                const da = new Date(a.joinedAt).getTime();
+                const db = new Date(b.joinedAt).getTime();
+                return memberSortDateAsc ? da - db : db - da;
+              });
+
+              // Gruppiert nur bei Rollen-Sortierung
+              const grouped = memberSort === "role"
+                ? ROLE_ORDER.map(role => ({
+                    role,
+                    members: sortedMembers.filter(m => m.role === role),
+                  })).filter(g => g.members.length > 0)
+                : null;
+
+              const formatJoinDate = (iso: string) => {
+                const d = new Date(iso);
+                return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) + " " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+              };
+
+              const renderMember = (member: typeof membersWithDate[0]) => (
+                <div key={member.aregoId} className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
+                  <div className="flex items-center justify-between p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-sm font-bold text-white">
+                        {(member.displayName[0] ?? "").toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">{member.displayName}</div>
+                        <div className="text-xs text-gray-500 font-mono">{member.aregoId}</div>
+                        <div className="text-[10px] text-gray-600 mt-0.5">{formatJoinDate(member.joinedAt)}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${ROLE_COLORS[member.role].bg} ${ROLE_COLORS[member.role].text}`}>
+                        {t(`spaces.role_${member.role}`)}
+                      </span>
+                      {canManage && member.role !== "founder" && (
+                        <button
+                          onClick={() => setEditingMember(editingMember === member.aregoId ? null : member.aregoId)}
+                          className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Role edit panel */}
+                  <AnimatePresence>
+                    {editingMember === member.aregoId && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                        <div className="px-3 pb-3 pt-1 border-t border-gray-700/50 space-y-2">
+                          <p className="text-xs text-gray-500 font-medium">{t('spaces.changeRole')}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ROLE_ORDER.filter(r => r !== "founder").map(r => (
+                              <button
+                                key={r}
+                                onClick={() => handleChangeRole(member.aregoId, r)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                  member.role === r
+                                    ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current`
+                                    : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                                }`}
+                              >
+                                {t(`spaces.role_${r}`)}
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => handleRemoveMember(member.aregoId)}
+                            className="w-full text-red-400 text-xs font-medium py-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
+                          >
+                            {t('spaces.removeMember')}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
 
               return (
                 <>
@@ -2440,75 +2536,41 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     </button>
                   )}
 
-                  {/* Members grouped by role */}
-                  {grouped.map(({ role, members: roleMembers }) => (
-                    <div key={role} className="space-y-2">
-                      <div className="flex items-center gap-2 px-1 mt-3">
-                        <span className={`text-xs font-bold uppercase tracking-wider ${ROLE_COLORS[role].text}`}>{t(`spaces.role_${role}`)}</span>
-                        <span className="text-xs text-gray-600">{roleMembers.length}</span>
-                      </div>
-                      {roleMembers.map(member => (
-                        <div key={member.aregoId} className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
-                          <div className="flex items-center justify-between p-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-sm font-bold text-white">
-                                {(member.displayName[0] ?? "").toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="font-medium text-sm">{member.displayName}</div>
-                                <div className="text-xs text-gray-500 font-mono">{member.aregoId}</div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${ROLE_COLORS[member.role].bg} ${ROLE_COLORS[member.role].text}`}>
-                                {t(`spaces.role_${member.role}`)}
-                              </span>
-                              {canManage && member.role !== "founder" && (
-                                <button
-                                  onClick={() => setEditingMember(editingMember === member.aregoId ? null : member.aregoId)}
-                                  className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                  {/* Sortier-Leiste */}
+                  <div className="flex items-center gap-1.5 mb-3 mt-1">
+                    {(["role", "name", "date"] as const).map(s => (
+                      <button key={s}
+                        onClick={() => {
+                          if (s === "date" && memberSort === "date") setMemberSortDateAsc(p => !p);
+                          setMemberSort(s);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
+                          memberSort === s ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                        }`}>
+                        {s === "role" ? "Rolle" : s === "name" ? "Name" : "Beitrittsdatum"}
+                        {s === "date" && memberSort === "date" && (
+                          <ChevronDown size={12} className={`transition-transform ${memberSortDateAsc ? "rotate-180" : ""}`} />
+                        )}
+                      </button>
+                    ))}
+                  </div>
 
-                          {/* Role edit panel */}
-                          <AnimatePresence>
-                            {editingMember === member.aregoId && (
-                              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                <div className="px-3 pb-3 pt-1 border-t border-gray-700/50 space-y-2">
-                                  <p className="text-xs text-gray-500 font-medium">{t('spaces.changeRole')}</p>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {ROLE_ORDER.filter(r => r !== "founder").map(r => (
-                                      <button
-                                        key={r}
-                                        onClick={() => handleChangeRole(member.aregoId, r)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                          member.role === r
-                                            ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current`
-                                            : "bg-gray-800 text-gray-500 hover:bg-gray-700"
-                                        }`}
-                                      >
-                                        {t(`spaces.role_${r}`)}
-                                      </button>
-                                    ))}
-                                  </div>
-                                  <button
-                                    onClick={() => handleRemoveMember(member.aregoId)}
-                                    className="w-full text-red-400 text-xs font-medium py-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
-                                  >
-                                    {t('spaces.removeMember')}
-                                  </button>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                  {/* Members list */}
+                  {grouped ? (
+                    grouped.map(({ role, members: roleMembers }) => (
+                      <div key={role} className="space-y-2">
+                        <div className="flex items-center gap-2 px-1 mt-3">
+                          <span className={`text-xs font-bold uppercase tracking-wider ${ROLE_COLORS[role].text}`}>{t(`spaces.role_${role}`)}</span>
+                          <span className="text-xs text-gray-600">{roleMembers.length}</span>
                         </div>
-                      ))}
+                        {roleMembers.map(renderMember)}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="space-y-2">
+                      {sortedMembers.map(renderMember)}
                     </div>
-                  ))}
+                  )}
                 </>
               );
             })()}

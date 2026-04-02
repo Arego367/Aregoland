@@ -4,5 +4,11 @@
     "date": "2026-04-02",
     "title": "Aregoland v0.0.1 — Erster Start 🚀",
     "text": "Willkommen bei Aregoland! Die erste Version ist live. Sichere Kommunikation, Spaces, Kalender und mehr — alles ohne Server-Speicherung, ohne Tracking, ohne Kompromisse."
+  },
+  {
+    "id": "news-002",
+    "date": "2026-04-02",
+    "title": "Mitglieder-Tab — Sortierung & Beitrittsdatum",
+    "text": "Der Mitglieder-Tab in Spaces zeigt jetzt das Beitrittsdatum jedes Mitglieds an. Sortierung nach Rolle, Name oder Beitrittsdatum mit einem Klick."
   }
 ]
