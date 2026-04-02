@@ -2287,6 +2287,10 @@ export default function SpacesScreen({ onBack, onOpenProfile }: SpacesScreenProp
                             <button
                               onClick={() => {
                                 const current = localStorage.getItem(mobileDataKey) === "on";
+                                // Warnung bei manuellem Aktivieren auf Mobilfunk
+                                if (!current && isOnMobile) {
+                                  if (!confirm(t('spaces.mobileDataManualWarning'))) return;
+                                }
                                 localStorage.setItem(mobileDataKey, current ? "off" : "on");
                                 updateSpace({ ...selectedSpace });
                               }}
@@ -2584,6 +2588,33 @@ export default function SpacesScreen({ onBack, onOpenProfile }: SpacesScreenProp
                   {canManageSettings && (
                     <div className="space-y-3">
                       <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.rolesAndPermissions')}</h3>
+
+                      {/* Founder & Admin — immer voller Zugriff, ausgegraut */}
+                      <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3 opacity-60 cursor-not-allowed">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Crown size={14} className="text-yellow-400" />
+                          <span className="text-sm font-medium text-yellow-400">{t('spaces.role_founder')}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 font-bold ml-auto">{t('spaces.fullAccess')}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {(["readChats", "writeChats", "createEvents", "postNews", "inviteMembers", "allowNetworkHelper"] as const).map(perm => (
+                            <span key={perm} className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-green-500/15 text-green-400">{t(`spaces.perm_${perm}`)}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3 opacity-60 cursor-not-allowed">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Shield size={14} className="text-red-400" />
+                          <span className="text-sm font-medium text-red-400">{t('spaces.role_admin')}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-bold ml-auto">{t('spaces.fullAccess')}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {(["readChats", "writeChats", "createEvents", "postNews", "inviteMembers", "allowNetworkHelper"] as const).map(perm => (
+                            <span key={perm} className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-green-500/15 text-green-400">{t(`spaces.perm_${perm}`)}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-600 px-1">{t('spaces.fullAccessHint')}</p>
 
                       {/* Existing custom roles */}
                       {(selectedSpace.customRoles ?? []).map(cr => (

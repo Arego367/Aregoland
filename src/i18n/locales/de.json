@@ -648,7 +648,10 @@
     "deleteTransferYes": "Ja, \u00fcbertragen",
     "deleteTransferNo": "Nein, endg\u00fcltig l\u00f6schen",
     "deleteFinalTitle": "Ich verstehe, alles wird gel\u00f6scht",
-    "deleteFinalConfirm": "Endg\u00fcltig l\u00f6schen"
+    "deleteFinalConfirm": "Endg\u00fcltig l\u00f6schen",
+    "fullAccess": "Voller Zugriff",
+    "fullAccessHint": "Founder & Admin haben immer vollen Zugriff — nicht konfigurierbar.",
+    "mobileDataManualWarning": "Du bist aktuell mit mobilen Daten verbunden. Als Netzwerk-Helfer wird zus\u00e4tzliches Datenvolumen verbraucht. Nur aktivieren wenn du eine Flatrate hast."
   },
   "childProfile": {
     "title": "Kinder-Profile",

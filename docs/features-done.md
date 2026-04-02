@@ -1,6 +1,6 @@
 # Fertige Features
 
-> Stand: 2026-04-01
+> Stand: 2026-04-02
 
 ## Identitaet & Registrierung (`src/app/auth/`)
 
@@ -182,6 +182,25 @@
 - Unterraeume: Admin erstellt, eigene Mitgliederliste + eigener Chat
 - `SpaceChannel`, `SpaceChatMessage`, `SpaceSubroom` Interfaces
 - i18n-Keys in DE/EN/LT
+
+## Spaces — Schritt 5: Profil-Tab + Rollen & Rechte (2026-04-02)
+
+- Profil-Tab: Avatar, Name, Rolle-Badge, Arego-ID
+- Netzwerk-Helfer Toggle (nur wenn Rolle es erlaubt) mit Erklaerungstext
+- Mobile Daten Toggle (Standard: AUS, bei Mobilfunk automatisch deaktiviert)
+- Bestaetigung bei manuellem Aktivieren auf Mobilfunk
+- Benachrichtigungen: 3 Modi (Alle/Stumm/Keine) + 6 einzelne Toggles
+- Rollen & Rechte (Einstellungen): readChats Voraussetzung fuer writeChats
+- Founder & Admin als ausgegraute, nicht konfigurierbare Eintraege angezeigt
+- Gast-Rolle am Ende, nicht loeschbar, Hinweis "Standard fuer alle ohne Rolle"
+- Eigene Rollen: Erstellen/Bearbeiten/Loeschen mit 6 Berechtigungen + Farbe
+
+## Spaces — Schritt 7: Mobile Daten Erkennung (2026-04-02)
+
+- navigator.connection API Pruefung
+- Bei Mobilfunk (cellular): Netzwerk-Helfer automatisch AUS
+- Hinweis: "Mobile Daten erkannt — Netzwerk-Helfer deaktiviert"
+- Manuelle Aktivierung mit Warnung moeglich
 
 ## Nginx Reverse Proxy (2026-03-31)
 

@@ -122,6 +122,9 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Spaces | `spaces.deleteTransferNo` | ja | nein | nein |
 | Spaces | `spaces.deleteFinalTitle` | ja | nein | nein |
 | Spaces | `spaces.deleteFinalConfirm` | ja | nein | nein |
+| Spaces | `spaces.fullAccess` | ja | nein | nein |
+| Spaces | `spaces.fullAccessHint` | ja | nein | nein |
+| Spaces | `spaces.mobileDataManualWarning` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 

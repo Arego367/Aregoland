@@ -9,8 +9,9 @@
    - Schritt 2: Mitglieder & Rollen (2026-03-31)
    - Schritt 3: Neuigkeiten-Tab + Uebersicht nach Rollen (2026-03-31)
    - Schritt 4: Chats-Tab (2026-04-01)
-   - Schritt 5: Profil-Tab + Rollen & Rechte (2026-04-01)
+   - Schritt 5: Profil-Tab + Rollen & Rechte (2026-04-02)
    - Schritt 6: Wiki/Seiten
+   - Schritt 7: Mobile Daten Erkennung (2026-04-02)
 
 2. **World — Social Media** (siehe [world-concept.md](world-concept.md))
    - World-Tab in Spaces (Coming Soon Hinweis)
