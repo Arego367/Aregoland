@@ -176,7 +176,14 @@
     "pasteQR": "QR-Code Inhalt einf\u00fcgen",
     "pasteQRPlaceholder": "QR-Code Inhalt hier einf\u00fcgen...",
     "registerFirst": "Bitte zuerst registrieren.",
-    "p2pReady": "P2P Verschl\u00fcsselung bereit"
+    "p2pReady": "P2P Verschl\u00fcsselung bereit",
+    "addContact": "Kontakt hinzuf\u00fcgen",
+    "scanQRHint": "Scanne den QR-Code der anderen Person",
+    "openCamera": "Kamera \u00f6ffnen zum Scannen",
+    "cameraError": "Kamera konnte nicht ge\u00f6ffnet werden. Bitte erlaube den Zugriff.",
+    "shortCodeHint": "per Telefon durchsagen",
+    "privacyInfo": "Der Code enth\u00e4lt nur deinen Namen und \u00f6ffentlichen Schl\u00fcssel. Kein Server speichert deine Kontakte.",
+    "generateNewCodes": "Neue Codes generieren"
   },
   "contactDetail": {
     "groupDetails": "Gruppen Details",

@@ -131,6 +131,13 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | Kalender | `calendar.searchPlaceholder` | ja | nein | nein |
 | Kalender | `calendar.noSearchResults` | ja | nein | nein |
 | ChatList | `chatList.searchPlaceholder` | ja | nein | nein |
+| AddContact | `addContact.addContact` | ja | nein | nein |
+| AddContact | `addContact.scanQRHint` | ja | nein | nein |
+| AddContact | `addContact.openCamera` | ja | nein | nein |
+| AddContact | `addContact.cameraError` | ja | nein | nein |
+| AddContact | `addContact.shortCodeHint` | ja | nein | nein |
+| AddContact | `addContact.privacyInfo` | ja | nein | nein |
+| AddContact | `addContact.generateNewCodes` | ja | nein | nein |
 
 ## Anleitung: Uebersetzung nachholen
 

@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X, QrCode, Hash, RefreshCw, Copy, Check, UserPlus,
-  ShieldCheck, AlertCircle, Loader2, Clock, CheckCircle2,
+  ShieldCheck, AlertCircle, Loader2, Clock, CheckCircle2, Camera,
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import * as Dialog from '@radix-ui/react-dialog';
+import { Html5Qrcode } from 'html5-qrcode';
 import { UserIdentity } from '@/app/auth/identity';
 import { StoredContact, saveContact, isNonceUsed, markNonceUsed } from '@/app/auth/contacts';
 import {
@@ -275,10 +276,12 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
   const { t } = useTranslation();
   const [tab, setTab] = useState<AddTab>('shortcode');
   const [shortCodeInput, setShortCodeInput] = useState('');
-  const [qrInput, setQrInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<StoredContact | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scanRegionId = 'add-contact-qr-scan';
 
   /**
    * Schickt die eigene Identität in den persönlichen Inbox-Raum der Gegenseite.
@@ -338,15 +341,49 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
     }
   };
 
-  const handleQRInput = () => {
-    setError('');
-    const payload = decodePayload(qrInput.trim());
-    if (!payload) {
-      setError(t('addContact.invalidQR'));
-      return;
+  const stopScanner = useCallback(async () => {
+    if (scannerRef.current) {
+      try { await scannerRef.current.stop(); } catch { /* ignore */ }
+      try { scannerRef.current.clear(); } catch { /* ignore */ }
+      scannerRef.current = null;
     }
-    processPayload(payload);
-  };
+    setScanning(false);
+  }, []);
+
+  const startScanner = useCallback(async () => {
+    setError('');
+    setScanning(true);
+    // Wait for DOM to render the scan region
+    await new Promise(r => setTimeout(r, 200));
+    try {
+      const scanner = new Html5Qrcode(scanRegionId);
+      scannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decodedText) => {
+          // QR decoded — try to parse as contact payload
+          const payload = decodePayload(decodedText.trim());
+          if (!payload) {
+            setError(t('addContact.invalidQR'));
+            stopScanner();
+            return;
+          }
+          stopScanner();
+          processPayload(payload);
+        },
+        () => { /* ignore scan failures */ }
+      );
+    } catch {
+      setError(t('addContact.cameraError'));
+      setScanning(false);
+    }
+  }, [stopScanner]);
+
+  // Cleanup scanner when tab changes or unmount
+  useEffect(() => {
+    return () => { stopScanner(); };
+  }, [tab, stopScanner]);
 
   if (success) {
     return (
@@ -438,29 +475,34 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
             className="space-y-3"
           >
             <p className="text-sm text-gray-400 text-center">
-              {t('addContact.pasteQR')}
+              {t('addContact.scanQRHint')}
             </p>
-            <textarea
-              value={qrInput}
-              onChange={(e) => setQrInput(e.target.value)}
-              placeholder={t('addContact.pasteQRPlaceholder')}
-              className="w-full bg-gray-800 border border-gray-700 focus:border-blue-500 focus:outline-none rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 font-mono resize-none leading-relaxed transition-colors"
-              rows={4}
-            />
+
+            {/* Camera scanner area */}
+            {scanning ? (
+              <div className="relative rounded-2xl overflow-hidden border border-gray-700 bg-black">
+                <div id={scanRegionId} className="w-full" />
+                <button onClick={stopScanner}
+                  className="absolute top-2 right-2 p-2 bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors z-10">
+                  <X size={18} />
+                </button>
+              </div>
+            ) : (
+              <button onClick={startScanner}
+                className="w-full flex flex-col items-center gap-3 py-10 bg-gray-800/60 border-2 border-dashed border-gray-700 rounded-2xl hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
+                <div className="w-16 h-16 rounded-full bg-blue-500/15 flex items-center justify-center">
+                  <Camera size={28} className="text-blue-400" />
+                </div>
+                <span className="text-sm font-medium text-gray-300">{t('addContact.openCamera')}</span>
+              </button>
+            )}
+
             {error && (
               <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
                 <AlertCircle size={14} className="text-red-400 shrink-0" />
                 <p className="text-xs text-red-300">{error}</p>
               </div>
             )}
-            <button
-              onClick={handleQRInput}
-              disabled={!qrInput.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
-            >
-              <UserPlus size={18} />
-              {t('addContact.addContact')}
-            </button>
           </motion.div>
         )}
       </AnimatePresence>

@@ -195,6 +195,15 @@
 - Gast-Rolle am Ende, nicht loeschbar, Hinweis "Standard fuer alle ohne Rolle"
 - Eigene Rollen: Erstellen/Bearbeiten/Loeschen mit 6 Berechtigungen + Farbe
 
+## Kontakt hinzufuegen — QR-Code Scanner (2026-04-02)
+
+- QR-Code Tab oeffnet jetzt direkt die Kamera (Html5Qrcode)
+- QR-Code wird gescannt und Kontakt automatisch hinzugefuegt
+- Kein manuelles Textfeld mehr — Textarea entfernt
+- Kamera-Bereich mit Abbrechen-Button (X)
+- Fehlermeldung bei ungueltigem QR-Code oder Kamera-Zugriff
+- Fehlende i18n-Keys gefixt: addContact.addContact, shortCodeHint, privacyInfo, generateNewCodes
+
 ## Chats — Suche (2026-04-02)
 
 - Suche-Icon oben rechts im Chats-Header funktioniert jetzt
