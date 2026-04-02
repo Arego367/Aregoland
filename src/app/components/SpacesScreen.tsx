@@ -1277,8 +1277,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
             <Reorder.Group axis="y" values={spaces} onReorder={handleReorder} className="space-y-3">
               {filteredSpaces.map((space) => {
                 const isOfficial = space.id === AREGOLAND_OFFICIAL_ID;
-                const tmpl = getTemplate(space.template);
-                const Icon = tmpl.icon;
                 return (
                   <Reorder.Item key={space.id} value={space} className="list-none">
                     <div
@@ -1287,17 +1285,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       {/* Card content — clickable, horizontal layout */}
                       <button
                         onClick={() => { if (isDragging.current) return; setSelectedSpace(space); setActiveTab("overview"); setView("detail"); }}
-                        className="w-full text-left min-w-0 flex items-center gap-3 p-3"
+                        className="w-full text-left min-w-0 p-3"
                       >
-                        {/* Icon */}
-                        {isOfficial ? (
-                          <img src="/aregoland_space_icon_notxt.svg" alt="Aregoland" className="shrink-0 w-16 h-16 rounded-xl object-cover" />
-                        ) : (
-                          <div className={`shrink-0 w-16 h-16 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ${tmpl.color}`}>
-                            <Icon size={28} />
-                          </div>
-                        )}
-                        {/* Text-Block rechts */}
+                        {/* Text-Block */}
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <h3 className="text-base font-bold truncate">{space.name}</h3>
                           {!isOfficial && space.description && <p className="text-xs text-gray-300/80 mt-0.5 line-clamp-1">{space.description}</p>}
@@ -1344,16 +1334,13 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-3">
             {TEMPLATES.map((tmpl) => {
-              const Icon = tmpl.icon;
               return (
                 <button
                   key={tmpl.id}
                   onClick={() => handleSelectTemplate(tmpl.id)}
                   className="w-full flex items-center gap-4 p-4 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-2xl transition-all text-left"
                 >
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${tmpl.gradient} flex items-center justify-center shrink-0`}>
-                    <Icon size={22} className="text-white" />
-                  </div>
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${tmpl.gradient} shrink-0`} />
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-sm">{t(`spaces.tmpl_${tmpl.id}`)}</div>
                     <div className="text-xs text-gray-500 mt-0.5">{t(`spaces.tmplDesc_${tmpl.id}`)}</div>
@@ -1371,7 +1358,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // ── CREATE FORM ──
   if (view === "create" && selectedTemplate) {
     const tmpl = getTemplate(selectedTemplate);
-    const Icon = tmpl.icon;
     const bannerStyle = spaceBanner?.type === "image"
       ? { backgroundImage: `url(${spaceBanner.value})`, backgroundSize: "cover", backgroundPosition: "center" }
       : {};
@@ -1415,52 +1401,16 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               </AnimatePresence>
             </div>
 
-            {/* Icon + Name row */}
-            <div className="flex items-start gap-4">
-              {/* Icon Picker */}
-              <div className="shrink-0">
-                <button onClick={() => setShowIconPicker(!showIconPicker)}
-                  className={`w-20 h-20 rounded-2xl border-2 border-gray-700/50 hover:border-gray-500 flex items-center justify-center transition-all overflow-hidden ${!spaceIcon ? `bg-gradient-to-br ${tmpl.gradient}` : "bg-gray-800"}`}>
-                  {spaceIcon?.type === "emoji" && <span className="text-3xl">{spaceIcon.value}</span>}
-                  {spaceIcon?.type === "image" && <img src={spaceIcon.value} className="w-full h-full object-cover" />}
-                  {!spaceIcon && <Icon size={28} className="text-white/70" />}
-                </button>
-                <input type="file" ref={iconFileRef} className="hidden" accept="image/*" onChange={e => {
-                  const file = e.target.files?.[0]; if (!file) return; e.target.value = "";
-                  const reader = new FileReader(); reader.onload = () => { setSpaceIcon({ type: "image", value: reader.result as string }); setShowIconPicker(false); }; reader.readAsDataURL(file);
-                }} />
-              </div>
-              {/* Name + Description */}
-              <div className="flex-1 space-y-3">
-                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t('spaces.spaceNamePlaceholder')} autoFocus
-                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
-                <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={t('spaces.descPlaceholder')} rows={2}
-                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all resize-none" />
-              </div>
+            {/* Name + Description */}
+            <div className="space-y-3">
+              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t('spaces.spaceNamePlaceholder')} autoFocus
+                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
+              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={t('spaces.descPlaceholder')} rows={2}
+                className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all resize-none" />
             </div>
-
-            {/* Icon Picker Popup */}
-            <AnimatePresence>
-              {showIconPicker && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {EMOJI_QUICK.map(e => (
-                        <button key={e} onClick={() => { setSpaceIcon({ type: "emoji", value: e }); setShowIconPicker(false); }}
-                          className="w-10 h-10 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-xl transition-colors">{e}</button>
-                      ))}
-                    </div>
-                    <button onClick={() => iconFileRef.current?.click()} className="w-full py-2 text-xs text-gray-400 hover:text-white bg-gray-800 rounded-lg transition-colors">
-                      {t('spaces.uploadIcon')}
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* Template info */}
             <div className="flex items-center gap-2 text-xs text-gray-500 px-1">
-              <div className={`p-1 rounded-md ${tmpl.color}`}><Icon size={10} /></div>
               <span>{t(`spaces.tmpl_${selectedTemplate}`)}</span>
             </div>
 
@@ -1553,10 +1503,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
             <ArrowLeft size={20} />
           </button>
-          {/* Icon zentriert im Banner */}
-          <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
-            <img src="/aregoland_space_icon_notxt.svg" alt="Aregoland" className="w-20 h-20 rounded-xl object-cover" />
-          </div>
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
             <h1 className="text-2xl font-bold">Aregoland</h1>
           </div>
@@ -1674,7 +1620,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // ── DETAIL VIEW ──
   if (view === "detail" && selectedSpace) {
     const tmpl = getTemplate(selectedSpace.template);
-    const Icon = tmpl.icon;
     const appearance = loadAppearance(selectedSpace.id);
     const headerBannerStyle = appearance.banner?.type === "image"
       ? { backgroundImage: `url(${appearance.banner.value})`, backgroundSize: "cover", backgroundPosition: "center" }
@@ -1688,18 +1633,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
             <ArrowLeft size={20} />
           </button>
-          {/* Space-Icon zentriert im Banner */}
-          <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
-            {appearance.icon?.type === "emoji" ? (
-              <span className="text-5xl">{appearance.icon.value}</span>
-            ) : appearance.icon?.type === "image" ? (
-              <img src={appearance.icon.value} className="w-20 h-20 rounded-xl object-cover" />
-            ) : (
-              <div className={`w-20 h-20 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ${tmpl.color}`}>
-                <Icon size={36} />
-              </div>
-            )}
-          </div>
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
             <h1 className="text-2xl font-bold">{selectedSpace.name}</h1>
             {(selectedSpace.tags ?? []).length > 0 && (
@@ -2772,16 +2705,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       <div className="space-y-3">
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.appearance')}</h3>
                         <div className="flex gap-3">
-                          {/* Icon ändern */}
-                          <div className="shrink-0 space-y-1.5">
-                            <label className="text-[10px] text-gray-500 px-0.5">{t('spaces.icon')}</label>
-                            <button onClick={() => setShowIconPicker(!showIconPicker)}
-                              className={`w-16 h-16 rounded-xl border-2 border-gray-700/50 hover:border-gray-500 flex items-center justify-center transition-all overflow-hidden ${!app.icon ? `bg-gradient-to-br ${selectedSpace.color}` : "bg-gray-800"}`}>
-                              {app.icon?.type === "emoji" && <span className="text-2xl">{app.icon.value}</span>}
-                              {app.icon?.type === "image" && <img src={app.icon.value} className="w-full h-full object-cover" />}
-                              {!app.icon && <tmpl.icon size={22} className="text-white/70" />}
-                            </button>
-                          </div>
                           {/* Banner ändern */}
                           <div className="flex-1 space-y-1.5">
                             <label className="text-[10px] text-gray-500 px-0.5">{t('spaces.banner')}</label>
@@ -2794,14 +2717,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                             </button>
                           </div>
                         </div>
-                        <input type="file" ref={iconFileRef} className="hidden" accept="image/*" onChange={e => {
-                          const file = e.target.files?.[0]; if (!file) return; e.target.value = "";
-                          const reader = new FileReader(); reader.onload = () => {
-                            const updated = { ...app, icon: { type: "image" as const, value: reader.result as string } };
-                            saveAppearance(selectedSpace.id, updated); updateSpace({ ...selectedSpace });
-                            setShowIconPicker(false);
-                          }; reader.readAsDataURL(file);
-                        }} />
                         <input type="file" ref={bannerFileRef} className="hidden" accept="image/*" onChange={e => {
                           const file = e.target.files?.[0]; if (!file) return; e.target.value = "";
                           const reader = new FileReader(); reader.onload = () => {
@@ -2810,26 +2725,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                             setShowBannerPicker(false);
                           }; reader.readAsDataURL(file);
                         }} />
-                        {/* Icon Picker */}
-                        <AnimatePresence>
-                          {showIconPicker && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 space-y-2">
-                                <div className="flex flex-wrap gap-2">
-                                  {EMOJI_QUICK.map(em => (
-                                    <button key={em} onClick={() => {
-                                      saveAppearance(selectedSpace.id, { ...app, icon: { type: "emoji", value: em } });
-                                      updateSpace({ ...selectedSpace }); setShowIconPicker(false);
-                                    }} className="w-10 h-10 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-xl transition-colors">{em}</button>
-                                  ))}
-                                </div>
-                                <button onClick={() => iconFileRef.current?.click()} className="w-full py-2 text-xs text-gray-400 hover:text-white bg-gray-800 rounded-lg transition-colors">
-                                  {t('spaces.uploadIcon')}
-                                </button>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
                         {/* Banner Picker */}
                         <AnimatePresence>
                           {showBannerPicker && (
@@ -3356,9 +3251,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
             {/* Space info — compact */}
             <div className="flex items-center gap-3 bg-gray-800/50 border border-gray-700/50 rounded-xl p-2.5">
-              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${selectedSpace.color} flex items-center justify-center`}>
-                <tmpl.icon size={14} className="text-white" />
-              </div>
+              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${selectedSpace.color}`} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold truncate">{selectedSpace.name}</div>
               </div>
