@@ -1285,9 +1285,13 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         className="w-full text-left min-w-0 flex items-center gap-3 p-3"
                       >
                         {/* Icon */}
-                        <div className={`shrink-0 w-16 h-16 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ${isOfficial ? "" : tmpl.color}`}>
-                          {isOfficial ? <Globe size={28} className="text-white" /> : <Icon size={28} />}
-                        </div>
+                        {isOfficial ? (
+                          <img src="/aregoland_space_icon_notxt.svg" alt="Aregoland" className="shrink-0 w-16 h-16 rounded-xl object-cover" />
+                        ) : (
+                          <div className={`shrink-0 w-16 h-16 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ${tmpl.color}`}>
+                            <Icon size={28} />
+                          </div>
+                        )}
                         {/* Text-Block rechts */}
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <h3 className="text-base font-bold truncate">{space.name}</h3>
@@ -1538,14 +1542,15 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         {/* Header */}
-        <div className="relative h-28 shrink-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700">
+        <div className="relative h-36 shrink-0 overflow-hidden">
+          <img src="/aregoland_space_banner_notxt.svg" alt="" className="absolute inset-0 w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900 pointer-events-none" />
           <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
             <ArrowLeft size={20} />
           </button>
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
             <div className="flex items-center gap-2">
-              <Globe size={18} className="text-white/80" />
+              <img src="/aregoland_space_icon_notxt.svg" alt="Aregoland" className="w-7 h-7 rounded-md" />
               <h1 className="text-2xl font-bold">Aregoland</h1>
             </div>
             <p className="text-xs text-gray-300/80 mt-0.5">v{__APP_VERSION__}</p>
