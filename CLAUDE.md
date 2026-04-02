@@ -25,4 +25,5 @@ Die vollstaendige Projektdokumentation befindet sich in `/docs/`:
 > - Neue Features -> `docs/features-done.md` ergaenzen
 > - Neue Ideen/Plaene -> `docs/features-todo.md` ergaenzen
 > - Neue i18n-Keys -> NUR auf Deutsch erstellen, `docs/sprachen.md` updaten
+> - Bei jedem Commit mit Features/Bugfixes -> `src/app/data/aregoland-news.json` neuen Eintrag hinzufuegen (Datum + kurze Beschreibung + Version aus package.json)
 > Ziel: /docs ist immer der aktuelle, vollstaendige Zustand des Projekts.

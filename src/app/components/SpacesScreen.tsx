@@ -14,6 +14,9 @@ import { loadIdentity } from "@/app/auth/identity";
 import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
+import aregolandNews from "@/app/data/aregoland-news.json";
+
+const AREGOLAND_OFFICIAL_ID = "__aregoland_official__";
 
 // ── Types ──
 
@@ -148,6 +151,26 @@ function loadSpaces(): Space[] {
   }
   catch { return []; }
 }
+
+// ── Official Aregoland Space (hardcoded, nicht löschbar) ──
+
+const AREGOLAND_OFFICIAL_SPACE: Space = {
+  id: AREGOLAND_OFFICIAL_ID,
+  name: "Aregoland",
+  description: "",
+  template: "community",
+  color: "from-blue-600 via-purple-600 to-indigo-700",
+  identityRule: "nickname",
+  founderId: "aregoland",
+  members: [],
+  posts: [],
+  channels: [],
+  subrooms: [],
+  customRoles: [],
+  guestPermissions: { readChats: false, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
+  createdAt: "2026-04-02T00:00:00.000Z",
+  settings: { membersVisible: false, coHostingAllowed: false, publicJoin: false, idVerification: false },
+};
 
 // ── Space Chat Storage ──
 
@@ -505,7 +528,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
   // Filtered spaces for list view
   const filteredSpaces = useMemo(() => {
-    let result = spaces;
+    let result = spaces.filter(s => s.id !== AREGOLAND_OFFICIAL_ID);
     if (filterTag) {
       result = result.filter(s => (s.tags ?? []).includes(filterTag));
     }
@@ -516,6 +539,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         (s.tags ?? []).some(tag => tag.toLowerCase().includes(q))
       );
     }
+    // Official Space immer zuerst (außer bei Suche die nicht matcht)
+    const showOfficial = !searchQuery.trim() || "aregoland".includes(searchQuery.toLowerCase().trim());
+    if (showOfficial && !filterTag) result = [AREGOLAND_OFFICIAL_SPACE, ...result];
     return result;
   }, [spaces, searchQuery, filterTag]);
 
@@ -1233,14 +1259,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
             );
           })()}
 
-          {spaces.length === 0 && (
-            <div className="text-center py-16 text-gray-500">
-              <LayoutGrid size={48} className="mx-auto mb-4 opacity-50" />
-              <p>{t('spaces.noSpaces')}</p>
-            </div>
-          )}
-
-          {spaces.length > 0 && filteredSpaces.length === 0 && (
+          {filteredSpaces.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <Search size={32} className="mx-auto mb-3 opacity-50" />
               <p className="text-sm">{t('spaces.noSearchResults')}</p>
@@ -1250,10 +1269,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           {filteredSpaces.length > 0 && (
             <Reorder.Group axis="y" values={spaces} onReorder={handleReorder} className="space-y-3">
               {filteredSpaces.map((space) => {
+                const isOfficial = space.id === AREGOLAND_OFFICIAL_ID;
                 const tmpl = getTemplate(space.template);
                 const Icon = tmpl.icon;
                 return (
-                  <Reorder.Item key={space.id} value={space} className="list-none">
+                  <Reorder.Item key={space.id} value={space} className="list-none" dragListener={!isOfficial}>
                     <div
                       className={`group relative overflow-hidden rounded-2xl border border-gray-700/50 text-left bg-gradient-to-br ${space.color}`}
                     >
@@ -1262,15 +1282,15 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         onClick={() => { if (isDragging.current) return; setSelectedSpace(space); setActiveTab("overview"); setView("detail"); }}
                         className="w-full text-left min-w-0 flex items-center gap-3 p-3"
                       >
-                        {/* Icon — 2/3 Kartenhöhe, quadratisch, linksbündig */}
-                        <div className={`shrink-0 w-16 h-16 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ${tmpl.color}`}>
-                          <Icon size={28} />
+                        {/* Icon */}
+                        <div className={`shrink-0 w-16 h-16 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ${isOfficial ? "" : tmpl.color}`}>
+                          {isOfficial ? <Globe size={28} className="text-white" /> : <Icon size={28} />}
                         </div>
                         {/* Text-Block rechts */}
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <h3 className="text-base font-bold truncate">{space.name}</h3>
-                          {space.description && <p className="text-xs text-gray-300/80 mt-0.5 line-clamp-1">{space.description}</p>}
-                          {(space.tags ?? []).length > 0 && (
+                          {!isOfficial && space.description && <p className="text-xs text-gray-300/80 mt-0.5 line-clamp-1">{space.description}</p>}
+                          {!isOfficial && (space.tags ?? []).length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {(space.tags ?? []).map(tag => (
                                 <span key={tag} className="px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-white/10 text-white/70">
@@ -1279,17 +1299,19 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                               ))}
                             </div>
                           )}
-                          <div className="flex items-center gap-3 mt-1 text-xs text-white/50">
-                            <span className="flex items-center gap-1"><Users size={11} /> {space.members.length}</span>
-                            {(() => {
-                              const unread = (space.channels ?? []).reduce((s, ch) => s + (ch.unreadCount ?? 0), 0);
-                              return unread > 0 ? (
-                                <span className="ml-auto w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
-                                  {unread > 9 ? "9+" : unread}
-                                </span>
-                              ) : null;
-                            })()}
-                          </div>
+                          {!isOfficial && (
+                            <div className="flex items-center gap-3 mt-1 text-xs text-white/50">
+                              <span className="flex items-center gap-1"><Users size={11} /> {space.members.length}</span>
+                              {(() => {
+                                const unread = (space.channels ?? []).reduce((s, ch) => s + (ch.unreadCount ?? 0), 0);
+                                return unread > 0 ? (
+                                  <span className="ml-auto w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
+                                    {unread > 9 ? "9+" : unread}
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
+                          )}
                         </div>
                       </button>
                     </div>
@@ -1499,6 +1521,107 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               <Plus size={20} /> {t('spaces.createSpace')}
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── OFFICIAL AREGOLAND SPACE DETAIL ──
+  if (view === "detail" && selectedSpace?.id === AREGOLAND_OFFICIAL_ID) {
+    const officialTabs = ["news", "about", "support", "world"] as const;
+    type OfficialTab = typeof officialTabs[number];
+    const officialTabLabel: Record<OfficialTab, string> = { news: "Neuigkeiten", about: "Übersicht", support: "Support", world: "World" };
+    const currentOfficialTab = (["news", "about", "support", "world"].includes(activeTab as string) ? activeTab : "news") as OfficialTab;
+
+    return (
+      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+        {/* Header */}
+        <div className="relative h-28 shrink-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700">
+          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900 pointer-events-none" />
+          <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="absolute bottom-0 left-0 p-4 w-full z-10">
+            <div className="flex items-center gap-2">
+              <Globe size={18} className="text-white/80" />
+              <h1 className="text-2xl font-bold">Aregoland</h1>
+            </div>
+            <p className="text-xs text-gray-300/80 mt-0.5">v{__APP_VERSION__}</p>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="px-4 border-b border-gray-800 shrink-0">
+          <div className="flex items-center gap-6 overflow-x-auto no-scrollbar pb-1">
+            {officialTabs.map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab as typeof activeTab)}
+                className={`py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  currentOfficialTab === tab ? "border-blue-500 text-blue-400" : "border-transparent text-gray-400 hover:text-gray-200"
+                }`}>
+                {officialTabLabel[tab]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          {currentOfficialTab === "news" && (
+            <div className="space-y-3">
+              {(aregolandNews as { id: string; date: string; title: string; text: string }[]).slice().reverse().map(entry => (
+                <div key={entry.id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Newspaper size={14} className="text-blue-400" />
+                    <span className="text-xs text-gray-500">{entry.date}</span>
+                  </div>
+                  <h3 className="text-sm font-bold mb-1">{entry.title}</h3>
+                  <p className="text-xs text-gray-400 leading-relaxed">{entry.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {currentOfficialTab === "about" && (
+            <div className="space-y-4">
+              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">
+                <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Heart size={14} className="text-pink-400" /> Die Geschichte</h3>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  Aregoland entstand aus einer einfachen Frage: Warum gibt es keine App, der man wirklich vertrauen kann? Ein Vater, zwei Töchter, und die Sorge um ihre digitale Zukunft. Keine Server die Nachrichten speichern, keine Algorithmen die süchtig machen, kein Datenhunger. Nur Menschen die miteinander reden — sicher, privat, auf Augenhöhe. Aregoland ist kein Startup. Es ist ein Projekt aus Überzeugung.
+                </p>
+              </div>
+              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 flex items-center gap-3">
+                <Info size={16} className="text-blue-400 shrink-0" />
+                <div>
+                  <p className="text-xs text-gray-400">App-Version</p>
+                  <p className="text-sm font-bold">{__APP_VERSION__}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentOfficialTab === "support" && (
+            <div className="space-y-4">
+              <div className="text-center py-8">
+                <div className="text-4xl mb-3">🤖</div>
+                <h3 className="text-lg font-bold mb-2">Kommt bald</h3>
+                <p className="text-sm text-gray-400 leading-relaxed max-w-xs mx-auto">
+                  Unser KI-basierter Support hilft dir bei Fragen, Problemen und Ideen. Er erkennt bekannte Bugs, prüft ob deine Idee bereits vorgeschlagen wurde und gibt dir direkt eine Antwort — ohne Wartezeit, ohne Formular.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {currentOfficialTab === "world" && (
+            <div className="space-y-4">
+              <div className="text-center py-8">
+                <div className="text-4xl mb-3">🌍</div>
+                <h3 className="text-lg font-bold mb-2">Kommt bald</h3>
+                <p className="text-sm text-gray-400 leading-relaxed max-w-xs mx-auto">
+                  World öffnet Aregoland für öffentliche Inhalte — kuratiert, sicher, ohne Algorithmen.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

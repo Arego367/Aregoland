@@ -250,6 +250,19 @@
 - Tags klickbar → filtert Spaces-Liste nach Tag
 - Tag-Filter Chips ueber der Liste
 - Tags nachtraeglich bearbeiten in Einstellungen-Tab (Admin/Founder)
+- Tags UX: Chips mit X zum Entfernen, "+ Tag" Dropdown mit eigenem Tag erstellen (2026-04-02)
+
+## Aregoland Official Space (2026-04-02)
+
+- Hardcodierter "Aregoland" Space bei jedem Nutzer automatisch sichtbar
+- Nicht loeschbar, nicht verlassbar
+- 4 Tabs: Neuigkeiten, Uebersicht, Support, World
+- Neuigkeiten aus aregoland-news.json (automatisch befuellt bei CC-Commits)
+- Uebersicht: Hintergrundgeschichte + App-Version
+- Support: "Kommt bald" mit KI-Support-Vorschau
+- World: "Kommt bald" mit World-Vorschau
+- Gradient blau/lila (Aregoland Branding), Globe-Icon
+- App-Version via vite define (__APP_VERSION__) aus package.json
 
 ## Nginx Reverse Proxy (2026-03-31)
 
