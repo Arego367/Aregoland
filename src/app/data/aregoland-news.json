@@ -22,5 +22,11 @@
     "date": "2026-04-02",
     "title": "Startbildschirm — alle Optionen verfügbar",
     "text": "Spaces, Kontakte, Connect, Dokumente und weitere Bildschirme können jetzt als Startbildschirm festgelegt werden. Einstellung unter Einstellungen → App → Startbildschirm."
+  },
+  {
+    "id": "news-005",
+    "date": "2026-04-02",
+    "title": "Space-Design — Icon zentriert, Banner nur Farbe",
+    "text": "Space-Icons werden jetzt groß und zentriert im Banner angezeigt. Bild-Upload für Icons möglich, Fallback zeigt den ersten Buchstaben. Banner sind jetzt nur noch Farbverläufe."
   }
 ]

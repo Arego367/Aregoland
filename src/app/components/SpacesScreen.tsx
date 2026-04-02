@@ -1285,8 +1285,16 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       {/* Card content — clickable, horizontal layout */}
                       <button
                         onClick={() => { if (isDragging.current) return; setSelectedSpace(space); setActiveTab("overview"); setView("detail"); }}
-                        className="w-full text-left min-w-0 p-3"
+                        className="w-full text-left min-w-0 flex items-center gap-3 p-3"
                       >
+                        {/* Icon */}
+                        {(() => {
+                          const app = isOfficial ? null : loadAppearance(space.id);
+                          if (isOfficial) return <img src="/aregoland_space_icon_notxt.svg" alt="Aregoland" className="shrink-0 w-14 h-14 rounded-xl object-cover" />;
+                          if (app?.icon?.type === "image") return <img src={app.icon.value} className="shrink-0 w-14 h-14 rounded-xl object-cover" />;
+                          if (app?.icon?.type === "emoji") return <div className="shrink-0 w-14 h-14 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-2xl">{app.icon.value}</div>;
+                          return <div className="shrink-0 w-14 h-14 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-xl font-bold text-white">{(space.name[0] ?? "").toUpperCase()}</div>;
+                        })()}
                         {/* Text-Block */}
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <h3 className="text-base font-bold truncate">{space.name}</h3>
@@ -1358,43 +1366,67 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // ── CREATE FORM ──
   if (view === "create" && selectedTemplate) {
     const tmpl = getTemplate(selectedTemplate);
-    const bannerStyle = spaceBanner?.type === "image"
-      ? { backgroundImage: `url(${spaceBanner.value})`, backgroundSize: "cover", backgroundPosition: "center" }
-      : {};
-    const bannerClass = spaceBanner?.type === "color" ? `bg-gradient-to-br ${spaceBanner.value}` : (!spaceBanner ? `bg-gradient-to-br ${tmpl.gradient}` : "");
+    const bannerClass = spaceBanner?.type === "color" ? `bg-gradient-to-br ${spaceBanner.value}` : `bg-gradient-to-br ${tmpl.gradient}`;
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         {renderHeader(t('spaces.createSpace'), () => setView("templates"))}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-5">
 
-            {/* Banner Preview + Picker */}
+            {/* Banner Farbe + Icon */}
             <div>
               <label className="text-xs font-medium text-gray-400 px-1 mb-1.5 block">{t('spaces.banner')}</label>
-              <button onClick={() => setShowBannerPicker(!showBannerPicker)}
-                className={`relative w-full h-24 rounded-2xl overflow-hidden border border-gray-700/50 ${bannerClass}`} style={bannerStyle}>
+              <div className={`relative w-full h-24 rounded-2xl overflow-hidden border border-gray-700/50 ${bannerClass}`}>
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-900/60" />
-                <div className="absolute inset-0 flex items-center justify-center text-white/40 hover:text-white/70 transition-colors">
-                  <Edit2 size={20} />
+                {/* Centered Icon */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <button onClick={() => setShowIconPicker(!showIconPicker)}
+                    className="w-16 h-16 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center hover:bg-white/25 transition-all overflow-hidden">
+                    {spaceIcon?.type === "image" ? <img src={spaceIcon.value} className="w-full h-full object-cover" /> :
+                     spaceIcon?.type === "emoji" ? <span className="text-2xl">{spaceIcon.value}</span> :
+                     name.trim() ? <span className="text-xl font-bold text-white">{name.trim()[0].toUpperCase()}</span> :
+                     <Edit2 size={18} className="text-white/50" />}
+                  </button>
                 </div>
-              </button>
-              <input type="file" ref={bannerFileRef} className="hidden" accept="image/*" onChange={e => {
+                {/* Banner color picker toggle */}
+                <button onClick={() => setShowBannerPicker(!showBannerPicker)}
+                  className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm rounded-lg text-white/50 hover:text-white transition-colors z-10">
+                  <Edit2 size={14} />
+                </button>
+              </div>
+              <input type="file" ref={iconFileRef} className="hidden" accept="image/*" onChange={e => {
                 const file = e.target.files?.[0]; if (!file) return; e.target.value = "";
-                const reader = new FileReader(); reader.onload = () => setSpaceBanner({ type: "image", value: reader.result as string }); reader.readAsDataURL(file);
+                const reader = new FileReader(); reader.onload = () => { setSpaceIcon({ type: "image", value: reader.result as string }); setShowIconPicker(false); }; reader.readAsDataURL(file);
               }} />
+              {/* Icon Picker */}
+              <AnimatePresence>
+                {showIconPicker && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                    <div className="mt-2 bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {EMOJI_QUICK.map(em => (
+                          <button key={em} onClick={() => { setSpaceIcon({ type: "emoji", value: em }); setShowIconPicker(false); }}
+                            className="w-10 h-10 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-xl transition-colors">{em}</button>
+                        ))}
+                      </div>
+                      <button onClick={() => iconFileRef.current?.click()} className="w-full py-2 text-xs text-gray-400 hover:text-white bg-gray-800 rounded-lg transition-colors">
+                        {t('spaces.uploadIcon')}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {/* Banner Color Picker */}
               <AnimatePresence>
                 {showBannerPicker && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                    <div className="mt-2 bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 space-y-2">
+                    <div className="mt-2 bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
                       <div className="flex flex-wrap gap-2">
                         {BANNER_PRESETS.map(g => (
                           <button key={g} onClick={() => { setSpaceBanner({ type: "color", value: g }); setShowBannerPicker(false); }}
                             className={`w-10 h-10 rounded-lg bg-gradient-to-br ${g} border-2 ${spaceBanner?.value === g ? "border-white" : "border-transparent"} hover:border-gray-400 transition-all`} />
                         ))}
                       </div>
-                      <button onClick={() => bannerFileRef.current?.click()} className="w-full py-2 text-xs text-gray-400 hover:text-white bg-gray-800 rounded-lg transition-colors">
-                        {t('spaces.uploadBanner')}
-                      </button>
                     </div>
                   </motion.div>
                 )}
@@ -1497,12 +1529,14 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         {/* Header */}
-        <div className="relative h-36 shrink-0 overflow-hidden">
-          <img src="/aregoland_space_banner_notxt.svg" alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="relative h-36 shrink-0 overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700">
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900 pointer-events-none" />
           <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
             <ArrowLeft size={20} />
           </button>
+          <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
+            <img src="/aregoland_space_icon_notxt.svg" alt="Aregoland" className="w-20 h-20 rounded-xl object-cover" />
+          </div>
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
             <h1 className="text-2xl font-bold">Aregoland</h1>
           </div>
@@ -1621,18 +1655,24 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   if (view === "detail" && selectedSpace) {
     const tmpl = getTemplate(selectedSpace.template);
     const appearance = loadAppearance(selectedSpace.id);
-    const headerBannerStyle = appearance.banner?.type === "image"
-      ? { backgroundImage: `url(${appearance.banner.value})`, backgroundSize: "cover", backgroundPosition: "center" }
-      : {};
-    const headerBannerClass = appearance.banner?.type === "image" ? "" : `bg-gradient-to-br ${selectedSpace.color}`;
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
-        {/* Header with gradient or custom banner */}
-        <div className={`relative h-36 shrink-0 ${headerBannerClass}`} style={headerBannerStyle}>
+        {/* Header with gradient banner + centered icon */}
+        <div className={`relative h-36 shrink-0 bg-gradient-to-br ${selectedSpace.color}`}>
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900 pointer-events-none" />
           <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
             <ArrowLeft size={20} />
           </button>
+          {/* Centered Icon */}
+          <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
+            {appearance.icon?.type === "image" ? (
+              <img src={appearance.icon.value} className="w-20 h-20 rounded-xl object-cover" />
+            ) : appearance.icon?.type === "emoji" ? (
+              <div className="w-20 h-20 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-4xl">{appearance.icon.value}</div>
+            ) : (
+              <div className="w-20 h-20 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-3xl font-bold text-white">{(selectedSpace.name[0] ?? "").toUpperCase()}</div>
+            )}
+          </div>
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
             <h1 className="text-2xl font-bold">{selectedSpace.name}</h1>
             {(selectedSpace.tags ?? []).length > 0 && (
@@ -2705,42 +2745,67 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       <div className="space-y-3">
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.appearance')}</h3>
                         <div className="flex gap-3">
-                          {/* Banner ändern */}
+                          {/* Icon ändern */}
+                          <div className="shrink-0 space-y-1.5">
+                            <label className="text-[10px] text-gray-500 px-0.5">{t('spaces.icon')}</label>
+                            <button onClick={() => setShowIconPicker(!showIconPicker)}
+                              className="w-16 h-16 rounded-xl border-2 border-gray-700/50 hover:border-gray-500 flex items-center justify-center transition-all overflow-hidden bg-white/10">
+                              {app.icon?.type === "image" ? <img src={app.icon.value} className="w-full h-full object-cover" /> :
+                               app.icon?.type === "emoji" ? <span className="text-2xl">{app.icon.value}</span> :
+                               <span className="text-xl font-bold text-white">{(selectedSpace.name[0] ?? "").toUpperCase()}</span>}
+                            </button>
+                          </div>
+                          {/* Banner Farbe ändern */}
                           <div className="flex-1 space-y-1.5">
                             <label className="text-[10px] text-gray-500 px-0.5">{t('spaces.banner')}</label>
                             <button onClick={() => setShowBannerPicker(!showBannerPicker)}
-                              className={`w-full h-16 rounded-xl border-2 border-gray-700/50 hover:border-gray-500 overflow-hidden transition-all ${app.banner?.type === "image" ? "" : `bg-gradient-to-br ${app.banner?.type === "color" ? app.banner.value : selectedSpace.color}`}`}
-                              style={app.banner?.type === "image" ? { backgroundImage: `url(${app.banner.value})`, backgroundSize: "cover", backgroundPosition: "center" } : {}}>
+                              className={`w-full h-16 rounded-xl border-2 border-gray-700/50 hover:border-gray-500 overflow-hidden transition-all bg-gradient-to-br ${selectedSpace.color}`}>
                               <div className="w-full h-full flex items-center justify-center text-white/40 hover:text-white/70 transition-colors">
                                 <Edit2 size={16} />
                               </div>
                             </button>
                           </div>
                         </div>
-                        <input type="file" ref={bannerFileRef} className="hidden" accept="image/*" onChange={e => {
+                        <input type="file" ref={iconFileRef} className="hidden" accept="image/*" onChange={e => {
                           const file = e.target.files?.[0]; if (!file) return; e.target.value = "";
                           const reader = new FileReader(); reader.onload = () => {
-                            const updated = { ...app, banner: { type: "image" as const, value: reader.result as string } };
-                            saveAppearance(selectedSpace.id, updated); updateSpace({ ...selectedSpace });
-                            setShowBannerPicker(false);
+                            saveAppearance(selectedSpace.id, { ...app, icon: { type: "image", value: reader.result as string } });
+                            updateSpace({ ...selectedSpace }); setShowIconPicker(false);
                           }; reader.readAsDataURL(file);
                         }} />
-                        {/* Banner Picker */}
+                        {/* Icon Picker */}
+                        <AnimatePresence>
+                          {showIconPicker && (
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 space-y-2">
+                                <div className="flex flex-wrap gap-2">
+                                  {EMOJI_QUICK.map(em => (
+                                    <button key={em} onClick={() => {
+                                      saveAppearance(selectedSpace.id, { ...app, icon: { type: "emoji", value: em } });
+                                      updateSpace({ ...selectedSpace }); setShowIconPicker(false);
+                                    }} className="w-10 h-10 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-xl transition-colors">{em}</button>
+                                  ))}
+                                </div>
+                                <button onClick={() => iconFileRef.current?.click()} className="w-full py-2 text-xs text-gray-400 hover:text-white bg-gray-800 rounded-lg transition-colors">
+                                  {t('spaces.uploadIcon')}
+                                </button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        {/* Banner Color Picker */}
                         <AnimatePresence>
                           {showBannerPicker && (
                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 space-y-2">
+                              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
                                 <div className="flex flex-wrap gap-2">
                                   {BANNER_PRESETS.map(g => (
                                     <button key={g} onClick={() => {
                                       saveAppearance(selectedSpace.id, { ...app, banner: { type: "color", value: g } });
                                       updateSpace({ ...selectedSpace, color: g }); setShowBannerPicker(false);
-                                    }} className={`w-10 h-10 rounded-lg bg-gradient-to-br ${g} border-2 ${app.banner?.value === g ? "border-white" : "border-transparent"} hover:border-gray-400 transition-all`} />
+                                    }} className={`w-10 h-10 rounded-lg bg-gradient-to-br ${g} border-2 ${selectedSpace.color === g ? "border-white" : "border-transparent"} hover:border-gray-400 transition-all`} />
                                   ))}
                                 </div>
-                                <button onClick={() => bannerFileRef.current?.click()} className="w-full py-2 text-xs text-gray-400 hover:text-white bg-gray-800 rounded-lg transition-colors">
-                                  {t('spaces.uploadBanner')}
-                                </button>
                               </div>
                             </motion.div>
                           )}
