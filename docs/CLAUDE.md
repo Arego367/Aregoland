@@ -59,8 +59,6 @@ Sie hat drei Abschnitte: "Bereits fertig", "In Arbeit", "Geplant".
 - Claude Code aktualisiert dann die Roadmap im Code
 - Wenn Aras bestaetigt, dass ein Feature funktioniert → Claude Code verschiebt es nach "Bereits fertig"
 - Claude Code fuegt NIE selbst Items hinzu — nur auf Anweisung von Aras
-- Spaces Wiki/Seiten ist NICHT Teil der Roadmap (endgueltig entfernt)
-
 ## Regeln fuer Claude Code
 
 - Neue i18n-Keys NUR auf Deutsch erstellen
