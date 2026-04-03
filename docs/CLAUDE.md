@@ -1,59 +1,56 @@
-# Aregoland / Arego Chat — Dokumentation
+# CLAUDE.md — Aregoland
 
-> Haupt-Index. Alle Details sind in den verlinkten Dateien.
+> Einzige Wahrheitsquelle fuer Claude. Stand: 2026-04-03
 
-## Projekt-Info
+## Projekt
 
-- **Besitzer**: Aras ([aras.md](aras.md))
-- **GitHub**: https://github.com/Arego367/aregoland (privat)
-- **Lizenz**: AGPL-3.0
-- **Beschreibung**: Arego Chat ist eine moderne Kommunikations- und Organisations-App (Chat, Spaces, Connect, Dokumente, Pay, Kalender).
-- **Figma-Quelle**: https://www.figma.com/design/Smf60PFX7V2nopw1QSzsnc/Aregoland
-- **Plattform**: PWA (fertig) + Google Play Store + Apple App Store (geplant, Capacitor.js)
+- App: Arego Chat — P2P Messenger, Spaces, Kalender, World, Pay
+- GitHub: https://github.com/Arego367/aregoland (privat, AGPL-3.0)
+- Besitzer: Aras — Visionaer & Stratege, kein Entwickler. CC setzt um.
+- Ziel: Kostendeckend, nicht gewinnorientiert. ~1 Euro/Monat pro Konto.
 
-## Dokumentation
+## Stack
 
-| Datei | Inhalt |
-|-------|--------|
-| [architecture.md](architecture.md) | Tech-Stack, Server, Infrastruktur, Nginx, SSL, Signaling |
-| [features-done.md](features-done.md) | Alle fertigen Features mit Datum |
-| [features-todo.md](features-todo.md) | Roadmap, Nächste Schritte, Offene Punkte |
-| [launch-vorbereitung.md](launch-vorbereitung.md) | Soft Launch Checkliste (alles vor erstem Post) |
-| [spaces.md](spaces.md) | Spaces Vision, Node-Architektur, alle Konzepte |
-| [design.md](design.md) | Design-Richtlinien, Mobile-First, Dark Mode |
-| [privacy.md](privacy.md) | Datenschutz-Prinzipien, DSGVO |
-| [kinderschutz.md](kinderschutz.md) | FSK-System, Kinder-Vision |
-| [geschaeftsmodell.md](geschaeftsmodell.md) | 1 Euro/Jahr, Zielgruppen, Pay-Modul |
-| [spaces-pay.md](spaces-pay.md) | Spaces Pay: EPC QR Rechnungen, gebührenfreie SEPA-Überweisung |
-| [sprachen.md](sprachen.md) | i18n Übersetzungs-Tracking |
-| [aras.md](aras.md) | Persönliches Profil von Aras |
-| [world-concept.md](world-concept.md) | World Social Media Konzept, FSK-Feed, Bildschirmzeit |
-| [world.md](world.md) | World Konzept & Sicherheit: EUDI-Posting, FSK-Stufen, Moderation |
-| [aregoland-vision.md](aregoland-vision.md) | Die grosse Vision: 5 Stufen von Messenger bis Lebensinfrastruktur |
-| [business-model.md](business-model.md) | 1 Euro/Monat, UG, Institutionen-Potenzial |
-| [eudi-integration.md](eudi-integration.md) | EUDI Wallet Fundament, FSK-Automatik, Zeitplan |
-| [marketing.md](marketing.md) | Marketing-Strategie, Creator, Experten, Slogans |
+- React 18 + TypeScript + Vite + Tailwind CSS v4 + Motion + Radix UI
+- pnpm als Package Manager
+- i18next (DE primaer, EN + LT vorhanden)
+- vite-plugin-pwa (PWA, offline-faehig)
 
-## Arbeitsweise
+## Struktur
 
-- **Aras** = Visionär & Stratege, kein Entwickler
-- Aras beschreibt die Vision, Claude Code setzt um
-- Kein Figma — Claude Code baut direkt
-- /docs ist die einzige Wahrheitsquelle
-- Claude Code aktualisiert /docs am Ende jeder Session und lädt zu Google Drive hoch
+- Komponenten: /src/app/components/
+- Typen: /src/app/types.ts
+- Auth: /src/app/auth/
+- P2P: /src/app/lib/
+- i18n: /src/i18n/locales/{de,en,lt}.json
 
-## Sicherheits- & Auth-Konzept
+## Befehle
 
-- **Passwordless Authentication**: Keine Passwörter auf dem Server. Authentifizierung über lokale kryptografische Schlüssel.
-- Identität liegt beim Nutzer, nicht beim Server.
+- Dev: pnpm dev
+- Build: pnpm build
+- Tests: npx playwright test
 
-## Arbeitsregel für Claude Code
+## Infrastruktur
 
-> **WICHTIG**: Nach jeder Änderung an der Codebase /docs aktualisieren.
-> - Neue Features → `features-done.md` ergänzen
-> - Bugfixes → beim betroffenen Feature notieren
-> - Erledigte Punkte → mit Datum markieren
-> - Neue Ideen/Pläne → `features-todo.md` ergänzen
-> - Neue Komponenten/Libraries → in relevantem Dokument eintragen
-> - Neue i18n-Keys → NUR auf Deutsch erstellen, `sprachen.md` updaten
-> Ziel: /docs ist immer der aktuelle, vollständige Zustand des Projekts.
+- Hetzner, Ubuntu 24.04, IP: 46.225.115.51
+- Claude Code arbeitet in: /root/Aregoland
+- Domains: aregoland.de (Haupt), .com + .eu leiten weiter
+- Nginx Reverse Proxy + Let's Encrypt SSL (alle 3 Domains)
+- Signaling-Server: Node.js, Docker, Port 3001
+- TURN: coturn, Port 3478/5349
+- Sync: git post-commit Hook -> rclone -> Google Drive
+
+## Datenschutz & Kinderschutz (Regeln)
+
+- Server speichert NIE Inhalte — alles P2P, E2E verschluesselt
+- Keine Tracking-Cookies, kein Analytics, keine Werbung
+- Identitaet liegt beim Nutzer, nicht beim Server
+- FSK-System geplant: Inhalte werden altersgerecht gefiltert
+- Kinder-Features: maximaler Schutz, minimale Daten
+
+## Regeln fuer Claude Code
+
+- Neue i18n-Keys NUR auf Deutsch erstellen
+- Keine Emojis in Quellcode-Strings (Vite HMR bricht sonst)
+- Nach jeder Session: diese CLAUDE.md aktualisieren + committen
+- Aras gibt vor, was gebaut wird — Claude Code braucht keine Roadmap

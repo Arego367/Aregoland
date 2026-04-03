@@ -1,32 +1,12 @@
 # Aregoland / Arego Chat
 
-> **Dokumentation wurde aufgeteilt in `/docs/` Ordner.**
-> Diese Datei verweist nur noch auf die neuen Dokumente.
+> Alle Anweisungen fuer Claude Code stehen in **[docs/CLAUDE.md](docs/CLAUDE.md)**.
+> Das ist die einzige Wahrheitsquelle.
 
-## Dokumentation
+## Weitere technische Docs
 
-Die vollstaendige Projektdokumentation befindet sich in `/docs/`:
-
-- **[docs/CLAUDE.md](docs/CLAUDE.md)** — Haupt-Index mit Verweisen auf alle Dateien
-- **[docs/architecture.md](docs/architecture.md)** — Tech-Stack, Server, Infrastruktur, Nginx, SSL
-- **[docs/features-done.md](docs/features-done.md)** — Alle fertigen Features mit Datum
-- **[docs/features-todo.md](docs/features-todo.md)** — Roadmap, Naechste Schritte, Offene Punkte
-- **[docs/launch-vorbereitung.md](docs/launch-vorbereitung.md)** — Soft Launch Checkliste (alles vor erstem Post)
-- **[docs/spaces.md](docs/spaces.md)** — Spaces Vision, Node-Architektur, alle Konzepte
-- **[docs/design.md](docs/design.md)** — Design-Richtlinien, Mobile-First, Dark Mode
-- **[docs/privacy.md](docs/privacy.md)** — Datenschutz-Prinzipien, DSGVO
-- **[docs/kinderschutz.md](docs/kinderschutz.md)** — FSK-System, Kinder-Vision
-- **[docs/geschaeftsmodell.md](docs/geschaeftsmodell.md)** — 1 Euro/Jahr, Zielgruppen, Pay-Modul
-- **[docs/spaces-pay.md](docs/spaces-pay.md)** — Spaces Pay: EPC QR Rechnungen, gebuehrenfreie SEPA-Ueberweisung
-- **[docs/sprachen.md](docs/sprachen.md)** — i18n Uebersetzungs-Tracking
-- **[docs/aras.md](docs/aras.md)** — Persoenliches Profil von Aras
-- **[docs/world.md](docs/world.md)** — World Konzept & Sicherheit: EUDI-Posting, FSK-Stufen, Moderation
-
-## Arbeitsregel fuer Claude Code
-
-> **WICHTIG**: Nach jeder Aenderung an der Codebase die relevanten /docs Dateien aktualisieren.
-> - Neue Features -> `docs/features-done.md` ergaenzen
-> - Neue Ideen/Plaene -> `docs/features-todo.md` ergaenzen
-> - Neue i18n-Keys -> NUR auf Deutsch erstellen, `docs/sprachen.md` updaten
-> - Bei jedem Commit mit Features/Bugfixes -> `src/app/data/aregoland-news.json` neuen Eintrag hinzufuegen (Datum + kurze Beschreibung + Version aus package.json)
-> Ziel: /docs ist immer der aktuelle, vollstaendige Zustand des Projekts.
+- [docs/architecture.md](docs/architecture.md) — Server, Infrastruktur, Nginx, SSL
+- [docs/design.md](docs/design.md) — Design-Richtlinien, Mobile-First, Dark Mode
+- [docs/spaces.md](docs/spaces.md) — Spaces Architektur
+- [docs/sprachen.md](docs/sprachen.md) — i18n Uebersetzungs-Tracking
+- [docs/aras.md](docs/aras.md) — Profil von Aras
