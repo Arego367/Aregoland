@@ -48,6 +48,19 @@
 - FSK-System geplant: Inhalte werden altersgerecht gefiltert
 - Kinder-Features: maximaler Schutz, minimale Daten
 
+## Roadmap-Workflow
+
+Die Roadmap lebt im Aregoland Official Space (SpacesScreen.tsx, hardcoded).
+Sie hat drei Abschnitte: "Bereits fertig", "In Arbeit", "Geplant".
+
+- Aras arbeitet Features mit Claude AI (claude.ai) aus, oft am Handy
+- Claude AI sortiert neue Ideen in "Geplant" oder "In Arbeit" ein
+- Claude AI bereitet eine Info vor, die Aras am PC an Claude Code weitergibt
+- Claude Code aktualisiert dann die Roadmap im Code
+- Wenn Aras bestaetigt, dass ein Feature funktioniert → Claude Code verschiebt es nach "Bereits fertig"
+- Claude Code fuegt NIE selbst Items hinzu — nur auf Anweisung von Aras
+- Spaces Wiki/Seiten ist NICHT Teil der Roadmap (endgueltig entfernt)
+
 ## Regeln fuer Claude Code
 
 - Neue i18n-Keys NUR auf Deutsch erstellen

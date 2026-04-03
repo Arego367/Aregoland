@@ -1682,9 +1682,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     cardBg: "bg-amber-500/10 border-amber-500/20",
                     cardIcon: <Hammer size={12} className="text-amber-400 mt-0.5 shrink-0" />,
                     items: [
-                      { title: "Spaces Wiki/Seiten", desc: "Gemeinsame Seiten erstellen und bearbeiten innerhalb von Spaces." },
                       { title: "Spaces Melde-System + Mitglieder-Kontrolle", desc: "Mehr Sicherheit und Kontrolle fuer Space-Admins." },
-                      { title: "World — oeffentlicher Feed", desc: "Oeffentlicher Feed — nur verifizierte Nutzer posten, FSK-System schuetzt Kinder." },
                       { title: "Recovery: Datei-Upload + End-to-End Test", desc: "Wiederherstellung per Datei (aregoland-recovery-*.txt) und vollstaendiger Test." },
                       { title: "Prod-Build + Nginx statisch", desc: "Vite Dev-Server raus, statische Dateien ueber Nginx ausliefern." },
                       { title: "Beta-Banner in App", desc: "Work in Progress Hinweis — mach mit!" },
@@ -1706,6 +1704,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     cardBg: "bg-purple-500/10 border-purple-500/20",
                     cardIcon: <Sparkles size={12} className="text-purple-400 mt-0.5 shrink-0" />,
                     items: [
+                      { title: "World — oeffentlicher Feed", desc: "Oeffentlicher Feed — nur verifizierte Nutzer posten, FSK-System schuetzt Kinder." },
                       { title: "Spaces Pay: EPC QR Rechnungen", desc: "Gebuehrenfreie SEPA-Rechnungen per QR-Code direkt im Space." },
                       { title: "Kalender Stufe 2-4", desc: "Kinder-Integration, Termine P2P teilen, Spaces-Kalender, iCal Import/Export." },
                       { title: "Kinderschutz FSK vollstaendig", desc: "Serverseitige Alterspruefung, unsichtbar unter 16 — mit EUDI Wallet." },
