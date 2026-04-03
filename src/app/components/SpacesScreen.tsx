@@ -1790,20 +1790,19 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   Jeder Betrag hilft mir, mehr Zeit in Aregoland zu investieren — und vielleicht eines Tages nur noch daran zu arbeiten.
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  <a href="#" className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 text-sm font-medium hover:bg-blue-600/30 transition-colors">
-                    <span>💙</span> PayPal
+                  <a href="https://paypal.me/aregoland" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 text-sm font-medium hover:bg-blue-600/30 transition-colors">
+                    Mit PayPal spenden
                   </a>
-                  <a href="#" className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-yellow-600/20 border border-yellow-500/30 text-yellow-400 text-sm font-medium hover:bg-yellow-600/30 transition-colors">
-                    <span>☕</span> Ko-fi
-                  </a>
-                  <a href="#" className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-orange-600/20 border border-orange-500/30 text-orange-400 text-sm font-medium hover:bg-orange-600/30 transition-colors">
-                    <span>🎗️</span> Patreon
-                  </a>
-                  <a href="#" className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 text-sm font-medium hover:bg-purple-600/30 transition-colors">
-                    <span>⭐</span> GitHub Sponsors
-                  </a>
+                  <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-700/30 border border-gray-600/30 text-gray-500 text-sm font-medium cursor-default">
+                    Ko-fi — kommt bald
+                  </div>
+                  <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-700/30 border border-gray-600/30 text-gray-500 text-sm font-medium cursor-default">
+                    Patreon — kommt bald
+                  </div>
+                  <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-700/30 border border-gray-600/30 text-gray-500 text-sm font-medium cursor-default">
+                    GitHub Sponsors — kommt bald
+                  </div>
                 </div>
-                <p className="text-[10px] text-gray-600 text-center mt-2">Links werden in Kürze eingerichtet.</p>
               </div>
 
               {/* App-Version */}
