@@ -3,5 +3,3 @@ dist
 test-results
 .env
 .env.*
-arego.bat
-upload_to_gdrive.py
