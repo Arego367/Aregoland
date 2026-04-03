@@ -1643,6 +1643,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               </div>
 
               {/* Roadmap */}
+              <p className="text-xs text-gray-500 italic leading-relaxed mb-2">
+                Die Roadmap zeigt wohin die Reise geht — nicht in welcher Reihenfolge. Features entstehen wenn die Zeit reif ist, die Idee zuendet oder einfach Lust da ist. So wird gute Software gebaut.
+              </p>
               {(() => {
                 const roadmapSections = [
                   {
@@ -1679,20 +1682,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     ],
                   },
                   {
-                    key: "wip",
-                    label: "In Arbeit",
-                    icon: <Hammer size={10} className="text-white" />,
-                    chevronColor: "text-amber-400",
-                    dotClass: "bg-amber-500 animate-pulse",
-                    labelColor: "text-amber-400",
-                    cardBg: "bg-amber-500/10 border-amber-500/20",
-                    cardIcon: <Hammer size={12} className="text-amber-400 mt-0.5 shrink-0" />,
-                    items: [
-                      { title: "Spaces Melde-System + Mitglieder-Kontrolle", desc: "Mehr Sicherheit und Kontrolle fuer Space-Admins." },
-                      { title: "Recovery: Datei-Upload + End-to-End Test", desc: "Wiederherstellung per Datei (aregoland-recovery-*.txt) und vollstaendiger Test." },
-                    ],
-                  },
-                  {
                     key: "planned",
                     label: "Geplant",
                     icon: <Sparkles size={10} className="text-white" />,
@@ -1702,6 +1691,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     cardBg: "bg-purple-500/10 border-purple-500/20",
                     cardIcon: <Sparkles size={12} className="text-purple-400 mt-0.5 shrink-0" />,
                     items: [
+                      { title: "Spaces Melde-System + Mitglieder-Kontrolle", desc: "Mehr Sicherheit und Kontrolle fuer Space-Admins." },
+                      { title: "Recovery: Datei-Upload + End-to-End Test", desc: "Wiederherstellung per Datei (aregoland-recovery-*.txt) und vollstaendiger Test." },
                       { title: "GitHub Sponsors", desc: "Antrag gestellt, wartet auf Approval." },
                       { title: "World — oeffentlicher Feed", desc: "Oeffentlicher Feed — nur verifizierte Nutzer posten, FSK-System schuetzt Kinder." },
                       { title: "Spaces Pay: EPC QR Rechnungen", desc: "Gebuehrenfreie SEPA-Rechnungen per QR-Code direkt im Space." },
