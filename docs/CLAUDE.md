@@ -5,6 +5,7 @@
 ## Projekt
 
 - App: Arego Chat — P2P Messenger, Spaces, Kalender, World, Pay
+- Slogan: "P2P Messenger & Social Media. Kindersicher ab FSK 6 — by Design."
 - GitHub: https://github.com/Arego367/aregoland (privat, AGPL-3.0)
 - Besitzer: Aras — Visionaer & Stratege, kein Entwickler. CC setzt um.
 - Ziel: Kostendeckend, nicht gewinnorientiert. ~1 Euro/Monat pro Konto.

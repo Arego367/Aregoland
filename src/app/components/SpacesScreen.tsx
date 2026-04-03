@@ -160,7 +160,7 @@ function loadSpaces(): Space[] {
 const AREGOLAND_OFFICIAL_SPACE: Space = {
   id: AREGOLAND_OFFICIAL_ID,
   name: "Aregoland",
-  description: "",
+  description: "P2P Messenger & Social Media. Kindersicher ab FSK 6 — by Design.",
   template: "community",
   color: "from-blue-600 via-purple-600 to-indigo-700",
   identityRule: "nickname",
@@ -1366,7 +1366,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         {/* Text-Block */}
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <h3 className="text-base font-bold truncate">{space.name}</h3>
-                          {!isOfficial && space.description && <p className="text-xs text-gray-300/80 mt-0.5 line-clamp-1">{space.description}</p>}
+                          {space.description && <p className="text-xs text-gray-300/80 mt-0.5 line-clamp-1">{space.description}</p>}
                           {!isOfficial && (() => {
                             const unread = (space.channels ?? []).reduce((s, ch) => s + (ch.unreadCount ?? 0), 0);
                             return unread > 0 ? (
