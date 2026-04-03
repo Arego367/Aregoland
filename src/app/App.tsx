@@ -397,11 +397,11 @@ export default function App() {
     }
   }, [manager, updateContactStatus]);
 
-  // Beta-Banner (schliessbar, merkt sich Zustand)
-  const [showBeta, setShowBeta] = useState(() => localStorage.getItem('aregoland_beta_dismissed') !== 'true');
-  const dismissBeta = useCallback(() => {
-    setShowBeta(false);
-    localStorage.setItem('aregoland_beta_dismissed', 'true');
+  // Einmaliger Beta-Willkommens-Toast
+  const [showBetaWelcome, setShowBetaWelcome] = useState(false);
+  const dismissBetaWelcome = useCallback(() => {
+    setShowBetaWelcome(false);
+    localStorage.setItem('aregoland_beta_welcome_seen', 'true');
   }, []);
 
   // Dark Mode beim Start anwenden
@@ -428,6 +428,13 @@ export default function App() {
       }
     }
   }, []);
+
+  // Beta-Willkommens-Toast nach Login anzeigen (einmalig)
+  useEffect(() => {
+    if (identity && localStorage.getItem('aregoland_beta_welcome_seen') !== 'true') {
+      setShowBetaWelcome(true);
+    }
+  }, [identity]);
 
   // Persistenter Inbox-Listener + Online-Presence
   useEffect(() => {
@@ -729,13 +736,8 @@ export default function App() {
 
   return (
     <AppErrorBoundary>
-    <div className="size-full">
-      {showBeta && currentScreen !== "welcome" && currentScreen !== "registration" && (
-        <div className="bg-amber-500/90 text-black text-xs text-center py-1.5 px-4 flex items-center justify-center gap-2 relative z-50">
-          <span className="font-medium">Beta — Work in Progress. Mach mit!</span>
-          <button onClick={dismissBeta} className="absolute right-2 top-1/2 -translate-y-1/2 text-black/60 hover:text-black text-sm leading-none">&times;</button>
-        </div>
-      )}
+    <div className="size-full flex flex-col">
+      <div className="flex-1 min-h-0 relative">
       {currentScreen === "welcome" && (
         <WelcomeScreen
           onGetStarted={handleGetStarted}
@@ -905,6 +907,41 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Beta-Willkommens-Toast (einmalig) */}
+      <AnimatePresence>
+        {showBetaWelcome && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
+          >
+            <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-xl">
+              <h3 className="text-base font-bold text-white mb-2">Willkommen in der Beta</h3>
+              <p className="text-sm text-gray-300 leading-relaxed mb-4">
+                Arego ist noch in der Entwicklung — und du kannst mitgestalten.
+                Schick uns dein Feedback an <span className="text-amber-400 font-medium">hallo@aregoland.de</span>.
+                Dank KI bekommt jede Nachricht eine persoenliche Antwort.
+              </p>
+              <button
+                onClick={dismissBetaWelcome}
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-xl text-sm transition-colors"
+              >
+                Verstanden
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      </div>
+
+      {/* Footer — auf allen Screens ausser Welcome/Registration */}
+      {currentScreen !== "welcome" && currentScreen !== "registration" && (
+        <div className="py-2 text-center text-[11px] text-gray-600 shrink-0">
+          Arego Beta &bull; V{__APP_VERSION__}
+        </div>
+      )}
     </div>
     </AppErrorBoundary>
   );
