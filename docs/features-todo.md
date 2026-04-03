@@ -53,7 +53,8 @@
 - [ ] Social Media Accounts erstellen (Instagram, TikTok, YouTube, LinkedIn)
 - [ ] Reichweite aufbauen vor Launch
 
-3. **Pay-Modul** — wenn fertig, ist App marktreif (siehe [geschaeftsmodell.md](geschaeftsmodell.md))
+3. **Pay-Modul** — wenn fertig, ist App marktreif (siehe [geschaeftsmodell.md](geschaeftsmodell.md), [spaces-pay.md](spaces-pay.md))
+   - Erster Schritt: Spaces Pay — EPC QR Rechnungen ohne Zahlungssystem (0% Gebuehren)
 
 4. **Google Play Store + Apple App Store** (Capacitor.js oder React Native)
 

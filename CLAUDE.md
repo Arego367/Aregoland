@@ -16,6 +16,7 @@ Die vollstaendige Projektdokumentation befindet sich in `/docs/`:
 - **[docs/privacy.md](docs/privacy.md)** — Datenschutz-Prinzipien, DSGVO
 - **[docs/kinderschutz.md](docs/kinderschutz.md)** — FSK-System, Kinder-Vision
 - **[docs/geschaeftsmodell.md](docs/geschaeftsmodell.md)** — 1 Euro/Jahr, Zielgruppen, Pay-Modul
+- **[docs/spaces-pay.md](docs/spaces-pay.md)** — Spaces Pay: EPC QR Rechnungen, gebuehrenfreie SEPA-Ueberweisung
 - **[docs/sprachen.md](docs/sprachen.md)** — i18n Uebersetzungs-Tracking
 - **[docs/aras.md](docs/aras.md)** — Persoenliches Profil von Aras
 - **[docs/world.md](docs/world.md)** — World Konzept & Sicherheit: EUDI-Posting, FSK-Stufen, Moderation

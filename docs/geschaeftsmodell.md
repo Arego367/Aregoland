@@ -29,6 +29,7 @@ Kostendeckend, nicht gewinnorientiert — 1 Euro pro Konto pro Monat, egal wie v
 ## Pay-Modul (noch nicht implementiert)
 
 - Wenn fertig: App ist marktreif
+- **Erster Schritt: Spaces Pay** — EPC QR Rechnungen, gebuehrenfreie SEPA-Ueberweisung (Details: [spaces-pay.md](spaces-pay.md))
 - Mehrere verknuepfte Arego-IDs pro Person moeglich (z.B. Privat + Arbeit)
 - Profil-Wechsel in der App (ein Konto, zwei Identitaeten)
 - Arbeitgeber kann fuer Mitarbeiter zahlen (Firmen-Abo)

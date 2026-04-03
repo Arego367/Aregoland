@@ -23,6 +23,7 @@
 | [privacy.md](privacy.md) | Datenschutz-Prinzipien, DSGVO |
 | [kinderschutz.md](kinderschutz.md) | FSK-System, Kinder-Vision |
 | [geschaeftsmodell.md](geschaeftsmodell.md) | 1 Euro/Jahr, Zielgruppen, Pay-Modul |
+| [spaces-pay.md](spaces-pay.md) | Spaces Pay: EPC QR Rechnungen, gebührenfreie SEPA-Überweisung |
 | [sprachen.md](sprachen.md) | i18n Übersetzungs-Tracking |
 | [aras.md](aras.md) | Persönliches Profil von Aras |
 | [world-concept.md](world-concept.md) | World Social Media Konzept, FSK-Feed, Bildschirmzeit |
