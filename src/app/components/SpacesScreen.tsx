@@ -1670,6 +1670,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "Aregoland Official Space", desc: "Der zentrale Ort fuer Neuigkeiten, Roadmap und Support." },
                       { title: "i18n: Deutsch, Englisch, Litauisch", desc: "Dreisprachig von Anfang an." },
                       { title: "PWA — installierbar & offline-faehig", desc: "Funktioniert wie eine native App, direkt aus dem Browser." },
+                      { title: "Beta-Banner + Willkommens-Toast", desc: "Footer zeigt Arego Beta auf allen Screens, einmaliger Willkommens-Toast nach Login." },
+                      { title: "E-Mail Weiterleitungen", desc: "hallo@, support@, paypal@, feedback@, noreply@aregoland.de eingerichtet." },
                     ],
                   },
                   {
@@ -1685,9 +1687,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "Spaces Melde-System + Mitglieder-Kontrolle", desc: "Mehr Sicherheit und Kontrolle fuer Space-Admins." },
                       { title: "Recovery: Datei-Upload + End-to-End Test", desc: "Wiederherstellung per Datei (aregoland-recovery-*.txt) und vollstaendiger Test." },
                       { title: "Prod-Build + Nginx statisch", desc: "Vite Dev-Server raus, statische Dateien ueber Nginx ausliefern." },
-                      { title: "Beta-Banner in App", desc: "Work in Progress Hinweis — mach mit!" },
                       { title: "Spenden-Button (PayPal)", desc: "Projekt unterstuetzen direkt aus der App heraus." },
-                      { title: "E-Mail Weiterleitungen", desc: "hallo@, support@, social@, paypal@, noreply@aregoland.de einrichten." },
                       { title: "PayPal Konto anlegen", desc: "paypal@aregoland.de fuer Spenden und spaeter Spaces Pay." },
                       { title: "GitHub public + README + CONTRIBUTING.md", desc: "Repository oeffentlich machen, Dokumentation fuer Mitwirkende." },
                       { title: "Social Media Konten", desc: "TikTok, Instagram, X, Facebook, LinkedIn, Mastodon — ueberall als aregoland." },
