@@ -18,6 +18,7 @@
 | [architecture.md](architecture.md) | Tech-Stack, Server, Infrastruktur, Nginx, SSL, Signaling |
 | [features-done.md](features-done.md) | Alle fertigen Features mit Datum |
 | [features-todo.md](features-todo.md) | Roadmap, Nächste Schritte, Offene Punkte |
+| [launch-vorbereitung.md](launch-vorbereitung.md) | Soft Launch Checkliste (alles vor erstem Post) |
 | [spaces.md](spaces.md) | Spaces Vision, Node-Architektur, alle Konzepte |
 | [design.md](design.md) | Design-Richtlinien, Mobile-First, Dark Mode |
 | [privacy.md](privacy.md) | Datenschutz-Prinzipien, DSGVO |

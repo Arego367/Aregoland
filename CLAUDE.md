@@ -11,6 +11,7 @@ Die vollstaendige Projektdokumentation befindet sich in `/docs/`:
 - **[docs/architecture.md](docs/architecture.md)** — Tech-Stack, Server, Infrastruktur, Nginx, SSL
 - **[docs/features-done.md](docs/features-done.md)** — Alle fertigen Features mit Datum
 - **[docs/features-todo.md](docs/features-todo.md)** — Roadmap, Naechste Schritte, Offene Punkte
+- **[docs/launch-vorbereitung.md](docs/launch-vorbereitung.md)** — Soft Launch Checkliste (alles vor erstem Post)
 - **[docs/spaces.md](docs/spaces.md)** — Spaces Vision, Node-Architektur, alle Konzepte
 - **[docs/design.md](docs/design.md)** — Design-Richtlinien, Mobile-First, Dark Mode
 - **[docs/privacy.md](docs/privacy.md)** — Datenschutz-Prinzipien, DSGVO
