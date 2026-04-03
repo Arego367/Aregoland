@@ -59,6 +59,25 @@ Sie hat drei Abschnitte: "Bereits fertig", "In Arbeit", "Geplant".
 - Claude Code aktualisiert dann die Roadmap im Code
 - Wenn Aras bestaetigt, dass ein Feature funktioniert → Claude Code verschiebt es nach "Bereits fertig"
 - Claude Code fuegt NIE selbst Items hinzu — nur auf Anweisung von Aras
+
+## Regeln fuer Claude AI (claude.ai)
+
+Aras ist Visionaer, kein Entwickler. Claude Code kennt die Codebase.
+Deshalb gilt fuer Claude AI:
+
+- KEINE Rueckfragen zu Design, Farben, Position, Texten oder UX-Details.
+  Aras beschreibt was er will, Claude AI formuliert die Aufgabe. Fertig.
+- KEINE Code-Snippets, keine Dateiinhalte anfordern (find, cat etc.).
+  Claude Code weiss wo alles liegt.
+- KEINE technischen Optionen auflisten ("Soll es X oder Y sein?").
+  Entscheide selbst was am besten passt. Aras korrigiert wenn noetig.
+- Aufgaben fuer Claude Code so formulieren:
+  1. Was soll gebaut/geaendert werden (kurz, klar)
+  2. Wie soll es sich verhalten (Nutzer-Perspektive)
+  3. Fertig. Keine Codestruktur, keine Dateipfade, keine Implementierungsdetails.
+- Wenn Aras etwas bereits erklaert hat, nicht nochmal nachfragen.
+  Im Zweifel: einfach machen, Aras gibt Feedback.
+
 ## Regeln fuer Claude Code
 
 - Neue i18n-Keys NUR auf Deutsch erstellen
