@@ -1674,6 +1674,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "E-Mail Weiterleitungen", desc: "hallo@, support@, paypal@, feedback@, noreply@aregoland.de eingerichtet." },
                       { title: "Spenden-Button (PayPal)", desc: "paypal.me/aregoland — direkt aus der App heraus spenden." },
                       { title: "PayPal Konto", desc: "paypal@aregoland.de live und mit App verknuepft." },
+                      { title: "GitHub public + README", desc: "Repository oeffentlich, Dokumentation fuer Mitwirkende." },
                     ],
                   },
                   {
@@ -1689,9 +1690,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "Spaces Melde-System + Mitglieder-Kontrolle", desc: "Mehr Sicherheit und Kontrolle fuer Space-Admins." },
                       { title: "Recovery: Datei-Upload + End-to-End Test", desc: "Wiederherstellung per Datei (aregoland-recovery-*.txt) und vollstaendiger Test." },
                       { title: "Prod-Build + Nginx statisch", desc: "Vite Dev-Server raus, statische Dateien ueber Nginx ausliefern." },
-                      { title: "GitHub public + README + CONTRIBUTING.md", desc: "Repository oeffentlich machen, Dokumentation fuer Mitwirkende." },
-                      { title: "Social Media Konten", desc: "TikTok, Instagram, X, Facebook, LinkedIn, Mastodon — ueberall als aregoland." },
-                      { title: "Canva Branding-Kit + Metricool", desc: "Einheitliches Design und Content-Planung fuer alle Kanaele." },
                     ],
                   },
                   {
