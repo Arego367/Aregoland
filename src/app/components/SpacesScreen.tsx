@@ -1794,12 +1794,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     Mit PayPal spenden
                   </a>
                   <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-700/30 border border-gray-600/30 text-gray-500 text-sm font-medium cursor-default">
-                    Ko-fi — kommt bald
-                  </div>
-                  <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-700/30 border border-gray-600/30 text-gray-500 text-sm font-medium cursor-default">
-                    Patreon — kommt bald
-                  </div>
-                  <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-700/30 border border-gray-600/30 text-gray-500 text-sm font-medium cursor-default">
                     GitHub Sponsors — kommt bald
                   </div>
                 </div>
