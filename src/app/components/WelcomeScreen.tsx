@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { MessageCircle, ArrowRight, UserPlus, History, Key, ShieldAlert, ChevronLeft, Camera, ScanLine, Loader2, ChevronDown } from "lucide-react";
-import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
+import { ImageWithFallback } from "@/app/components/ImageWithFallback";
 import { useState, useRef, useEffect } from "react";
 import { importFromRecoveryPayload, decodeChildLinkPayload, createChildIdentity } from "@/app/auth/identity";
 import { useTranslation } from 'react-i18next';

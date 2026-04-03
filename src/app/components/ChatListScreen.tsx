@@ -10,7 +10,7 @@ import { loadContacts } from "@/app/auth/contacts";
 import { loadPersistedChats } from "@/app/lib/chats";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
-import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
+import { ImageWithFallback } from "@/app/components/ImageWithFallback";
 
 interface ChatListScreenProps {
   onOpenProfile: () => void;

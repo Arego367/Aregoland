@@ -10,7 +10,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, CameraOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
+import { ImageWithFallback } from '@/app/components/ImageWithFallback';
 
 export type CallState = 'idle' | 'ringing' | 'incoming' | 'connecting' | 'active';
 export type CallType = 'audio' | 'video';

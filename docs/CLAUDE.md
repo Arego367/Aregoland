@@ -32,13 +32,13 @@
 
 ## Infrastruktur
 
-- Hetzner, Ubuntu 24.04, IP: 46.225.115.51
+- Hetzner, Ubuntu 24.04
 - Claude Code arbeitet in: /root/Aregoland
 - Domains: aregoland.de (Haupt), .com + .eu leiten weiter
 - Nginx Reverse Proxy + Let's Encrypt SSL (alle 3 Domains)
 - Signaling-Server: Node.js, Docker, Port 3001
 - TURN: coturn, Port 3478/5349
-- Sync: git post-commit Hook -> rclone -> Google Drive
+- Repo ist public — Claude AI liest direkt von GitHub
 
 ## Datenschutz & Kinderschutz (Regeln)
 

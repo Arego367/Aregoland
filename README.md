@@ -1,11 +1,15 @@
+# Aregoland — Arego Chat
 
-  # Aregoland
+P2P Messenger mit Spaces, Kalender, World und Pay.
+Datenschutz by Design: kein Server speichert Inhalte, alles E2E verschluesselt.
 
-  This is a code bundle for Aregoland. The original project is available at https://www.figma.com/design/Smf60PFX7V2nopw1QSzsnc/Aregoland.
+## Setup
 
-  ## Running the code
+```bash
+pnpm install
+pnpm dev
+```
 
-  Run `npm i` to install the dependencies.
+## Lizenz
 
-  Run `npm run dev` to start the development server.
-  
+AGPL-3.0

@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from "motion/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
+import { ImageWithFallback } from "@/app/components/ImageWithFallback";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ContactDetailModal } from "./ContactDetailModal";
 import { Contact, Tab } from "../types";

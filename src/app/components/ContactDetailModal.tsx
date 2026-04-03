@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from 'react-i18next';
-import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
+import { ImageWithFallback } from "@/app/components/ImageWithFallback";
 import { Contact, Tab } from "@/app/types";
 import { blockContact, isBlocked } from "@/app/auth/contacts";
 

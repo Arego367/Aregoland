@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { ArrowLeft, Phone, Video, MoreVertical, Mic, Send, Smile, Check, CheckCheck, Image as ImageIcon, Camera, FileText, X, Trash2, Reply, Pencil, ShieldCheck, Wifi, WifiOff, Loader2, Clock, Download, Play, Pause, Square, Search, Palette, FolderOpen, Ban } from "lucide-react";
 import { useTranslation } from 'react-i18next';
-import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
+import { ImageWithFallback } from "@/app/components/ImageWithFallback";
 import { motion, AnimatePresence } from "motion/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as ContextMenu from "@radix-ui/react-context-menu";

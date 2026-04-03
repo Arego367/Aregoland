@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, Plus, User, Shield, Smartphone, ChevronRight, Check, QrCode } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from "motion/react";
-import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
+import { ImageWithFallback } from "@/app/components/ImageWithFallback";
 
 interface ChildProfileScreenProps {
   onBack: () => void;

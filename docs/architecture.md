@@ -31,7 +31,6 @@
 ## Server & Infrastruktur
 
 - Hetzner Server, Ubuntu 24.04
-- IP: 46.225.115.51, IPv6: 2a01:4f8:1c19:951d::1
 - Claude Code arbeitet in `/root/Aregoland`
 
 ## Domains
@@ -90,9 +89,9 @@
 - Vite Dev-Server auf 127.0.0.1:5173 (nur intern)
 - HMR Overlay deaktiviert (`hmr: { overlay: false }`)
 - Favicon (blaues Chat-Icon)
-- rclone — /docs Auto-Sync zu Google Drive via git post-commit Hook
+- Repo ist public — Claude AI liest direkt von GitHub
 
 ## Bekannte technische Schulden
 
 - **Mock-QR URL** in `ChildProfileScreen.tsx:235` und `PeopleScreen.tsx:231` — `api.qrserver.com` mit Dummy-Token muss durch echte QR-Generierung ersetzt werden
-- **Server-IP hardcoded** in `p2p-manager.ts:75-77` — `46.225.115.51` sollte als `VITE_TURN_HOST` Umgebungsvariable ausgelagert werden
+- **Server-IP hardcoded** in `p2p-manager.ts:75-77` — sollte als `VITE_TURN_HOST` Umgebungsvariable ausgelagert werden
