@@ -1682,6 +1682,21 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     ],
                   },
                   {
+                    key: "wip",
+                    label: "In Arbeit",
+                    icon: <Hammer size={10} className="text-white" />,
+                    chevronColor: "text-amber-400",
+                    dotClass: "bg-amber-500 animate-pulse",
+                    labelColor: "text-amber-400",
+                    cardBg: "bg-amber-500/10 border-amber-500/20",
+                    cardIcon: <Hammer size={12} className="text-amber-400 mt-0.5 shrink-0" />,
+                    items: [
+                      { title: "Kaffeepause", desc: "Ohne Kaffee kein Code. Aktuell Tasse 3." },
+                      { title: "Kinder ins Bett bringen", desc: "Noch eine Geschichte! Nur noch eine! Na gut, zwei." },
+                      { title: "Unter der Dusche nachdenken", desc: "Die besten Features entstehen zwischen Shampoo und Handtuch." },
+                    ],
+                  },
+                  {
                     key: "planned",
                     label: "Geplant",
                     icon: <Sparkles size={10} className="text-white" />,
