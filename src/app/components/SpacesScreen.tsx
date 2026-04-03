@@ -1672,6 +1672,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "PWA — installierbar & offline-faehig", desc: "Funktioniert wie eine native App, direkt aus dem Browser." },
                       { title: "Beta-Banner + Willkommens-Toast", desc: "Footer zeigt Arego Beta auf allen Screens, einmaliger Willkommens-Toast nach Login." },
                       { title: "E-Mail Weiterleitungen", desc: "hallo@, support@, paypal@, feedback@, noreply@aregoland.de eingerichtet." },
+                      { title: "Spenden-Button (PayPal)", desc: "paypal.me/aregoland — direkt aus der App heraus spenden." },
+                      { title: "PayPal Konto", desc: "paypal@aregoland.de live und mit App verknuepft." },
                     ],
                   },
                   {
@@ -1687,8 +1689,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "Spaces Melde-System + Mitglieder-Kontrolle", desc: "Mehr Sicherheit und Kontrolle fuer Space-Admins." },
                       { title: "Recovery: Datei-Upload + End-to-End Test", desc: "Wiederherstellung per Datei (aregoland-recovery-*.txt) und vollstaendiger Test." },
                       { title: "Prod-Build + Nginx statisch", desc: "Vite Dev-Server raus, statische Dateien ueber Nginx ausliefern." },
-                      { title: "Spenden-Button (PayPal)", desc: "Projekt unterstuetzen direkt aus der App heraus." },
-                      { title: "PayPal Konto anlegen", desc: "paypal@aregoland.de fuer Spenden und spaeter Spaces Pay." },
                       { title: "GitHub public + README + CONTRIBUTING.md", desc: "Repository oeffentlich machen, Dokumentation fuer Mitwirkende." },
                       { title: "Social Media Konten", desc: "TikTok, Instagram, X, Facebook, LinkedIn, Mastodon — ueberall als aregoland." },
                       { title: "Canva Branding-Kit + Metricool", desc: "Einheitliches Design und Content-Planung fuer alle Kanaele." },
@@ -1704,6 +1704,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     cardBg: "bg-purple-500/10 border-purple-500/20",
                     cardIcon: <Sparkles size={12} className="text-purple-400 mt-0.5 shrink-0" />,
                     items: [
+                      { title: "GitHub Sponsors", desc: "Antrag gestellt, wartet auf Approval." },
                       { title: "World — oeffentlicher Feed", desc: "Oeffentlicher Feed — nur verifizierte Nutzer posten, FSK-System schuetzt Kinder." },
                       { title: "Spaces Pay: EPC QR Rechnungen", desc: "Gebuehrenfreie SEPA-Rechnungen per QR-Code direkt im Space." },
                       { title: "Kalender Stufe 2-4", desc: "Kinder-Integration, Termine P2P teilen, Spaces-Kalender, iCal Import/Export." },
