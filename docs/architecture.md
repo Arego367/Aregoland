@@ -43,9 +43,11 @@
 - Nginx 1.24 auf Port 80 + 443 (SSL-Terminierung)
 - HTTP -> HTTPS Redirect (alle Domains)
 - Alle Neben-Domains + www -> `https://aregoland.de` (301)
-- Proxy: `/` -> Vite (127.0.0.1:5173)
+- Statische Dateien aus `/root/Aregoland/dist/` (Prod-Build)
+- SPA-Fallback: `try_files $uri $uri/ /index.html`
+- Assets mit 1 Jahr Cache (`/assets/`, immutable)
+- Service Worker + Manifest ohne Cache (no-store)
 - Proxy: `/ws-signal` + `/code` -> Signaling (127.0.0.1:3001)
-- Proxy: `/ws` -> Vite HMR WebSocket
 - Config: `/etc/nginx/sites-available/aregoland`
 
 ## SSL
@@ -84,10 +86,8 @@
 
 ## Sonstige Infrastruktur
 
-- `start.sh` — systemd Services fuer Signaling-Server (Docker) + Vite Dev-Server + Nginx
-- `arego.bat` — Windows-Batch fuer SSH + Claude Code
-- Vite Dev-Server auf 127.0.0.1:5173 (nur intern)
-- HMR Overlay deaktiviert (`hmr: { overlay: false }`)
+- `start.sh` — systemd Services fuer Signaling-Server (Docker) + Nginx
+- Vite Dev-Server auf 127.0.0.1:5173 (nur intern, fuer Entwicklung)
 - Favicon (blaues Chat-Icon)
 - Repo ist public — Claude AI liest direkt von GitHub
 

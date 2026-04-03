@@ -1675,6 +1675,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "Spenden-Button (PayPal)", desc: "paypal.me/aregoland — direkt aus der App heraus spenden." },
                       { title: "PayPal Konto", desc: "paypal@aregoland.de live und mit App verknuepft." },
                       { title: "GitHub public + README", desc: "Repository oeffentlich, Dokumentation fuer Mitwirkende." },
+                      { title: "Prod-Build + Nginx statisch", desc: "App wird als statische Dateien ausgeliefert, kein Dev-Server mehr." },
                     ],
                   },
                   {
@@ -1689,7 +1690,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     items: [
                       { title: "Spaces Melde-System + Mitglieder-Kontrolle", desc: "Mehr Sicherheit und Kontrolle fuer Space-Admins." },
                       { title: "Recovery: Datei-Upload + End-to-End Test", desc: "Wiederherstellung per Datei (aregoland-recovery-*.txt) und vollstaendiger Test." },
-                      { title: "Prod-Build + Nginx statisch", desc: "Vite Dev-Server raus, statische Dateien ueber Nginx ausliefern." },
                     ],
                   },
                   {
