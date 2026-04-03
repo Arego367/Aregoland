@@ -397,6 +397,13 @@ export default function App() {
     }
   }, [manager, updateContactStatus]);
 
+  // Beta-Banner (schliessbar, merkt sich Zustand)
+  const [showBeta, setShowBeta] = useState(() => localStorage.getItem('aregoland_beta_dismissed') !== 'true');
+  const dismissBeta = useCallback(() => {
+    setShowBeta(false);
+    localStorage.setItem('aregoland_beta_dismissed', 'true');
+  }, []);
+
   // Dark Mode beim Start anwenden
   useEffect(() => {
     const isDark = localStorage.getItem('aregoland_dark_mode') !== 'false';
@@ -723,6 +730,12 @@ export default function App() {
   return (
     <AppErrorBoundary>
     <div className="size-full">
+      {showBeta && currentScreen !== "welcome" && currentScreen !== "registration" && (
+        <div className="bg-amber-500/90 text-black text-xs text-center py-1.5 px-4 flex items-center justify-center gap-2 relative z-50">
+          <span className="font-medium">Beta — Work in Progress. Mach mit!</span>
+          <button onClick={dismissBeta} className="absolute right-2 top-1/2 -translate-y-1/2 text-black/60 hover:text-black text-sm leading-none">&times;</button>
+        </div>
+      )}
       {currentScreen === "welcome" && (
         <WelcomeScreen
           onGetStarted={handleGetStarted}
