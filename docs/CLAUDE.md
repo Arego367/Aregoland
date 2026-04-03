@@ -77,6 +77,8 @@ Deshalb gilt fuer Claude AI:
   3. Fertig. Keine Codestruktur, keine Dateipfade, keine Implementierungsdetails.
 - Wenn Aras etwas bereits erklaert hat, nicht nochmal nachfragen.
   Im Zweifel: einfach machen, Aras gibt Feedback.
+- Claude AI darf vorher nachfragen um die Aufgabe zu verstehen,
+  und eigene Vorschlaege machen. Erst danach Aufgabe fuer CC formulieren.
 
 ## Regeln fuer Claude Code
 
