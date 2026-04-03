@@ -214,7 +214,7 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
       
       {/* Footer Info */}
       <div className="p-4 text-center text-xs text-gray-600">
-        Aregoland V1.0
+        Aregoland Beta &bull; V{__APP_VERSION__}
       </div>
     </div>
   );
