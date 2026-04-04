@@ -1726,6 +1726,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "Erweiterter Backup + dezentrale Wiederherstellung", desc: ".arego Format, E2E verschluesselt, Shamir's Secret Sharing." },
                       { title: "Oeffentliche Space-Suche", desc: "Directory-Endpoint fuer oeffentliche Spaces." },
                       { title: "Weitere EU-Sprachen", desc: "Mehrsprachigkeit ueber DE/EN/LT hinaus." },
+                      { title: "B2B & Professional Layer (Spaces)", desc: "Privacy-first Alternative zu LinkedIn. Arbeitsplatz-Verifizierung per Firmen-E-Mail, Spaces als Unternehmensseiten, EUDI Wallet fuer berufliche Identitaet, B2B-Kommunikation direkt in Aregoland." },
                     ],
                   },
                 ];
