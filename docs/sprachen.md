@@ -14,28 +14,16 @@
 | Spanisch | es | Vollstaendig (Stand 2026-04-04) |
 | Polnisch | pl | Vollstaendig (Stand 2026-04-04) |
 | Italienisch | it | Vollstaendig (Stand 2026-04-04) |
+| Niederlaendisch | nl | Vollstaendig (Stand 2026-04-04) |
+| Portugiesisch | pt | Vollstaendig (Stand 2026-04-04) |
+| Schwedisch | sv | Vollstaendig (Stand 2026-04-04) |
+| Rumaenisch | ro | Vollstaendig (Stand 2026-04-04) |
 
-## Vollstaendig uebersetzte Komponenten (DE/EN/LT/FR/ES/PL/IT)
+## Vollstaendig uebersetzte Komponenten
 
-Alle bisherigen Komponenten sind in allen 7 Sprachen vollstaendig uebersetzt (Stand 2026-04-04):
+Alle bisherigen Komponenten sind in allen 11 Sprachen vollstaendig uebersetzt (Stand 2026-04-04):
 
-| Komponente | Namespace | DE | EN | LT | FR | ES | PL | IT |
-|------------|-----------|----|----|-----|-----|----|----|-----|
-| Navigation & Common | `common` | ja | ja | ja | ja | ja | ja | ja |
-| Dashboard | `dashboard` | ja | ja | ja | ja | ja | ja | ja |
-| Chat | `chat` | ja | ja | ja | ja | ja | ja | ja |
-| Kontakte | `people` | ja | ja | ja | ja | ja | ja | ja |
-| Spaces | `spaces` | ja | ja | ja | ja | ja | ja | ja |
-| Kalender | `calendar` | ja | ja | ja | ja | ja | ja | ja |
-| Einstellungen | `settings` | ja | ja | ja | ja | ja | ja | ja |
-| Profil | `profile` | ja | ja | ja | ja | ja | ja | ja |
-| Registrierung | `registration` | ja | ja | ja | ja | ja | ja | ja |
-| Welcome | `welcome` | ja | ja | ja | ja | ja | ja | ja |
-| QR-Code | `qrcode` | ja | ja | ja | ja | ja | ja | ja |
-| Kontakt-Detail | `contactDetail` | ja | ja | ja | ja | ja | ja | ja |
-| Kind-Profil | `childProfile` | ja | ja | ja | ja | ja | ja | ja |
-| AddContact | `addContact` | ja | ja | ja | ja | ja | ja | ja |
-| ChatList | `chatList` | ja | ja | ja | ja | ja | ja | ja |
+Alle 15 Namespaces (common, tabs, welcome, registration, dashboard, chatList, chat, people, addContact, contactDetail, tabModal, profile, settings, calendar, call, qrScreen, connect, documents, spaces, childProfile, fsk) sind in allen 11 Sprachen vollstaendig — jeweils 660 Keys.
 
 ## Neue Keys — nur Deutsch (noch nicht uebersetzt)
 
