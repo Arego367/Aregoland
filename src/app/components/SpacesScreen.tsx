@@ -1729,6 +1729,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "B2B & Professional Layer (Spaces)", desc: "Privacy-first Alternative zu LinkedIn. Arbeitsplatz-Verifizierung per Firmen-E-Mail, Spaces als Unternehmensseiten, EUDI Wallet fuer berufliche Identitaet, B2B-Kommunikation direkt in Aregoland." },
                       { title: "Autonomes KI-Team (Aregoland selbst organisiert)", desc: "KI-Agenten setzen Ideen autonom um — Support, Social Media, Marketing, Monitoring. Technologie: Paperclip (Open Source, Hetzner). Start nach Launch mit echten Nutzern." },
                       { title: "Kinder-Medienzugang (Whitelist-Prinzip)", desc: "Eigener Player mit Whitelist — Eltern fuegen erlaubte Kanaele hinzu, Kind sieht nur diese. Kein Algorithmus, keine Als-naechstes-Falle. Eltern-Abo (YouTube Premium) = keine Werbung. FSK-Vorfilterung moeglich. Technologie: YouTube Data API." },
+                      { title: "Community-Schutz System (Niu Niu Niu)", desc: "3-Stufen-System gegen Hass und Missbrauch — ohne Privacy zu opfern. Stufe 1: Verwarnung + 1 Kacke-Punkt + kleine Einschraenkung. Stufe 2: Staerkere Einschraenkung + deutliche Warnung. Stufe 3: EUDI-Hash + Polizei-Meldung (Aregoland kennt nur den Hash, nie die Identitaet). Blacklist per EUDI-Hash. KI-Moderation + Community-Moderatoren je Sprache." },
                     ],
                   },
                 ];
