@@ -49,6 +49,14 @@
 - FSK-System geplant: Inhalte werden altersgerecht gefiltert
 - Kinder-Features: maximaler Schutz, minimale Daten
 
+### Missbrauchsschutz & Anonymitaet
+
+- Aregoland speichert bei verifizierten Nutzern nur einen anonymen EUDI-Hash — keinen Namen, keine Adresse, keine persoenlichen Daten
+- Bei Polizei-Meldungen wird nur der EUDI-Hash weitergegeben
+- Die Polizei fragt die EUDI-Behoerde direkt nach Personalien — Aregoland erfaehrt nie die echte Identitaet
+- Selbst bei einem Server-Hack sind keine personenbezogenen Daten abrufbar
+- Aregoland ist der Briefkasten — wir leiten weiter, wissen selbst nichts
+
 ## Roadmap-Workflow
 
 Die Roadmap lebt im Aregoland Official Space (SpacesScreen.tsx, hardcoded).
