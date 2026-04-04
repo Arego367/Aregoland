@@ -61,6 +61,12 @@ Sie hat drei Abschnitte: "Bereits fertig", "In Arbeit", "Geplant".
 - Wenn Aras bestaetigt, dass ein Feature funktioniert → Claude Code verschiebt es nach "Bereits fertig"
 - Claude Code fuegt NIE selbst Items hinzu — nur auf Anweisung von Aras
 
+## EUDI Wallet — UX-Anforderungen
+
+- Fehlermeldungen beim Ausweis-Scan muessen immer Grund + naechsten Schritt anzeigen
+- Automatische Erkennung ob Ausweis kompatibel ist (z.B. Ausstellungsdatum) — kein stummes Scheitern
+- Vorbild: Ausweisapp — reibungslos, klar, kein Raten fuer den Nutzer
+
 ## Regeln fuer Claude AI (claude.ai)
 
 Aras ist Visionaer, kein Entwickler. Claude Code kennt die Codebase.
