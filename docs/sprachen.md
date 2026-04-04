@@ -18,12 +18,23 @@
 | Portugiesisch | pt | Vollstaendig (Stand 2026-04-04) |
 | Schwedisch | sv | Vollstaendig (Stand 2026-04-04) |
 | Rumaenisch | ro | Vollstaendig (Stand 2026-04-04) |
+| Tschechisch | cs | Vollstaendig (Stand 2026-04-04) |
+| Ungarisch | hu | Vollstaendig (Stand 2026-04-04) |
+| Daenisch | da | Vollstaendig (Stand 2026-04-04) |
+| Finnisch | fi | Vollstaendig (Stand 2026-04-04) |
+| Slowakisch | sk | Vollstaendig (Stand 2026-04-04) |
+| Kroatisch | hr | Vollstaendig (Stand 2026-04-04) |
+| Slowenisch | sl | Vollstaendig (Stand 2026-04-04) |
+| Estnisch | et | Vollstaendig (Stand 2026-04-04) |
+| Lettisch | lv | Vollstaendig (Stand 2026-04-04) |
+| Griechisch | el | Vollstaendig (Stand 2026-04-04) |
+| Maltesisch | mt | Vollstaendig (Stand 2026-04-04) |
+| Bulgarisch | bg | Vollstaendig (Stand 2026-04-04) |
+| Norwegisch | no | Vollstaendig (Stand 2026-04-04) |
 
 ## Vollstaendig uebersetzte Komponenten
 
-Alle bisherigen Komponenten sind in allen 11 Sprachen vollstaendig uebersetzt (Stand 2026-04-04):
-
-Alle 15 Namespaces (common, tabs, welcome, registration, dashboard, chatList, chat, people, addContact, contactDetail, tabModal, profile, settings, calendar, call, qrScreen, connect, documents, spaces, childProfile, fsk) sind in allen 11 Sprachen vollstaendig — jeweils 660 Keys.
+Alle Namespaces sind in allen 24 Sprachen vollstaendig uebersetzt (Stand 2026-04-04) — jeweils 660 Keys.
 
 ## Neue Keys — nur Deutsch (noch nicht uebersetzt)
 
