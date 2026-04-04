@@ -8,12 +8,12 @@
 | Sprache   | Code | Status |
 |-----------|------|--------|
 | Deutsch   | de   | Primaer — alle Keys vorhanden |
-| Englisch  | en   | Vollstaendig (Stand 2026-04-01) |
-| Litauisch | lt   | Vollstaendig (Stand 2026-04-01) |
+| Englisch  | en   | Vollstaendig (Stand 2026-04-04) |
+| Litauisch | lt   | Vollstaendig (Stand 2026-04-04) |
 
 ## Vollstaendig uebersetzte Komponenten (DE/EN/LT)
 
-Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (Stand 2026-04-01):
+Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (Stand 2026-04-04):
 
 | Komponente | Namespace | DE | EN | LT |
 |------------|-----------|----|----|-----|
@@ -30,6 +30,8 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 | QR-Code | `qrcode` | ja | ja | ja |
 | Kontakt-Detail | `contactDetail` | ja | ja | ja |
 | Kind-Profil | `childProfile` | ja | ja | ja |
+| AddContact | `addContact` | ja | ja | ja |
+| ChatList | `chatList` | ja | ja | ja |
 
 ## Neue Keys — nur Deutsch (noch nicht uebersetzt)
 
@@ -38,107 +40,7 @@ Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (St
 
 | Komponente | Key | DE | EN | LT |
 |------------|-----|----|----|-----|
-| Spaces | `spaces.ttlHours` | ja | nein | nein |
-| Spaces | `spaces.manageChats` | ja | nein | nein |
-| Spaces | `spaces.moderatorCoHostInfo` | ja | nein | nein |
-| Spaces | `spaces.relayNodeActive` | ja | nein | nein |
-| Spaces | `spaces.relayNodeActiveDesc` | ja | nein | nein |
-| Spaces | `spaces.relayNodeOffWarning` | ja | nein | nein |
-| Spaces | `spaces.adminAlwaysAccess` | ja | nein | nein |
-| Spaces | `spaces.tab_profile` | ja | nein | nein |
-| Spaces | `spaces.spaceNotifications` | ja | nein | nein |
-| Spaces | `spaces.spaceNotificationsDesc` | ja | nein | nein |
-| Spaces | `spaces.rolesAndPermissions` | ja | nein | nein |
-| Spaces | `spaces.createRole` | ja | nein | nein |
-| Spaces | `spaces.roleNamePlaceholder` | ja | nein | nein |
-| Spaces | `spaces.perm_readChats` | ja | nein | nein |
-| Spaces | `spaces.perm_writeChats` | ja | nein | nein |
-| Spaces | `spaces.perm_createEvents` | ja | nein | nein |
-| Spaces | `spaces.perm_postNews` | ja | nein | nein |
-| Spaces | `spaces.perm_inviteMembers` | ja | nein | nein |
-| Spaces | `spaces.notifMode_all` | ja | nein | nein |
-| Spaces | `spaces.notifMode_mute` | ja | nein | nein |
-| Spaces | `spaces.notifMode_none` | ja | nein | nein |
-| Spaces | `spaces.notif_messages` | ja | nein | nein |
-| Spaces | `spaces.notif_events` | ja | nein | nein |
-| Spaces | `spaces.notif_news` | ja | nein | nein |
-| Spaces | `spaces.notif_calls` | ja | nein | nein |
-| Spaces | `spaces.notif_mentions` | ja | nein | nein |
-| Spaces | `spaces.notif_newMembers` | ja | nein | nein |
-| Spaces | `spaces.notifRecommended` | ja | nein | nein |
-| Spaces | `spaces.recording` | ja | nein | nein |
-| Spaces | `spaces.noMentionResults` | ja | nein | nein |
-| Spaces | `spaces.largeFileWarning` | ja | nein | nein |
-| Spaces | `spaces.sendAnyway` | ja | nein | nein |
-| Spaces | `spaces.perm_allowNetworkHelper` | ja | nein | nein |
-| Spaces | `spaces.networkHelperActive` | ja | nein | nein |
-| Spaces | `spaces.networkHelperDesc` | ja | nein | nein |
-| Spaces | `spaces.networkHelperOffWarning` | ja | nein | nein |
-| Spaces | `spaces.useMobileData` | ja | nein | nein |
-| Spaces | `spaces.useMobileDataDesc` | ja | nein | nein |
-| Spaces | `spaces.mobileDataDetected` | ja | nein | nein |
-| Spaces | `spaces.createSpaceInfo` | ja | nein | nein |
-| Spaces | `spaces.networkHelperRoleHint` | ja | nein | nein |
-| Spaces | `spaces.networkHelperProfileHint` | ja | nein | nein |
-| Spaces | `spaces.guestHint` | ja | nein | nein |
-| Spaces | `spaces.chatMembersVisible` | ja | nein | nein |
-| Spaces | `spaces.guestDefault` | ja | nein | nein |
-| Spaces | `spaces.guestRoleHint` | ja | nein | nein |
-| Spaces | `spaces.writeRequiresRead` | ja | nein | nein |
-| Spaces | `spaces.customizeLayout` | ja | nein | nein |
-| Spaces | `spaces.upcomingEvents` | ja | nein | nein |
-| Spaces | `spaces.activeChats` | ja | nein | nein |
-| Spaces | `spaces.membersOnline` | ja | nein | nein |
-| Spaces | `spaces.widget_pinned` | ja | nein | nein |
-| Spaces | `spaces.widget_announcements` | ja | nein | nein |
-| Spaces | `spaces.widget_stats` | ja | nein | nein |
-| Spaces | `spaces.widget_events` | ja | nein | nein |
-| Spaces | `spaces.widget_activeChats` | ja | nein | nein |
-| Spaces | `spaces.widget_spaceInfo` | ja | nein | nein |
-| Spaces | `spaces.widget_membersOnline` | ja | nein | nein |
-| Spaces | `spaces.saveLayout` | ja | nein | nein |
-| Spaces | `spaces.previewLabel` | ja | nein | nein |
-| Spaces | `spaces.tab_world` | ja | nein | nein |
-| Spaces | `spaces.worldTitle` | ja | nein | nein |
-| Spaces | `spaces.worldDesc` | ja | nein | nein |
-| Spaces | `spaces.worldPrivacy` | ja | nein | nein |
-| Spaces | `spaces.comingSoon` | ja | nein | nein |
-| Dashboard | `dashboard.world` | ja | nein | nein |
-| Dashboard | `dashboard.worldDesc` | ja | nein | nein |
-| Dashboard | `dashboard.comingSoon` | ja | nein | nein |
-| Dashboard | `dashboard.worldComingSoonToast` | ja | nein | nein |
-| Spaces | `spaces.editChat` | ja | nein | nein |
-| Spaces | `spaces.editRole` | ja | nein | nein |
-| Spaces | `spaces.transferFounder` | ja | nein | nein |
-| Spaces | `spaces.transferFounderDesc` | ja | nein | nein |
-| Spaces | `spaces.selectMember` | ja | nein | nein |
-| Spaces | `spaces.transferFounderButton` | ja | nein | nein |
-| Spaces | `spaces.transferFounderConfirm` | ja | nein | nein |
-| Spaces | `spaces.deleteConfirmTitle` | ja | nein | nein |
-| Spaces | `spaces.deleteConfirmDesc` | ja | nein | nein |
-| Spaces | `spaces.deleteYes` | ja | nein | nein |
-| Spaces | `spaces.deleteTransferTitle` | ja | nein | nein |
-| Spaces | `spaces.deleteTransferYes` | ja | nein | nein |
-| Spaces | `spaces.deleteTransferNo` | ja | nein | nein |
-| Spaces | `spaces.deleteFinalTitle` | ja | nein | nein |
-| Spaces | `spaces.deleteFinalConfirm` | ja | nein | nein |
-| Spaces | `spaces.fullAccess` | ja | nein | nein |
-| Spaces | `spaces.fullAccessHint` | ja | nein | nein |
-| Spaces | `spaces.mobileDataManualWarning` | ja | nein | nein |
-| Spaces | `spaces.searchPlaceholder` | ja | nein | nein |
-| Spaces | `spaces.noSearchResults` | ja | nein | nein |
-| Spaces | `spaces.tags` | ja | nein | nein |
-| Spaces | `spaces.customTag` | ja | nein | nein |
-| Kalender | `calendar.searchPlaceholder` | ja | nein | nein |
-| Kalender | `calendar.noSearchResults` | ja | nein | nein |
-| ChatList | `chatList.searchPlaceholder` | ja | nein | nein |
-| AddContact | `addContact.addContact` | ja | nein | nein |
-| AddContact | `addContact.scanQRHint` | ja | nein | nein |
-| AddContact | `addContact.openCamera` | ja | nein | nein |
-| AddContact | `addContact.cameraError` | ja | nein | nein |
-| AddContact | `addContact.shortCodeHint` | ja | nein | nein |
-| AddContact | `addContact.privacyInfo` | ja | nein | nein |
-| AddContact | `addContact.generateNewCodes` | ja | nein | nein |
+| — | *Keine offenen Keys* | — | — | — |
 
 ## Anleitung: Uebersetzung nachholen
 
