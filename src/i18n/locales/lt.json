@@ -41,7 +41,7 @@
     "addChild": "Pridėti vaiką",
     "restoreAccount": "Atkurti paskyrą",
     "restoreInfo": "Vartotojai gali atkurti savo paskyrą naudodami asmeninį <strong>atkūrimo QR kodą</strong> arba <strong>atkūrimo raktą</strong>.",
-    "restoreBullet1": "Atkūrimo QR kodas turi užšifruotą tapatybę, roles ir nustatymus.",
+    "restoreBullet1": "Atkūrimo QR kodas turi užšifruotą tapatybę, vaidmenis ir nustatymus.",
     "restoreBullet2": "Pokalbių istorijos ir bendri kalendoriaus duomenys automatiškai atsisiunčiami iš kitų narių.",
     "restoreBullet3": "Privatūs įvykiai ir asmeniniai nustatymai įkeliami iš atkūrimo QR.",
     "restoreWarning": "Saugokite savo atkūrimo QR kodą. Tai vienintelis būdas atkurti paskyrą praradus įrenginį. Po kiekvieno tapatybės ar erdvės pakeitimo reikia naujo QR kodo.",
