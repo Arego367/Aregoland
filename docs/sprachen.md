@@ -10,28 +10,29 @@
 | Deutsch   | de   | Primaer — alle Keys vorhanden |
 | Englisch  | en   | Vollstaendig (Stand 2026-04-04) |
 | Litauisch | lt   | Vollstaendig (Stand 2026-04-04) |
+| Franzoesisch | fr | Vollstaendig (Stand 2026-04-04) |
 
-## Vollstaendig uebersetzte Komponenten (DE/EN/LT)
+## Vollstaendig uebersetzte Komponenten (DE/EN/LT/FR)
 
-Alle bisherigen Komponenten sind in allen 3 Sprachen vollstaendig uebersetzt (Stand 2026-04-04):
+Alle bisherigen Komponenten sind in allen 4 Sprachen vollstaendig uebersetzt (Stand 2026-04-04):
 
-| Komponente | Namespace | DE | EN | LT |
-|------------|-----------|----|----|-----|
-| Navigation & Common | `common` | ja | ja | ja |
-| Dashboard | `dashboard` | ja | ja | ja |
-| Chat | `chat` | ja | ja | ja |
-| Kontakte | `people` | ja | ja | ja |
-| Spaces | `spaces` | ja | ja | ja |
-| Kalender | `calendar` | ja | ja | ja |
-| Einstellungen | `settings` | ja | ja | ja |
-| Profil | `profile` | ja | ja | ja |
-| Registrierung | `registration` | ja | ja | ja |
-| Welcome | `welcome` | ja | ja | ja |
-| QR-Code | `qrcode` | ja | ja | ja |
-| Kontakt-Detail | `contactDetail` | ja | ja | ja |
-| Kind-Profil | `childProfile` | ja | ja | ja |
-| AddContact | `addContact` | ja | ja | ja |
-| ChatList | `chatList` | ja | ja | ja |
+| Komponente | Namespace | DE | EN | LT | FR |
+|------------|-----------|----|----|-----|-----|
+| Navigation & Common | `common` | ja | ja | ja | ja |
+| Dashboard | `dashboard` | ja | ja | ja | ja |
+| Chat | `chat` | ja | ja | ja | ja |
+| Kontakte | `people` | ja | ja | ja | ja |
+| Spaces | `spaces` | ja | ja | ja | ja |
+| Kalender | `calendar` | ja | ja | ja | ja |
+| Einstellungen | `settings` | ja | ja | ja | ja |
+| Profil | `profile` | ja | ja | ja | ja |
+| Registrierung | `registration` | ja | ja | ja | ja |
+| Welcome | `welcome` | ja | ja | ja | ja |
+| QR-Code | `qrcode` | ja | ja | ja | ja |
+| Kontakt-Detail | `contactDetail` | ja | ja | ja | ja |
+| Kind-Profil | `childProfile` | ja | ja | ja | ja |
+| AddContact | `addContact` | ja | ja | ja | ja |
+| ChatList | `chatList` | ja | ja | ja | ja |
 
 ## Neue Keys — nur Deutsch (noch nicht uebersetzt)
 
