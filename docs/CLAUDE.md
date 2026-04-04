@@ -87,6 +87,22 @@ Deshalb gilt fuer Claude AI:
 - Claude AI darf vorher nachfragen um die Aufgabe zu verstehen,
   und eigene Vorschlaege machen. Erst danach Aufgabe fuer CC formulieren.
 
+## Spracherweiterung
+
+Ziel: Alle EU-Sprachen + Sprachen der Menschen die in der EU leben
+(inkl. Schweiz, UK, Norwegen etc.)
+
+Regel: Wenn Aras eine Aufgabe "Sprache erweitern" gibt:
+1. Erst alle vorhandenen Sprachen auf Vollstaendigkeit pruefen (Vergleich mit de.json)
+2. Fehlende Keys ergaenzen
+3. Wenn noch genug Tokens frei → neue Sprache hinzufuegen
+4. Neue i18n-Keys NUR auf Deutsch erstellen (bestehende Regel)
+
+Geplante Sprachen (Prioritaet):
+DE, EN, LT bereits vorhanden → als naechstes: PL, FR, IT, ES,
+PT, NL, SV, DA, FI, NO, CS, SK, HU, RO, BG, HR, SL, ET, LV,
+EL, MT + CH-Varianten (DE/FR/IT)
+
 ## Regeln fuer Claude Code
 
 - Neue i18n-Keys NUR auf Deutsch erstellen
