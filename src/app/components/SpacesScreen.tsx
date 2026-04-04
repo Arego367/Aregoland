@@ -1727,6 +1727,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "Oeffentliche Space-Suche", desc: "Directory-Endpoint fuer oeffentliche Spaces." },
                       { title: "Weitere EU-Sprachen", desc: "Mehrsprachigkeit ueber DE/EN/LT hinaus." },
                       { title: "B2B & Professional Layer (Spaces)", desc: "Privacy-first Alternative zu LinkedIn. Arbeitsplatz-Verifizierung per Firmen-E-Mail, Spaces als Unternehmensseiten, EUDI Wallet fuer berufliche Identitaet, B2B-Kommunikation direkt in Aregoland." },
+                      { title: "Autonomes KI-Team (Aregoland selbst organisiert)", desc: "KI-Agenten setzen Ideen autonom um — Support, Social Media, Marketing, Monitoring. Technologie: Paperclip (Open Source, Hetzner). Start nach Launch mit echten Nutzern." },
                     ],
                   },
                 ];
