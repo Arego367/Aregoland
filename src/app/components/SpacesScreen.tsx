@@ -663,6 +663,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         setSupportMessages(withConfirm);
         saveSupportMsgs(withConfirm);
         setTimeout(() => supportEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      } else if (res.status === 429) {
+        const rateLimitMsg: SupportMsg = { id: `sup-err-${Date.now()}`, text: 'Langsamer bitte! Warte kurz bevor du weitere Nachrichten sendest.', fromUser: false, timestamp: new Date().toISOString() };
+        const withErr = [...updated, rateLimitMsg];
+        setSupportMessages(withErr);
+        saveSupportMsgs(withErr);
       } else {
         const errMsg: SupportMsg = { id: `sup-err-${Date.now()}`, text: 'Nachricht konnte nicht gesendet werden. Bitte versuche es erneut.', fromUser: false, timestamp: new Date().toISOString() };
         const withErr = [...updated, errMsg];

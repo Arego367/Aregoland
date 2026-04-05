@@ -102,6 +102,9 @@ const codes        = new Map(); // code → { payload, expires }
 const rooms        = new Map(); // roomId → Set<WebSocket>
 const inboxPending = new Map(); // 'inbox:<aregoId>' → [{ text, expires }]
 
+// Rate-Limiting für Support-Chat: max 5 Nachrichten pro 10 Sekunden pro Arego-ID
+const supportRateLimit = new Map(); // aregoId → [timestamp, timestamp, ...]
+
 // Presence — nur RAM, kein Disk, kein Verlauf
 const onlineUsers      = new Map(); // aregoId → Set<WebSocket>
 const presenceWatchers = new Map(); // aregoId → Set<WebSocket>  (wer beobachtet diesen User?)
@@ -471,6 +474,17 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'message und arego_id erforderlich' }));
         return;
       }
+
+      // Rate-Limiting: max 5 Nachrichten pro 10 Sekunden
+      const now = Date.now();
+      const timestamps = (supportRateLimit.get(arego_id) ?? []).filter(t => t > now - 10_000);
+      if (timestamps.length >= 5) {
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'rate_limited' }));
+        return;
+      }
+      timestamps.push(now);
+      supportRateLimit.set(arego_id, timestamps);
 
       if (!GITHUB_TOKEN) {
         res.writeHead(503, { 'Content-Type': 'application/json' });
