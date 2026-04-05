@@ -14,6 +14,9 @@
  *  GET  /join-requests/:id     → Ausstehende Anfragen für Gründer
  *  POST /join-request/respond  → Anfrage genehmigen oder ablehnen
  *
+ *  POST /support               → Support-Nachricht als GitHub Issue
+ *  POST /support/close         → GitHub Issue schließen
+ *
  * WebSocket:
  *  Räume vom Typ "chat:…" / normale IDs → max 2 Peers (P2P Chat)
  *  Räume vom Typ "inbox:<aregoId>"      → bis zu 50 Peers, Offline-Pufferung
@@ -37,6 +40,8 @@ const PORT = process.env.PORT || 3001;
 const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const DB_PATH = process.env.DB_PATH || './spaces.db';
 const INACTIVITY_DAYS = 30;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
+const GITHUB_REPO = process.env.GITHUB_REPO || 'Arego367/Aregoland';
 
 // ── SQLite initialisieren ─────────────────────────────────────────────────────
 let db;
@@ -381,6 +386,94 @@ const server = createServer(async (req, res) => {
         const inboxRoom = `inbox:${user_id}`;
         storePending(inboxRoom, notify);
       }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /support — Support-Nachricht als GitHub Issue anlegen ──────────────
+  if (req.method === 'POST' && req.url === '/support') {
+    try {
+      const body = await readBody(req);
+      const { message, arego_id } = JSON.parse(body);
+      if (!message || !arego_id) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'message und arego_id erforderlich' }));
+        return;
+      }
+
+      if (!GITHUB_TOKEN) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'GitHub Token nicht konfiguriert' }));
+        return;
+      }
+
+      const title = message.slice(0, 60) + (message.length > 60 ? '…' : '');
+      const issueBody = `${message}\n\n---\n**Arego-ID:** \`${arego_id}\`\n**Gesendet:** ${new Date().toISOString()}`;
+
+      const ghRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/issues`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+        body: JSON.stringify({ title, body: issueBody, labels: ['support'] }),
+      });
+
+      if (!ghRes.ok) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'GitHub API Fehler' }));
+        return;
+      }
+
+      const issue = await ghRes.json();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, issue_number: issue.number }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /support/close — GitHub Issue schließen ───────────────────────────
+  if (req.method === 'POST' && req.url === '/support/close') {
+    try {
+      const body = await readBody(req);
+      const { issue_number, reason } = JSON.parse(body);
+      if (!issue_number || !GITHUB_TOKEN) {
+        res.writeHead(400); res.end(); return;
+      }
+
+      // Kommentar hinzufügen
+      const comment = reason === 'rejected' ? 'Abgelehnt — Issue geschlossen.' : 'Erledigt — Issue geschlossen.';
+      await fetch(`https://api.github.com/repos/${GITHUB_REPO}/issues/${issue_number}/comments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+        body: JSON.stringify({ body: comment }),
+      });
+
+      // Issue schließen
+      await fetch(`https://api.github.com/repos/${GITHUB_REPO}/issues/${issue_number}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+        body: JSON.stringify({ state: 'closed' }),
+      });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
