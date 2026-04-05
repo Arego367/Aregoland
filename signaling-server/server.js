@@ -1,9 +1,13 @@
 /**
- * Arego Chat — Signaling Server v4
+ * Arego Chat — Signaling Server v5
  *
  * HTTP:
  *  POST /code          → Kurzcode registrieren (in-memory, TTL 1h)
  *  GET  /code/:c       → Kurzcode einlösen (single-use, sofort gelöscht)
+ *
+ *  POST /spaces        → Öffentlichen Space registrieren / aktualisieren (Heartbeat)
+ *  GET  /spaces        → Alle öffentlichen Spaces abrufen (sortierbar)
+ *  DELETE /spaces/:id  → Space aus öffentlicher Liste entfernen
  *
  * WebSocket:
  *  Räume vom Typ "chat:…" / normale IDs → max 2 Peers (P2P Chat)
@@ -15,14 +19,61 @@
  *  DSGVO: nur aktueller Status im RAM, kein Verlauf, kein Timestamp.
  *         Bei Disconnect sofort gelöscht.
  *
- * Datenschutz: kein Logging, kein Disk-Speicher, Server liest Nachrichteninhalte nicht.
+ * Datenschutz: kein Logging, kein Disk-Speicher für Chats.
+ *              Öffentliche Spaces in SQLite — nur vom Gründer freigegebene Daten.
  */
 
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
+import initSqlJs from 'sql.js';
+import { writeFileSync, readFileSync, existsSync } from 'fs';
 
 const PORT = process.env.PORT || 3001;
 const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const DB_PATH = process.env.DB_PATH || './spaces.db';
+const INACTIVITY_DAYS = 30;
+
+// ── SQLite initialisieren ─────────────────────────────────────────────────────
+let db;
+
+async function initDb() {
+  const SQL = await initSqlJs();
+  if (existsSync(DB_PATH)) {
+    const buffer = readFileSync(DB_PATH);
+    db = new SQL.Database(buffer);
+  } else {
+    db = new SQL.Database();
+  }
+  db.run(`
+    CREATE TABLE IF NOT EXISTS public_spaces (
+      space_id           TEXT PRIMARY KEY,
+      name               TEXT NOT NULL,
+      beschreibung       TEXT DEFAULT '',
+      sprache            TEXT DEFAULT 'de',
+      tags               TEXT DEFAULT '[]',
+      mitgliederzahl     INTEGER DEFAULT 1,
+      gruender_id        TEXT NOT NULL,
+      erstellt_am        TEXT NOT NULL,
+      letzte_aktivitaet  TEXT NOT NULL,
+      oeffentlich        INTEGER DEFAULT 1,
+      inaktivitaets_regel TEXT DEFAULT 'delete'
+    )
+  `);
+  persistDb();
+}
+
+function persistDb() {
+  const data = db.export();
+  writeFileSync(DB_PATH, Buffer.from(data));
+}
+
+// Cronjob: täglich inaktive Spaces löschen (älter als 30 Tage)
+setInterval(() => {
+  if (!db) return;
+  const cutoff = new Date(Date.now() - INACTIVITY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  db.run(`DELETE FROM public_spaces WHERE letzte_aktivitaet < ?`, [cutoff]);
+  persistDb();
+}, 24 * 60 * 60 * 1000).unref(); // einmal täglich
 
 // ── In-Memory Stores ──────────────────────────────────────────────────────────
 const codes        = new Map(); // code → { payload, expires }
@@ -53,7 +104,7 @@ function generateCode() {
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
@@ -67,8 +118,17 @@ function storePending(roomId, raw) {
   inboxPending.set(roomId, items.slice(-20));
 }
 
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', c => { body += c; if (body.length > 8192) reject(new Error('too large')); });
+    req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
+
 // ── HTTP Server ──────────────────────────────────────────────────────────────
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   cors(res);
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
@@ -93,14 +153,140 @@ const server = createServer((req, res) => {
   }
 
   // GET /code/:code
-  const match = req.method === 'GET' && req.url?.match(/^\/code\/([A-Z2-9]{6})$/i);
-  if (match) {
-    const code = match[1].toUpperCase();
+  const codeMatch = req.method === 'GET' && req.url?.match(/^\/code\/([A-Z2-9]{6})$/i);
+  if (codeMatch) {
+    const code = codeMatch[1].toUpperCase();
     const entry = codes.get(code);
     if (!entry || entry.expires < Date.now()) { res.writeHead(404); res.end(); return; }
     codes.delete(code);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ payload: entry.payload }));
+    return;
+  }
+
+  // ── POST /spaces — Space registrieren / Heartbeat ──────────────────────��───
+  if (req.method === 'POST' && req.url === '/spaces') {
+    try {
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+      const { space_id, name, beschreibung, sprache, tags, mitgliederzahl, gruender_id, inaktivitaets_regel } = data;
+
+      if (!space_id || !name || !gruender_id) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'space_id, name, gruender_id erforderlich' }));
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const tagsJson = JSON.stringify(Array.isArray(tags) ? tags.slice(0, 10) : []);
+      const regel = inaktivitaets_regel === 'transfer' ? 'transfer' : 'delete';
+
+      // UPSERT: wenn Space existiert → aktualisieren (Heartbeat), sonst → neu anlegen
+      db.run(`
+        INSERT INTO public_spaces (space_id, name, beschreibung, sprache, tags, mitgliederzahl, gruender_id, erstellt_am, letzte_aktivitaet, oeffentlich, inaktivitaets_regel)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+        ON CONFLICT(space_id) DO UPDATE SET
+          name = excluded.name,
+          beschreibung = excluded.beschreibung,
+          sprache = excluded.sprache,
+          tags = excluded.tags,
+          mitgliederzahl = excluded.mitgliederzahl,
+          letzte_aktivitaet = excluded.letzte_aktivitaet,
+          inaktivitaets_regel = excluded.inaktivitaets_regel
+      `, [space_id, name.slice(0, 100), (beschreibung ?? '').slice(0, 500), sprache ?? 'de', tagsJson, mitgliederzahl ?? 1, gruender_id, now, now, regel]);
+      persistDb();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── GET /spaces — Öffentliche Spaces abrufen ───────────────────────────────
+  if (req.method === 'GET' && req.url?.startsWith('/spaces')) {
+    try {
+      const url = new URL(req.url, `http://localhost:${PORT}`);
+      const sprache = url.searchParams.get('sprache');
+      const sort = url.searchParams.get('sort') ?? 'name';
+      const tag = url.searchParams.get('tag');
+      const search = url.searchParams.get('q');
+
+      let query = 'SELECT * FROM public_spaces WHERE oeffentlich = 1';
+      const params = [];
+
+      if (sprache) {
+        query += ' AND sprache = ?';
+        params.push(sprache);
+      }
+      if (tag) {
+        query += ' AND tags LIKE ?';
+        params.push(`%${tag}%`);
+      }
+      if (search) {
+        query += ' AND (name LIKE ? OR beschreibung LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`);
+      }
+
+      switch (sort) {
+        case 'mitglieder': query += ' ORDER BY mitgliederzahl DESC'; break;
+        case 'neueste':    query += ' ORDER BY erstellt_am DESC'; break;
+        case 'aktivitaet': query += ' ORDER BY letzte_aktivitaet DESC'; break;
+        default:           query += ' ORDER BY name COLLATE NOCASE ASC'; break;
+      }
+
+      query += ' LIMIT 200';
+
+      const stmt = db.prepare(query);
+      if (params.length) stmt.bind(params);
+
+      const spaces = [];
+      while (stmt.step()) {
+        const row = stmt.getAsObject();
+        spaces.push({
+          ...row,
+          tags: JSON.parse(row.tags || '[]'),
+          oeffentlich: !!row.oeffentlich,
+        });
+      }
+      stmt.free();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ spaces }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── DELETE /spaces/:id — Space aus öffentlicher Liste entfernen ─────────────
+  const deleteMatch = req.method === 'DELETE' && req.url?.match(/^\/spaces\/(.+)$/);
+  if (deleteMatch) {
+    try {
+      const body = await readBody(req);
+      const { gruender_id } = JSON.parse(body);
+      const spaceId = decodeURIComponent(deleteMatch[1]);
+
+      // Nur der Gründer darf seinen Space entfernen
+      const existing = db.exec(`SELECT gruender_id FROM public_spaces WHERE space_id = ?`, [spaceId]);
+      if (!existing.length || !existing[0].values.length) {
+        res.writeHead(404); res.end(); return;
+      }
+      if (existing[0].values[0][0] !== gruender_id) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Nur der Gründer darf den Eintrag entfernen' }));
+        return;
+      }
+
+      db.run(`DELETE FROM public_spaces WHERE space_id = ?`, [spaceId]);
+      persistDb();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
     return;
   }
 
@@ -262,6 +448,8 @@ wss.on('connection', (ws) => {
   ws.on('error', () => ws.terminate());
 });
 
+// ── Server starten ───────────────────────────────────────────────────────────
+await initDb();
 server.listen(PORT, () => {
-  console.log(`[Arego Signaling v4] Port ${PORT} — Presence aktiv, kein Logging, kein Speichern`);
+  console.log(`[Arego Signaling v5] Port ${PORT} — Presence + Public Spaces Directory`);
 });
