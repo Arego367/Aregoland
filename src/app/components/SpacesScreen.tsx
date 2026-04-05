@@ -477,6 +477,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [inviteCodeLoading, setInviteCodeLoading] = useState(false);
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
   const [settingsInviteOpen, setSettingsInviteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState<Record<string, boolean>>({});
+  const toggleSection = (key: string) => setSettingsOpen(prev => ({ ...prev, [key]: !prev[key] }));
 
   const getInviteTtlMs = () => {
     if (inviteTtlId === "custom") {
@@ -3311,90 +3313,117 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
             {activeTab === "settings" && (() => {
               const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
               const canManageSettings = myRole === "founder" || myRole === "admin";
-              return (
-                <div className="space-y-4">
-                  {/* Erscheinungsbild — nur Admin/Founder */}
-                  {canManageSettings && (() => {
-                    const app = loadAppearance(selectedSpace.id);
-                    return (
-                      <div className="space-y-3">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.appearance')}</h3>
-                        <div className="flex gap-3">
-                          {/* Icon ändern */}
-                          <div className="shrink-0 space-y-1.5">
-                            <label className="text-[10px] text-gray-500 px-0.5">{t('spaces.icon')}</label>
-                            <button onClick={() => setShowIconPicker(!showIconPicker)}
-                              className="w-16 h-16 rounded-xl border-2 border-gray-700/50 hover:border-gray-500 flex items-center justify-center transition-all overflow-hidden bg-white/10">
-                              {app.icon?.type === "image" ? <img src={app.icon.value} className="w-full h-full object-cover" /> :
-                               app.icon?.type === "emoji" ? <span className="text-2xl">{app.icon.value}</span> :
-                               <span className="text-xl font-bold text-white">{(selectedSpace.name[0] ?? "").toUpperCase()}</span>}
-                            </button>
-                          </div>
-                          {/* Banner Farbe ändern */}
-                          <div className="flex-1 space-y-1.5">
-                            <label className="text-[10px] text-gray-500 px-0.5">{t('spaces.banner')}</label>
-                            <button onClick={() => setShowBannerPicker(!showBannerPicker)}
-                              className={`w-full h-16 rounded-xl border-2 border-gray-700/50 hover:border-gray-500 overflow-hidden transition-all bg-gradient-to-br ${selectedSpace.color}`}>
-                              <div className="w-full h-full flex items-center justify-center text-white/40 hover:text-white/70 transition-colors">
-                                <Edit2 size={16} />
-                              </div>
-                            </button>
-                          </div>
-                        </div>
-                        <input type="file" ref={iconFileRef} className="hidden" accept="image/*" onChange={e => {
-                          const file = e.target.files?.[0]; if (!file) return; e.target.value = "";
-                          const reader = new FileReader(); reader.onload = () => {
-                            saveAppearance(selectedSpace.id, { ...app, icon: { type: "image", value: reader.result as string } });
-                            updateSpace({ ...selectedSpace }); setShowIconPicker(false);
-                          }; reader.readAsDataURL(file);
-                        }} />
-                        {/* Icon Picker */}
-                        <AnimatePresence>
-                          {showIconPicker && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 space-y-2">
-                                <div className="flex flex-wrap gap-2">
-                                  {EMOJI_QUICK.map(em => (
-                                    <button key={em} onClick={() => {
-                                      saveAppearance(selectedSpace.id, { ...app, icon: { type: "emoji", value: em } });
-                                      updateSpace({ ...selectedSpace }); setShowIconPicker(false);
-                                    }} className="w-10 h-10 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-xl transition-colors">{em}</button>
-                                  ))}
-                                </div>
-                                <button onClick={() => iconFileRef.current?.click()} className="w-full py-2 text-xs text-gray-400 hover:text-white bg-gray-800 rounded-lg transition-colors">
-                                  {t('spaces.uploadIcon')}
-                                </button>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                        {/* Banner Color Picker */}
-                        <AnimatePresence>
-                          {showBannerPicker && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
-                                <div className="flex flex-wrap gap-2">
-                                  {BANNER_PRESETS.map(g => (
-                                    <button key={g} onClick={() => {
-                                      saveAppearance(selectedSpace.id, { ...app, banner: { type: "color", value: g } });
-                                      updateSpace({ ...selectedSpace, color: g }); setShowBannerPicker(false);
-                                    }} className={`w-10 h-10 rounded-lg bg-gradient-to-br ${g} border-2 ${selectedSpace.color === g ? "border-white" : "border-transparent"} hover:border-gray-400 transition-all`} />
-                                  ))}
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })()}
 
-                  {/* Tags bearbeiten — nur Admin/Founder */}
-                  {canManageSettings && (
+              // Einheitliche aufklappbare Sektion
+              const Section = ({ id, icon, title, children, visible = true }: { id: string; icon: React.ReactNode; title: string; children: React.ReactNode; visible?: boolean }) => {
+                if (!visible) return null;
+                const isOpen = settingsOpen[id] ?? false;
+                return (
+                  <div className="border border-gray-700/50 rounded-2xl overflow-hidden">
+                    <button
+                      onClick={() => toggleSection(id)}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-800/50 transition-colors"
+                    >
+                      <div className="text-gray-400">{icon}</div>
+                      <span className="text-sm font-semibold text-white flex-1 text-left">{title}</span>
+                      <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    <AnimatePresence>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="px-4 pb-4 pt-1 space-y-3">{children}</div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              };
+
+              return (
+                <div className="space-y-2">
+
+                  {/* ── Erscheinungsbild ── */}
+                  <Section id="appearance" icon={<Edit2 size={16} />} title={t('spaces.appearance')} visible={canManageSettings}>
+                    {(() => {
+                      const app = loadAppearance(selectedSpace.id);
+                      return (
+                        <>
+                          <div className="flex gap-3">
+                            <div className="shrink-0 space-y-1.5">
+                              <label className="text-[10px] text-gray-500 px-0.5">{t('spaces.icon')}</label>
+                              <button onClick={() => setShowIconPicker(!showIconPicker)}
+                                className="w-16 h-16 rounded-xl border-2 border-gray-700/50 hover:border-gray-500 flex items-center justify-center transition-all overflow-hidden bg-white/10">
+                                {app.icon?.type === "image" ? <img src={app.icon.value} className="w-full h-full object-cover" /> :
+                                 app.icon?.type === "emoji" ? <span className="text-2xl">{app.icon.value}</span> :
+                                 <span className="text-xl font-bold text-white">{(selectedSpace.name[0] ?? "").toUpperCase()}</span>}
+                              </button>
+                            </div>
+                            <div className="flex-1 space-y-1.5">
+                              <label className="text-[10px] text-gray-500 px-0.5">{t('spaces.banner')}</label>
+                              <button onClick={() => setShowBannerPicker(!showBannerPicker)}
+                                className={`w-full h-16 rounded-xl border-2 border-gray-700/50 hover:border-gray-500 overflow-hidden transition-all bg-gradient-to-br ${selectedSpace.color}`}>
+                                <div className="w-full h-full flex items-center justify-center text-white/40 hover:text-white/70 transition-colors">
+                                  <Edit2 size={16} />
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                          <input type="file" ref={iconFileRef} className="hidden" accept="image/*" onChange={e => {
+                            const file = e.target.files?.[0]; if (!file) return; e.target.value = "";
+                            const reader = new FileReader(); reader.onload = () => {
+                              saveAppearance(selectedSpace.id, { ...app, icon: { type: "image", value: reader.result as string } });
+                              updateSpace({ ...selectedSpace }); setShowIconPicker(false);
+                            }; reader.readAsDataURL(file);
+                          }} />
+                          <AnimatePresence>
+                            {showIconPicker && (
+                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                                <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 space-y-2">
+                                  <div className="flex flex-wrap gap-2">
+                                    {EMOJI_QUICK.map(em => (
+                                      <button key={em} onClick={() => {
+                                        saveAppearance(selectedSpace.id, { ...app, icon: { type: "emoji", value: em } });
+                                        updateSpace({ ...selectedSpace }); setShowIconPicker(false);
+                                      }} className="w-10 h-10 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-xl transition-colors">{em}</button>
+                                    ))}
+                                  </div>
+                                  <button onClick={() => iconFileRef.current?.click()} className="w-full py-2 text-xs text-gray-400 hover:text-white bg-gray-800 rounded-lg transition-colors">
+                                    {t('spaces.uploadIcon')}
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                          <AnimatePresence>
+                            {showBannerPicker && (
+                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                                <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                                  <div className="flex flex-wrap gap-2">
+                                    {BANNER_PRESETS.map(g => (
+                                      <button key={g} onClick={() => {
+                                        saveAppearance(selectedSpace.id, { ...app, banner: { type: "color", value: g } });
+                                        updateSpace({ ...selectedSpace, color: g }); setShowBannerPicker(false);
+                                      }} className={`w-10 h-10 rounded-lg bg-gradient-to-br ${g} border-2 ${selectedSpace.color === g ? "border-white" : "border-transparent"} hover:border-gray-400 transition-all`} />
+                                    ))}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </>
+                      );
+                    })()}
+                  </Section>
+
+                  {/* ── Tags ── */}
+                  <Section id="tags" icon={<Tag size={16} />} title={t('spaces.tags')} visible={canManageSettings}>
                     <div className="space-y-2">
-                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1 flex items-center gap-1.5">
-                        <Tag size={11} /> {t('spaces.tags')}
-                      </h3>
                       <div className="flex flex-wrap gap-1.5 items-center">
                         {(selectedSpace.tags ?? []).map(tag => (
                           <span key={tag} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50">
@@ -3461,14 +3490,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         )}
                       </AnimatePresence>
                     </div>
-                  )}
+                  </Section>
 
-                  {/* Sichtbarkeit — nur Admin/Founder */}
-                  {canManageSettings && (
-                    <div className="space-y-2">
-                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1 flex items-center gap-1.5">
-                        <Eye size={11} /> Sichtbarkeit
-                      </h3>
+                  {/* ── Sichtbarkeit ── */}
+                  <Section id="visibility" icon={<Eye size={16} />} title="Sichtbarkeit" visible={canManageSettings}>
                       <div className="flex gap-2">
                         {([
                           { id: "public" as const, label: "Öffentlich", icon: <Globe size={14} />, desc: "In der Suche sichtbar" },
@@ -3544,23 +3569,21 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           </div>
                         </div>
                       )}
-                    </div>
-                  )}
+                  </Section>
 
-                  {/* Einladung — nur Admin/Founder */}
+                  {/* ── Einladung ── */}
                   {canManageSettings && (
-                    <div className="space-y-3">
+                    <div className="border border-gray-700/50 rounded-2xl overflow-hidden">
                       <button
                         onClick={() => {
                           if (!settingsInviteOpen) handleOpenInvite();
                           else setSettingsInviteOpen(false);
                         }}
-                        className="w-full flex items-center justify-between"
+                        className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-800/50 transition-colors"
                       >
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1 flex items-center gap-1.5">
-                          <UserPlus size={11} /> Einladung
-                        </h3>
-                        <ChevronDown size={14} className={`text-gray-500 transition-transform ${settingsInviteOpen ? "rotate-180" : ""}`} />
+                        <div className="text-gray-400"><UserPlus size={16} /></div>
+                        <span className="text-sm font-semibold text-white flex-1 text-left">Einladung</span>
+                        <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${settingsInviteOpen ? "rotate-180" : ""}`} />
                       </button>
 
                       <AnimatePresence>
@@ -3709,12 +3732,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     </div>
                   )}
 
-                  {/* Chats verwalten — nur Admin/Founder */}
-                  {canManageSettings && (
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.manageChats')}</h3>
-
-                      {/* Create Channel button */}
+                  {/* ── Chats verwalten ── */}
+                  <Section id="chats" icon={<MessageCircle size={16} />} title={t('spaces.manageChats')} visible={canManageSettings}>
+                    {/* Create Channel button */}
                       {!showCreateChannel && (
                         <button onClick={() => setShowCreateChannel(true)}
                           className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
@@ -3834,15 +3854,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           ))}
                         </div>
                       )}
-                    </div>
-                  )}
+                  </Section>
 
-                  {/* Rollen & Rechte — nur Admin/Founder */}
-                  {canManageSettings && (
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.rolesAndPermissions')}</h3>
-
-                      {/* Founder & Admin — immer voller Zugriff, ausgegraut */}
+                  {/* ── Rollen & Rechte ── */}
+                  <Section id="roles" icon={<Shield size={16} />} title={t('spaces.rolesAndPermissions')} visible={canManageSettings}>
+                    {/* Founder & Admin — immer voller Zugriff, ausgegraut */}
                       <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3 opacity-60 cursor-not-allowed">
                         <div className="flex items-center gap-2 mb-2">
                           <Crown size={14} className="text-yellow-400" />
@@ -4012,14 +4028,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         </div>
                         <p className="text-[10px] text-gray-600 px-0.5 leading-relaxed">{t('spaces.guestRoleHint')}</p>
                       </div>
-                    </div>
-                  )}
+                  </Section>
 
-                  {/* Gründer-Rechte übertragen — nur Founder */}
-                  {myRole === "founder" && (
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">{t('spaces.transferFounder')}</h3>
-                      <div className="bg-gray-800/50 rounded-xl border border-yellow-900/30 p-4 space-y-3">
+                  {/* ── Gründer-Rechte übertragen ── */}
+                  <Section id="transfer" icon={<Crown size={16} />} title={t('spaces.transferFounder')} visible={myRole === "founder"}>
+                    <div className="bg-gray-800/50 rounded-xl border border-yellow-900/30 p-4 space-y-3">
                         <p className="text-xs text-gray-400 leading-relaxed">{t('spaces.transferFounderDesc')}</p>
                         <select
                           value={transferToMember ?? ""}
@@ -4041,10 +4054,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           </button>
                         )}
                       </div>
-                    </div>
-                  )}
+                  </Section>
 
-                  {/* Delete Space — mehrstufig */}
+                  {/* ── Space löschen — mehrstufig ── */}
                   {deleteStep === 0 && (
                     <button
                       onClick={() => setDeleteStep(1)}
