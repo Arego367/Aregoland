@@ -401,7 +401,7 @@ export default function App() {
   const [showBetaWelcome, setShowBetaWelcome] = useState(false);
   const dismissBetaWelcome = useCallback(() => {
     setShowBetaWelcome(false);
-    localStorage.setItem('aregoland_beta_welcome_seen', 'true');
+    sessionStorage.setItem('aregoland_beta_welcome_seen', 'true');
   }, []);
 
   // Dark Mode beim Start anwenden
@@ -431,7 +431,7 @@ export default function App() {
 
   // Beta-Willkommens-Toast nach Login anzeigen (einmalig)
   useEffect(() => {
-    if (identity && localStorage.getItem('aregoland_beta_welcome_seen') !== 'true') {
+    if (identity && sessionStorage.getItem('aregoland_beta_welcome_seen') !== 'true') {
       setShowBetaWelcome(true);
     }
   }, [identity]);
@@ -922,7 +922,7 @@ export default function App() {
               <p className="text-sm text-gray-300 leading-relaxed mb-4">
                 Arego ist noch in der Entwicklung — und du kannst mitgestalten.
                 Schick uns dein Feedback an <span className="text-amber-400 font-medium">hallo@aregoland.de</span>.
-                Dank KI bekommt jede Nachricht eine persoenliche Antwort.
+                Dank KI bekommt jede Nachricht eine persoenliche Antwort (noch nicht implementiert).
               </p>
               <button
                 onClick={dismissBetaWelcome}
