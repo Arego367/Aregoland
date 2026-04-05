@@ -81,6 +81,16 @@ async function initDb() {
       UNIQUE(user_id, space_id)
     )
   `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS user_directory (
+      arego_id          TEXT PRIMARY KEY,
+      display_name      TEXT DEFAULT '',
+      first_name        TEXT DEFAULT '',
+      last_name         TEXT DEFAULT '',
+      nickname          TEXT DEFAULT '',
+      updated_at        TEXT NOT NULL
+    )
+  `);
   persistDb();
 }
 
@@ -89,11 +99,13 @@ function persistDb() {
   writeFileSync(DB_PATH, Buffer.from(data));
 }
 
-// Cronjob: täglich inaktive Spaces löschen (älter als 30 Tage)
+// Cronjob: täglich inaktive Spaces löschen (älter als 30 Tage) + abgelaufene Directory-Einträge (3 Tage)
 setInterval(() => {
   if (!db) return;
-  const cutoff = new Date(Date.now() - INACTIVITY_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  db.run(`DELETE FROM public_spaces WHERE letzte_aktivitaet < ?`, [cutoff]);
+  const spaceCutoff = new Date(Date.now() - INACTIVITY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  db.run(`DELETE FROM public_spaces WHERE letzte_aktivitaet < ?`, [spaceCutoff]);
+  const directoryCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  db.run(`DELETE FROM user_directory WHERE updated_at < ?`, [directoryCutoff]);
   persistDb();
 }, 24 * 60 * 60 * 1000).unref(); // einmal täglich
 
@@ -458,6 +470,56 @@ const server = createServer(async (req, res) => {
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, delivered }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /directory — Nutzer im Verzeichnis registrieren / Heartbeat ────────
+  if (req.method === 'POST' && req.url === '/directory') {
+    try {
+      const body = await readBody(req);
+      const { aregoId, displayName, firstName, lastName, nickname } = JSON.parse(body);
+      if (!aregoId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'aregoId erforderlich' }));
+        return;
+      }
+      db.run(
+        `INSERT INTO user_directory (arego_id, display_name, first_name, last_name, nickname, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(arego_id) DO UPDATE SET
+           display_name = excluded.display_name,
+           first_name = excluded.first_name,
+           last_name = excluded.last_name,
+           nickname = excluded.nickname,
+           updated_at = excluded.updated_at`,
+        [aregoId, displayName ?? '', firstName ?? '', lastName ?? '', nickname ?? '', new Date().toISOString()]
+      );
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── DELETE /directory — Nutzer aus dem Verzeichnis entfernen ────────────────
+  if (req.method === 'DELETE' && req.url === '/directory') {
+    try {
+      const body = await readBody(req);
+      const { aregoId } = JSON.parse(body);
+      if (!aregoId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'aregoId erforderlich' }));
+        return;
+      }
+      db.run(`DELETE FROM user_directory WHERE arego_id = ?`, [aregoId]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
     } catch {
       res.writeHead(400); res.end();
     }

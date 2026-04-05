@@ -54,15 +54,37 @@ function loadTabs(): { id: string; label: string }[] {
 
 async function directoryRegister(aregoId: string, displayName: string): Promise<boolean> {
   try {
-    const res = await fetch("/directory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aregoId, displayName }) });
+    const profile = JSON.parse(localStorage.getItem("arego_profile") ?? "{}");
+    const res = await fetch("/directory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aregoId,
+        displayName,
+        firstName: profile.firstName ?? "",
+        lastName: profile.lastName ?? "",
+        nickname: profile.nickname ?? "",
+      }),
+    });
+    if (res.ok) localStorage.setItem("aregoland_directory_last_heartbeat", new Date().toISOString());
     return res.ok;
   } catch { return false; }
 }
 async function directoryRemove(aregoId: string): Promise<boolean> {
   try {
     const res = await fetch("/directory", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aregoId }) });
+    if (res.ok) localStorage.removeItem("aregoland_directory_last_heartbeat");
     return res.ok;
   } catch { return false; }
+}
+function maybeDirectoryHeartbeat(aregoId: string, displayName: string) {
+  if (localStorage.getItem("aregoland_discoverable") !== "true") return;
+  const last = localStorage.getItem("aregoland_directory_last_heartbeat");
+  if (last) {
+    const diff = Date.now() - new Date(last).getTime();
+    if (diff < 2 * 24 * 60 * 60 * 1000) return; // weniger als 2 Tage
+  }
+  directoryRegister(aregoId, displayName).catch(() => {});
 }
 
 interface SettingsScreenProps {
@@ -189,6 +211,11 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
   }, []);
   const { t, i18n } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
+
+  // Stiller Heartbeat für Directory (alle 2 Tage)
+  useEffect(() => {
+    if (identity) maybeDirectoryHeartbeat(identity.aregoId, identity.displayName);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleNotif = (key: keyof NotifSettings) => {
     const next = { ...notif, [key]: !notif[key] };

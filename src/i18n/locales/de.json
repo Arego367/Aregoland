@@ -314,7 +314,7 @@
     "yourAregoId": "Deine Arego-ID",
     "discoverability": "Auffindbarkeit",
     "publiclyDiscoverable": "\u00d6ffentlich auffindbar",
-    "discoverableDesc": "Andere k\u00f6nnen dich \u00fcber deinen Namen suchen und finden",
+    "discoverableDesc": "Wenn aktiviert, k\u00f6nnen andere Nutzer dich \u00fcber deine Arego-ID, Namen oder Spitznamen finden. Folgende Daten werden \u00fcbermittelt: Arego-ID, Vorname, Nachname, Spitzname (nur wenn angegeben). Daten werden nach 3 Tagen Inaktivit\u00e4t automatisch entfernt.",
     "dataStorage": "Datenspeicher",
     "totalStorage": "Gesamt",
     "storageChats": "Chats & Nachrichten",
