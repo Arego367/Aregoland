@@ -7,10 +7,11 @@ import {
   Info, Check, X, GripVertical, UserPlus, Crown, Eye, ChevronDown,
   Pin, ThumbsUp, MessageSquare, Megaphone, Newspaper, Send, Lock, Layers,
   Paperclip, Mic, Play, Pause, Download, AtSign, Image as ImageIcon, FileText, Square,
-  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff
+  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff, Camera, RotateCcw
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
+import { Html5Qrcode } from "html5-qrcode";
 import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, maybeHeartbeat, type PublicSpace } from "@/app/lib/spaces-api";
 import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
@@ -536,6 +537,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
   // Scan invite
   const [scanInput, setScanInput] = useState("");
+  const inviteScannerRef = useRef<Html5Qrcode | null>(null);
+  const inviteScanContainerRef = useRef<HTMLDivElement>(null);
+  const [inviteScanning, setInviteScanning] = useState(false);
+  const [inviteScanError, setInviteScanError] = useState("");
+  const [inviteJoined, setInviteJoined] = useState(false);
 
   // Roadmap collapsible state
   const [openRoadmap, setOpenRoadmap] = useState<Record<string, boolean>>({ done: false, wip: true, planned: false });
@@ -574,19 +580,17 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     if (view === "discover") loadDiscoverSpaces();
   }, [view, loadDiscoverSpaces]);
 
-  const handleScanInvite = () => {
-    if (!scanInput.trim()) return;
+  const processInvitePayload = useCallback((encoded: string): boolean => {
     try {
-      const json = new TextDecoder().decode(Uint8Array.from(atob(scanInput.trim()), c => c.charCodeAt(0)));
+      const json = new TextDecoder().decode(Uint8Array.from(atob(encoded.trim()), c => c.charCodeAt(0)));
       const payload = JSON.parse(json);
-      if (payload.type !== "space-invite") return;
-      if (payload.exp && payload.exp < Date.now()) return;
-      // Space beitreten
+      if (payload.type !== "space-invite") return false;
+      if (payload.exp && payload.exp < Date.now()) { setInviteScanError("Einladung abgelaufen"); return false; }
       const existing = spaces.find(s => s.id === payload.spaceId);
       if (existing) {
         setSelectedSpace(existing);
         setView("detail");
-        return;
+        return true;
       }
       const tmpl = getTemplate(payload.template ?? "custom");
       const newSpace: Space = {
@@ -619,8 +623,75 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       setSelectedSpace(newSpace);
       setView("detail");
       setActiveTab("overview");
-    } catch { /* invalid */ }
+      setInviteJoined(true);
+      return true;
+    } catch { return false; }
+  }, [spaces, identity]);
+
+  const handleScanInvite = () => {
+    if (!scanInput.trim()) return;
+    if (!processInvitePayload(scanInput)) {
+      setInviteScanError("Ungültiger Einladungscode");
+    }
   };
+
+  const startInviteScanner = useCallback(async () => {
+    if (inviteScannerRef.current) return;
+    setInviteScanError("");
+    setInviteJoined(false);
+    try {
+      const cameras = await Promise.race([
+        Html5Qrcode.getCameras(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
+      ]);
+      if (!cameras || cameras.length === 0) {
+        setInviteScanError("Keine Kamera gefunden");
+        return;
+      }
+      const scanner = new Html5Qrcode("invite-scan-region");
+      inviteScannerRef.current = scanner;
+      await Promise.race([
+        scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          (decoded) => {
+            scanner.stop().catch(() => {});
+            inviteScannerRef.current = null;
+            setInviteScanning(false);
+            if (!processInvitePayload(decoded)) {
+              setInviteScanError("Kein gültiger Space-Einladungscode");
+            }
+          },
+          () => {}
+        ),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000)),
+      ]);
+      setInviteScanning(true);
+    } catch {
+      if (inviteScannerRef.current) {
+        inviteScannerRef.current.stop().catch(() => {});
+        inviteScannerRef.current = null;
+      }
+      setInviteScanError("Kamera konnte nicht gestartet werden");
+    }
+  }, [processInvitePayload]);
+
+  const stopInviteScanner = useCallback(() => {
+    inviteScannerRef.current?.stop().catch(() => {});
+    inviteScannerRef.current = null;
+    setInviteScanning(false);
+  }, []);
+
+  // Scanner starten/stoppen wenn View wechselt
+  useEffect(() => {
+    if (view === "scanInvite") {
+      setScanInput("");
+      setInviteScanError("");
+      setInviteJoined(false);
+      startInviteScanner();
+    }
+    return () => { if (view === "scanInvite") stopInviteScanner(); };
+  }, [view]);
 
   const handleSelectTemplate = (templateId: SpaceTemplate) => {
     setSelectedTemplate(templateId);
@@ -1694,50 +1765,62 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     );
   }
 
-  // ── SCAN INVITE — Einladung annehmen ──
+  // ── SCAN INVITE — Einladung annehmen (Kamera + Code-Eingabe) ──
   if (view === "scanInvite") {
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
-        {renderHeader("Einladung annehmen", () => setView("newMenu"))}
+        {renderHeader("Einladung annehmen", () => { stopInviteScanner(); setView("newMenu"); })}
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-5 max-w-lg mx-auto">
+          <div className="space-y-4 max-w-lg mx-auto">
 
-            {/* QR Scanner Button */}
-            <button
-              onClick={onOpenQRCode}
-              className="w-full flex items-center gap-4 p-5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-2xl transition-all text-left"
-            >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shrink-0">
-                <QrCode size={22} className="text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-sm">QR-Code scannen</div>
-                <div className="text-xs text-gray-500 mt-0.5">Scanne den QR-Code einer Space-Einladung</div>
-              </div>
-              <ChevronRight size={18} className="text-gray-600 shrink-0" />
-            </button>
+            {/* Kamera-Scanner */}
+            <div className="relative rounded-2xl overflow-hidden bg-black border border-gray-700/50">
+              <div
+                id="invite-scan-region"
+                ref={inviteScanContainerRef}
+                className="w-full aspect-square max-h-72"
+              />
+              {!inviteScanning && !inviteScanError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80">
+                  <Camera size={32} className="text-gray-500 mb-2" />
+                  <p className="text-xs text-gray-500">Kamera wird gestartet…</p>
+                </div>
+              )}
+              {inviteScanError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/90 gap-3">
+                  <p className="text-sm text-red-400 text-center px-4">{inviteScanError}</p>
+                  <button
+                    onClick={() => { setInviteScanError(""); startInviteScanner(); }}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-800 rounded-xl text-xs text-gray-300 hover:bg-gray-700 transition-colors"
+                  >
+                    <RotateCcw size={14} /> Nochmal versuchen
+                  </button>
+                </div>
+              )}
+            </div>
 
-            {/* Manuell Code eingeben */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-gray-700/50" />
-                <span className="text-xs text-gray-600">oder Code eingeben</span>
-                <div className="flex-1 h-px bg-gray-700/50" />
-              </div>
-              <textarea
+            {/* Trennlinie */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-gray-700/50" />
+              <span className="text-xs text-gray-600">oder Code eingeben</span>
+              <div className="flex-1 h-px bg-gray-700/50" />
+            </div>
+
+            {/* Code-Eingabe */}
+            <div className="flex gap-2">
+              <input
+                type="text"
                 value={scanInput}
-                onChange={e => setScanInput(e.target.value)}
-                placeholder="Einladungscode hier einfügen…"
-                rows={3}
-                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all resize-none"
+                onChange={e => { setScanInput(e.target.value); setInviteScanError(""); }}
+                placeholder="Einladungscode einfügen…"
+                className="flex-1 bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
               />
               <button
                 onClick={handleScanInvite}
                 disabled={!scanInput.trim()}
-                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+                className="px-5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center"
               >
                 <Check size={18} />
-                Einladung annehmen
               </button>
             </div>
           </div>
