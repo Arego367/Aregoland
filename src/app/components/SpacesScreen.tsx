@@ -2972,7 +2972,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           )}
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
             <h1 className={`font-bold ${activeTab === "overview" ? "text-2xl" : "text-lg ml-10"}`}>
-              {activeTab === "overview" ? selectedSpace.name : t(`spaces.tab_${activeTab}`)}
+              {activeTab === "overview" ? selectedSpace.name : activeTab === "members" ? `${selectedSpace.members.length} ${t('spaces.members')}` : t(`spaces.tab_${activeTab}`)}
             </h1>
           </div>
         </div>
@@ -3686,9 +3686,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
               return (
                 <>
-                  {/* Mitglieder-Anzahl */}
-                  <p className="text-xs text-gray-500 mb-2">{selectedSpace.members.length} {t('spaces.members')}</p>
-
                   {/* Beitrittsanfragen — nur Gründer/Admin */}
                   {canManage && spaceJoinRequests.length > 0 && (
                     <div className="space-y-2 mb-3">
