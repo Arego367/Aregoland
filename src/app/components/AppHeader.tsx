@@ -36,9 +36,9 @@ export default function AppHeader({ title, onBack, onOpenProfile, onOpenQRCode, 
       {/* Center: Primary action */}
       {action && (
         <button onClick={action.onClick}
-          className="flex items-center gap-1.5 sm:px-3 sm:py-2 p-2.5 bg-blue-600 hover:bg-blue-500 text-white sm:rounded-xl rounded-full transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center mx-2 shrink-0">
+          className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl max-[480px]:rounded-full max-[480px]:p-2.5 transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center mx-2 shrink-0">
           <action.icon size={18} />
-          <span className="hidden sm:inline">{action.label}</span>
+          <span className="max-[480px]:hidden">{action.label}</span>
         </button>
       )}
 
