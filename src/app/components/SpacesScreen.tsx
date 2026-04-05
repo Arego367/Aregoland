@@ -4678,7 +4678,14 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                   <Edit2 size={13} />
                                 </button>
                                 <button onClick={() => {
-                                  const updated = { ...selectedSpace, customRoles: (selectedSpace.customRoles ?? []).filter(r => r.id !== cr.id) };
+                                  // Rolle löschen + betroffene Mitglieder auf "member" zurücksetzen
+                                  const updated = {
+                                    ...selectedSpace,
+                                    customRoles: (selectedSpace.customRoles ?? []).filter(r => r.id !== cr.id),
+                                    members: selectedSpace.members.map(m =>
+                                      m.role === (cr.name as SpaceRole) ? { ...m, role: "member" as SpaceRole } : m
+                                    ),
+                                  };
                                   saveSettings(updated);
                                 }} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
                                   <Trash2 size={13} />
