@@ -3416,6 +3416,20 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                               </motion.div>
                             )}
                           </AnimatePresence>
+                          {/* Beschreibung */}
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-gray-500 px-0.5">Beschreibung</label>
+                            <textarea
+                              defaultValue={selectedSpace.description}
+                              onBlur={e => {
+                                const val = e.target.value.trim();
+                                if (val !== selectedSpace.description) updateSpace({ ...selectedSpace, description: val });
+                              }}
+                              placeholder="Worum geht es in diesem Space?"
+                              rows={3}
+                              className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all resize-none"
+                            />
+                          </div>
                         </>
                       );
                     })()}
