@@ -3222,10 +3222,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-xs font-bold text-white">
-                                {(post.authorName[0] ?? "").toUpperCase()}
+                                {((() => { const m = selectedSpace.members.find(mm => mm.aregoId === post.authorId); return m ? memberDisplayName(m, selectedSpace.identityRule) : post.authorName; })()[0] ?? "?").toUpperCase()}
                               </div>
                               <div>
-                                <div className="text-sm font-medium">{post.authorName}</div>
+                                <div className="text-sm font-medium">{(() => { const m = selectedSpace.members.find(mm => mm.aregoId === post.authorId); return m ? memberDisplayName(m, selectedSpace.identityRule) : post.authorName; })()}</div>
                                 <div className="text-xs text-gray-500">{t(`spaces.role_${post.authorRole}`)} · {new Date(post.createdAt).toLocaleDateString()}</div>
                               </div>
                             </div>
@@ -3357,7 +3357,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                             <div className={`max-w-[75%] ${isMe ? "order-2" : ""}`}>
                               {!isMe && (
-                                <span className="text-[10px] text-gray-500 font-medium ml-1 mb-0.5 block">{msg.authorName}</span>
+                                <span className="text-[10px] text-gray-500 font-medium ml-1 mb-0.5 block">{(() => { const m = selectedSpace.members.find(mm => mm.aregoId === msg.authorId); return m ? memberDisplayName(m, selectedSpace.identityRule) : msg.authorName; })()}</span>
                               )}
                               <div className={`rounded-2xl overflow-hidden ${
                                 isMe ? "bg-blue-600 text-white rounded-br-md" : "bg-gray-800 text-gray-200 rounded-bl-md"
@@ -4390,25 +4390,32 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
                   {/* ── Anzeigename ── */}
                   <Section id="displayname" icon={<User size={16} />} title={t('spaces.displayNameRule')} visible={canSeeSection("visibility")}>
+                    {(() => {
+                      const isNicknameOnly = selectedSpace.identityRule === "nickname_only";
+                      return (
+                        <>
                     <div className="flex gap-2">
-                      {([
-                        { id: "real_name" as IdentityRule, label: t('spaces.realNameAllowed') },
-                        { id: "nickname_only" as IdentityRule, label: t('spaces.nicknameOnlyRequired') },
-                      ]).map(opt => (
-                        <button key={opt.id}
-                          onClick={() => saveSettings({ ...selectedSpace, identityRule: opt.id })}
-                          className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
-                            selectedSpace.identityRule === opt.id
-                              ? "bg-blue-600/20 text-blue-400 border-blue-500/50"
-                              : "bg-gray-800/50 text-gray-500 border-gray-700/50 hover:bg-gray-800"
-                          }`}>
-                          {opt.label}
-                        </button>
-                      ))}
+                      <button
+                        onClick={() => saveSettings({ ...selectedSpace, identityRule: "real_name" })}
+                        className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
+                          !isNicknameOnly ? "bg-blue-600/20 text-blue-400 border-blue-500/50" : "bg-gray-800/50 text-gray-500 border-gray-700/50 hover:bg-gray-800"
+                        }`}>
+                        {t('spaces.realNameAllowed')}
+                      </button>
+                      <button
+                        onClick={() => saveSettings({ ...selectedSpace, identityRule: "nickname_only" })}
+                        className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
+                          isNicknameOnly ? "bg-blue-600/20 text-blue-400 border-blue-500/50" : "bg-gray-800/50 text-gray-500 border-gray-700/50 hover:bg-gray-800"
+                        }`}>
+                        {t('spaces.nicknameOnlyRequired')}
+                      </button>
                     </div>
-                    {selectedSpace.identityRule === "nickname_only" && (
+                    {isNicknameOnly && (
                       <p className="text-[10px] text-amber-400/80 leading-relaxed">{t('spaces.nicknameOnlyHint')}</p>
                     )}
+                        </>
+                      );
+                    })()}
                   </Section>
 
                   {/* ── Einladung ── */}
