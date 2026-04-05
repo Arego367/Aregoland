@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, HelpCircle, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ExternalLink, Mail, ChevronDown, ChevronUp, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
@@ -111,6 +111,45 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
   const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "family" | "notifications" | "help">("main");
   const [selectedLang, setSelectedLang] = useState(() => LANGUAGES.find(l => l.code === localStorage.getItem('aregoland_language')) || LANGUAGES.find(l => l.code === 'de')!);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
+  const langLastKey = useRef("");
+  const langLastIndex = useRef(-1);
+
+  useEffect(() => {
+    if (langDropdownOpen) {
+      langLastKey.current = "";
+      langLastIndex.current = -1;
+      setTimeout(() => langDropdownRef.current?.focus(), 50);
+    }
+  }, [langDropdownOpen]);
+
+  const handleLangKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+    const key = e.key.toLowerCase();
+    const matches = LANGUAGES.map((lang, i) => ({ lang, i })).filter(({ lang }) =>
+      lang.name.toLowerCase().startsWith(key)
+    );
+    if (matches.length === 0) return;
+    e.preventDefault();
+
+    let targetIndex: number;
+    if (key === langLastKey.current) {
+      const currentPos = matches.findIndex(m => m.i === langLastIndex.current);
+      const next = currentPos === -1 ? 0 : (currentPos + 1) % matches.length;
+      targetIndex = matches[next].i;
+    } else {
+      targetIndex = matches[0].i;
+    }
+    langLastKey.current = key;
+    langLastIndex.current = targetIndex;
+
+    const container = langDropdownRef.current;
+    if (container) {
+      const buttons = container.querySelectorAll("button");
+      buttons[targetIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  }, []);
+
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('aregoland_dark_mode') !== 'false');
   const [startScreen, setStartScreen] = useState("dashboard");
   const [profileVisibility, setProfileVisibility] = useState<"public" | "contacts" | "family" | "private">("contacts");
@@ -446,7 +485,10 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute z-50 mt-2 w-full max-h-64 overflow-y-auto bg-gray-800 rounded-2xl border border-gray-700/50 shadow-xl"
+                      ref={langDropdownRef}
+                      tabIndex={0}
+                      onKeyDown={handleLangKeyDown}
+                      className="absolute z-50 mt-2 w-full max-h-64 overflow-y-auto bg-gray-800 rounded-2xl border border-gray-700/50 shadow-xl outline-none"
                     >
                       {LANGUAGES.map((lang) => (
                         <button
