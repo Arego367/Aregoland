@@ -399,12 +399,13 @@ interface SpacesScreenProps {
   onOpenProfile: () => void;
   onOpenQRCode: () => void;
   onOpenSettings: () => void;
+  onOpenSupport?: () => void;
   onShowToast?: (text: string, type?: 'info' | 'warning') => void;
   deepLink?: { spaceId: string; tab?: string } | null;
   onDeepLinkConsumed?: () => void;
 }
 
-export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onShowToast, deepLink, onDeepLinkConsumed }: SpacesScreenProps) {
+export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, onShowToast, deepLink, onDeepLinkConsumed }: SpacesScreenProps) {
   const { t } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
   const [spaces, setSpaces] = useState<Space[]>(() => {
@@ -1525,6 +1526,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       onOpenProfile={onOpenProfile}
       onOpenQRCode={onOpenQRCode}
       onOpenSettings={onOpenSettings}
+      onOpenSupport={onOpenSupport}
       action={action}
     />
   );
@@ -1546,6 +1548,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           onOpenProfile={onOpenProfile}
           onOpenQRCode={onOpenQRCode}
           onOpenSettings={onOpenSettings}
+          onOpenSupport={onOpenSupport}
           action={{ icon: Plus, label: t('spaces.newSpace'), onClick: () => setView("newMenu") }}
           rightExtra={spaces.length > 0 ? (
             <div className="flex items-center gap-1">

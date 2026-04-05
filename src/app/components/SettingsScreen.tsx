@@ -68,7 +68,6 @@ async function directoryRemove(aregoId: string): Promise<boolean> {
 interface SettingsScreenProps {
   onBack: () => void;
   onResetAccount?: () => void;
-  onOpenSupport?: () => void;
 }
 
 const LANGUAGES = [
@@ -108,7 +107,7 @@ const FSK_LEVELS = [
   { value: 18 as const, label: "FSK 18", color: "text-gray-500", bg: "bg-gray-700/50", enabled: false },
 ];
 
-export default function SettingsScreen({ onBack, onResetAccount, onOpenSupport }: SettingsScreenProps) {
+export default function SettingsScreen({ onBack, onResetAccount }: SettingsScreenProps) {
   const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "family" | "notifications" | "help">("main");
   const [selectedLang, setSelectedLang] = useState(() => LANGUAGES.find(l => l.code === localStorage.getItem('aregoland_language')) || LANGUAGES.find(l => l.code === 'de')!);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
@@ -349,23 +348,6 @@ export default function SettingsScreen({ onBack, onResetAccount, onOpenSupport }
                  <ChevronRight size={20} className="text-gray-500" />
                </button>
             </div>
-
-            {/* Support-Chat */}
-            {onOpenSupport && (
-              <button
-                onClick={onOpenSupport}
-                className="w-full bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 rounded-2xl p-4 flex items-center gap-3 transition-colors"
-              >
-                <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
-                  <MessageCircle size={20} />
-                </div>
-                <div className="text-left flex-1">
-                  <span className="font-medium text-blue-400">Support</span>
-                  <p className="text-xs text-gray-500 mt-0.5">Fragen, Probleme oder Ideen melden</p>
-                </div>
-                <ChevronRight size={20} className="text-blue-400/50" />
-              </button>
-            )}
 
             {/* Konto zurücksetzen */}
             <AlertDialog.Root>

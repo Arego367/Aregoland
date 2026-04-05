@@ -691,6 +691,11 @@ export default function App() {
     setCurrentScreen(screen);
   };
 
+  const openSupport = useCallback(() => {
+    setSpaceDeepLink({ spaceId: '__aregoland_official__', tab: 'support' });
+    setCurrentScreen('spaces');
+  }, []);
+
   // ── Chat öffnen ────────────────────────────────────────────────────────────
 
   const openChat = (chatId: string, data: { id: string; name: string; avatarUrl: string; isGroup: boolean; roomId: string }) => {
@@ -877,6 +882,7 @@ export default function App() {
           onOpenProfile={() => navigateTo("profile")}
           onOpenQRCode={() => navigateTo("qrcode")}
           onOpenSettings={() => navigateTo("settings")}
+          onOpenSupport={openSupport}
           onBack={() => setCurrentScreen("dashboard")}
           tabs={tabs}
           onUpdateTabs={setTabs}
@@ -935,10 +941,6 @@ export default function App() {
             setIdentity(null);
             setCurrentScreen("welcome");
           }}
-          onOpenSupport={() => {
-            setSpaceDeepLink({ spaceId: '__aregoland_official__', tab: 'support' });
-            setCurrentScreen('spaces');
-          }}
         />
       )}
       {currentScreen === "people" && (
@@ -947,6 +949,7 @@ export default function App() {
           onOpenProfile={() => navigateTo("profile")}
           onOpenQRCode={() => navigateTo("qrcode")}
           onOpenSettings={() => navigateTo("settings")}
+          onOpenSupport={openSupport}
           onOpenChildProfile={() => setCurrentScreen("childProfile")}
           tabs={tabs} onUpdateTabs={setTabs} identity={identity} onStartChat={handleStartChat}
           onStartCall={(contact, type) => { handleStartChat(contact); /* Chat öffnen, dann Anruf starten via setTimeout */ setTimeout(() => { const evt = new CustomEvent('arego-start-call', { detail: { type } }); window.dispatchEvent(evt); }, 300); }}
@@ -955,8 +958,8 @@ export default function App() {
         />
       )}
       {currentScreen === "childProfile" && <ChildProfileScreen onBack={() => setCurrentScreen("people")} />}
-      {currentScreen === "calendar" && <CalendarScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} />}
-      {currentScreen === "spaces" && <SpacesScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} onShowToast={(text, type) => setToast({ text, type: type ?? 'info' })} deepLink={spaceDeepLink} onDeepLinkConsumed={() => setSpaceDeepLink(null)} />}
+      {currentScreen === "calendar" && <CalendarScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} onOpenSupport={openSupport} />}
+      {currentScreen === "spaces" && <SpacesScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} onOpenSupport={openSupport} onShowToast={(text, type) => setToast({ text, type: type ?? 'info' })} deepLink={spaceDeepLink} onDeepLinkConsumed={() => setSpaceDeepLink(null)} />}
       {currentScreen === "connect" && <ConnectScreen onBack={() => setCurrentScreen("dashboard")} />}
       {currentScreen === "documents" && <DocumentsScreen onBack={() => setCurrentScreen("dashboard")} />}
 

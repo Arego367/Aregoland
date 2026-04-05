@@ -140,9 +140,10 @@ interface CalendarScreenProps {
   onOpenProfile: () => void;
   onOpenQRCode: () => void;
   onOpenSettings: () => void;
+  onOpenSupport?: () => void;
 }
 
-export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings }: CalendarScreenProps) {
+export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport }: CalendarScreenProps) {
   const { t } = useTranslation();
   const [events, setEvents] = useState<CalendarEvent[]>(loadEvents);
   const [view, setView] = useState<View>("month");
@@ -225,6 +226,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         onOpenProfile={onOpenProfile}
         onOpenQRCode={onOpenQRCode}
         onOpenSettings={onOpenSettings}
+        onOpenSupport={onOpenSupport}
         action={{ icon: CalendarPlus, label: t('calendar.newEvent'), onClick: () => { setEditingEvent(null); setShowForm(true); } }}
         rightExtra={<>
           <button onClick={() => { setCalSearchOpen(!calSearchOpen); if (!calSearchOpen) { setCalSearchQuery(""); setTimeout(() => calSearchRef.current?.focus(), 100); } }}

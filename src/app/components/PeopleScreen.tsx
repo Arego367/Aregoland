@@ -26,6 +26,7 @@ interface PeopleScreenProps {
   onOpenProfile: () => void;
   onOpenQRCode: () => void;
   onOpenSettings: () => void;
+  onOpenSupport?: () => void;
   onOpenChildProfile: () => void;
   tabs: Tab[];
   onUpdateTabs: (tabs: Tab[]) => void;
@@ -37,7 +38,7 @@ interface PeopleScreenProps {
   onRemoveContact?: (contactId: string) => void;
 }
 
-export default function PeopleScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, tabs, onUpdateTabs, identity, onStartChat, onStartCall, onlineContacts, contactsVersion, onRemoveContact }: PeopleScreenProps) {
+export default function PeopleScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, tabs, onUpdateTabs, identity, onStartChat, onStartCall, onlineContacts, contactsVersion, onRemoveContact }: PeopleScreenProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -108,6 +109,7 @@ export default function PeopleScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         onOpenProfile={onOpenProfile}
         onOpenQRCode={onOpenQRCode}
         onOpenSettings={onOpenSettings}
+        onOpenSupport={onOpenSupport}
         action={{ icon: UserPlus, label: t('people.newContact'), onClick: () => setIsAddContactOpen(true) }}
         rightExtra={
           <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">

@@ -16,6 +16,7 @@ interface ChatListScreenProps {
   onOpenProfile: () => void;
   onOpenQRCode: () => void;
   onOpenSettings: () => void;
+  onOpenSupport?: () => void;
   onBack: () => void;
   tabs: Tab[];
   onUpdateTabs: (tabs: Tab[]) => void;
@@ -26,7 +27,7 @@ interface ChatListScreenProps {
   chatListVersion?: number;
 }
 
-export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSettings, onBack, tabs, onUpdateTabs, onChatSelect, onNewChat, onlineContacts, chatListVersion }: ChatListScreenProps) {
+export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, onBack, tabs, onUpdateTabs, onChatSelect, onNewChat, onlineContacts, chatListVersion }: ChatListScreenProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -103,6 +104,7 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
         onOpenProfile={onOpenProfile}
         onOpenQRCode={onOpenQRCode}
         onOpenSettings={onOpenSettings}
+        onOpenSupport={onOpenSupport}
         action={{ icon: MessageSquarePlus, label: t('chatList.newChat'), onClick: () => { setContactSearch(""); setShowNewChatSheet(true); } }}
         rightExtra={
           <button onClick={() => { setChatSearchOpen(!chatSearchOpen); if (!chatSearchOpen) { setChatSearchQuery(""); setTimeout(() => chatSearchRef.current?.focus(), 100); } }}

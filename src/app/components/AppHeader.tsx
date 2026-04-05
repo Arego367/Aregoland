@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, User, QrCode, Settings } from "lucide-react";
+import { ArrowLeft, User, QrCode, Settings, MessageCircle } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import ProfileAvatar from "./ProfileAvatar";
 
@@ -9,6 +9,7 @@ interface AppHeaderProps {
   onOpenProfile: () => void;
   onOpenQRCode: () => void;
   onOpenSettings: () => void;
+  onOpenSupport?: () => void;
   /** Primary action button in the center */
   action?: {
     icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -19,7 +20,7 @@ interface AppHeaderProps {
   rightExtra?: React.ReactNode;
 }
 
-export default function AppHeader({ title, onBack, onOpenProfile, onOpenQRCode, onOpenSettings, action, rightExtra }: AppHeaderProps) {
+export default function AppHeader({ title, onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, action, rightExtra }: AppHeaderProps) {
   const { t } = useTranslation();
 
   return (
@@ -85,6 +86,16 @@ export default function AppHeader({ title, onBack, onOpenProfile, onOpenQRCode, 
                 <Settings size={18} />
                 <span className="font-medium">{t("common.settings")}</span>
               </DropdownMenu.Item>
+
+              {onOpenSupport && (
+                <DropdownMenu.Item
+                  onClick={onOpenSupport}
+                  className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
+                >
+                  <MessageCircle size={18} />
+                  <span className="font-medium">Support</span>
+                </DropdownMenu.Item>
+              )}
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
