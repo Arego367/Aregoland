@@ -382,7 +382,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     const all = [AREGOLAND_OFFICIAL_SPACE, ...userSpaces];
     return applyOrder(all);
   });
-  const [view, setView] = useState<"list" | "templates" | "create" | "detail" | "invite">("list");
+  const [view, setView] = useState<"list" | "newMenu" | "templates" | "create" | "detail" | "invite" | "discover" | "scanInvite">("list");
   const [selectedTemplate, setSelectedTemplate] = useState<SpaceTemplate | null>(null);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
 
@@ -526,6 +526,17 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [commentText, setCommentText] = useState<Record<string, string>>({});
 
+  // Discover — öffentliche Space-Suche
+  const [discoverSpaces, setDiscoverSpaces] = useState<PublicSpace[]>([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverSort, setDiscoverSort] = useState<"name" | "mitglieder" | "neueste" | "aktivitaet">("name");
+  const [discoverLang, setDiscoverLang] = useState<string>(localStorage.getItem('aregoland_language') ?? 'de');
+  const [discoverSearch, setDiscoverSearch] = useState("");
+  const [discoverTag, setDiscoverTag] = useState<string | null>(null);
+
+  // Scan invite
+  const [scanInput, setScanInput] = useState("");
+
   // Roadmap collapsible state
   const [openRoadmap, setOpenRoadmap] = useState<Record<string, boolean>>({ done: false, wip: true, planned: false });
   const toggleRoadmap = (key: string) => setOpenRoadmap(prev => ({ ...prev, [key]: !prev[key] }));
@@ -546,6 +557,70 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       inaktivitaets_regel: selectedSpace.inaktivitaets_regel ?? 'delete',
     });
   }, [selectedSpace?.id, selectedSpace?.visibility]);
+
+  const loadDiscoverSpaces = useCallback(async () => {
+    setDiscoverLoading(true);
+    const results = await searchPublicSpaces({
+      sprache: discoverLang || undefined,
+      sort: discoverSort,
+      tag: discoverTag ?? undefined,
+      q: discoverSearch.trim() || undefined,
+    });
+    setDiscoverSpaces(results);
+    setDiscoverLoading(false);
+  }, [discoverSort, discoverLang, discoverSearch, discoverTag]);
+
+  useEffect(() => {
+    if (view === "discover") loadDiscoverSpaces();
+  }, [view, loadDiscoverSpaces]);
+
+  const handleScanInvite = () => {
+    if (!scanInput.trim()) return;
+    try {
+      const json = new TextDecoder().decode(Uint8Array.from(atob(scanInput.trim()), c => c.charCodeAt(0)));
+      const payload = JSON.parse(json);
+      if (payload.type !== "space-invite") return;
+      if (payload.exp && payload.exp < Date.now()) return;
+      // Space beitreten
+      const existing = spaces.find(s => s.id === payload.spaceId);
+      if (existing) {
+        setSelectedSpace(existing);
+        setView("detail");
+        return;
+      }
+      const tmpl = getTemplate(payload.template ?? "custom");
+      const newSpace: Space = {
+        id: payload.spaceId,
+        name: payload.spaceName,
+        description: "",
+        template: payload.template ?? "custom",
+        color: tmpl.gradient,
+        identityRule: tmpl.defaultIdentityRule,
+        founderId: "",
+        members: identity ? [{
+          aregoId: identity.aregoId,
+          displayName: identity.displayName,
+          role: payload.role ?? "member",
+          joinedAt: new Date().toISOString(),
+        }] : [],
+        posts: [],
+        channels: [],
+        subrooms: [],
+        customRoles: [],
+        tags: [],
+        guestPermissions: { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
+        createdAt: new Date().toISOString(),
+        visibility: "private",
+        settings: { ...tmpl.defaultSettings },
+      };
+      const updated = [...spaces, newSpace];
+      setSpaces(updated);
+      saveSpaces(updated);
+      setSelectedSpace(newSpace);
+      setView("detail");
+      setActiveTab("overview");
+    } catch { /* invalid */ }
+  };
 
   const handleSelectTemplate = (templateId: SpaceTemplate) => {
     setSelectedTemplate(templateId);
@@ -1251,7 +1326,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           onOpenProfile={onOpenProfile}
           onOpenQRCode={onOpenQRCode}
           onOpenSettings={onOpenSettings}
-          action={{ icon: Plus, label: t('spaces.newSpace'), onClick: () => setView("templates") }}
+          action={{ icon: Plus, label: t('spaces.newSpace'), onClick: () => setView("newMenu") }}
           rightExtra={spaces.length > 0 ? (
             <div className="flex items-center gap-1">
               <div className="relative">
@@ -1410,14 +1485,275 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     );
   }
 
+  // ── NEW SPACE MENU (3 Optionen) ──
+  if (view === "newMenu") {
+    return (
+      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+        {renderHeader(t('spaces.newSpace'), () => setView("list"))}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-3 max-w-lg mx-auto">
+            {/* Space erstellen */}
+            <button
+              onClick={() => setView("templates")}
+              className="w-full flex items-center gap-4 p-5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-2xl transition-all text-left"
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shrink-0">
+                <Plus size={22} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm">Space erstellen</div>
+                <div className="text-xs text-gray-500 mt-0.5">Wähle eine Vorlage oder erstelle einen benutzerdefinierten Space</div>
+              </div>
+              <ChevronRight size={18} className="text-gray-600 shrink-0" />
+            </button>
+
+            {/* Spaces entdecken */}
+            <button
+              onClick={() => setView("discover")}
+              className="w-full flex items-center gap-4 p-5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-2xl transition-all text-left"
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-fuchsia-500 flex items-center justify-center shrink-0">
+                <Search size={22} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm">Spaces entdecken</div>
+                <div className="text-xs text-gray-500 mt-0.5">Öffentliche Spaces durchsuchen und beitreten</div>
+              </div>
+              <ChevronRight size={18} className="text-gray-600 shrink-0" />
+            </button>
+
+            {/* Einladung annehmen */}
+            <button
+              onClick={() => setView("scanInvite")}
+              className="w-full flex items-center gap-4 p-5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-2xl transition-all text-left"
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shrink-0">
+                <QrCode size={22} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm">Einladung annehmen</div>
+                <div className="text-xs text-gray-500 mt-0.5">QR-Code scannen oder Einladungscode eingeben</div>
+              </div>
+              <ChevronRight size={18} className="text-gray-600 shrink-0" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── DISCOVER — Öffentliche Spaces ──
+  if (view === "discover") {
+    return (
+      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+        {renderHeader("Spaces entdecken", () => setView("newMenu"))}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-4 max-w-lg mx-auto">
+
+            {/* Suchfeld */}
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                value={discoverSearch}
+                onChange={e => setDiscoverSearch(e.target.value)}
+                placeholder="Space suchen…"
+                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            {/* Filter-Leiste */}
+            <div className="flex gap-2 flex-wrap">
+              {/* Sprache */}
+              <select
+                value={discoverLang}
+                onChange={e => setDiscoverLang(e.target.value)}
+                className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
+              >
+                <option value="">Alle Sprachen</option>
+                <option value="de">Deutsch</option>
+                <option value="en">English</option>
+                <option value="lt">Lietuvių</option>
+                <option value="fr">Français</option>
+                <option value="es">Español</option>
+                <option value="it">Italiano</option>
+                <option value="pl">Polski</option>
+                <option value="nl">Nederlands</option>
+                <option value="pt">Português</option>
+                <option value="ru">Русский</option>
+                <option value="uk">Українська</option>
+              </select>
+
+              {/* Sortierung */}
+              <select
+                value={discoverSort}
+                onChange={e => setDiscoverSort(e.target.value as typeof discoverSort)}
+                className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
+              >
+                <option value="name">A–Z</option>
+                <option value="mitglieder">Mitglieder</option>
+                <option value="neueste">Neueste</option>
+                <option value="aktivitaet">Aktivität</option>
+              </select>
+
+              {/* Tag-Filter */}
+              <select
+                value={discoverTag ?? ""}
+                onChange={e => setDiscoverTag(e.target.value || null)}
+                className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
+              >
+                <option value="">Alle Tags</option>
+                {SPACE_TAGS.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+              </select>
+            </div>
+
+            {/* Ergebnisse */}
+            {discoverLoading ? (
+              <div className="text-center py-12 text-gray-500 text-sm">Lade…</div>
+            ) : discoverSpaces.length === 0 ? (
+              <div className="text-center py-12">
+                <Globe size={32} className="mx-auto text-gray-700 mb-3" />
+                <p className="text-sm text-gray-500">Keine öffentlichen Spaces gefunden</p>
+                <p className="text-xs text-gray-600 mt-1">Versuche andere Filter oder erstelle selbst einen Space</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {discoverSpaces.map(ps => {
+                  const alreadyJoined = spaces.some(s => s.id === ps.space_id);
+                  return (
+                    <div key={ps.space_id}
+                      className="flex items-center gap-3 p-4 bg-gray-800/50 border border-gray-700/50 rounded-2xl"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-fuchsia-500 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-white">{ps.name[0]?.toUpperCase()}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm truncate">{ps.name}</div>
+                        {ps.beschreibung && <div className="text-[11px] text-gray-500 truncate">{ps.beschreibung}</div>}
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] text-gray-600">{ps.mitgliederzahl} Mitglieder</span>
+                          {ps.tags.length > 0 && (
+                            <span className="text-[10px] text-gray-600">• {ps.tags.slice(0, 2).join(", ")}</span>
+                          )}
+                        </div>
+                      </div>
+                      {alreadyJoined ? (
+                        <span className="text-[10px] text-green-400 font-bold px-2 py-1 bg-green-500/10 rounded-lg">Beigetreten</span>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            // Öffentlichen Space beitreten
+                            const tmpl = getTemplate("community");
+                            const newSpace: Space = {
+                              id: ps.space_id,
+                              name: ps.name,
+                              description: ps.beschreibung,
+                              template: "community",
+                              color: tmpl.gradient,
+                              identityRule: tmpl.defaultIdentityRule,
+                              founderId: ps.gruender_id,
+                              members: identity ? [{
+                                aregoId: identity.aregoId,
+                                displayName: identity.displayName,
+                                role: "member",
+                                joinedAt: new Date().toISOString(),
+                              }] : [],
+                              posts: [],
+                              channels: [],
+                              subrooms: [],
+                              customRoles: [],
+                              tags: ps.tags,
+                              guestPermissions: { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
+                              createdAt: ps.erstellt_am,
+                              visibility: "public",
+                              settings: { ...tmpl.defaultSettings },
+                            };
+                            const updated = [...spaces, newSpace];
+                            setSpaces(updated);
+                            saveSpaces(updated);
+                            setSelectedSpace(newSpace);
+                            setView("detail");
+                            setActiveTab("overview");
+                          }}
+                          className="text-xs font-bold text-blue-400 px-3 py-1.5 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-colors"
+                        >
+                          Beitreten
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── SCAN INVITE — Einladung annehmen ──
+  if (view === "scanInvite") {
+    return (
+      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+        {renderHeader("Einladung annehmen", () => setView("newMenu"))}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-5 max-w-lg mx-auto">
+
+            {/* QR Scanner Button */}
+            <button
+              onClick={onOpenQRCode}
+              className="w-full flex items-center gap-4 p-5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-2xl transition-all text-left"
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shrink-0">
+                <QrCode size={22} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm">QR-Code scannen</div>
+                <div className="text-xs text-gray-500 mt-0.5">Scanne den QR-Code einer Space-Einladung</div>
+              </div>
+              <ChevronRight size={18} className="text-gray-600 shrink-0" />
+            </button>
+
+            {/* Manuell Code eingeben */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-700/50" />
+                <span className="text-xs text-gray-600">oder Code eingeben</span>
+                <div className="flex-1 h-px bg-gray-700/50" />
+              </div>
+              <textarea
+                value={scanInput}
+                onChange={e => setScanInput(e.target.value)}
+                placeholder="Einladungscode hier einfügen…"
+                rows={3}
+                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all resize-none"
+              />
+              <button
+                onClick={handleScanInvite}
+                disabled={!scanInput.trim()}
+                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                <Check size={18} />
+                Einladung annehmen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── TEMPLATE SELECTION ──
   if (view === "templates") {
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
-        {renderHeader(t('spaces.chooseTemplate'), () => setView("list"))}
+        {renderHeader(t('spaces.chooseTemplate'), () => setView("newMenu"))}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-3">
-            {TEMPLATES.map((tmpl) => {
+            {[...TEMPLATES].sort((a, b) => a.id === "custom" ? -1 : b.id === "custom" ? 1 : 0).map((tmpl) => {
               return (
                 <button
                   key={tmpl.id}
