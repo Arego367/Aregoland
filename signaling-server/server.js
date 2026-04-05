@@ -352,7 +352,7 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/join-request/respond') {
     try {
       const body = await readBody(req);
-      const { user_id, space_id, gruender_id, action } = JSON.parse(body);
+      const { user_id, space_id, gruender_id, action, space_name, space_template } = JSON.parse(body);
       if (!user_id || !space_id || !gruender_id || !['approve', 'reject'].includes(action)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'user_id, space_id, gruender_id, action (approve|reject) erforderlich' }));
@@ -363,13 +363,23 @@ const server = createServer(async (req, res) => {
       db.run(`DELETE FROM join_requests WHERE user_id = ? AND space_id = ?`, [user_id, space_id]);
       persistDb();
 
-      // Nutzer benachrichtigen wenn online
+      // Nutzer benachrichtigen — online per WebSocket, offline per Inbox-Pufferung
+      const notify = JSON.stringify({
+        type: 'join_response', space_id, action,
+        space_name: space_name ?? '', space_template: space_template ?? 'community',
+        gruender_id,
+      });
       const userSockets = onlineUsers.get(user_id);
+      let delivered = false;
       if (userSockets) {
-        const notify = JSON.stringify({ type: 'join_response', space_id, action });
         for (const ws of userSockets) {
-          if (ws.readyState === 1) ws.send(notify);
+          if (ws.readyState === 1) { ws.send(notify); delivered = true; }
         }
+      }
+      // Offline → in Inbox puffern (24h TTL)
+      if (!delivered) {
+        const inboxRoom = `inbox:${user_id}`;
+        storePending(inboxRoom, notify);
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

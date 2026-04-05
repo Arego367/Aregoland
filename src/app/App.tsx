@@ -50,6 +50,7 @@ import {
   type ContactStatus,
 } from "@/app/lib/chats";
 import { P2PManager, type P2PStatus, type CallSignal } from "@/app/lib/p2p-manager";
+import { removePendingRequest } from "@/app/lib/spaces-api";
 import { Phone, PhoneOff, Video } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -485,10 +486,43 @@ export default function App() {
 
         // Beitrittsantwort empfangen (Antragsteller)
         if (msg.type === 'join_response' && typeof msg.space_id === 'string') {
+          const spaceName = msg.space_name || 'Space';
           if (msg.action === 'approve') {
-            setToast({ text: `Deine Anfrage für den Space wurde angenommen`, type: 'info' });
+            // Space lokal anlegen
+            try {
+              const SPACES_KEY = 'aregoland_spaces';
+              const existing: unknown[] = JSON.parse(localStorage.getItem(SPACES_KEY) ?? '[]');
+              if (!existing.some((s: any) => s.id === msg.space_id) && identity) {
+                const newSpace = {
+                  id: msg.space_id,
+                  name: spaceName,
+                  description: '',
+                  template: msg.space_template ?? 'community',
+                  color: 'from-purple-600 to-fuchsia-500',
+                  identityRule: 'nickname',
+                  founderId: msg.gruender_id ?? '',
+                  members: [{
+                    aregoId: identity.aregoId,
+                    displayName: identity.displayName,
+                    role: 'member',
+                    joinedAt: new Date().toISOString(),
+                  }],
+                  posts: [], channels: [], subrooms: [], customRoles: [],
+                  tags: [],
+                  guestPermissions: { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
+                  createdAt: new Date().toISOString(),
+                  visibility: 'public',
+                  settings: { membersVisible: true, coHostingAllowed: true, publicJoin: true, idVerification: false },
+                };
+                existing.push(newSpace);
+                localStorage.setItem(SPACES_KEY, JSON.stringify(existing));
+              }
+            } catch { /* ignore */ }
+            removePendingRequest(msg.space_id);
+            setToast({ text: `Deine Anfrage für „${spaceName}" wurde angenommen`, type: 'info' });
           } else {
-            setToast({ text: `Deine Anfrage für den Space wurde abgelehnt`, type: 'warning' });
+            removePendingRequest(msg.space_id);
+            setToast({ text: `Deine Anfrage für „${spaceName}" wurde abgelehnt`, type: 'warning' });
           }
           return;
         }

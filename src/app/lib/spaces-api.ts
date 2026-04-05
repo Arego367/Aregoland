@@ -179,6 +179,8 @@ export async function respondJoinRequest(data: {
   space_id: string;
   gruender_id: string;
   action: 'approve' | 'reject';
+  space_name?: string;
+  space_template?: string;
 }): Promise<boolean> {
   try {
     const res = await fetch(`${BASE}/join-request/respond`, {

@@ -3236,6 +3236,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                     space_id: req.space_id,
                                     gruender_id: identity.aregoId,
                                     action: 'approve',
+                                    space_name: selectedSpace.name,
+                                    space_template: selectedSpace.template,
                                   });
                                   if (ok) {
                                     // Mitglied hinzufügen
@@ -3261,6 +3263,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                     space_id: req.space_id,
                                     gruender_id: identity.aregoId,
                                     action: 'reject',
+                                    space_name: selectedSpace.name,
                                   });
                                   if (ok) {
                                     setJoinRequests(prev => prev.filter(r => r.id !== req.id));
