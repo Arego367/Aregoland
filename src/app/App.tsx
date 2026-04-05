@@ -529,7 +529,7 @@ export default function App() {
                 });
                 // Mitglied lokal hinzufügen
                 if (sp) {
-                  sp.members = [...(sp.members ?? []), { aregoId: reqUserId, displayName: reqUserName, role: 'member', joinedAt: new Date().toISOString() }];
+                  sp.members = [...(sp.members ?? []), { aregoId: reqUserId, displayName: reqUserName, role: 'guest', joinedAt: new Date().toISOString() }];
                   localStorage.setItem('aregoland_spaces', JSON.stringify(spaces));
                 }
               } catch { /* ignore */ }
@@ -560,7 +560,7 @@ export default function App() {
                 members.push({
                   aregoId: identity.aregoId,
                   displayName: identity.displayName,
-                  role: 'member',
+                  role: 'guest',
                   joinedAt: new Date().toISOString(),
                 });
                 const newSpace = {

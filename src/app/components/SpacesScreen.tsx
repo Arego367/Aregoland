@@ -28,7 +28,7 @@ const AREGOLAND_OFFICIAL_ID = "__aregoland_official__";
 // ── Types ──
 
 type SpaceTemplate = "family" | "school" | "club" | "work" | "government" | "community" | "custom";
-type SpaceRole = "founder" | "admin" | "member" | "guest";
+type SpaceRole = "founder" | "admin" | "guest";
 type IdentityRule = "real_name" | "nickname" | "nickname_only" | "mixed" | "role_based";
 
 interface SpaceMember {
@@ -158,7 +158,7 @@ function loadSpaces(): Space[] {
       posts: s.posts ?? [],
       channels: s.channels ?? [],
       subrooms: s.subrooms ?? [],
-      members: (s.members ?? []).map(m => ({ ...m, joinedAt: m.joinedAt ?? s.createdAt })),
+      members: (s.members ?? []).map(m => ({ ...m, joinedAt: m.joinedAt ?? s.createdAt, role: m.role === "member" ? "guest" : m.role })),
       guestPermissions: { readChats: (s as any).guestPermissions?.readChats ?? true },
       customRoles: (s.customRoles ?? []).map((cr: any) => ({
         ...cr,
@@ -226,7 +226,7 @@ function createGlobalChannel(spaceId: string): SpaceChannel {
     spaceId,
     name: "Global",
     isGlobal: true,
-    readRoles: ["founder", "admin", "member", "guest"],
+    readRoles: ["founder", "admin", "guest"],
     writeRoles: ["founder", "admin"],
     membersVisible: true,
     createdAt: new Date().toISOString(),
@@ -336,11 +336,10 @@ function createInvitePayload(space: Space, role: SpaceRole, ttlMs: number): stri
   return btoa(new TextEncoder().encode(json).reduce((s, b) => s + String.fromCharCode(b), ""));
 }
 
-const ROLE_ORDER: SpaceRole[] = ["founder", "admin", "member", "guest"];
+const ROLE_ORDER: SpaceRole[] = ["founder", "admin", "guest"];
 const ROLE_COLORS: Record<SpaceRole, { bg: string; text: string }> = {
   founder: { bg: "bg-yellow-500/20", text: "text-yellow-400" },
   admin: { bg: "bg-red-500/20", text: "text-red-400" },
-  member: { bg: "bg-gray-700/50", text: "text-gray-400" },
   guest: { bg: "bg-gray-800", text: "text-gray-500" },
 };
 
@@ -369,7 +368,6 @@ const INVITE_TTLS = [
 
 const INVITABLE_ROLES: { role: SpaceRole; descKey: string }[] = [
   { role: "admin", descKey: "roleDesc_admin" },
-  { role: "member", descKey: "roleDesc_member" },
   { role: "guest", descKey: "roleDesc_guest" },
 ];
 
@@ -529,7 +527,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [settingsCustomTag, setSettingsCustomTag] = useState("");
 
   // Invite
-  const [inviteRole, setInviteRole] = useState<SpaceRole>("member");
+  const [inviteRole, setInviteRole] = useState<SpaceRole>("guest");
   const [inviteTtlId, setInviteTtlId] = useState("24h");
   const [customTtlValue, setCustomTtlValue] = useState("14");
   const [customTtlUnit, setCustomTtlUnit] = useState<"hours" | "days">("days");
@@ -566,8 +564,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // Chats
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [channelName, setChannelName] = useState("");
-  const [channelWriteRoles, setChannelWriteRoles] = useState<Set<string>>(new Set(["member"]));
-  const [channelReadRoles, setChannelReadRoles] = useState<Set<string>>(new Set(["member"]));
+  const [channelWriteRoles, setChannelWriteRoles] = useState<Set<string>>(new Set(["guest"]));
+  const [channelReadRoles, setChannelReadRoles] = useState<Set<string>>(new Set(["guest"]));
   const [channelMembersVisible, setChannelMembersVisible] = useState(true);
   const [openChannel, setOpenChannel] = useState<SpaceChannel | null>(null);
   const [chatMessages, setChatMessages] = useState<SpaceChatMessage[]>([]);
@@ -802,7 +800,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         initialMembers.push({
           aregoId: identity.aregoId,
           displayName: identity.displayName,
-          role: payload.role ?? "member",
+          role: payload.role ?? "guest",
           joinedAt: new Date().toISOString(),
         });
       }
@@ -881,7 +879,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         initialMembers.push({ aregoId: data.founderId, displayName: data.founderName, role: "founder", joinedAt: new Date().toISOString() });
       }
       if (identity) {
-        initialMembers.push({ aregoId: identity.aregoId, displayName: identity.displayName, role: (data.role ?? "member") as SpaceRole, joinedAt: new Date().toISOString() });
+        initialMembers.push({ aregoId: identity.aregoId, displayName: identity.displayName, role: (data.role ?? "guest") as SpaceRole, joinedAt: new Date().toISOString() });
       }
       const newSpace: Space = {
         id: data.spaceId, name: data.spaceName ?? "Space", description: "", template: (data.template ?? "custom") as SpaceTemplate,
@@ -1081,7 +1079,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     setSelectedSpace(updated);
     // Gossip: Version inkrementieren + Probe broadcasten
     if (identity) {
-      const myRole = updated.members.find(m => m.aregoId === identity.aregoId)?.role ?? "member";
+      const myRole = updated.members.find(m => m.aregoId === identity.aregoId)?.role ?? "guest";
       const newMeta = SpaceVersionStore.increment(updated.id, identity.aregoId, myRole);
       if (metaWsRef.current?.readyState === WebSocket.OPEN) {
         metaWsRef.current.send(JSON.stringify({ type: "space-version-probe", spaceId: updated.id, ...newMeta, responderId: identity.aregoId }));
@@ -1104,7 +1102,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       id: `post-${Date.now().toString(36)}`,
       authorId: identity.aregoId,
       authorName: identity.displayName,
-      authorRole: (selectedSpace.members.find(m => m.aregoId === identity.aregoId)?.role ?? "member") as SpaceRole,
+      authorRole: (selectedSpace.members.find(m => m.aregoId === identity.aregoId)?.role ?? "guest") as SpaceRole,
       title: `Rolle geändert`,
       text: `${member.displayName} hat die Rolle „${roleName}" erhalten.`,
       badge: "announcement" as const,
@@ -1193,7 +1191,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const handleCreatePost = () => {
     if (!selectedSpace || !identity || !postTitle.trim()) return;
     if (postBadge === "event" && !postEventDate) return;
-    const myRole = selectedSpace.members.find(m => m.aregoId === identity.aregoId)?.role ?? "member";
+    const myRole = selectedSpace.members.find(m => m.aregoId === identity.aregoId)?.role ?? "guest";
     const post: SpacePost = {
       id: `post-${Date.now().toString(36)}`,
       authorId: identity.aregoId,
@@ -1458,7 +1456,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         // ── Version-Probe von anderem Peer ──
         if (data.type === "space-version-probe" && data.spaceId === spaceId && identity && data.responderId !== identity.aregoId) {
           const myMeta = SpaceVersionStore.get(spaceId);
-          const incomingMeta: SpaceVersionMeta = { version: data.version ?? 0, lastChangedBy: data.lastChangedBy ?? "", lastChangedRole: data.lastChangedRole ?? "member", lastChangedAt: data.lastChangedAt ?? "" };
+          const incomingMeta: SpaceVersionMeta = { version: data.version ?? 0, lastChangedBy: data.lastChangedBy ?? "", lastChangedRole: data.lastChangedRole ?? "guest", lastChangedAt: data.lastChangedAt ?? "" };
           // Wenn ich eine neuere Version habe → meinen Probe als Antwort senden
           if (myMeta.version > incomingMeta.version && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: "space-version-probe", spaceId, ...myMeta, responderId: identity.aregoId }));
@@ -1819,8 +1817,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       onShowToast?.("Änderung gespeichert", "info");
     }
     setChannelName("");
-    setChannelWriteRoles(new Set(["member"]));
-    setChannelReadRoles(new Set(["member"]));
+    setChannelWriteRoles(new Set(["guest"]));
+    setChannelReadRoles(new Set(["guest"]));
     setChannelMembersVisible(true);
     setShowCreateChannel(false);
     setEditingChannelId(null);
@@ -1879,8 +1877,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       spaceId: selectedSpace.id,
       name: "Allgemein",
       isGlobal: false,
-      readRoles: ["founder", "admin", "member", "guest"],
-      writeRoles: ["founder", "admin", "member"],
+      readRoles: ["founder", "admin", "guest"],
+      writeRoles: ["founder", "admin", "guest"],
       createdAt: new Date().toISOString(),
       unreadCount: 0,
     };
@@ -2994,7 +2992,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               const allTiles = tileOrder.length ? tileOrder : loadTileOrder(selectedSpace.id);
               if (!tileOrder.length) setTileOrder(allTiles);
 
-              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
+              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "guest";
               const isFounderOrAdmin = myRole === "founder" || myRole === "admin";
               const overviewCustomRole = (selectedSpace.customRoles ?? []).find(cr => cr.name === myRole);
               const canSeeAnySettings = isFounderOrAdmin || !!overviewCustomRole?.permissions.viewSettings;
@@ -3115,7 +3113,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
             {/* ── NEWS TAB ── */}
             {activeTab === "news" && (() => {
-              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
+              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "guest";
               const myCustomRole = (selectedSpace.customRoles ?? []).find(cr => cr.name === myRole);
               const canPost = myRole === "founder" || myRole === "admin" || !!myCustomRole?.permissions.postNews;
               const allPosts = selectedSpace.posts ?? [];
@@ -3731,7 +3729,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                     const newMember = {
                                       aregoId: req.user_id,
                                       displayName: req.user_name || req.user_id,
-                                      role: "member" as SpaceRole,
+                                      role: "guest" as SpaceRole,
                                       joinedAt: new Date().toISOString(),
                                     };
                                     const updatedSpace = { ...selectedSpace, members: [...selectedSpace.members, newMember] };
@@ -3886,7 +3884,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
             {/* ── PROFIL TAB ── */}
             {activeTab === "profile" && (() => {
               const myMember = selectedSpace.members.find(m => m.aregoId === identity?.aregoId);
-              const myRole = myMember?.role ?? "member";
+              const myRole = myMember?.role ?? "guest";
               // Founder and Admin can always be network helper
               const canBeNetworkHelper = myRole === "founder" || myRole === "admin";
               const relayKey = `arego_relay_${selectedSpace.id}`;
@@ -4114,7 +4112,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
             })()}
 
             {activeTab === "settings" && (() => {
-              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
+              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "guest";
               const myCustomRole = (selectedSpace.customRoles ?? []).find(cr => cr.name === myRole);
               const canManageSettings = myRole === "founder" || myRole === "admin" || !!myCustomRole?.permissions.viewSettings;
               // For custom roles: check if a specific section is visible
@@ -4758,7 +4756,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                               {(() => {
                                 // Build role list: built-in (member, guest) + all custom roles
                                 const allRoles: { id: string; label: string; color: string }[] = [
-                                  { id: "member", label: t('spaces.role_member'), color: ROLE_COLORS.member.text },
+                                  { id: "guest", label: t('spaces.role_guest'), color: ROLE_COLORS.guest.text },
                                   { id: "guest", label: t('spaces.role_guest'), color: ROLE_COLORS.guest.text },
                                   ...(selectedSpace.customRoles ?? []).map(cr => ({ id: cr.name, label: cr.name, color: cr.color })),
                                 ];
@@ -4896,12 +4894,12 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                   <Edit2 size={13} />
                                 </button>
                                 <button onClick={() => {
-                                  // Rolle löschen + betroffene Mitglieder auf "member" zurücksetzen
+                                  // Rolle löschen + betroffene Mitglieder auf "guest" zurücksetzen
                                   const updated = {
                                     ...selectedSpace,
                                     customRoles: (selectedSpace.customRoles ?? []).filter(r => r.id !== cr.id),
                                     members: selectedSpace.members.map(m =>
-                                      m.role === (cr.name as SpaceRole) ? { ...m, role: "member" as SpaceRole } : m
+                                      m.role === (cr.name as SpaceRole) ? { ...m, role: "guest" as SpaceRole } : m
                                     ),
                                   };
                                   saveSettings(updated);

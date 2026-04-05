@@ -10,8 +10,7 @@ export const BACKFILL_DELAY_MAX = 500;
 export const ROLE_PRIORITY: Record<string, number> = {
   founder: 3,
   admin: 2,
-  member: 1,
-  guest: 0,
+  guest: 1,
 };
 
 // ── SpaceVersionMeta ──
