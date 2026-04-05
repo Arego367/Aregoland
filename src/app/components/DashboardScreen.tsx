@@ -9,6 +9,7 @@ interface DashboardScreenProps {
   onOpenProfile: () => void;
   onOpenQRCode: () => void;
   onOpenSettings: () => void;
+  onOpenSupport?: () => void;
   chatUnreadCount?: number;
 }
 
@@ -24,7 +25,7 @@ function loadAvatar(): { avatarBase64: string | null; initials: string } {
   } catch { return { avatarBase64: null, initials: "" }; }
 }
 
-export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCode, onOpenSettings, chatUnreadCount = 0 }: DashboardScreenProps) {
+export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, chatUnreadCount = 0 }: DashboardScreenProps) {
   const [avatar, setAvatar] = useState(loadAvatar);
   const [worldToast, setWorldToast] = useState(false);
 
@@ -144,13 +145,23 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
                 <span className="font-medium">{t('common.qrCode')}</span>
               </DropdownMenu.Item>
 
-              <DropdownMenu.Item 
+              <DropdownMenu.Item
                 onClick={onOpenSettings}
                 className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
               >
                 <Settings size={18} />
                 <span className="font-medium">{t('common.settings')}</span>
               </DropdownMenu.Item>
+
+              {onOpenSupport && (
+                <DropdownMenu.Item
+                  onClick={onOpenSupport}
+                  className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
+                >
+                  <MessageCircle size={18} />
+                  <span className="font-medium">Support</span>
+                </DropdownMenu.Item>
+              )}
 
             </DropdownMenu.Content>
           </DropdownMenu.Portal>

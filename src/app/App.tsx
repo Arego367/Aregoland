@@ -874,6 +874,7 @@ export default function App() {
           onOpenProfile={() => navigateTo("profile")}
           onOpenQRCode={() => navigateTo("qrcode")}
           onOpenSettings={() => navigateTo("settings")}
+          onOpenSupport={openSupport}
         />
       )}
 
