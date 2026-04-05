@@ -1205,6 +1205,26 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     saveSpaces(updated);
     setView("list");
     setSelectedSpace(null);
+    // Zugehörige Daten bereinigen
+    try {
+      // Appearance
+      const allApp = JSON.parse(localStorage.getItem("aregoland_space_appearance") ?? "{}");
+      delete allApp[id];
+      localStorage.setItem("aregoland_space_appearance", JSON.stringify(allApp));
+      // Chat-Messages
+      const allChats: Record<string, unknown> = JSON.parse(localStorage.getItem("aregoland_space_chats") ?? "{}");
+      for (const key of Object.keys(allChats)) { if (key.includes(id)) delete allChats[key]; }
+      localStorage.setItem("aregoland_space_chats", JSON.stringify(allChats));
+      // Tile-Order
+      localStorage.removeItem(`aregoland_space_tiles_${id}`);
+      // Version
+      const allVer = JSON.parse(localStorage.getItem("aregoland_space_versions") ?? "{}");
+      delete allVer[id];
+      localStorage.setItem("aregoland_space_versions", JSON.stringify(allVer));
+      // Blocklist: verhindert dass Gossip-Sync den Space wieder anlegt
+      const blocked: string[] = JSON.parse(localStorage.getItem("aregoland_deleted_spaces") ?? "[]");
+      if (!blocked.includes(id)) { blocked.push(id); localStorage.setItem("aregoland_deleted_spaces", JSON.stringify(blocked)); }
+    } catch { /* ignore */ }
   };
 
   // ── WebSocket für Space-Chat (mit Gossip Protocol) ──

@@ -632,6 +632,9 @@ export default function App() {
         // Space-Sync empfangen (von jedem Mitglied, nicht nur Gründer)
         if (msg.type === 'space_sync' && typeof msg.space_id === 'string') {
           try {
+            // Gelöschte Spaces ignorieren
+            const deletedSpaces: string[] = JSON.parse(localStorage.getItem('aregoland_deleted_spaces') ?? '[]');
+            if (deletedSpaces.includes(msg.space_id)) return;
             // Version prüfen — nur akzeptieren wenn neuer
             if (msg.versionMeta && !SpaceVersionStore.shouldAccept(msg.space_id, msg.versionMeta)) {
               return; // Lokale Version ist neuer oder gleich
