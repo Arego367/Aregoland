@@ -37,6 +37,7 @@ interface SpaceMember {
   role: SpaceRole;
   joinedAt?: string;
   spaceNickname?: string;
+  useNickname?: boolean;
 }
 
 interface SpaceComment {
@@ -269,12 +270,19 @@ function buildSyncPayload(space: Space): SpaceSyncPayload {
   };
 }
 
-/** Anzeigename eines Mitglieds im Space (Spitzname > echter Name > Arego-ID) */
+/** Anzeigename eines Mitglieds im Space */
 function memberDisplayName(member: SpaceMember, identityRule: IdentityRule): string {
   if (identityRule === "nickname_only") {
     return member.spaceNickname || member.aregoId;
   }
-  return member.spaceNickname || member.displayName || member.aregoId;
+  if (identityRule === "real_name") {
+    return member.displayName || member.aregoId;
+  }
+  // "mixed" / default: Mitglied entscheidet per useNickname
+  if (member.useNickname && member.spaceNickname) {
+    return member.spaceNickname;
+  }
+  return member.displayName || member.aregoId;
 }
 
 const ORDER_KEY = "aregoland_spaces_order";
@@ -3940,6 +3948,28 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     {selectedSpace.identityRule === "nickname_only" && !myMember?.spaceNickname && (
                       <p className="text-[10px] text-amber-400">{t('spaces.nicknameRequired')}</p>
                     )}
+                    {/* Toggle: Spitzname anzeigen — nur bei "mixed" und wenn Spitzname vorhanden */}
+                    {selectedSpace.identityRule === "mixed" && myMember?.spaceNickname && (
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-700/30">
+                        <span className="text-xs text-gray-400">{t('spaces.showNickname')}</span>
+                        <button
+                          onClick={() => {
+                            updateSpace({
+                              ...selectedSpace,
+                              members: selectedSpace.members.map(m =>
+                                m.aregoId === identity?.aregoId ? { ...m, useNickname: !m.useNickname } : m
+                              ),
+                            });
+                            onShowToast?.(t('spaces.nicknameSaved'), "info");
+                          }}
+                          className={`relative w-10 h-5 rounded-full transition-colors ${myMember.useNickname ? "bg-blue-600" : "bg-gray-700"}`}>
+                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${myMember.useNickname ? "translate-x-5" : "translate-x-0"}`} />
+                        </button>
+                      </div>
+                    )}
+                    {selectedSpace.identityRule === "real_name" && myMember?.spaceNickname && (
+                      <p className="text-[10px] text-gray-600">{t('spaces.realNameEnforced')}</p>
+                    )}
                   </div>
 
                   {/* Netzwerk-Helfer — nur wenn Rolle es erlaubt */}
@@ -4374,32 +4404,24 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
                   {/* ── Anzeigename ── */}
                   <Section id="displayname" icon={<User size={16} />} title={t('spaces.displayNameRule')} visible={canSeeSection("visibility")}>
-                    {(() => {
-                      const isNicknameOnly = selectedSpace.identityRule === "nickname_only";
-                      return (
-                        <>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => saveSettings({ ...selectedSpace, identityRule: "real_name" })}
-                        className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
-                          !isNicknameOnly ? "bg-blue-600/20 text-blue-400 border-blue-500/50" : "bg-gray-800/50 text-gray-500 border-gray-700/50 hover:bg-gray-800"
-                        }`}>
-                        {t('spaces.realNameAllowed')}
-                      </button>
-                      <button
-                        onClick={() => saveSettings({ ...selectedSpace, identityRule: "nickname_only" })}
-                        className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
-                          isNicknameOnly ? "bg-blue-600/20 text-blue-400 border-blue-500/50" : "bg-gray-800/50 text-gray-500 border-gray-700/50 hover:bg-gray-800"
-                        }`}>
-                        {t('spaces.nicknameOnlyRequired')}
-                      </button>
+                    <div className="space-y-1.5">
+                      {([
+                        { id: "mixed" as IdentityRule, label: t('spaces.displayMixed'), desc: t('spaces.displayMixedDesc') },
+                        { id: "real_name" as IdentityRule, label: t('spaces.displayRealName'), desc: t('spaces.displayRealNameDesc') },
+                        { id: "nickname_only" as IdentityRule, label: t('spaces.displayNicknameOnly'), desc: t('spaces.displayNicknameOnlyDesc') },
+                      ]).map(opt => (
+                        <button key={opt.id}
+                          onClick={() => saveSettings({ ...selectedSpace, identityRule: opt.id })}
+                          className={`w-full flex flex-col px-3 py-2.5 rounded-xl text-left transition-all border ${
+                            (selectedSpace.identityRule === opt.id || (opt.id === "mixed" && !["real_name", "nickname_only"].includes(selectedSpace.identityRule)))
+                              ? "bg-blue-600/20 text-blue-400 border-blue-500/50"
+                              : "bg-gray-800/50 text-gray-500 border-gray-700/50 hover:bg-gray-800"
+                          }`}>
+                          <span className="text-xs font-medium">{opt.label}</span>
+                          <span className="text-[10px] opacity-70 mt-0.5">{opt.desc}</span>
+                        </button>
+                      ))}
                     </div>
-                    {isNicknameOnly && (
-                      <p className="text-[10px] text-amber-400/80 leading-relaxed">{t('spaces.nicknameOnlyHint')}</p>
-                    )}
-                        </>
-                      );
-                    })()}
                   </Section>
 
                   {/* ── Einladung ── */}
