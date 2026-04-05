@@ -551,6 +551,7 @@
     "roleDesc_moderator": "Kann Beitr\u00e4ge erstellen, Chats moderieren, Termine verwalten + automatisch Co-Host (Relay-Node)",
     "roleDesc_member": "Kann an Chats teilnehmen, Beitr\u00e4ge sehen und auf Termine antworten",
     "roleDesc_guest": "Nur lesen \u2014 kann Beitr\u00e4ge und Termine sehen, aber nicht schreiben",
+    "ttl_10m": "10 Minuten",
     "ttl_1h": "1 Stunde",
     "ttl_24h": "24 Stunden",
     "ttl_7d": "7 Tage",

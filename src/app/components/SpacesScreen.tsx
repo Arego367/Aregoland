@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
+import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, maybeHeartbeat, type PublicSpace } from "@/app/lib/spaces-api";
 import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
@@ -126,6 +127,7 @@ interface Space {
   guestPermissions: { readChats: boolean; writeChats: boolean; createEvents: boolean; postNews: boolean; inviteMembers: boolean; allowNetworkHelper: boolean };
   createdAt: string;
   visibility: "public" | "private";
+  inaktivitaets_regel?: "delete" | "transfer";
   settings: {
     membersVisible: boolean;
     coHostingAllowed: boolean;
@@ -294,6 +296,7 @@ const SPACE_TAGS = [
 ] as const;
 
 const INVITE_TTLS = [
+  { id: "10m", ms: 10 * 60 * 1000 },
   { id: "1h", ms: 60 * 60 * 1000 },
   { id: "24h", ms: 24 * 60 * 60 * 1000 },
   { id: "7d", ms: 7 * 24 * 60 * 60 * 1000 },
@@ -526,6 +529,23 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // Roadmap collapsible state
   const [openRoadmap, setOpenRoadmap] = useState<Record<string, boolean>>({ done: false, wip: true, planned: false });
   const toggleRoadmap = (key: string) => setOpenRoadmap(prev => ({ ...prev, [key]: !prev[key] }));
+
+  // Stiller Heartbeat für öffentliche Spaces (alle 3 Tage, für Nutzer unsichtbar)
+  useEffect(() => {
+    if (!selectedSpace || !identity) return;
+    if ((selectedSpace.visibility ?? "private") !== "public") return;
+    if (selectedSpace.founderId !== identity.aregoId) return;
+    maybeHeartbeat({
+      space_id: selectedSpace.id,
+      name: selectedSpace.name,
+      beschreibung: selectedSpace.description,
+      sprache: localStorage.getItem('aregoland_language') ?? 'de',
+      tags: selectedSpace.tags ?? [],
+      mitgliederzahl: selectedSpace.members.length,
+      gruender_id: identity.aregoId,
+      inaktivitaets_regel: selectedSpace.inaktivitaets_regel ?? 'delete',
+    });
+  }, [selectedSpace?.id, selectedSpace?.visibility]);
 
   const handleSelectTemplate = (templateId: SpaceTemplate) => {
     setSelectedTemplate(templateId);
@@ -3085,7 +3105,24 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           { id: "private" as const, label: "Privat", icon: <EyeOff size={14} />, desc: "Nur per Einladung" },
                         ]).map(opt => (
                           <button key={opt.id}
-                            onClick={() => updateSpace({ ...selectedSpace, visibility: opt.id })}
+                            onClick={async () => {
+                              const updated = { ...selectedSpace, visibility: opt.id };
+                              updateSpace(updated);
+                              if (opt.id === "public" && identity) {
+                                await registerPublicSpace({
+                                  space_id: selectedSpace.id,
+                                  name: selectedSpace.name,
+                                  beschreibung: selectedSpace.description,
+                                  sprache: localStorage.getItem('aregoland_language') ?? 'de',
+                                  tags: selectedSpace.tags ?? [],
+                                  mitgliederzahl: selectedSpace.members.length,
+                                  gruender_id: identity.aregoId,
+                                  inaktivitaets_regel: selectedSpace.inaktivitaets_regel ?? 'delete',
+                                });
+                              } else if (opt.id === "private" && identity) {
+                                await unregisterPublicSpace(selectedSpace.id, identity.aregoId);
+                              }
+                            }}
                             className={`flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${
                               (selectedSpace.visibility ?? "private") === opt.id
                                 ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
@@ -3097,6 +3134,46 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           </button>
                         ))}
                       </div>
+
+                      {/* Hinweis: welche Daten gemeldet werden */}
+                      {(selectedSpace.visibility ?? "private") === "public" && (
+                        <div className="space-y-2">
+                          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
+                            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">Gemeldete Daten</p>
+                            <p className="text-[11px] text-blue-300/80 leading-relaxed">
+                              Name, Beschreibung, Sprache, Tags, Mitgliederzahl und Gründer-ID werden an den Server gemeldet. Keine Chat-Inhalte oder Mitgliederlisten.
+                            </p>
+                          </div>
+                          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                            <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Inaktivität</p>
+                            <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                              Nach 30 Tagen ohne Aktivität wird der Space automatisch aus der öffentlichen Liste entfernt. Ein stiller Heartbeat wird alle 3 Tage gesendet.
+                            </p>
+                          </div>
+
+                          {/* Inaktivitäts-Regelung */}
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-1">Bei Inaktivität des Gründers</p>
+                            <div className="flex gap-2">
+                              {([
+                                { id: "delete" as const, label: "Space löschen", desc: "Eintrag wird entfernt" },
+                                { id: "transfer" as const, label: "Weitergeben", desc: "An nächstes Mitglied nach Rolle" },
+                              ]).map(rule => (
+                                <button key={rule.id}
+                                  onClick={() => updateSpace({ ...selectedSpace, inaktivitaets_regel: rule.id })}
+                                  className={`flex-1 flex flex-col items-center gap-1 p-2.5 rounded-xl border transition-all text-center ${
+                                    (selectedSpace.inaktivitaets_regel ?? "delete") === rule.id
+                                      ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
+                                      : "border-gray-700/50 bg-gray-800/50 text-gray-500 hover:border-gray-600"
+                                  }`}>
+                                  <span className="text-[11px] font-bold">{rule.label}</span>
+                                  <span className="text-[9px] opacity-70">{rule.desc}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -3633,22 +3710,32 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               </div>
             </div>
 
-            {/* Share button */}
-            <button
-              onClick={async () => {
-                if (navigator.share) {
-                  try {
-                    await navigator.share({ title: selectedSpace.name, text: t('spaces.inviteShareText', { name: selectedSpace.name }), url: `https://aregoland.de/?invite=${encodeURIComponent(inviteEncoded)}` });
-                  } catch { /* cancelled */ }
-                } else {
-                  await navigator.clipboard.writeText(inviteEncoded);
-                }
-              }}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
-            >
-              <Share2 size={18} />
-              {t('common.share')}
-            </button>
+            {/* Share + Deaktivieren */}
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({ title: selectedSpace.name, text: t('spaces.inviteShareText', { name: selectedSpace.name }), url: `https://aregoland.de/?invite=${encodeURIComponent(inviteEncoded)}` });
+                    } catch { /* cancelled */ }
+                  } else {
+                    await navigator.clipboard.writeText(inviteEncoded);
+                  }
+                }}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                <Share2 size={18} />
+                {t('common.share')}
+              </button>
+              {inviteEncoded && (
+                <button
+                  onClick={() => setInviteEncoded("")}
+                  className="px-4 bg-red-600/20 hover:bg-red-600/30 text-red-400 font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 border border-red-500/30"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
 
           </div>
         </div>
