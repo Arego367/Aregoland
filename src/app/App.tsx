@@ -547,7 +547,7 @@ export default function App() {
                   }],
                   posts: [], channels: [], subrooms: [], customRoles: [],
                   tags: [],
-                  guestPermissions: { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
+                  guestPermissions: { readChats: true },
                   createdAt: new Date().toISOString(),
                   visibility: 'public',
                   settings: { membersVisible: true, coHostingAllowed: true, publicJoin: true, idVerification: false },
