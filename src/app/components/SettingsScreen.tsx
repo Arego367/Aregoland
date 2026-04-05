@@ -71,9 +71,33 @@ interface SettingsScreenProps {
 }
 
 const LANGUAGES = [
+  { code: "ar", name: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629", flag: "\uD83C\uDDF8\uD83C\uDDE6" },
+  { code: "bg", name: "\u0411\u044A\u043B\u0433\u0430\u0440\u0441\u043A\u0438", flag: "\uD83C\uDDE7\uD83C\uDDEC" },
+  { code: "cs", name: "\u010Ce\u0161tina", flag: "\uD83C\uDDE8\uD83C\uDDFF" },
+  { code: "da", name: "Dansk", flag: "\uD83C\uDDE9\uD83C\uDDF0" },
   { code: "de", name: "Deutsch", flag: "\uD83C\uDDE9\uD83C\uDDEA" },
+  { code: "el", name: "\u0395\u03BB\u03BB\u03B7\u03BD\u03B9\u03BA\u03AC", flag: "\uD83C\uDDEC\uD83C\uDDF7" },
   { code: "en", name: "English", flag: "\uD83C\uDDEC\uD83C\uDDE7" },
+  { code: "es", name: "Espa\u00F1ol", flag: "\uD83C\uDDEA\uD83C\uDDF8" },
+  { code: "et", name: "Eesti", flag: "\uD83C\uDDEA\uD83C\uDDEA" },
+  { code: "fi", name: "Suomi", flag: "\uD83C\uDDEB\uD83C\uDDEE" },
+  { code: "fr", name: "Fran\u00E7ais", flag: "\uD83C\uDDEB\uD83C\uDDF7" },
+  { code: "hr", name: "Hrvatski", flag: "\uD83C\uDDED\uD83C\uDDF7" },
+  { code: "hu", name: "Magyar", flag: "\uD83C\uDDED\uD83C\uDDFA" },
+  { code: "it", name: "Italiano", flag: "\uD83C\uDDEE\uD83C\uDDF9" },
   { code: "lt", name: "Lietuvi\u0173", flag: "\uD83C\uDDF1\uD83C\uDDF9" },
+  { code: "lv", name: "Latvie\u0161u", flag: "\uD83C\uDDF1\uD83C\uDDFB" },
+  { code: "mt", name: "Malti", flag: "\uD83C\uDDF2\uD83C\uDDF9" },
+  { code: "nl", name: "Nederlands", flag: "\uD83C\uDDF3\uD83C\uDDF1" },
+  { code: "no", name: "Norsk", flag: "\uD83C\uDDF3\uD83C\uDDF4" },
+  { code: "pl", name: "Polski", flag: "\uD83C\uDDF5\uD83C\uDDF1" },
+  { code: "pt", name: "Portugu\u00EAs", flag: "\uD83C\uDDF5\uD83C\uDDF9" },
+  { code: "ro", name: "Rom\u00E2n\u0103", flag: "\uD83C\uDDF7\uD83C\uDDF4" },
+  { code: "ru", name: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439", flag: "\uD83C\uDDF7\uD83C\uDDFA" },
+  { code: "sk", name: "Sloven\u010Dina", flag: "\uD83C\uDDF8\uD83C\uDDF0" },
+  { code: "sl", name: "Sloven\u0161\u010Dina", flag: "\uD83C\uDDF8\uD83C\uDDEE" },
+  { code: "sv", name: "Svenska", flag: "\uD83C\uDDF8\uD83C\uDDEA" },
+  { code: "uk", name: "\u0423\u043A\u0440\u0430\u0457\u043D\u0441\u044C\u043A\u0430", flag: "\uD83C\uDDFA\uD83C\uDDE6" },
 ];
 
 const FSK_LEVELS = [
@@ -85,7 +109,8 @@ const FSK_LEVELS = [
 
 export default function SettingsScreen({ onBack, onResetAccount }: SettingsScreenProps) {
   const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "family" | "notifications" | "help">("main");
-  const [selectedLang, setSelectedLang] = useState(() => LANGUAGES.find(l => l.code === localStorage.getItem('aregoland_language')) || LANGUAGES[0]);
+  const [selectedLang, setSelectedLang] = useState(() => LANGUAGES.find(l => l.code === localStorage.getItem('aregoland_language')) || LANGUAGES.find(l => l.code === 'de')!);
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('aregoland_dark_mode') !== 'false');
   const [startScreen, setStartScreen] = useState("dashboard");
   const [profileVisibility, setProfileVisibility] = useState<"public" | "contacts" | "family" | "private">("contacts");
@@ -400,31 +425,58 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
               </div>
             </div>
 
-            {/* Language Selector */}
+            {/* Language Selector — Dropdown */}
             <div className="space-y-2">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.language')}</h3>
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
-                  {LANGUAGES.map((lang) => (
-                      <button
+              <div className="relative">
+                <button
+                  onClick={() => setLangDropdownOpen(!langDropdownOpen)}
+                  className="w-full flex items-center justify-between p-4 bg-gray-800/50 rounded-2xl border border-gray-700/50 hover:bg-gray-800 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{selectedLang.flag}</span>
+                    <span className="font-medium text-white">{selectedLang.name}</span>
+                  </div>
+                  <ChevronDown size={18} className={`text-gray-400 transition-transform ${langDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence>
+                  {langDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute z-50 mt-2 w-full max-h-64 overflow-y-auto bg-gray-800 rounded-2xl border border-gray-700/50 shadow-xl"
+                    >
+                      {LANGUAGES.map((lang) => (
+                        <button
                           key={lang.code}
-                          onClick={() => { setSelectedLang(lang); i18n.changeLanguage(lang.code); localStorage.setItem('aregoland_language', lang.code); }}
-                          className={`w-full flex items-center justify-between p-4 transition-colors border-b border-gray-700/50 last:border-0 ${
-                              selectedLang.code === lang.code ? "bg-blue-900/20 hover:bg-blue-900/30" : "hover:bg-gray-800"
+                          onClick={() => {
+                            setSelectedLang(lang);
+                            i18n.changeLanguage(lang.code);
+                            localStorage.setItem('aregoland_language', lang.code);
+                            setLangDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-3 transition-colors border-b border-gray-700/30 last:border-0 ${
+                            selectedLang.code === lang.code ? "bg-blue-900/20" : "hover:bg-gray-700/50"
                           }`}
-                      >
+                        >
                           <div className="flex items-center gap-3">
-                              <span className="text-2xl">{lang.flag}</span>
-                              <span className={`font-medium ${selectedLang.code === lang.code ? "text-blue-400" : "text-white"}`}>
-                                  {lang.name}
-                              </span>
+                            <span className="text-xl">{lang.flag}</span>
+                            <span className={`text-sm font-medium ${selectedLang.code === lang.code ? "text-blue-400" : "text-white"}`}>
+                              {lang.name}
+                            </span>
                           </div>
                           {selectedLang.code === lang.code && (
-                              <div className="bg-blue-500 rounded-full p-0.5">
-                                  <Check size={12} className="text-white" />
-                              </div>
+                            <div className="bg-blue-500 rounded-full p-0.5">
+                              <Check size={12} className="text-white" />
+                            </div>
                           )}
-                      </button>
-                  ))}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
