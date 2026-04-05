@@ -17,7 +17,7 @@ interface ProfileAvatarProps {
   size?: number;
 }
 
-export default function ProfileAvatar({ onClick, size = 36 }: ProfileAvatarProps) {
+export default function ProfileAvatar({ onClick, size = 44 }: ProfileAvatarProps) {
   const [avatar, setAvatar] = useState(loadAvatar);
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function ProfileAvatar({ onClick, size = 36 }: ProfileAvatarProps
       {avatar.avatarBase64 ? (
         <img src={avatar.avatarBase64} alt="Profil" className="w-full h-full object-cover" />
       ) : (
-        <span className="text-xs font-bold text-white select-none">{avatar.initials}</span>
+        <span className="text-sm font-bold text-white select-none">{avatar.initials}</span>
       )}
     </button>
   );
