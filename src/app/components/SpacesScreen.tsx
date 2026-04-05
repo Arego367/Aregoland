@@ -15,7 +15,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, fetchPublicTags, maybeHeartbeat, type PublicSpace } from "@/app/lib/spaces-api";
+import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, fetchPublicTags, maybeHeartbeat, sendJoinRequest, fetchJoinRequests, respondJoinRequest, loadPendingRequests, savePendingRequest, removePendingRequest, type PublicSpace, type JoinRequest, type PendingJoinRequest } from "@/app/lib/spaces-api";
 import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
@@ -563,6 +563,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [discoverTag, setDiscoverTag] = useState<string | null>(null);
   const [discoverTags, setDiscoverTags] = useState<string[]>([]);
 
+  // Beitrittsanfragen
+  const [pendingRequests, setPendingRequests] = useState<PendingJoinRequest[]>(() => loadPendingRequests());
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [joinRequestSent, setJoinRequestSent] = useState<Set<string>>(new Set());
+
   // Scan invite
   const [scanInput, setScanInput] = useState("");
   const inviteScannerRef = useRef<Html5Qrcode | null>(null);
@@ -591,6 +596,14 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       inaktivitaets_regel: selectedSpace.inaktivitaets_regel ?? 'delete',
     });
   }, [selectedSpace?.id, selectedSpace?.visibility]);
+
+  // Beitrittsanfragen für Gründer laden wenn Mitglieder-Tab geöffnet
+  useEffect(() => {
+    if (!selectedSpace || !identity) return;
+    if (activeTab !== "members") return;
+    if (selectedSpace.founderId !== identity.aregoId) return;
+    fetchJoinRequests(identity.aregoId).then(setJoinRequests);
+  }, [activeTab, selectedSpace?.id]);
 
   const loadDiscoverSpaces = useCallback(async () => {
     setDiscoverLoading(true);
@@ -1764,41 +1777,28 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       </div>
                       {alreadyJoined ? (
                         <span className="text-[10px] text-green-400 font-bold px-2 py-1 bg-green-500/10 rounded-lg">Beigetreten</span>
+                      ) : pendingRequests.some(r => r.space_id === ps.space_id) || joinRequestSent.has(ps.space_id) ? (
+                        <span className="text-[10px] text-amber-400 font-bold px-2 py-1 bg-amber-500/10 rounded-lg">Angefragt</span>
                       ) : (
                         <button
-                          onClick={() => {
-                            // Öffentlichen Space beitreten
-                            const tmpl = getTemplate("community");
-                            const newSpace: Space = {
-                              id: ps.space_id,
-                              name: ps.name,
-                              description: ps.beschreibung,
-                              template: "community",
-                              color: tmpl.gradient,
-                              identityRule: tmpl.defaultIdentityRule,
-                              founderId: ps.gruender_id,
-                              members: identity ? [{
-                                aregoId: identity.aregoId,
-                                displayName: identity.displayName,
-                                role: "member",
-                                joinedAt: new Date().toISOString(),
-                              }] : [],
-                              posts: [],
-                              channels: [],
-                              subrooms: [],
-                              customRoles: [],
-                              tags: ps.tags,
-                              guestPermissions: { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
-                              createdAt: ps.erstellt_am,
-                              visibility: "public",
-                              settings: { ...tmpl.defaultSettings },
-                            };
-                            const updated = [...spaces, newSpace];
-                            setSpaces(updated);
-                            saveSpaces(updated);
-                            setSelectedSpace(newSpace);
-                            setView("detail");
-                            setActiveTab("overview");
+                          onClick={async () => {
+                            if (!identity) return;
+                            const ok = await sendJoinRequest({
+                              user_id: identity.aregoId,
+                              user_name: identity.displayName,
+                              space_id: ps.space_id,
+                              gruender_id: ps.gruender_id,
+                            });
+                            if (ok) {
+                              savePendingRequest({
+                                space_id: ps.space_id,
+                                space_name: ps.name,
+                                gruender_id: ps.gruender_id,
+                                sent_at: new Date().toISOString(),
+                              });
+                              setPendingRequests(loadPendingRequests());
+                              setJoinRequestSent(prev => new Set([...prev, ps.space_id]));
+                            }
                           }}
                           className="text-xs font-bold text-blue-400 px-3 py-1.5 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-colors"
                         >
@@ -3177,6 +3177,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 </div>
               );
 
+              // Anfragen für diesen Space filtern
+              const spaceJoinRequests = joinRequests.filter(r => r.space_id === selectedSpace.id);
+
               return (
                 <>
                   {/* Stats summary */}
@@ -3194,6 +3197,74 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       <div className="text-xs text-gray-500">{t('spaces.tab_chats')}</div>
                     </div>
                   </div>
+
+                  {/* Beitrittsanfragen — nur Gründer/Admin */}
+                  {canManage && spaceJoinRequests.length > 0 && (
+                    <div className="space-y-2 mb-3">
+                      <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider px-1 flex items-center gap-1.5">
+                        <UserPlus size={12} /> Beitrittsanfragen ({spaceJoinRequests.length})
+                      </h3>
+                      {spaceJoinRequests.map(req => (
+                        <div key={req.id} className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-600 to-orange-400 flex items-center justify-center text-xs font-bold text-white">
+                                {(req.user_name[0] ?? "?").toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium">{req.user_name || req.user_id}</div>
+                                <div className="text-[10px] text-gray-500 font-mono">{req.user_id}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={async () => {
+                                  if (!identity) return;
+                                  const ok = await respondJoinRequest({
+                                    user_id: req.user_id,
+                                    space_id: req.space_id,
+                                    gruender_id: identity.aregoId,
+                                    action: 'approve',
+                                  });
+                                  if (ok) {
+                                    // Mitglied hinzufügen
+                                    const newMember = {
+                                      aregoId: req.user_id,
+                                      displayName: req.user_name || req.user_id,
+                                      role: "member" as SpaceRole,
+                                      joinedAt: new Date().toISOString(),
+                                    };
+                                    updateSpace({ ...selectedSpace, members: [...selectedSpace.members, newMember] });
+                                    setJoinRequests(prev => prev.filter(r => r.id !== req.id));
+                                  }
+                                }}
+                                className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg transition-colors"
+                              >
+                                <Check size={14} />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!identity) return;
+                                  const ok = await respondJoinRequest({
+                                    user_id: req.user_id,
+                                    space_id: req.space_id,
+                                    gruender_id: identity.aregoId,
+                                    action: 'reject',
+                                  });
+                                  if (ok) {
+                                    setJoinRequests(prev => prev.filter(r => r.id !== req.id));
+                                  }
+                                }}
+                                className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs font-bold rounded-lg transition-colors border border-red-500/30"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Sortier-Leiste */}
                   <div className="flex items-center gap-1.5 mb-3 mt-1">
