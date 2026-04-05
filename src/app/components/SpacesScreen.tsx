@@ -27,7 +27,7 @@ const AREGOLAND_OFFICIAL_ID = "__aregoland_official__";
 // ── Types ──
 
 type SpaceTemplate = "family" | "school" | "club" | "work" | "government" | "community" | "custom";
-type SpaceRole = "founder" | "admin" | "moderator" | "member" | "guest";
+type SpaceRole = "founder" | "admin" | "member" | "guest";
 type IdentityRule = "real_name" | "nickname" | "mixed" | "role_based";
 
 interface SpaceMember {
@@ -97,12 +97,13 @@ interface CustomRole {
   name: string;
   color: string;
   permissions: {
-    readChats: boolean;
-    writeChats: boolean;
-    createEvents: boolean;
-    postNews: boolean;
     inviteMembers: boolean;
-    allowNetworkHelper: boolean;
+    removeMembers: boolean;
+    manageChats: boolean;
+    postNews: boolean;
+    createEvents: boolean;
+    viewSettings: boolean;
+    visibleSettingsSections: string[]; // e.g. ["appearance","tags","visibility","invite","chats","roles"]
   };
 }
 
@@ -129,7 +130,7 @@ interface Space {
   subrooms: SpaceSubroom[];
   customRoles: CustomRole[];
   tags?: string[];
-  guestPermissions: { readChats: boolean; writeChats: boolean; createEvents: boolean; postNews: boolean; inviteMembers: boolean; allowNetworkHelper: boolean };
+  guestPermissions: { readChats: boolean };
   createdAt: string;
   visibility: "public" | "private";
   inaktivitaets_regel?: "delete" | "transfer";
@@ -154,9 +155,20 @@ function loadSpaces(): Space[] {
       posts: s.posts ?? [],
       channels: s.channels ?? [],
       subrooms: s.subrooms ?? [],
-      customRoles: s.customRoles ?? [],
       members: (s.members ?? []).map(m => ({ ...m, joinedAt: m.joinedAt ?? s.createdAt })),
-      guestPermissions: s.guestPermissions ?? { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
+      guestPermissions: { readChats: (s as any).guestPermissions?.readChats ?? true },
+      customRoles: (s.customRoles ?? []).map((cr: any) => ({
+        ...cr,
+        permissions: {
+          inviteMembers: cr.permissions?.inviteMembers ?? false,
+          removeMembers: cr.permissions?.removeMembers ?? false,
+          manageChats: cr.permissions?.manageChats ?? false,
+          postNews: cr.permissions?.postNews ?? false,
+          createEvents: cr.permissions?.createEvents ?? false,
+          viewSettings: cr.permissions?.viewSettings ?? false,
+          visibleSettingsSections: cr.permissions?.visibleSettingsSections ?? [],
+        },
+      })),
     }));
   }
   catch { return []; }
@@ -177,7 +189,7 @@ const AREGOLAND_OFFICIAL_SPACE: Space = {
   channels: [],
   subrooms: [],
   customRoles: [],
-  guestPermissions: { readChats: false, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
+  guestPermissions: { readChats: false },
   createdAt: "2026-04-02T00:00:00.000Z",
   visibility: "public",
   settings: { membersVisible: false, coHostingAllowed: false, publicJoin: false, idVerification: false },
@@ -211,8 +223,8 @@ function createGlobalChannel(spaceId: string): SpaceChannel {
     spaceId,
     name: "Global",
     isGlobal: true,
-    readRoles: ["founder", "admin", "moderator", "member", "guest"],
-    writeRoles: ["founder", "admin", "moderator"],
+    readRoles: ["founder", "admin", "member", "guest"],
+    writeRoles: ["founder", "admin"],
     membersVisible: true,
     createdAt: new Date().toISOString(),
     unreadCount: 0,
@@ -278,11 +290,10 @@ function createInvitePayload(space: Space, role: SpaceRole, ttlMs: number): stri
   return btoa(new TextEncoder().encode(json).reduce((s, b) => s + String.fromCharCode(b), ""));
 }
 
-const ROLE_ORDER: SpaceRole[] = ["founder", "admin", "moderator", "member", "guest"];
+const ROLE_ORDER: SpaceRole[] = ["founder", "admin", "member", "guest"];
 const ROLE_COLORS: Record<SpaceRole, { bg: string; text: string }> = {
   founder: { bg: "bg-yellow-500/20", text: "text-yellow-400" },
   admin: { bg: "bg-red-500/20", text: "text-red-400" },
-  moderator: { bg: "bg-blue-500/20", text: "text-blue-400" },
   member: { bg: "bg-gray-700/50", text: "text-gray-400" },
   guest: { bg: "bg-gray-800", text: "text-gray-500" },
 };
@@ -312,12 +323,11 @@ const INVITE_TTLS = [
 
 const INVITABLE_ROLES: { role: SpaceRole; descKey: string }[] = [
   { role: "admin", descKey: "roleDesc_admin" },
-  { role: "moderator", descKey: "roleDesc_moderator" },
   { role: "member", descKey: "roleDesc_member" },
   { role: "guest", descKey: "roleDesc_guest" },
 ];
 
-function isHighRole(r: SpaceRole) { return r === "admin" || r === "moderator"; }
+function isHighRole(r: SpaceRole) { return r === "admin"; }
 
 // ── Template Definitions ──
 
@@ -509,8 +519,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // Chats
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [channelName, setChannelName] = useState("");
-  const [channelWriteRoles, setChannelWriteRoles] = useState<Set<string>>(new Set(["moderator", "member"]));
-  const [channelReadRoles, setChannelReadRoles] = useState<Set<string>>(new Set(["moderator", "member"]));
+  const [channelWriteRoles, setChannelWriteRoles] = useState<Set<string>>(new Set(["member"]));
+  const [channelReadRoles, setChannelReadRoles] = useState<Set<string>>(new Set(["member"]));
   const [channelMembersVisible, setChannelMembersVisible] = useState(true);
   const [openChannel, setOpenChannel] = useState<SpaceChannel | null>(null);
   const [chatMessages, setChatMessages] = useState<SpaceChatMessage[]>([]);
@@ -540,7 +550,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [showCreateRole, setShowCreateRole] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleColor, setNewRoleColor] = useState("#3b82f6");
-  const [newRolePerms, setNewRolePerms] = useState({ readChats: true, writeChats: true, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false });
+  const [newRolePerms, setNewRolePerms] = useState<CustomRole["permissions"]>({ inviteMembers: false, removeMembers: false, manageChats: false, postNews: false, createEvents: false, viewSettings: false, visibleSettingsSections: [] });
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [deleteStep, setDeleteStep] = useState(0); // 0=none, 1=confirm, 2=transfer, 3=final
@@ -742,7 +752,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         subrooms: [],
         customRoles: [],
         tags: [],
-        guestPermissions: { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
+        guestPermissions: { readChats: true },
         createdAt: new Date().toISOString(),
         visibility: "private",
         settings: { ...tmpl.defaultSettings },
@@ -908,7 +918,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       subrooms: [],
       customRoles: [],
       tags: Array.from(selectedTags),
-      guestPermissions: { readChats: true, writeChats: false, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false },
+      guestPermissions: { readChats: true },
       createdAt: new Date().toISOString(),
       visibility: "private",
       settings: { ...tmpl.defaultSettings },
@@ -1427,8 +1437,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       updateSpace({ ...selectedSpace, channels: [...(selectedSpace.channels ?? []), channel] });
     }
     setChannelName("");
-    setChannelWriteRoles(new Set(["moderator", "member"]));
-    setChannelReadRoles(new Set(["moderator", "member"]));
+    setChannelWriteRoles(new Set(["member"]));
+    setChannelReadRoles(new Set(["member"]));
     setChannelMembersVisible(true);
     setShowCreateChannel(false);
     setEditingChannelId(null);
@@ -1446,7 +1456,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const startEditRole = (cr: CustomRole) => {
     setNewRoleName(cr.name);
     setNewRoleColor(cr.color);
-    setNewRolePerms({ ...cr.permissions });
+    setNewRolePerms({ ...cr.permissions, visibleSettingsSections: [...(cr.permissions.visibleSettingsSections ?? [])] });
     setEditingRoleId(cr.id);
     setShowCreateRole(true);
   };
@@ -1486,8 +1496,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       spaceId: selectedSpace.id,
       name: "Allgemein",
       isGlobal: false,
-      readRoles: ["founder", "admin", "moderator", "member", "guest"],
-      writeRoles: ["founder", "admin", "moderator", "member"],
+      readRoles: ["founder", "admin", "member", "guest"],
+      writeRoles: ["founder", "admin", "member"],
       createdAt: new Date().toISOString(),
       unreadCount: 0,
     };
@@ -2594,11 +2604,14 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
             {activeTab === "overview" && (() => {
               // Kachel-Grid Daten
-              const tiles = tileOrder.length ? tileOrder : loadTileOrder(selectedSpace.id);
-              if (!tileOrder.length) setTileOrder(tiles);
+              const allTiles = tileOrder.length ? tileOrder : loadTileOrder(selectedSpace.id);
+              if (!tileOrder.length) setTileOrder(allTiles);
 
               const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
               const isFounderOrAdmin = myRole === "founder" || myRole === "admin";
+              const overviewCustomRole = (selectedSpace.customRoles ?? []).find(cr => cr.name === myRole);
+              const canSeeAnySettings = isFounderOrAdmin || !!overviewCustomRole?.permissions.viewSettings;
+              const tiles = canSeeAnySettings ? allTiles : allTiles.filter(t => t !== "settings");
 
               // Aktivitäts-Infos berechnen
               const newsCount = (selectedSpace.posts ?? []).length;
@@ -2716,7 +2729,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
             {/* ── NEWS TAB ── */}
             {activeTab === "news" && (() => {
               const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
-              const canPost = myRole === "founder" || myRole === "admin" || myRole === "moderator";
+              const myCustomRole = (selectedSpace.customRoles ?? []).find(cr => cr.name === myRole);
+              const canPost = myRole === "founder" || myRole === "admin" || !!myCustomRole?.permissions.postNews;
               const allPosts = selectedSpace.posts ?? [];
               const pinned = allPosts.filter(p => p.pinned);
               const filtered = allPosts.filter(p => !p.pinned && (newsFilter === "all" || p.badge === newsFilter));
@@ -3538,9 +3552,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
             {activeTab === "profile" && (() => {
               const myMember = selectedSpace.members.find(m => m.aregoId === identity?.aregoId);
               const myRole = myMember?.role ?? "member";
-              // Check if role allows network helper (built-in moderator always can, custom roles check permission)
-              const canBeNetworkHelper = myRole === "moderator" || myRole === "founder" || myRole === "admin"
-                || (selectedSpace.customRoles ?? []).some(cr => cr.name === myRole && cr.permissions.allowNetworkHelper);
+              // Founder and Admin can always be network helper
+              const canBeNetworkHelper = myRole === "founder" || myRole === "admin";
               const relayKey = `arego_relay_${selectedSpace.id}`;
               const mobileDataKey = `arego_relay_mobile_${selectedSpace.id}`;
               const NOTIF_STORAGE = "aregoland_space_notifications";
@@ -3691,7 +3704,14 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
             {activeTab === "settings" && (() => {
               const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
-              const canManageSettings = myRole === "founder" || myRole === "admin";
+              const myCustomRole = (selectedSpace.customRoles ?? []).find(cr => cr.name === myRole);
+              const canManageSettings = myRole === "founder" || myRole === "admin" || !!myCustomRole?.permissions.viewSettings;
+              // For custom roles: check if a specific section is visible
+              const canSeeSection = (sectionId: string) => {
+                if (myRole === "founder" || myRole === "admin") return true;
+                if (!myCustomRole?.permissions.viewSettings) return false;
+                return (myCustomRole.permissions.visibleSettingsSections ?? []).includes(sectionId);
+              };
 
               // Einheitliche aufklappbare Sektion
               const Section = ({ id, icon, title, children, visible = true }: { id: string; icon: React.ReactNode; title: string; children: React.ReactNode; visible?: boolean }) => {
@@ -3728,7 +3748,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 <div className="space-y-2">
 
                   {/* ── Erscheinungsbild ── */}
-                  <Section id="appearance" icon={<Edit2 size={16} />} title={t('spaces.appearance')} visible={canManageSettings}>
+                  <Section id="appearance" icon={<Edit2 size={16} />} title={t('spaces.appearance')} visible={canSeeSection("appearance")}>
                     {(() => {
                       const app = loadAppearance(selectedSpace.id);
                       return (
@@ -3815,7 +3835,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   </Section>
 
                   {/* ── Tags ── */}
-                  <Section id="tags" icon={<Tag size={16} />} title={t('spaces.tags')} visible={canManageSettings}>
+                  <Section id="tags" icon={<Tag size={16} />} title={t('spaces.tags')} visible={canSeeSection("tags")}>
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-1.5 items-center">
                         {(selectedSpace.tags ?? []).map(tag => (
@@ -3886,7 +3906,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   </Section>
 
                   {/* ── Sichtbarkeit ── */}
-                  <Section id="visibility" icon={<Eye size={16} />} title="Sichtbarkeit" visible={canManageSettings}>
+                  <Section id="visibility" icon={<Eye size={16} />} title="Sichtbarkeit" visible={canSeeSection("visibility")}>
                       <div className="flex gap-2">
                         {([
                           { id: "public" as const, label: "Öffentlich", icon: <Globe size={14} />, desc: "In der Suche sichtbar" },
@@ -3965,7 +3985,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   </Section>
 
                   {/* ── Einladung ── */}
-                  {canManageSettings && (
+                  {canSeeSection("invite") && (
                     <div className="border border-gray-700/50 rounded-2xl overflow-hidden">
                       <button
                         onClick={() => {
@@ -4126,7 +4146,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   )}
 
                   {/* ── Chats verwalten ── */}
-                  <Section id="chats" icon={<MessageCircle size={16} />} title={t('spaces.manageChats')} visible={canManageSettings}>
+                  <Section id="chats" icon={<MessageCircle size={16} />} title={t('spaces.manageChats')} visible={canSeeSection("chats")}>
                     {/* Create Channel button */}
                       {!showCreateChannel && (
                         <button onClick={() => setShowCreateChannel(true)}
@@ -4148,11 +4168,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                               <input type="text" value={channelName} onChange={e => setChannelName(e.target.value)} placeholder={t('spaces.chatNamePlaceholder')} autoFocus
                                 className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
                               {(() => {
-                                // Build role list: built-in (moderator, member) + all custom roles
+                                // Build role list: built-in (member, guest) + all custom roles
                                 const allRoles: { id: string; label: string; color: string }[] = [
-                                  { id: "moderator", label: t('spaces.role_moderator'), color: ROLE_COLORS.moderator.text },
                                   { id: "member", label: t('spaces.role_member'), color: ROLE_COLORS.member.text },
-                                  ...(selectedSpace.customRoles ?? []).map(cr => ({ id: cr.name, label: cr.name, color: "" })),
+                                  { id: "guest", label: t('spaces.role_guest'), color: ROLE_COLORS.guest.text },
+                                  ...(selectedSpace.customRoles ?? []).map(cr => ({ id: cr.name, label: cr.name, color: cr.color })),
                                 ];
                                 const hasAnyRead = channelReadRoles.size > 0;
                                 return (
@@ -4250,65 +4270,72 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   </Section>
 
                   {/* ── Rollen & Rechte ── */}
-                  <Section id="roles" icon={<Shield size={16} />} title={t('spaces.rolesAndPermissions')} visible={canManageSettings}>
-                    {/* Founder & Admin — immer voller Zugriff, ausgegraut */}
+                  <Section id="roles" icon={<Shield size={16} />} title={t('spaces.rolesAndPermissions')} visible={canSeeSection("roles")}>
+                    {/* ── Gründer (fest) ── */}
                       <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3 opacity-60 cursor-not-allowed">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-1">
                           <Crown size={14} className="text-yellow-400" />
                           <span className="text-sm font-medium text-yellow-400">{t('spaces.role_founder')}</span>
                           <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 font-bold ml-auto">{t('spaces.fullAccess')}</span>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          {(["readChats", "writeChats", "createEvents", "postNews", "inviteMembers", "allowNetworkHelper"] as const).map(perm => (
-                            <span key={perm} className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-green-500/15 text-green-400">{t(`spaces.perm_${perm}`)}</span>
-                          ))}
-                        </div>
+                        <p className="text-[10px] text-gray-500 leading-relaxed">{t('spaces.founderHint')}</p>
                       </div>
+
+                      {/* ── Admin (fest) ── */}
                       <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3 opacity-60 cursor-not-allowed">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-1">
                           <Shield size={14} className="text-red-400" />
                           <span className="text-sm font-medium text-red-400">{t('spaces.role_admin')}</span>
                           <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-bold ml-auto">{t('spaces.fullAccess')}</span>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          {(["readChats", "writeChats", "createEvents", "postNews", "inviteMembers", "allowNetworkHelper"] as const).map(perm => (
-                            <span key={perm} className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-green-500/15 text-green-400">{t(`spaces.perm_${perm}`)}</span>
-                          ))}
-                        </div>
+                        <p className="text-[10px] text-gray-500 leading-relaxed">{t('spaces.adminHint')}</p>
                       </div>
+
                       <p className="text-[10px] text-gray-600 px-1">{t('spaces.fullAccessHint')}</p>
 
-                      {/* Existing custom roles */}
-                      {(selectedSpace.customRoles ?? []).map(cr => (
-                        <div key={cr.id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cr.color }} />
-                              <span className="text-sm font-medium">{cr.name}</span>
+                      {/* ── Benutzerdefinierte Rollen ── */}
+                      {(selectedSpace.customRoles ?? []).map(cr => {
+                        const SECTION_IDS = ["appearance", "tags", "visibility", "invite", "chats", "roles"] as const;
+                        return (
+                          <div key={cr.id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cr.color }} />
+                                <span className="text-sm font-medium">{cr.name}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => startEditRole(cr)} className="p-1 text-gray-600 hover:text-blue-400 transition-colors">
+                                  <Edit2 size={13} />
+                                </button>
+                                <button onClick={() => {
+                                  const updated = { ...selectedSpace, customRoles: (selectedSpace.customRoles ?? []).filter(r => r.id !== cr.id) };
+                                  updateSpace(updated);
+                                }} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => startEditRole(cr)} className="p-1 text-gray-600 hover:text-blue-400 transition-colors">
-                                <Edit2 size={13} />
-                              </button>
-                              <button onClick={() => {
-                                const updated = { ...selectedSpace, customRoles: (selectedSpace.customRoles ?? []).filter(r => r.id !== cr.id) };
-                                updateSpace(updated);
-                              }} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
-                                <Trash2 size={13} />
-                              </button>
+                            <div className="flex flex-wrap gap-1">
+                              {(["inviteMembers", "removeMembers", "manageChats", "postNews", "createEvents", "viewSettings"] as const).map(key => (
+                                <span key={key} className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${cr.permissions[key] ? "bg-green-500/15 text-green-400" : "bg-gray-800 text-gray-600"}`}>
+                                  {t(`spaces.perm_${key}`)}
+                                </span>
+                              ))}
                             </div>
+                            {cr.permissions.viewSettings && (cr.permissions.visibleSettingsSections ?? []).length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {(cr.permissions.visibleSettingsSections ?? []).map(sec => (
+                                  <span key={sec} className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-500/15 text-blue-400">
+                                    {t(`spaces.section_${sec}`)}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          <div className="flex flex-wrap gap-1">
-                            {Object.entries(cr.permissions).map(([key, val]) => (
-                              <span key={key} className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${val ? "bg-green-500/15 text-green-400" : "bg-gray-800 text-gray-600"}`}>
-                                {t(`spaces.perm_${key}`)}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
 
-                      {/* Create custom role */}
+                      {/* Rolle erstellen / bearbeiten */}
                       {!showCreateRole ? (
                         <button onClick={() => setShowCreateRole(true)}
                           className="w-full flex items-center gap-2 p-2.5 rounded-xl bg-gray-800/50 border border-gray-700/50 border-dashed hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
@@ -4327,44 +4354,62 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                             <input type="text" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} placeholder={t('spaces.roleNamePlaceholder')} autoFocus
                               className="flex-1 bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
                           </div>
+                          {/* Berechtigungen */}
                           <div className="space-y-1">
-                            {(["readChats", "writeChats", "createEvents", "postNews", "inviteMembers", "allowNetworkHelper"] as const).map(perm => {
-                              // writeChats disabled when readChats is off
-                              const disabled = perm === "writeChats" && !newRolePerms.readChats;
-                              const active = disabled ? false : newRolePerms[perm];
-                              return (
-                                <button key={perm}
-                                  disabled={disabled}
-                                  onClick={() => {
-                                    setNewRolePerms(prev => {
-                                      const next = { ...prev, [perm]: !prev[perm] };
-                                      // If readChats turned off → also turn off writeChats
-                                      if (perm === "readChats" && !next.readChats) next.writeChats = false;
-                                      return next;
-                                    });
-                                  }}
-                                  className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors ${disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-800/50"} bg-gray-900/30`}>
-                                  <span className="text-xs text-gray-300">{t(`spaces.perm_${perm}`)}</span>
-                                  <div className={`w-8 h-5 rounded-full transition-colors relative ${active ? "bg-blue-600" : "bg-gray-700"}`}>
-                                    <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${active ? "translate-x-3.5" : "translate-x-0.5"}`} />
-                                  </div>
-                                </button>
-                              );
-                            })}
+                            {(["inviteMembers", "removeMembers", "manageChats", "postNews", "createEvents", "viewSettings"] as const).map(perm => (
+                              <button key={perm}
+                                onClick={() => {
+                                  setNewRolePerms(prev => {
+                                    const next = { ...prev, [perm]: !prev[perm] };
+                                    if (perm === "viewSettings" && !next.viewSettings) next.visibleSettingsSections = [];
+                                    return next;
+                                  });
+                                }}
+                                className="w-full flex items-center justify-between p-2.5 rounded-lg transition-colors hover:bg-gray-800/50 bg-gray-900/30">
+                                <span className="text-xs text-gray-300">{t(`spaces.perm_${perm}`)}</span>
+                                <div className={`w-8 h-5 rounded-full transition-colors relative ${newRolePerms[perm] ? "bg-blue-600" : "bg-gray-700"}`}>
+                                  <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${newRolePerms[perm] ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                                </div>
+                              </button>
+                            ))}
                           </div>
-                          {/* Netzwerk-Helfer Erklärung */}
-                          {newRolePerms.allowNetworkHelper && (
-                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2.5">
-                              <p className="text-[11px] text-blue-200/80 leading-relaxed">{t('spaces.networkHelperRoleHint')}</p>
+                          {/* Einstellungen-Sektionen Dropdown (nur wenn viewSettings aktiv) */}
+                          {newRolePerms.viewSettings && (
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-medium text-gray-400">{t('spaces.settingsSections')}</label>
+                              <p className="text-[10px] text-gray-600">{t('spaces.settingsSectionsHint')}</p>
+                              <div className="space-y-1">
+                                {(["appearance", "tags", "visibility", "invite", "chats", "roles"] as const).map(sec => {
+                                  const active = (newRolePerms.visibleSettingsSections ?? []).includes(sec);
+                                  return (
+                                    <button key={sec}
+                                      onClick={() => {
+                                        setNewRolePerms(prev => {
+                                          const sections = [...(prev.visibleSettingsSections ?? [])];
+                                          if (active) {
+                                            return { ...prev, visibleSettingsSections: sections.filter(s => s !== sec) };
+                                          } else {
+                                            return { ...prev, visibleSettingsSections: [...sections, sec] };
+                                          }
+                                        });
+                                      }}
+                                      className="w-full flex items-center justify-between p-2 rounded-lg transition-colors hover:bg-gray-800/50 bg-gray-900/30">
+                                      <span className="text-[11px] text-gray-300">{t(`spaces.section_${sec}`)}</span>
+                                      <div className={`w-4 h-4 rounded flex items-center justify-center transition-colors ${active ? "bg-blue-600" : "bg-gray-700"}`}>
+                                        {active && <Check size={10} className="text-white" />}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
                           )}
                           <button
                             onClick={() => {
                               if (!newRoleName.trim() || !selectedSpace) return;
-                              const perms = { ...newRolePerms };
-                              if (!perms.readChats) perms.writeChats = false;
+                              const perms = { ...newRolePerms, visibleSettingsSections: [...(newRolePerms.visibleSettingsSections ?? [])] };
+                              if (!perms.viewSettings) perms.visibleSettingsSections = [];
                               if (editingRoleId) {
-                                // Update existing role
                                 updateSpace({
                                   ...selectedSpace,
                                   customRoles: (selectedSpace.customRoles ?? []).map(r =>
@@ -4381,45 +4426,25 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                 updateSpace({ ...selectedSpace, customRoles: [...(selectedSpace.customRoles ?? []), role] });
                               }
                               setNewRoleName(""); setNewRoleColor("#3b82f6");
-                              setNewRolePerms({ readChats: true, writeChats: true, createEvents: false, postNews: false, inviteMembers: false, allowNetworkHelper: false });
+                              setNewRolePerms({ inviteMembers: false, removeMembers: false, manageChats: false, postNews: false, createEvents: false, viewSettings: false, visibleSettingsSections: [] });
                               setShowCreateRole(false);
                               setEditingRoleId(null);
                             }}
                             disabled={!newRoleName.trim()}
                             className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-all text-sm">
-                            {t('spaces.createRole')}
+                            {editingRoleId ? t('spaces.editRole') : t('spaces.createRole')}
                           </button>
                         </div>
                       )}
 
-                      {/* Gast-Rolle — immer am Ende, nicht löschbar */}
-                      <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3 space-y-2">
-                        <div className="flex items-center gap-2">
+                      {/* ── Gast (fest, nur lesen) ── */}
+                      <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3 opacity-60 cursor-not-allowed">
+                        <div className="flex items-center gap-2 mb-1">
                           <div className="w-3 h-3 rounded-full bg-gray-600" />
                           <span className="text-sm font-medium text-gray-400">{t('spaces.role_guest')}</span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-500 ml-auto">{t('spaces.guestDefault')}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-500 ml-auto">{t('spaces.guestReadOnly')}</span>
                         </div>
-                        <div className="space-y-1">
-                          {(["readChats", "writeChats", "createEvents", "postNews", "inviteMembers"] as const).map(perm => {
-                            const disabled = perm === "writeChats" && !selectedSpace.guestPermissions.readChats;
-                            const active = disabled ? false : selectedSpace.guestPermissions[perm];
-                            return (
-                              <button key={perm} disabled={disabled}
-                                onClick={() => {
-                                  const gp = { ...selectedSpace.guestPermissions, [perm]: !selectedSpace.guestPermissions[perm] };
-                                  if (perm === "readChats" && !gp.readChats) gp.writeChats = false;
-                                  updateSpace({ ...selectedSpace, guestPermissions: gp });
-                                }}
-                                className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors ${disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-800/50"} bg-gray-900/30`}>
-                                <span className="text-[11px] text-gray-400">{t(`spaces.perm_${perm}`)}</span>
-                                <div className={`w-8 h-5 rounded-full transition-colors relative ${active ? "bg-blue-600" : "bg-gray-700"}`}>
-                                  <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${active ? "translate-x-3.5" : "translate-x-0.5"}`} />
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <p className="text-[10px] text-gray-600 px-0.5 leading-relaxed">{t('spaces.guestRoleHint')}</p>
+                        <p className="text-[10px] text-gray-500 leading-relaxed">{t('spaces.guestRoleHint')}</p>
                       </div>
                   </Section>
 
