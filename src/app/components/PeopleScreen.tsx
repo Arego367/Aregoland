@@ -54,6 +54,10 @@ export default function PeopleScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [isTabModalOpen, setIsTabModalOpen] = useState(false);
   const [isAddContactOpen, setIsAddContactOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Contact | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ aregoId: string; displayName: string; firstName: string; lastName: string; nickname: string }[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Live-Refresh wenn ein neuer Kontakt hinzugefügt wird (contactsVersion ändert sich)
   useEffect(() => {
@@ -101,6 +105,26 @@ export default function PeopleScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     setSelectedFSK(null);
   };
 
+  // Öffentliche Profil-Suche
+  const handleSearch = async (q: string) => {
+    setSearchQuery(q);
+    if (q.trim().length < 2) { setSearchResults([]); return; }
+    setSearchLoading(true);
+    try {
+      const res = await fetch(`/directory?q=${encodeURIComponent(q.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Eigene ID und bereits vorhandene Kontakte ausfiltern
+        const myId = identity?.aregoId;
+        const contactIds = new Set(contacts.map(c => c.id));
+        setSearchResults((data.profiles ?? []).filter((p: any) => p.aregoId !== myId && !contactIds.has(p.aregoId)));
+      } else {
+        setSearchResults([]);
+      }
+    } catch { setSearchResults([]); }
+    setSearchLoading(false);
+  };
+
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans overflow-hidden">
       <AppHeader
@@ -112,11 +136,70 @@ export default function PeopleScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         onOpenSupport={onOpenSupport}
         action={{ icon: UserPlus, label: t('people.newContact'), onClick: () => setIsAddContactOpen(true) }}
         rightExtra={
-          <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
+          <button onClick={() => { setSearchOpen(!searchOpen); if (!searchOpen) { setSearchQuery(""); setSearchResults([]); } }}
+            className={`p-2 transition-colors rounded-full ${searchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
             <Search size={20} />
           </button>
         }
       />
+
+      {/* Suchleiste für öffentliche Profile */}
+      <AnimatePresence>
+        {searchOpen && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-b border-gray-800">
+            <div className="px-4 py-2.5 space-y-2">
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => handleSearch(e.target.value)}
+                  placeholder={t('people.searchProfiles')}
+                  autoFocus
+                  className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
+                />
+                {searchQuery && (
+                  <button onClick={() => { setSearchQuery(""); setSearchResults([]); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+              {/* Suchergebnisse */}
+              {searchLoading && <p className="text-xs text-gray-500 text-center py-2">{t('common.loading')}</p>}
+              {!searchLoading && searchQuery.length >= 2 && searchResults.length === 0 && (
+                <p className="text-xs text-gray-500 text-center py-2">{t('people.noProfilesFound')}</p>
+              )}
+              {searchResults.length > 0 && (
+                <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                  {searchResults.map(p => (
+                    <div key={p.aregoId} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-xl border border-gray-700/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-sm font-bold text-white">
+                          {((p.firstName || p.displayName || p.aregoId)[0] ?? "?").toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">
+                            {[p.firstName, p.lastName].filter(Boolean).join(" ") || p.displayName || p.nickname || p.aregoId}
+                          </div>
+                          {p.nickname && <div className="text-[10px] text-gray-500">@{p.nickname}</div>}
+                          <div className="text-[10px] text-gray-600 font-mono">{p.aregoId}</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { setIsAddContactOpen(true); setSearchOpen(false); }}
+                        className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                        title={t('people.addContact')}
+                      >
+                        <UserPlus size={18} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Tabs */}
       {!isCreatingChild && (

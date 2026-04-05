@@ -526,6 +526,35 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ── GET /directory?q=... — Öffentliche Profile suchen ───────────────────────
+  if (req.method === 'GET' && req.url?.startsWith('/directory')) {
+    try {
+      const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
+      const q = (params.get('q') ?? '').trim();
+      if (!q || q.length < 2) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ profiles: [] }));
+        return;
+      }
+      const like = `%${q}%`;
+      const rows = db.exec(
+        `SELECT arego_id, display_name, first_name, last_name, nickname
+         FROM user_directory
+         WHERE arego_id LIKE ? OR display_name LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR nickname LIKE ?
+         LIMIT 20`,
+        [like, like, like, like, like]
+      );
+      const profiles = (rows[0]?.values ?? []).map(r => ({
+        aregoId: r[0], displayName: r[1], firstName: r[2], lastName: r[3], nickname: r[4],
+      }));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ profiles }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
   // ── POST /support — Support-Nachricht als GitHub Issue anlegen ──────────────
   if (req.method === 'POST' && req.url === '/support') {
     try {
