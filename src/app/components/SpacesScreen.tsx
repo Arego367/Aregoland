@@ -414,6 +414,24 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // Detail
   const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings" | "world">("overview");
 
+  // Kachel-Grid Reihenfolge
+  type TileId = "news" | "chats" | "members" | "profile" | "settings" | "world";
+  const TILE_DEFAULTS: TileId[] = ["news", "chats", "members", "profile", "settings", "world"];
+  const loadTileOrder = (spaceId: string): TileId[] => {
+    try {
+      const raw: TileId[] = JSON.parse(localStorage.getItem(`aregoland_space_tiles_${spaceId}`) ?? "[]");
+      if (!raw.length) return TILE_DEFAULTS;
+      const valid = new Set(TILE_DEFAULTS);
+      const filtered = raw.filter(id => valid.has(id));
+      for (const d of TILE_DEFAULTS) { if (!filtered.includes(d)) filtered.push(d); }
+      return filtered;
+    } catch { return TILE_DEFAULTS; }
+  };
+  const saveTileOrder = (spaceId: string, order: TileId[]) => {
+    localStorage.setItem(`aregoland_space_tiles_${spaceId}`, JSON.stringify(order));
+  };
+  const [tileOrder, setTileOrder] = useState<TileId[]>([]);
+
   // Settings tag picker
   const [showSettingsTagPicker, setShowSettingsTagPicker] = useState(false);
   const [settingsCustomTag, setSettingsCustomTag] = useState("");
@@ -478,35 +496,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [subroomMemberIds, setSubroomMemberIds] = useState<Set<string>>(new Set());
   const [openSubroom, setOpenSubroom] = useState<SpaceSubroom | null>(null);
 
-  // Overview layout
-  type WidgetId = "spaceInfo" | "pinned" | "announcements" | "events" | "activeChats" | "membersOnline";
-  type LayoutItem = { id: WidgetId; visible: boolean };
-  const DEFAULT_WIDGETS: LayoutItem[] = [
-    { id: "spaceInfo", visible: true },
-    { id: "pinned", visible: true },
-    { id: "announcements", visible: true },
-    { id: "events", visible: true },
-    { id: "activeChats", visible: true },
-    { id: "membersOnline", visible: true },
-  ];
-  const [editingLayout, setEditingLayout] = useState(false);
-  const [layoutState, setLayoutState] = useState<LayoutItem[]>([]);
-  const loadLayout = (spaceId: string): LayoutItem[] => {
-    try {
-      const raw: LayoutItem[] = JSON.parse(localStorage.getItem(`aregoland_space_layout_${spaceId}`) ?? "[]");
-      if (!raw.length) return DEFAULT_WIDGETS;
-      // Migrate: remove deprecated "stats" widget, add missing ids
-      const filtered = raw.filter(w => w.id !== "stats");
-      const ids = new Set(filtered.map(w => w.id));
-      const migrated = [...filtered];
-      for (const d of DEFAULT_WIDGETS) { if (!ids.has(d.id)) migrated.push(d); }
-      return migrated;
-    }
-    catch { return DEFAULT_WIDGETS; }
-  };
-  const saveLayout = (spaceId: string, layout: LayoutItem[]) => {
-    localStorage.setItem(`aregoland_space_layout_${spaceId}`, JSON.stringify(layout));
-  };
+  // (Overview Widgets entfernt — ersetzt durch Kachel-Grid)
 
   // Custom Roles
   const [showCreateRole, setShowCreateRole] = useState(false);
@@ -2333,212 +2323,131 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="px-4 border-b border-gray-800 shrink-0">
-          <div className="flex items-center gap-6 overflow-x-auto no-scrollbar pb-1">
-            {(["overview", "news", "chats", "members", "profile", "settings", "world"] as const).map(tab => {
-              const totalUnread = tab === "chats"
-                ? (selectedSpace.channels ?? []).reduce((sum, ch) => sum + (ch.unreadCount ?? 0), 0)
-                : 0;
-              return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors relative ${
-                  activeTab === tab ? "border-blue-500 text-blue-400" : "border-transparent text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                {t(`spaces.tab_${tab}`)}
-                {totalUnread > 0 && (
-                  <span className="absolute -top-0.5 -right-2 w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center">
-                    {totalUnread > 9 ? "9+" : totalUnread}
-                  </span>
-                )}
-              </button>
-              );
-            })}
+        {/* Back-to-overview bar (nur wenn nicht auf Übersicht) */}
+        {activeTab !== "overview" && (
+          <div className="px-4 border-b border-gray-800 shrink-0">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className="flex items-center gap-2 py-2.5 text-sm font-medium text-gray-400 hover:text-white transition-colors"
+            >
+              <ArrowLeft size={16} />
+              {t(`spaces.tab_${activeTab}`)}
+            </button>
           </div>
-        </div>
+        )}
 
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-4">
 
             {activeTab === "overview" && (() => {
-              const pinnedPosts = (selectedSpace.posts ?? []).filter(p => p.pinned).slice(0, 2);
-              const recentAnnouncements = (selectedSpace.posts ?? []).filter(p => p.badge === "announcement").slice(0, 3);
-              const upcomingEvents = (selectedSpace.posts ?? []).filter(p => p.badge === "event" && p.eventDate && p.eventDate >= new Date().toISOString().slice(0, 10)).slice(0, 3);
-              // Use layoutState when editing (live preview), otherwise load from storage
-              const layout = editingLayout ? layoutState : loadLayout(selectedSpace.id);
+              // Kachel-Grid Daten
+              const tiles = tileOrder.length ? tileOrder : loadTileOrder(selectedSpace.id);
+              if (!tileOrder.length) setTileOrder(tiles);
 
-              const renderWidget = (id: WidgetId) => {
-                switch (id) {
-                  case "spaceInfo":
-                    return (
-                      <div key={id} className="space-y-2">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Info size={12} /> {t('spaces.widget_spaceInfo')}</h3>
-                        <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
-                          {selectedSpace.description && <p className="text-sm text-gray-300 mb-2">{selectedSpace.description}</p>}
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                            <Users size={12} />
-                            <span>{selectedSpace.members.length} {t('spaces.members')}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  case "pinned":
-                    return pinnedPosts.length > 0 ? (
-                      <div key={id} className="space-y-2">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Pin size={12} /> {t('spaces.pinnedPosts')}</h3>
-                        {pinnedPosts.map(p => (
-                          <button key={p.id} onClick={() => { setActiveTab("news"); setNewsFilter("all"); }} className="w-full bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 text-left hover:bg-yellow-500/15 transition-colors">
-                            <div className="text-sm font-bold text-yellow-300">{p.title}</div>
-                            <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{p.text}</div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null;
-                  case "announcements":
-                    return recentAnnouncements.length > 0 ? (
-                      <div key={id} className="space-y-2">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Megaphone size={12} /> {t('spaces.recentAnnouncements')}</h3>
-                        {recentAnnouncements.map(p => (
-                          <div key={p.id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
-                            <div className="text-sm font-medium">{p.title}</div>
-                            <div className="text-xs text-gray-500 mt-0.5">{p.authorName} · {new Date(p.createdAt).toLocaleDateString()}</div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null;
-                  case "events":
-                    return upcomingEvents.length > 0 ? (
-                      <div key={id} className="space-y-2">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Calendar size={12} /> {t('spaces.upcomingEvents')}</h3>
-                        {upcomingEvents.map(p => (
-                          <div key={p.id} className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3">
-                            <div className="text-sm font-medium">{p.title}</div>
-                            <div className="text-xs text-purple-300 mt-0.5">{p.eventDate}{p.eventTime ? ` · ${p.eventTime}` : ""}{p.eventLocation ? ` · ${p.eventLocation}` : ""}</div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null;
-                  case "activeChats": {
-                    const chatsWithMessages = (selectedSpace.channels ?? []).filter(ch => ch.lastMessage).slice(0, 3);
-                    return chatsWithMessages.length > 0 ? (
-                      <div key={id} className="space-y-2">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><MessageCircle size={12} /> {t('spaces.activeChats')}</h3>
-                        {chatsWithMessages.map(ch => (
-                          <button key={ch.id} onClick={() => { setActiveTab("chats"); handleOpenChannel(ch); }}
-                            className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-left hover:bg-gray-800 transition-colors">
-                            <div className="flex items-center gap-2">
-                              <Hash size={12} className="text-blue-400 shrink-0" />
-                              <span className="text-sm font-medium truncate">{ch.name}</span>
-                              {ch.lastMessageTime && <span className="text-[10px] text-gray-600 ml-auto shrink-0">{new Date(ch.lastMessageTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-0.5 truncate">{ch.lastMessage}</div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null;
-                  }
-                  case "membersOnline":
-                    return (
-                      <div key={id} className="space-y-2">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1"><Users size={12} /> {t('spaces.membersOnline')}</h3>
-                        <div className="flex flex-wrap gap-3">
-                          {selectedSpace.members.slice(0, 8).map(m => (
-                            <div key={m.aregoId} className="flex flex-col items-center gap-1 w-12">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-xs font-bold text-white">
-                                {(m.displayName[0] ?? "").toUpperCase()}
-                              </div>
-                              <span className="text-[9px] text-gray-500 text-center leading-tight truncate w-full">{m.displayName.split(" ")[0]}</span>
-                            </div>
-                          ))}
-                          {selectedSpace.members.length > 8 && (
-                            <div className="flex flex-col items-center gap-1 w-12">
-                              <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400">
-                                +{selectedSpace.members.length - 8}
-                              </div>
-                              <span className="text-[9px] text-gray-600 text-center">{t('spaces.more')}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  default: return null;
-                }
+              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "member";
+              const isFounderOrAdmin = myRole === "founder" || myRole === "admin";
+
+              // Aktivitäts-Infos berechnen
+              const newsCount = (selectedSpace.posts ?? []).length;
+              const lastNewsTime = (selectedSpace.posts ?? []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.createdAt;
+              const chatUnread = (selectedSpace.channels ?? []).reduce((sum, ch) => sum + (ch.unreadCount ?? 0), 0);
+              const lastChatTime = (selectedSpace.channels ?? []).filter(ch => ch.lastMessageTime).sort((a, b) => new Date(b.lastMessageTime!).getTime() - new Date(a.lastMessageTime!).getTime())[0]?.lastMessageTime;
+
+              const timeAgo = (iso: string | undefined) => {
+                if (!iso) return "";
+                const diff = Date.now() - new Date(iso).getTime();
+                if (diff < 60_000) return "Gerade eben";
+                if (diff < 3_600_000) return `Vor ${Math.floor(diff / 60_000)} Min`;
+                if (diff < 86_400_000) return `Vor ${Math.floor(diff / 3_600_000)} Std`;
+                return `Vor ${Math.floor(diff / 86_400_000)} T`;
               };
 
-              // ── Layout Editor ──
-              if (editingLayout) {
-                return (
-                  <>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-bold">{t('spaces.customizeLayout')}</h3>
-                      <button onClick={() => { saveLayout(selectedSpace.id, layoutState); setEditingLayout(false); }}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors">
-                        {t('spaces.saveLayout')}
-                      </button>
-                    </div>
-
-                    {/* Editor: Drag & Drop + Toggles */}
-                    <Reorder.Group
-                      axis="y"
-                      values={layoutState}
-                      onReorder={setLayoutState}
-                      className="space-y-2 mb-4"
-                    >
-                      {layoutState.map(widget => (
-                        <Reorder.Item key={widget.id} value={widget} className="list-none">
-                          <div className="flex items-center gap-3 bg-gray-800/50 rounded-xl border border-gray-700/50 p-3">
-                            <div className="text-gray-600 cursor-grab active:cursor-grabbing touch-none">
-                              <GripVertical size={16} />
-                            </div>
-                            <span className={`text-sm font-medium flex-1 ${widget.visible ? "text-white" : "text-gray-600"}`}>
-                              {t(`spaces.widget_${widget.id}`)}
-                            </span>
-                            <button
-                              onClick={() => setLayoutState(prev => prev.map(w => w.id === widget.id ? { ...w, visible: !w.visible } : w))}
-                              className={`w-11 h-6 rounded-full transition-colors relative ${widget.visible ? "bg-green-600" : "bg-gray-700"}`}
-                            >
-                              <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${widget.visible ? "translate-x-5" : "translate-x-0.5"}`} />
-                            </button>
-                          </div>
-                        </Reorder.Item>
-                      ))}
-                    </Reorder.Group>
-
-                    {/* Live preview */}
-                    <div className="border-t border-gray-700/50 pt-4 space-y-4">
-                      <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider">{t('spaces.previewLabel')}</h4>
-                      {layoutState.filter(w => w.visible).map(w => renderWidget(w.id))}
-                    </div>
-                  </>
-                );
-              }
-
-              // ── Normal Overview ──
-              const visibleWidgets = layout.filter(w => w.visible);
-              const hasContent = visibleWidgets.some(w => renderWidget(w.id) !== null);
+              const TILE_CONFIG: Record<TileId, { icon: typeof Newspaper; color: string; gradient: string; label: string; desc: string; activity?: string }> = {
+                news: {
+                  icon: Newspaper, color: "text-amber-400", gradient: "from-amber-600 to-orange-500",
+                  label: t('spaces.tab_news'), desc: "Beiträge, Ankündigungen, Events",
+                  activity: newsCount > 0 ? `${timeAgo(lastNewsTime)}${newsCount > 0 ? ` · ${newsCount} Beiträge` : ""}` : undefined,
+                },
+                chats: {
+                  icon: MessageCircle, color: "text-blue-400", gradient: "from-blue-600 to-cyan-500",
+                  label: t('spaces.tab_chats'), desc: `${(selectedSpace.channels ?? []).length} Kanäle`,
+                  activity: lastChatTime ? `${timeAgo(lastChatTime)}${chatUnread > 0 ? ` · ${chatUnread} neu` : ""}` : undefined,
+                },
+                members: {
+                  icon: Users, color: "text-green-400", gradient: "from-green-600 to-emerald-500",
+                  label: t('spaces.tab_members'), desc: `${selectedSpace.members.length} Mitglieder`,
+                },
+                profile: {
+                  icon: User, color: "text-purple-400", gradient: "from-purple-600 to-fuchsia-500",
+                  label: t('spaces.tab_profile'), desc: "Dein Space-Profil",
+                },
+                settings: {
+                  icon: Settings, color: "text-gray-400", gradient: "from-gray-600 to-gray-500",
+                  label: t('spaces.tab_settings'), desc: isFounderOrAdmin ? "Verwalten" : "Ansehen",
+                },
+                world: {
+                  icon: Globe, color: "text-cyan-400", gradient: "from-cyan-600 to-teal-500",
+                  label: t('spaces.tab_world'), desc: "Öffentlicher Feed",
+                  activity: "Bald verfügbar",
+                },
+              };
 
               return (
                 <>
-                  {/* Anpassen Button */}
-                  <div className="flex justify-end -mt-2 mb-1">
-                    <button onClick={() => { setLayoutState(loadLayout(selectedSpace.id)); setEditingLayout(true); }}
-                      className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all" title={t('spaces.customizeLayout')}>
-                      <Edit2 size={15} />
-                    </button>
+                  {/* Space-Info */}
+                  <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 mb-2">
+                    {selectedSpace.description && <p className="text-sm text-gray-300 mb-2">{selectedSpace.description}</p>}
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                      <span className="flex items-center gap-1"><Users size={12} /> {selectedSpace.members.length} {t('spaces.members')}</span>
+                      <span className="flex items-center gap-1"><MessageCircle size={12} /> {(selectedSpace.channels ?? []).length} Kanäle</span>
+                      {(selectedSpace.tags ?? []).length > 0 && <span className="flex items-center gap-1"><Tag size={12} /> {selectedSpace.tags!.slice(0, 2).join(", ")}</span>}
+                    </div>
                   </div>
 
-                  {visibleWidgets.map(w => renderWidget(w.id))}
-
-                  {!hasContent && (selectedSpace.posts ?? []).length === 0 && (
-                    <div className="text-center py-6 text-gray-600">
-                      <Newspaper size={32} className="mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">{t('spaces.emptyOverview')}</p>
-                    </div>
-                  )}
+                  {/* Kachel-Grid — Drag & Drop */}
+                  <Reorder.Group
+                    axis="y"
+                    values={tiles}
+                    onReorder={(newOrder) => { setTileOrder(newOrder); saveTileOrder(selectedSpace.id, newOrder); }}
+                    className="grid grid-cols-2 gap-2"
+                    style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}
+                  >
+                    {tiles.map(tileId => {
+                      const cfg = TILE_CONFIG[tileId];
+                      const Icon = cfg.icon;
+                      return (
+                        <Reorder.Item
+                          key={tileId}
+                          value={tileId}
+                          className="list-none"
+                          whileDrag={{ scale: 1.04, zIndex: 50 }}
+                        >
+                          <button
+                            onClick={() => setActiveTab(tileId)}
+                            className="w-full relative bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-2xl p-4 text-left transition-all group"
+                          >
+                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${cfg.gradient} flex items-center justify-center mb-2.5`}>
+                              <Icon size={20} className="text-white" />
+                            </div>
+                            <div className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{cfg.label}</div>
+                            <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{cfg.desc}</div>
+                            {cfg.activity && (
+                              <div className="text-[10px] text-gray-600 mt-1.5 flex items-center gap-1">
+                                <Clock size={10} className="shrink-0" />
+                                <span className="truncate">{cfg.activity}</span>
+                              </div>
+                            )}
+                            {tileId === "chats" && chatUnread > 0 && (
+                              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center">
+                                {chatUnread > 9 ? "9+" : chatUnread}
+                              </div>
+                            )}
+                          </button>
+                        </Reorder.Item>
+                      );
+                    })}
+                  </Reorder.Group>
                 </>
               );
             })()}
