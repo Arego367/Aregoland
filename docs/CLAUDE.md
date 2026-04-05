@@ -1,6 +1,6 @@
 # CLAUDE.md — Aregoland
 
-> Einzige Wahrheitsquelle fuer Claude. Stand: 2026-04-03
+> Einzige Wahrheitsquelle fuer Claude. Stand: 2026-04-05
 
 ## Projekt
 
@@ -95,6 +95,14 @@ Deshalb gilt fuer Claude AI:
 - Claude AI darf vorher nachfragen um die Aufgabe zu verstehen,
   und eigene Vorschlaege machen. Erst danach Aufgabe fuer CC formulieren.
 
+### App-Check via Chrome
+
+- Vor jedem Screenshot immer Hard Refresh (Ctrl+Shift+R) machen, nie normalen Refresh
+- Wenn Claude AI etwas als Bug erkennt: erst Aras fragen ob es wirklich ein Bug ist —
+  erst nach Bestaetigung in den Support-Chat schicken
+- Wenn ein Bug bestaetigt ist und Claude AI ihn in den Aregoland Support-Chat schreibt,
+  muss am Ende des Textes immer stehen: "Issue von Claude AI hinzugefuegt per App"
+
 ## Spracherweiterung
 
 Ziel: Alle EU-Sprachen + Sprachen der Menschen die in der EU leben
@@ -118,3 +126,12 @@ EL, MT + CH-Varianten (DE/FR/IT)
 - Nach jeder Aufgabe: git commit + git push + pnpm build (Aras prueft sofort im Browser)
 - Nach jeder Session: diese CLAUDE.md aktualisieren + committen
 - Aras gibt vor, was gebaut wird — Claude Code braucht keine Roadmap
+
+### GitHub Issues Workflow
+
+- GitHub Issues regelmaessig pruefen (gh issue list)
+- Issues MIT dem Text "Issue von Claude AI hinzugefuegt per App" → automatisch ausfuehren
+- Issues OHNE diesen Text → im Chat ausgeben und Aras nach Bestaetigung fragen,
+  nicht automatisch ausfuehren
+- Issues die grosse Aenderungen oder neue Features beinhalten →
+  immer Aras fragen, auch wenn der Vertrauenstext vorhanden ist
