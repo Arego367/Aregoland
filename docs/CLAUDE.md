@@ -43,7 +43,7 @@
 
 ## Datenschutz & Kinderschutz (Regeln)
 
-- Server speichert NIE Inhalte — alles P2P, E2E verschluesselt
+- Server speichert NIE Nachrichteninhalte, Dateien oder Anrufe — alles P2P, E2E verschluesselt. Oeffentliche Space-Infos, Einladungscodes und Auffindbarkeit werden temporaer vorgehalten und automatisch geloescht.
 - Keine Tracking-Cookies, kein Analytics, keine Werbung
 - Identitaet liegt beim Nutzer, nicht beim Server
 - FSK-System geplant: Inhalte werden altersgerecht gefiltert
