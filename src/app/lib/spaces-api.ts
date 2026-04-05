@@ -224,6 +224,8 @@ export function removePendingRequest(spaceId: string) {
 
 // ── Space Sync ──────────────────────────────────────────────────────────────
 
+export type { SpaceVersionMeta } from './gossip';
+
 export interface SpaceSyncPayload {
   space_id: string;
   name: string;
@@ -240,6 +242,7 @@ export interface SpaceSyncPayload {
   guestPermissions: { readChats: boolean };
   settings: unknown;
   appearance?: { icon?: { type: string; value: string }; banner?: { type: string; value: string } };
+  versionMeta?: import('./gossip').SpaceVersionMeta;
 }
 
 export async function sendSpaceSync(targetUserId: string, payload: SpaceSyncPayload): Promise<boolean> {

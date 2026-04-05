@@ -17,6 +17,7 @@ import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSe
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, fetchPublicTags, maybeHeartbeat, sendJoinRequest, fetchJoinRequests, respondJoinRequest, loadPendingRequests, savePendingRequest, removePendingRequest, sendSpaceSync, type PublicSpace, type JoinRequest, type PendingJoinRequest, type SpaceSyncPayload } from "@/app/lib/spaces-api";
+import { SeenSet, SpaceVersionStore, MAX_HOP_COUNT, buildDigest, computeBackfill, randomBackfillDelay, type SpaceVersionMeta } from "@/app/lib/gossip";
 import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
@@ -555,6 +556,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [chatInput, setChatInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const metaWsRef = useRef<WebSocket | null>(null);
+  const seenSetsRef = useRef<Record<string, SeenSet>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -986,6 +989,14 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     setSpaces(list);
     saveSpaces(list);
     setSelectedSpace(updated);
+    // Gossip: Version inkrementieren + Probe broadcasten
+    if (identity) {
+      const myRole = updated.members.find(m => m.aregoId === identity.aregoId)?.role ?? "member";
+      const newMeta = SpaceVersionStore.increment(updated.id, identity.aregoId, myRole);
+      if (metaWsRef.current?.readyState === WebSocket.OPEN) {
+        metaWsRef.current.send(JSON.stringify({ type: "space-version-probe", spaceId: updated.id, ...newMeta, responderId: identity.aregoId }));
+      }
+    }
   };
 
   const handleChangeRole = (aregoId: string, newRole: SpaceRole) => {
@@ -1191,55 +1202,226 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     setSelectedSpace(null);
   };
 
-  // ── WebSocket für Space-Chat ──
+  // ── WebSocket für Space-Chat (mit Gossip Protocol) ──
 
   const connectToChannel = useCallback((channel: SpaceChannel) => {
-    // Alte Verbindung schließen
     if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+
+    // SeenSet initialisieren / hydrieren
+    if (!seenSetsRef.current[channel.id]) {
+      seenSetsRef.current[channel.id] = new SeenSet();
+    }
+    const seenSet = seenSetsRef.current[channel.id];
+    const existingMsgs = loadSpaceChatMessages(channel.id);
+    seenSet.hydrate(existingMsgs.map(m => m.id));
 
     const roomId = `space-chat:${channel.spaceId}:${channel.id}`;
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${location.host}/ws-signal`);
 
+    const processIncomingMsg = (msg: SpaceChatMessage) => {
+      if (seenSet.has(msg.id)) return;
+      seenSet.add(msg.id);
+      saveSpaceChatMessage(channel.id, msg);
+      setChatMessages(prev => [...prev, msg]);
+      if (selectedSpace) {
+        const updated = {
+          ...selectedSpace,
+          channels: selectedSpace.channels.map(ch =>
+            ch.id === channel.id ? { ...ch, lastMessage: msg.text, lastMessageTime: msg.timestamp } : ch
+          ),
+        };
+        updateSpace(updated);
+      }
+    };
+
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "join", roomId }));
+      // Offline Catch-up: Digest senden
+      if (identity) {
+        const digest = buildDigest(channel.id, existingMsgs, identity.aregoId);
+        setTimeout(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "space-chat-digest", ...digest }));
+          }
+        }, 300);
+      }
     };
 
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
         if (data.type === "joined" || data.type === "peer_joined" || data.type === "peer_left") return;
-        // Space-Chat-Nachricht empfangen
+
+        // ── Direkte Nachricht ──
         if (data.type === "space-chat-msg" && data.msg) {
           const msg = data.msg as SpaceChatMessage;
-          saveSpaceChatMessage(channel.id, msg);
-          setChatMessages(prev => [...prev, msg]);
-          // lastMessage updaten
-          if (selectedSpace) {
-            const updated = {
-              ...selectedSpace,
-              channels: selectedSpace.channels.map(ch =>
-                ch.id === channel.id
-                  ? { ...ch, lastMessage: msg.text, lastMessageTime: msg.timestamp }
-                  : ch
-              ),
-            };
-            updateSpace(updated);
+          processIncomingMsg(msg);
+          // Gossip: an andere Peers weiterleiten
+          if (ws.readyState === WebSocket.OPEN && identity) {
+            ws.send(JSON.stringify({ type: "space-chat-gossip", msg, hopCount: 1, originPeerId: identity.aregoId }));
           }
+          return;
+        }
+
+        // ── Gossip-Nachricht ──
+        if (data.type === "space-chat-gossip" && data.msg) {
+          const msg = data.msg as SpaceChatMessage;
+          if (seenSet.has(msg.id)) return; // Bereits gesehen
+          processIncomingMsg(msg);
+          // Weiterleiten wenn hopCount < MAX
+          if ((data.hopCount ?? 0) < MAX_HOP_COUNT && ws.readyState === WebSocket.OPEN && identity) {
+            ws.send(JSON.stringify({ type: "space-chat-gossip", msg, hopCount: (data.hopCount ?? 0) + 1, originPeerId: data.originPeerId }));
+          }
+          return;
+        }
+
+        // ── Digest von anderem Peer → Backfill senden ──
+        if (data.type === "space-chat-digest" && data.requesterId && identity && data.requesterId !== identity.aregoId) {
+          const delay = randomBackfillDelay();
+          setTimeout(() => {
+            if (ws.readyState !== WebSocket.OPEN) return;
+            const myMsgs = loadSpaceChatMessages(channel.id);
+            const missing = computeBackfill(myMsgs, data.lastMessageTimestamp);
+            if (missing.length > 0) {
+              ws.send(JSON.stringify({ type: "space-chat-backfill", channelId: channel.id, messages: missing, targetId: data.requesterId }));
+            }
+          }, delay);
+          return;
+        }
+
+        // ── Backfill empfangen ──
+        if (data.type === "space-chat-backfill" && data.messages && identity && data.targetId === identity.aregoId) {
+          for (const msg of data.messages as SpaceChatMessage[]) {
+            processIncomingMsg(msg);
+          }
+          return;
+        }
+
+        // ── Chunked file transfer (existierend) ──
+        if (data.type === "space-chat-chunk") {
+          // Chunks werden vom bestehenden Handler verarbeitet
+          return;
         }
       } catch { /* ignore */ }
     };
 
     ws.onerror = () => ws.close();
     wsRef.current = ws;
-  }, [selectedSpace]);
+  }, [selectedSpace, identity]);
 
-  // Cleanup WebSocket on unmount or channel change
+  // ── Space-Meta WebSocket (Version-Sync, unabhängig vom Chat-Channel) ──
+
+  const connectSpaceMeta = useCallback((spaceId: string) => {
+    if (metaWsRef.current) { metaWsRef.current.close(); metaWsRef.current = null; }
+
+    const roomId = `space-meta:${spaceId}`;
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${proto}//${location.host}/ws-signal`);
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: "join", roomId }));
+      // Version-Probe senden
+      if (identity) {
+        const meta = SpaceVersionStore.get(spaceId);
+        setTimeout(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "space-version-probe", spaceId, ...meta, responderId: identity.aregoId }));
+          }
+        }, 200);
+      }
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === "joined" || data.type === "peer_joined" || data.type === "peer_left") return;
+
+        // ── Version-Probe von anderem Peer ──
+        if (data.type === "space-version-probe" && data.spaceId === spaceId && identity && data.responderId !== identity.aregoId) {
+          const myMeta = SpaceVersionStore.get(spaceId);
+          const incomingMeta: SpaceVersionMeta = { version: data.version ?? 0, lastChangedBy: data.lastChangedBy ?? "", lastChangedRole: data.lastChangedRole ?? "member", lastChangedAt: data.lastChangedAt ?? "" };
+          // Wenn ich eine neuere Version habe → meinen Probe als Antwort senden
+          if (myMeta.version > incomingMeta.version && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "space-version-probe", spaceId, ...myMeta, responderId: identity.aregoId }));
+          }
+          // Wenn der andere eine neuere Version hat → Sync anfordern
+          if (SpaceVersionStore.shouldAccept(spaceId, incomingMeta)) {
+            ws.send(JSON.stringify({ type: "space-version-sync-request", spaceId, requesterId: identity.aregoId, myVersion: myMeta.version }));
+          }
+          return;
+        }
+
+        // ── Sync-Request von anderem Peer → Daten senden ──
+        if (data.type === "space-version-sync-request" && data.spaceId === spaceId && identity && data.requesterId !== identity.aregoId) {
+          const sp = spaces.find(s => s.id === spaceId);
+          if (sp) {
+            const payload = buildSyncPayload(sp);
+            payload.versionMeta = SpaceVersionStore.get(spaceId);
+            ws.send(JSON.stringify({ type: "space-version-sync", spaceId, payload, versionMeta: payload.versionMeta }));
+          }
+          return;
+        }
+
+        // ── Sync-Daten empfangen ──
+        if (data.type === "space-version-sync" && data.spaceId === spaceId && data.payload && data.versionMeta) {
+          const incomingMeta = data.versionMeta as SpaceVersionMeta;
+          if (!SpaceVersionStore.shouldAccept(spaceId, incomingMeta)) return;
+          // Daten mergen
+          const p = data.payload;
+          const existing = spaces.find(s => s.id === spaceId);
+          const merged: Space = {
+            ...(existing ?? {} as Space),
+            id: spaceId,
+            name: p.name ?? existing?.name ?? "",
+            description: p.description ?? "",
+            template: p.template ?? existing?.template ?? "community",
+            color: p.color ?? existing?.color ?? "from-purple-600 to-fuchsia-500",
+            identityRule: p.identityRule ?? "nickname",
+            founderId: p.founderId ?? "",
+            members: p.members ?? existing?.members ?? [],
+            posts: existing?.posts ?? [],
+            channels: p.channels ?? existing?.channels ?? [],
+            subrooms: existing?.subrooms ?? [],
+            customRoles: p.customRoles ?? [],
+            tags: p.tags ?? [],
+            guestPermissions: p.guestPermissions ?? { readChats: true },
+            visibility: p.visibility ?? "private",
+            settings: p.settings ?? existing?.settings ?? {},
+            createdAt: existing?.createdAt ?? new Date().toISOString(),
+          } as Space;
+          updateSpace(merged);
+          SpaceVersionStore.set(spaceId, incomingMeta);
+          // Appearance
+          if (p.appearance) {
+            saveAppearance(spaceId, p.appearance);
+          }
+          return;
+        }
+      } catch { /* ignore */ }
+    };
+
+    ws.onerror = () => ws.close();
+    metaWsRef.current = ws;
+  }, [spaces, identity]);
+
+  // Cleanup WebSocket on unmount
   useEffect(() => {
     return () => {
       if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+      if (metaWsRef.current) { metaWsRef.current.close(); metaWsRef.current = null; }
     };
   }, []);
+
+  // Space-Meta WebSocket verbinden wenn ein Space geöffnet wird
+  useEffect(() => {
+    if (view === "detail" && selectedSpace && selectedSpace.id !== AREGOLAND_OFFICIAL_ID) {
+      connectSpaceMeta(selectedSpace.id);
+    }
+    return () => {
+      if (metaWsRef.current) { metaWsRef.current.close(); metaWsRef.current = null; }
+    };
+  }, [view, selectedSpace?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll to bottom when new messages
   useEffect(() => {
@@ -1289,6 +1471,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   };
 
   const sendSpaceChatMsg = (msg: SpaceChatMessage) => {
+    // Gossip: zum SeenSet hinzufügen bevor gesendet wird
+    const seenSet = seenSetsRef.current[msg.channelId];
+    if (seenSet) seenSet.add(msg.id);
     saveSpaceChatMessage(msg.channelId, msg);
     setChatMessages(prev => [...prev, msg]);
     if (wsRef.current?.readyState === WebSocket.OPEN) {

@@ -50,7 +50,8 @@ import {
   type ContactStatus,
 } from "@/app/lib/chats";
 import { P2PManager, type P2PStatus, type CallSignal } from "@/app/lib/p2p-manager";
-import { removePendingRequest, requestSpaceSync, sendSpaceSync, type SpaceSyncPayload } from "@/app/lib/spaces-api";
+import { removePendingRequest, sendSpaceSync, type SpaceSyncPayload } from "@/app/lib/spaces-api";
+import { SpaceVersionStore } from "@/app/lib/gossip";
 import { Phone, PhoneOff, Video } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -456,15 +457,8 @@ export default function App() {
         watchIds: contacts.map((c) => c.aregoId),
       }));
 
-      // Auto-Sync: Für jeden Space beim Founder aktuelle Daten anfragen
-      try {
-        const spaces: any[] = JSON.parse(localStorage.getItem('aregoland_spaces') ?? '[]');
-        for (const sp of spaces) {
-          if (sp.founderId && sp.founderId !== identity.aregoId) {
-            requestSpaceSync(sp.founderId, identity.aregoId, sp.id).catch(() => {});
-          }
-        }
-      } catch { /* ignore */ }
+      // Space-Sync passiert jetzt lazy per Gossip Protocol (space-meta: rooms)
+      // wenn der User einen Space öffnet — nicht mehr beim App-Start
     };
 
     ws.onmessage = (e) => {
@@ -608,7 +602,8 @@ export default function App() {
             const SPACES_KEY = 'aregoland_spaces';
             const APPEARANCE_KEY = 'aregoland_space_appearance';
             const spaces: any[] = JSON.parse(localStorage.getItem(SPACES_KEY) ?? '[]');
-            const space = spaces.find((s: any) => s.id === msg.space_id && s.founderId === identity.aregoId);
+            // Gossip: Jedes Mitglied kann antworten (nicht nur Founder)
+            const space = spaces.find((s: any) => s.id === msg.space_id);
             if (space) {
               const appearance = (() => { try { const all = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? '{}'); return all[space.id] ?? undefined; } catch { return undefined; } })();
               const payload: SpaceSyncPayload = {
@@ -634,9 +629,13 @@ export default function App() {
           return;
         }
 
-        // Space-Sync vom Gründer empfangen — lokalen Space aktualisieren
+        // Space-Sync empfangen (von jedem Mitglied, nicht nur Gründer)
         if (msg.type === 'space_sync' && typeof msg.space_id === 'string') {
           try {
+            // Version prüfen — nur akzeptieren wenn neuer
+            if (msg.versionMeta && !SpaceVersionStore.shouldAccept(msg.space_id, msg.versionMeta)) {
+              return; // Lokale Version ist neuer oder gleich
+            }
             const SPACES_KEY = 'aregoland_spaces';
             const APPEARANCE_KEY = 'aregoland_space_appearance';
             const existing: any[] = JSON.parse(localStorage.getItem(SPACES_KEY) ?? '[]');
@@ -673,6 +672,10 @@ export default function App() {
               const allApp = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? '{}');
               allApp[msg.space_id] = msg.appearance;
               localStorage.setItem(APPEARANCE_KEY, JSON.stringify(allApp));
+            }
+            // Version aktualisieren
+            if (msg.versionMeta) {
+              SpaceVersionStore.set(msg.space_id, msg.versionMeta);
             }
           } catch { /* ignore */ }
           return;
