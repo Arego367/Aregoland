@@ -270,19 +270,26 @@ interface SpaceInvitePayload {
   type: "space-invite";
   spaceId: string;
   spaceName: string;
+  spaceDesc?: string;
   template: SpaceTemplate;
   role: SpaceRole;
+  founderId?: string;
+  founderName?: string;
   exp: number;
   n: string;
 }
 
 function createInvitePayload(space: Space, role: SpaceRole, ttlMs: number): string {
+  const founder = space.members.find(m => m.role === "founder");
   const payload: SpaceInvitePayload = {
     type: "space-invite",
     spaceId: space.id,
     spaceName: space.name,
+    spaceDesc: space.description || undefined,
     template: space.template,
     role,
+    founderId: space.founderId || undefined,
+    founderName: founder?.displayName || undefined,
     exp: Date.now() + ttlMs,
     n: Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, "0")).join(""),
   };
@@ -733,20 +740,34 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         return true;
       }
       const tmpl = getTemplate(payload.template ?? "custom");
-      const newSpace: Space = {
-        id: payload.spaceId,
-        name: payload.spaceName,
-        description: "",
-        template: payload.template ?? "custom",
-        color: tmpl.gradient,
-        identityRule: tmpl.defaultIdentityRule,
-        founderId: "",
-        members: identity ? [{
+      const initialMembers: SpaceMember[] = [];
+      // Gründer als Mitglied hinzufügen (falls im Payload)
+      if (payload.founderId && payload.founderName) {
+        initialMembers.push({
+          aregoId: payload.founderId,
+          displayName: payload.founderName,
+          role: "founder",
+          joinedAt: new Date().toISOString(),
+        });
+      }
+      // Eigenes Mitglied
+      if (identity) {
+        initialMembers.push({
           aregoId: identity.aregoId,
           displayName: identity.displayName,
           role: payload.role ?? "member",
           joinedAt: new Date().toISOString(),
-        }] : [],
+        });
+      }
+      const newSpace: Space = {
+        id: payload.spaceId,
+        name: payload.spaceName,
+        description: payload.spaceDesc ?? "",
+        template: payload.template ?? "custom",
+        color: tmpl.gradient,
+        identityRule: tmpl.defaultIdentityRule,
+        founderId: payload.founderId ?? "",
+        members: initialMembers,
         posts: [],
         channels: [],
         subrooms: [],
@@ -3355,6 +3376,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                     action: 'approve',
                                     space_name: selectedSpace.name,
                                     space_template: selectedSpace.template,
+                                    space_description: selectedSpace.description || undefined,
+                                    gruender_name: identity.displayName,
                                   });
                                   if (ok) {
                                     // Mitglied hinzufügen

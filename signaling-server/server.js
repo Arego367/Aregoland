@@ -357,7 +357,7 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/join-request/respond') {
     try {
       const body = await readBody(req);
-      const { user_id, space_id, gruender_id, action, space_name, space_template } = JSON.parse(body);
+      const { user_id, space_id, gruender_id, action, space_name, space_template, space_description, gruender_name } = JSON.parse(body);
       if (!user_id || !space_id || !gruender_id || !['approve', 'reject'].includes(action)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'user_id, space_id, gruender_id, action (approve|reject) erforderlich' }));
@@ -372,7 +372,8 @@ const server = createServer(async (req, res) => {
       const notify = JSON.stringify({
         type: 'join_response', space_id, action,
         space_name: space_name ?? '', space_template: space_template ?? 'community',
-        gruender_id,
+        space_description: space_description ?? '',
+        gruender_id, gruender_name: gruender_name ?? '',
       });
       const userSockets = onlineUsers.get(user_id);
       let delivered = false;

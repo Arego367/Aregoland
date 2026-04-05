@@ -508,6 +508,7 @@ export default function App() {
                     user_id: reqUserId, space_id: reqSpaceId,
                     gruender_id: identity.aregoId, action: 'approve',
                     space_name: sp?.name ?? '', space_template: sp?.template ?? 'community',
+                    space_description: sp?.description ?? '', gruender_name: identity.displayName,
                   }),
                 });
                 // Mitglied lokal hinzufügen
@@ -531,20 +532,30 @@ export default function App() {
               const SPACES_KEY = 'aregoland_spaces';
               const existing: unknown[] = JSON.parse(localStorage.getItem(SPACES_KEY) ?? '[]');
               if (!existing.some((s: any) => s.id === msg.space_id) && identity) {
+                const members: any[] = [];
+                if (msg.gruender_id && msg.gruender_name) {
+                  members.push({
+                    aregoId: msg.gruender_id,
+                    displayName: msg.gruender_name,
+                    role: 'founder',
+                    joinedAt: new Date().toISOString(),
+                  });
+                }
+                members.push({
+                  aregoId: identity.aregoId,
+                  displayName: identity.displayName,
+                  role: 'member',
+                  joinedAt: new Date().toISOString(),
+                });
                 const newSpace = {
                   id: msg.space_id,
                   name: spaceName,
-                  description: '',
+                  description: msg.space_description ?? '',
                   template: msg.space_template ?? 'community',
                   color: 'from-purple-600 to-fuchsia-500',
                   identityRule: 'nickname',
                   founderId: msg.gruender_id ?? '',
-                  members: [{
-                    aregoId: identity.aregoId,
-                    displayName: identity.displayName,
-                    role: 'member',
-                    joinedAt: new Date().toISOString(),
-                  }],
+                  members,
                   posts: [], channels: [], subrooms: [], customRoles: [],
                   tags: [],
                   guestPermissions: { readChats: true },
