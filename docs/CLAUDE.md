@@ -95,6 +95,16 @@ Deshalb gilt fuer Claude AI:
 - Claude AI darf vorher nachfragen um die Aufgabe zu verstehen,
   und eigene Vorschlaege machen. Erst danach Aufgabe fuer CC formulieren.
 
+### Einmal gebaut, nie wieder angefasst
+
+- Jedes Feature wird von Anfang an zukunftssicher und skalierbar gebaut —
+  kein Quick-Fix, kein "reicht erstmal"
+- Wenn Claude AI oder CC eine bessere Loesung sieht als die angefragte,
+  muss sofort ein Gegenvorschlag gemacht werden — bevor angefangen wird
+- Kein System das spaeter komplett neu gebaut werden muss weil es nicht
+  skaliert, nicht sicher ist oder Architektur-Probleme hat
+- Doppelt-gemoppelt ist verboten
+
 ### App-Check via Chrome
 
 - Vor jedem Screenshot immer Hard Refresh (Ctrl+Shift+R) machen, nie normalen Refresh
