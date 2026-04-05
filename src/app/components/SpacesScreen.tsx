@@ -552,7 +552,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // Role editing
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [memberSort, setMemberSort] = useState<"role" | "name" | "date">("role");
-  const [memberSortDateAsc, setMemberSortDateAsc] = useState(false);
+  const [memberSortAsc, setMemberSortAsc] = useState(true);
   const [memberMgmtSort, setMemberMgmtSort] = useState<"name" | "date">("name");
 
   // Chats
@@ -3629,21 +3629,21 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
               // Sortierung
               const sortedMembers = [...membersWithDate].sort((a, b) => {
+                let cmp = 0;
                 if (memberSort === "role") {
-                  return ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role);
+                  cmp = ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role);
+                } else if (memberSort === "name") {
+                  cmp = memberDisplayName(a, selectedSpace.identityRule).localeCompare(memberDisplayName(b, selectedSpace.identityRule));
+                } else {
+                  cmp = new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime();
                 }
-                if (memberSort === "name") {
-                  return a.displayName.localeCompare(b.displayName);
-                }
-                // date
-                const da = new Date(a.joinedAt).getTime();
-                const db = new Date(b.joinedAt).getTime();
-                return memberSortDateAsc ? da - db : db - da;
+                return memberSortAsc ? cmp : -cmp;
               });
 
               // Gruppiert nur bei Rollen-Sortierung
+              const roleOrder = memberSortAsc ? ROLE_ORDER : [...ROLE_ORDER].reverse();
               const grouped = memberSort === "role"
-                ? ROLE_ORDER.map(role => ({
+                ? roleOrder.map(role => ({
                     role,
                     members: sortedMembers.filter(m => m.role === role),
                   })).filter(g => g.members.length > 0)
@@ -3783,15 +3783,15 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     {(["role", "name", "date"] as const).map(s => (
                       <button key={s}
                         onClick={() => {
-                          if (s === "date" && memberSort === "date") setMemberSortDateAsc(p => !p);
-                          setMemberSort(s);
+                          if (memberSort === s) { setMemberSortAsc(p => !p); }
+                          else { setMemberSort(s); setMemberSortAsc(true); }
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
                           memberSort === s ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
                         }`}>
                         {s === "role" ? "Rolle" : s === "name" ? "Name" : "Beitrittsdatum"}
-                        {s === "date" && memberSort === "date" && (
-                          <ChevronDown size={12} className={`transition-transform ${memberSortDateAsc ? "rotate-180" : ""}`} />
+                        {memberSort === s && (
+                          <ChevronDown size={12} className={`transition-transform ${memberSortAsc ? "rotate-180" : ""}`} />
                         )}
                       </button>
                     ))}
