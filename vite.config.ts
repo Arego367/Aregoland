@@ -57,6 +57,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MiB — Bundle waechst durch 27 Sprachen
         // Nur App-Shell cachen, keine API-Calls oder WebSocket-Verbindungen
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         navigateFallback: 'index.html',
