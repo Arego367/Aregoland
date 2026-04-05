@@ -919,10 +919,7 @@ export default function App() {
         />
       )}
 
-      {currentScreen === "profile" && <ProfileScreen onBack={() => setCurrentScreen(returnTo)} onOpenSupport={() => {
-        setSpaceDeepLink({ spaceId: '__aregoland_official__', tab: 'support' });
-        setCurrentScreen('spaces');
-      }} />}
+      {currentScreen === "profile" && <ProfileScreen onBack={() => setCurrentScreen(returnTo)} />}
       {currentScreen === "qrcode" && <QRCodeScreen onBack={() => setCurrentScreen(returnTo)} initialMode={qrCodeMode} />}
       {currentScreen === "settings" && (
         <SettingsScreen
@@ -937,6 +934,10 @@ export default function App() {
             setTotalUnread(0);
             setIdentity(null);
             setCurrentScreen("welcome");
+          }}
+          onOpenSupport={() => {
+            setSpaceDeepLink({ spaceId: '__aregoland_official__', tab: 'support' });
+            setCurrentScreen('spaces');
           }}
         />
       )}

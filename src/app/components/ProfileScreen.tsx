@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { ArrowLeft, Camera, Copy, Check, User, Info, Phone, Mail, MapPin, Link as LinkIcon, AlertTriangle, X, Plus, Trash2, Pencil, Home, Briefcase, Package, FileText, Smartphone, Printer, MessageCircle } from "lucide-react";
+import { ArrowLeft, Camera, Copy, Check, User, Info, Phone, Mail, MapPin, Link as LinkIcon, AlertTriangle, X, Plus, Trash2, Pencil, Home, Briefcase, Package, FileText, Smartphone, Printer } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
@@ -155,10 +155,9 @@ function loadProfile(identity: { displayName: string } | null): ProfileData {
 
 interface ProfileScreenProps {
   onBack: () => void;
-  onOpenSupport?: () => void;
 }
 
-export default function ProfileScreen({ onBack, onOpenSupport }: ProfileScreenProps) {
+export default function ProfileScreen({ onBack }: ProfileScreenProps) {
   const { t } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
   const [uniqueId] = useState(identity?.aregoId ?? "");
@@ -830,15 +829,6 @@ export default function ProfileScreen({ onBack, onOpenSupport }: ProfileScreenPr
             {t('common.save')}
           </button>
 
-          {onOpenSupport && (
-            <button
-              onClick={onOpenSupport}
-              className="w-full mt-3 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 text-gray-300 font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
-            >
-              <MessageCircle size={18} className="text-blue-400" />
-              Support
-            </button>
-          )}
 
           <div className="h-10"></div>
         </div>
