@@ -7,7 +7,7 @@ import {
   Info, Check, X, GripVertical, UserPlus, Crown, Eye, ChevronDown,
   Pin, ThumbsUp, MessageSquare, Megaphone, Newspaper, Send, Lock, Layers,
   Paperclip, Mic, Play, Pause, Download, AtSign, Image as ImageIcon, FileText, Square,
-  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff, Camera, RotateCcw, Copy
+  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff, Camera, RotateCcw, Copy, LogOut
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
@@ -3951,6 +3951,32 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       </div>
                     )}
                   </div>
+
+                  {/* Space austreten — nur für Nicht-Gründer */}
+                  {myRole !== "founder" && (
+                    <button
+                      onClick={() => {
+                        if (!confirm(t('spaces.leaveConfirm'))) return;
+                        if (!selectedSpace || !identity) return;
+                        // Mitglied entfernen
+                        const updated = {
+                          ...selectedSpace,
+                          members: selectedSpace.members.filter(m => m.aregoId !== identity.aregoId),
+                        };
+                        // Space lokal löschen (nicht nur Mitglied entfernen)
+                        const list = spaces.filter(s => s.id !== selectedSpace.id);
+                        setSpaces(list);
+                        saveSpaces(list);
+                        setSelectedSpace(null);
+                        setView("list");
+                        onShowToast?.(t('spaces.leftSpace'), "info");
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-3 mt-4 text-red-400 text-sm font-medium hover:bg-red-500/10 rounded-xl transition-colors border border-red-500/20"
+                    >
+                      <LogOut size={16} />
+                      {t('spaces.leaveSpace')}
+                    </button>
+                  )}
                 </>
               );
             })()}
