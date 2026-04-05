@@ -919,7 +919,10 @@ export default function App() {
         />
       )}
 
-      {currentScreen === "profile" && <ProfileScreen onBack={() => setCurrentScreen(returnTo)} />}
+      {currentScreen === "profile" && <ProfileScreen onBack={() => setCurrentScreen(returnTo)} onOpenSupport={() => {
+        setSpaceDeepLink({ spaceId: '__aregoland_official__', tab: 'support' });
+        setCurrentScreen('spaces');
+      }} />}
       {currentScreen === "qrcode" && <QRCodeScreen onBack={() => setCurrentScreen(returnTo)} initialMode={qrCodeMode} />}
       {currentScreen === "settings" && (
         <SettingsScreen

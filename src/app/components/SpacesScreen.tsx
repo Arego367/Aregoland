@@ -575,6 +575,67 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // Mitglied-Profil Popup
   const [memberProfile, setMemberProfile] = useState<SpaceMember | null>(null);
 
+  // Support-Chat
+  interface SupportMsg { id: string; text: string; fromUser: boolean; issueNumber?: number; timestamp: string }
+  const SUPPORT_KEY = 'aregoland_support_messages';
+  const loadSupportMsgs = (): SupportMsg[] => { try { return JSON.parse(localStorage.getItem(SUPPORT_KEY) ?? '[]'); } catch { return []; } };
+  const saveSupportMsgs = (msgs: SupportMsg[]) => localStorage.setItem(SUPPORT_KEY, JSON.stringify(msgs));
+  const [supportMessages, setSupportMessages] = useState<SupportMsg[]>(() => loadSupportMsgs());
+  const [supportInput, setSupportInput] = useState("");
+  const [supportSending, setSupportSending] = useState(false);
+  const supportEndRef = useRef<HTMLDivElement>(null);
+
+  const handleSendSupport = async () => {
+    if (!supportInput.trim() || !identity || supportSending) return;
+    setSupportSending(true);
+    const text = supportInput.trim();
+    setSupportInput("");
+
+    // Nachricht lokal hinzufügen
+    const userMsg: SupportMsg = { id: `sup-${Date.now()}`, text, fromUser: true, timestamp: new Date().toISOString() };
+    const updated = [...supportMessages, userMsg];
+    setSupportMessages(updated);
+    saveSupportMsgs(updated);
+    setTimeout(() => supportEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+
+    // An Server senden → GitHub Issue
+    try {
+      const res = await fetch('/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, arego_id: identity.aregoId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Bestätigung hinzufügen
+        const confirmMsg: SupportMsg = {
+          id: `sup-confirm-${Date.now()}`,
+          text: 'Deine Nachricht wurde als Support-Anfrage weitergeleitet.',
+          fromUser: false,
+          issueNumber: data.issue_number,
+          timestamp: new Date().toISOString(),
+        };
+        // Issue-Nummer an die Nutzernachricht anhängen
+        userMsg.issueNumber = data.issue_number;
+        const withConfirm = [...updated.map(m => m.id === userMsg.id ? userMsg : m), confirmMsg];
+        setSupportMessages(withConfirm);
+        saveSupportMsgs(withConfirm);
+        setTimeout(() => supportEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      } else {
+        const errMsg: SupportMsg = { id: `sup-err-${Date.now()}`, text: 'Nachricht konnte nicht gesendet werden. Bitte versuche es erneut.', fromUser: false, timestamp: new Date().toISOString() };
+        const withErr = [...updated, errMsg];
+        setSupportMessages(withErr);
+        saveSupportMsgs(withErr);
+      }
+    } catch {
+      const errMsg: SupportMsg = { id: `sup-err-${Date.now()}`, text: 'Server nicht erreichbar. Bitte versuche es später.', fromUser: false, timestamp: new Date().toISOString() };
+      const withErr = [...updated, errMsg];
+      setSupportMessages(withErr);
+      saveSupportMsgs(withErr);
+    }
+    setSupportSending(false);
+  };
+
   // Scan invite
   const [scanInput, setScanInput] = useState("");
   const inviteScannerRef = useRef<Html5Qrcode | null>(null);
@@ -2405,13 +2466,71 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           )}
 
           {currentOfficialTab === "support" && (
-            <div className="space-y-4">
-              <div className="text-center py-8">
-                <div className="text-4xl mb-3">🤖</div>
-                <h3 className="text-lg font-bold mb-2">Kommt bald</h3>
-                <p className="text-sm text-gray-400 leading-relaxed max-w-xs mx-auto">
-                  Unser KI-basierter Support hilft dir bei Fragen, Problemen und Ideen. Er erkennt bekannte Bugs, prüft ob deine Idee bereits vorgeschlagen wurde und gibt dir direkt eine Antwort — ohne Wartezeit, ohne Formular.
-                </p>
+            <div className="flex flex-col h-full -my-4 -mx-4">
+              {/* Nachrichten */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                {/* Willkommensnachricht */}
+                {supportMessages.length === 0 && (
+                  <div className="text-center py-6">
+                    <div className="w-14 h-14 rounded-full bg-blue-600/20 flex items-center justify-center mx-auto mb-3">
+                      <MessageCircle size={24} className="text-blue-400" />
+                    </div>
+                    <h3 className="text-sm font-bold mb-1">Support-Chat</h3>
+                    <p className="text-xs text-gray-500 leading-relaxed max-w-xs mx-auto">
+                      Schreib uns dein Anliegen — Fragen, Probleme, Ideen. Jede Nachricht wird als Support-Anfrage weitergeleitet.
+                    </p>
+                  </div>
+                )}
+
+                {supportMessages.map(msg => (
+                  <div key={msg.id} className={`flex ${msg.fromUser ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
+                      msg.fromUser
+                        ? 'bg-blue-600 text-white rounded-br-md'
+                        : 'bg-gray-800 text-gray-200 border border-gray-700/50 rounded-bl-md'
+                    }`}>
+                      <p className="text-sm leading-relaxed">{msg.text}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[10px] ${msg.fromUser ? 'text-blue-200/60' : 'text-gray-500'}`}>
+                          {new Date(msg.timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        {msg.issueNumber && (
+                          <span className={`text-[10px] ${msg.fromUser ? 'text-blue-200/60' : 'text-gray-500'}`}>
+                            #{msg.issueNumber}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div ref={supportEndRef} />
+              </div>
+
+              {/* Eingabe */}
+              <div className="shrink-0 px-4 py-3 border-t border-gray-800 bg-gray-900">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={supportInput}
+                    onChange={e => setSupportInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey && supportInput.trim()) {
+                        e.preventDefault();
+                        handleSendSupport();
+                      }
+                    }}
+                    placeholder="Nachricht schreiben…"
+                    disabled={supportSending}
+                    className="flex-1 bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
+                  />
+                  <button
+                    onClick={handleSendSupport}
+                    disabled={!supportInput.trim() || supportSending}
+                    className="p-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl text-white transition-all"
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
               </div>
             </div>
           )}
