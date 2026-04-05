@@ -40,8 +40,7 @@ function SettingsSection({ id, icon, title, children, visible = true, isOpen, on
       >
         <div className="text-gray-400">{icon}</div>
         <span className="text-sm font-semibold text-white flex-1 text-left">{title}</span>
-        <Edit2 size={12} className="text-gray-600" />
-        <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+        <Edit2 size={14} className={`transition-colors ${isOpen ? "text-blue-400" : "text-gray-600"}`} />
       </button>
       <AnimatePresence>
         {isOpen && (
@@ -4427,7 +4426,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     </div>
                   </SettingsSection>
 
-                  {/* ── Einladung ── */}
+                  {/* ── QR-Code ── */}
                   {canSeeSection("invite") && (
                     <div className="border border-gray-700/50 rounded-2xl overflow-hidden">
                       <button
@@ -4437,9 +4436,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-800/50 transition-colors"
                       >
-                        <div className="text-gray-400"><UserPlus size={16} /></div>
-                        <span className="text-sm font-semibold text-white flex-1 text-left">Einladung</span>
-                        <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${settingsInviteOpen ? "rotate-180" : ""}`} />
+                        <div className="text-gray-400"><QrCode size={16} /></div>
+                        <span className="text-sm font-semibold text-white flex-1 text-left">QR-Code</span>
+                        <Edit2 size={14} className={`transition-colors ${settingsInviteOpen ? "text-blue-400" : "text-gray-600"}`} />
                       </button>
 
                       <AnimatePresence>
