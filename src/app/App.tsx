@@ -921,7 +921,7 @@ export default function App() {
               <h3 className="text-base font-bold text-white mb-2">Willkommen in der Beta</h3>
               <p className="text-sm text-gray-300 leading-relaxed mb-4">
                 Arego ist noch in der Entwicklung — und du kannst mitgestalten.
-                Schick uns dein Feedback an <span className="text-amber-400 font-medium">hallo@aregoland.de</span>.
+                Schick uns dein Feedback an <span className="text-amber-400 font-medium">feedback@aregoland.de</span>.
                 Dank KI bekommt jede Nachricht eine persoenliche Antwort (noch nicht implementiert).
               </p>
               <button
