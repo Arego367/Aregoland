@@ -25,6 +25,41 @@ import aregolandNews from "@/app/data/aregoland-news.json";
 
 const AREGOLAND_OFFICIAL_ID = "__aregoland_official__";
 
+// ── Stabile Settings-Section Komponente (verhindert Re-Mount bei Parent-Rerender) ──
+
+function SettingsSection({ id, icon, title, children, visible = true, isOpen, onToggle }: {
+  id: string; icon: React.ReactNode; title: string; children: React.ReactNode;
+  visible?: boolean; isOpen: boolean; onToggle: () => void;
+}) {
+  if (!visible) return null;
+  return (
+    <div className="border border-gray-700/50 rounded-2xl overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-800/50 transition-colors"
+      >
+        <div className="text-gray-400">{icon}</div>
+        <span className="text-sm font-semibold text-white flex-1 text-left">{title}</span>
+        <Edit2 size={12} className="text-gray-600" />
+        <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-1 space-y-3">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ── Types ──
 
 type SpaceTemplate = "family" | "school" | "club" | "work" | "government" | "community" | "custom";
@@ -4128,43 +4163,13 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 onShowToast?.("Änderung gespeichert", "info");
               };
 
-              // Einheitliche aufklappbare Sektion
-              const Section = ({ id, icon, title, children, visible = true }: { id: string; icon: React.ReactNode; title: string; children: React.ReactNode; visible?: boolean }) => {
-                if (!visible) return null;
-                const isOpen = settingsOpen[id] ?? false;
-                return (
-                  <div className="border border-gray-700/50 rounded-2xl overflow-hidden">
-                    <button
-                      onClick={() => toggleSection(id)}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-800/50 transition-colors"
-                    >
-                      <div className="text-gray-400">{icon}</div>
-                      <span className="text-sm font-semibold text-white flex-1 text-left">{title}</span>
-                      <Edit2 size={12} className="text-gray-600" />
-                      <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
-                    </button>
-                    <AnimatePresence>
-                      {isOpen && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="px-4 pb-4 pt-1 space-y-3">{children}</div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              };
+              // SettingsSection (stabil definiert ausserhalb) mit settingsOpen + toggleSection
 
               return (
                 <div className="space-y-2">
 
                   {/* ── Erscheinungsbild ── */}
-                  <Section id="appearance" icon={<Edit2 size={16} />} title={t('spaces.appearance')} visible={canSeeSection("appearance")}>
+                  <SettingsSection id="appearance" icon={<Edit2 size={16} />} title={t('spaces.appearance')} visible={canSeeSection("appearance")} isOpen={settingsOpen["appearance"] ?? false} onToggle={() => toggleSection("appearance")}>
                     {(() => {
                       const app = loadAppearance(selectedSpace.id);
                       return (
@@ -4248,10 +4253,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         </>
                       );
                     })()}
-                  </Section>
+                  </SettingsSection>
 
                   {/* ── Tags ── */}
-                  <Section id="tags" icon={<Tag size={16} />} title={t('spaces.tags')} visible={canSeeSection("tags")}>
+                  <SettingsSection id="tags" icon={<Tag size={16} />} title={t('spaces.tags')} visible={canSeeSection("tags")} isOpen={settingsOpen["tags"] ?? false} onToggle={() => toggleSection("tags")}>
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-1.5 items-center">
                         {(selectedSpace.tags ?? []).map(tag => (
@@ -4319,10 +4324,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         )}
                       </AnimatePresence>
                     </div>
-                  </Section>
+                  </SettingsSection>
 
                   {/* ── Sichtbarkeit ── */}
-                  <Section id="visibility" icon={<Eye size={16} />} title="Sichtbarkeit" visible={canSeeSection("visibility")}>
+                  <SettingsSection id="visibility" icon={<Eye size={16} />} title="Sichtbarkeit" visible={canSeeSection("visibility")} isOpen={settingsOpen["visibility"] ?? false} onToggle={() => toggleSection("visibility")}>
                       <div className="flex gap-2">
                         {([
                           { id: "public" as const, label: "Öffentlich", icon: <Globe size={14} />, desc: "In der Suche sichtbar" },
@@ -4398,10 +4403,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           </div>
                         </div>
                       )}
-                  </Section>
+                  </SettingsSection>
 
                   {/* ── Anzeigename ── */}
-                  <Section id="displayname" icon={<User size={16} />} title={t('spaces.displayNameRule')} visible={canSeeSection("visibility")}>
+                  <SettingsSection id="displayname" icon={<User size={16} />} title={t('spaces.displayNameRule')} visible={canSeeSection("visibility")} isOpen={settingsOpen["displayname"] ?? false} onToggle={() => toggleSection("displayname")}>
                     <div className="space-y-1.5">
                       {([
                         { id: "mixed" as IdentityRule, label: t('spaces.displayMixed'), desc: t('spaces.displayMixedDesc') },
@@ -4420,7 +4425,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         </button>
                       ))}
                     </div>
-                  </Section>
+                  </SettingsSection>
 
                   {/* ── Einladung ── */}
                   {canSeeSection("invite") && (
@@ -4584,7 +4589,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   )}
 
                   {/* ── Mitglieder verwalten ── */}
-                  <Section id="members" icon={<Users size={16} />} title={t('spaces.manageMembers')} visible={canSeeSection("members")}>
+                  <SettingsSection id="members" icon={<Users size={16} />} title={t('spaces.manageMembers')} visible={canSeeSection("members")} isOpen={settingsOpen["members"] ?? false} onToggle={() => toggleSection("members")}>
                     {(() => {
                       const allCustomRoles = selectedSpace.customRoles ?? [];
                       const allChannels = selectedSpace.channels ?? [];
@@ -4729,10 +4734,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         </div>
                       );
                     })()}
-                  </Section>
+                  </SettingsSection>
 
                   {/* ── Chats verwalten ── */}
-                  <Section id="chats" icon={<MessageCircle size={16} />} title={t('spaces.manageChats')} visible={canSeeSection("chats")}>
+                  <SettingsSection id="chats" icon={<MessageCircle size={16} />} title={t('spaces.manageChats')} visible={canSeeSection("chats")} isOpen={settingsOpen["chats"] ?? false} onToggle={() => toggleSection("chats")}>
                     {/* Create Channel button */}
                       {!showCreateChannel && (
                         <button onClick={() => setShowCreateChannel(true)}
@@ -4853,10 +4858,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           ))}
                         </div>
                       )}
-                  </Section>
+                  </SettingsSection>
 
                   {/* ── Rollen & Rechte ── */}
-                  <Section id="roles" icon={<Shield size={16} />} title={t('spaces.rolesAndPermissions')} visible={canSeeSection("roles")}>
+                  <SettingsSection id="roles" icon={<Shield size={16} />} title={t('spaces.rolesAndPermissions')} visible={canSeeSection("roles")} isOpen={settingsOpen["roles"] ?? false} onToggle={() => toggleSection("roles")}>
                     {/* ── Gründer (fest) ── */}
                       <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3 opacity-60 cursor-not-allowed">
                         <div className="flex items-center gap-2 mb-1">
@@ -5039,10 +5044,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         </div>
                         <p className="text-[10px] text-gray-500 leading-relaxed">{t('spaces.guestRoleHint')}</p>
                       </div>
-                  </Section>
+                  </SettingsSection>
 
                   {/* ── Gründer-Rechte übertragen ── */}
-                  <Section id="transfer" icon={<Crown size={16} />} title={t('spaces.transferFounder')} visible={myRole === "founder"}>
+                  <SettingsSection id="transfer" icon={<Crown size={16} />} title={t('spaces.transferFounder')} visible={myRole === "founder"} isOpen={settingsOpen["transfer"] ?? false} onToggle={() => toggleSection("transfer")}>
                     <div className="bg-gray-800/50 rounded-xl border border-yellow-900/30 p-4 space-y-3">
                         <p className="text-xs text-gray-400 leading-relaxed">{t('spaces.transferFounderDesc')}</p>
                         <select
@@ -5065,7 +5070,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           </button>
                         )}
                       </div>
-                  </Section>
+                  </SettingsSection>
 
                   {/* ── Space löschen — mehrstufig ── */}
                   {deleteStep === 0 && (
