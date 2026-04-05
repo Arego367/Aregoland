@@ -152,6 +152,18 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
 
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('aregoland_dark_mode') !== 'false');
   const [startScreen, setStartScreen] = useState("dashboard");
+  const [startDropdownOpen, setStartDropdownOpen] = useState(false);
+  const startDropdownRef = useRef<HTMLDivElement>(null);
+  const startLastKey = useRef("");
+  const startLastIndex = useRef(-1);
+
+  useEffect(() => {
+    if (startDropdownOpen) {
+      startLastKey.current = "";
+      startLastIndex.current = -1;
+      setTimeout(() => startDropdownRef.current?.focus(), 50);
+    }
+  }, [startDropdownOpen]);
   const [profileVisibility, setProfileVisibility] = useState<"public" | "contacts" | "family" | "private">("contacts");
   const [children, setChildren] = useState<ChildAccount[]>(() => loadChildren());
   const [showAddChild, setShowAddChild] = useState(false);
@@ -214,6 +226,33 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
     setStartScreen(screenId);
     localStorage.setItem("aregoland_start_screen", screenId);
   };
+
+  const handleStartKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+    const key = e.key.toLowerCase();
+    const matches = START_SCREENS.map((s, i) => ({ s, i })).filter(({ s }) =>
+      s.label.toLowerCase().startsWith(key)
+    );
+    if (matches.length === 0) return;
+    e.preventDefault();
+
+    let targetIndex: number;
+    if (key === startLastKey.current) {
+      const currentPos = matches.findIndex(m => m.i === startLastIndex.current);
+      const next = currentPos === -1 ? 0 : (currentPos + 1) % matches.length;
+      targetIndex = matches[next].i;
+    } else {
+      targetIndex = matches[0].i;
+    }
+    startLastKey.current = key;
+    startLastIndex.current = targetIndex;
+
+    const container = startDropdownRef.current;
+    if (container) {
+      const buttons = container.querySelectorAll("button");
+      buttons[targetIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  }, [START_SCREENS]);
 
   // Main Settings Menu
   if (activeSubmenu === "main") {
@@ -376,37 +415,67 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-6 max-w-lg mx-auto">
             
-            {/* Start Screen Selector */}
+            {/* Start Screen Selector — Dropdown */}
             <div className="space-y-2">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.startScreen')}</h3>
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
-                 {START_SCREENS.map((screen) => (
-                   <button
-                     key={screen.id}
-                     onClick={() => !("disabled" in screen && screen.disabled) && handleStartScreenChange(screen.id)}
-                     className={`w-full flex items-center justify-between p-4 transition-colors border-b border-gray-700/50 last:border-0 ${
-                       "disabled" in screen && screen.disabled ? "opacity-40 cursor-not-allowed" :
-                       startScreen === screen.id ? "bg-blue-900/20 hover:bg-blue-900/30" : "hover:bg-gray-800"
-                     }`}
-                   >
-                     <div className="flex items-center gap-3">
-                       <div className={`p-2 rounded-lg ${startScreen === screen.id ? "bg-blue-500/20 text-blue-400" : "bg-gray-700/50 text-gray-400"}`}>
-                         <screen.icon size={18} />
-                       </div>
-                       <span className={`font-medium ${startScreen === screen.id ? "text-blue-400" : "text-white"}`}>
-                         {screen.label}
-                       </span>
-                       {"disabled" in screen && screen.disabled && (
-                         <span className="text-[10px] text-gray-600 ml-1">(bald)</span>
-                       )}
-                     </div>
-                     {startScreen === screen.id && (
-                       <div className="bg-blue-500 rounded-full p-0.5">
-                         <Check size={12} className="text-white" />
-                       </div>
-                     )}
-                   </button>
-                 ))}
+              <div className="relative">
+                <button
+                  onClick={() => setStartDropdownOpen(!startDropdownOpen)}
+                  className="w-full flex items-center justify-between p-4 bg-gray-800/50 rounded-2xl border border-gray-700/50 hover:bg-gray-800 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    {(() => { const cur = START_SCREENS.find(s => s.id === startScreen) || START_SCREENS[0]; const Icon = cur.icon; return (<><div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Icon size={18} /></div><span className="font-medium text-white">{cur.label}</span></>); })()}
+                  </div>
+                  <ChevronDown size={18} className={`text-gray-400 transition-transform ${startDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence>
+                  {startDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.15 }}
+                      ref={startDropdownRef}
+                      tabIndex={0}
+                      onKeyDown={handleStartKeyDown}
+                      className="absolute z-50 mt-2 w-full max-h-64 overflow-y-auto bg-gray-800 rounded-2xl border border-gray-700/50 shadow-xl outline-none"
+                    >
+                      {START_SCREENS.map((screen) => {
+                        const Icon = screen.icon;
+                        const disabled = "disabled" in screen && screen.disabled;
+                        return (
+                          <button
+                            key={screen.id}
+                            onClick={() => {
+                              if (disabled) return;
+                              handleStartScreenChange(screen.id);
+                              setStartDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-3 transition-colors border-b border-gray-700/30 last:border-0 ${
+                              disabled ? "opacity-40 cursor-not-allowed" :
+                              startScreen === screen.id ? "bg-blue-900/20" : "hover:bg-gray-700/50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-lg ${startScreen === screen.id ? "bg-blue-500/20 text-blue-400" : "bg-gray-700/50 text-gray-400"}`}>
+                                <Icon size={18} />
+                              </div>
+                              <span className={`text-sm font-medium ${startScreen === screen.id ? "text-blue-400" : "text-white"}`}>
+                                {screen.label}
+                              </span>
+                              {disabled && <span className="text-[10px] text-gray-600 ml-1">(bald)</span>}
+                            </div>
+                            {startScreen === screen.id && (
+                              <div className="bg-blue-500 rounded-full p-0.5">
+                                <Check size={12} className="text-white" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
               <p className="text-xs text-gray-500 px-2">
                   {t('settings.startScreenDesc')}
