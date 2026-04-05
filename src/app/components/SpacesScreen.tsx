@@ -2063,43 +2063,118 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
   // ── OFFICIAL AREGOLAND SPACE DETAIL ──
   if (view === "detail" && selectedSpace?.id === AREGOLAND_OFFICIAL_ID) {
-    const officialTabs = ["news", "about", "support", "world"] as const;
-    type OfficialTab = typeof officialTabs[number];
-    const officialTabLabel: Record<OfficialTab, string> = { news: "Neuigkeiten", about: "Über", support: "Support", world: "World" };
-    const currentOfficialTab = (["news", "about", "support", "world"].includes(activeTab as string) ? activeTab : "news") as OfficialTab;
+    type OfficialTab = "overview" | "news" | "about" | "support" | "world";
+    const currentOfficialTab = (["overview", "news", "about", "support", "world"].includes(activeTab as string) ? activeTab : "overview") as OfficialTab;
+    const officialTabLabel: Record<OfficialTab, string> = { overview: "Aregoland", news: "Neuigkeiten", about: "Über", support: "Support", world: "World" };
+
+    // Kachel-Reihenfolge
+    type OfficialTileId = "news" | "about" | "support" | "world";
+    const OFFICIAL_TILE_DEFAULTS: OfficialTileId[] = ["news", "about", "support", "world"];
+    const loadOfficialTileOrder = (): OfficialTileId[] => {
+      try {
+        const raw: OfficialTileId[] = JSON.parse(localStorage.getItem("aregoland_official_tiles") ?? "[]");
+        if (!raw.length) return OFFICIAL_TILE_DEFAULTS;
+        const valid = new Set(OFFICIAL_TILE_DEFAULTS);
+        const filtered = raw.filter(id => valid.has(id));
+        for (const d of OFFICIAL_TILE_DEFAULTS) { if (!filtered.includes(d)) filtered.push(d); }
+        return filtered;
+      } catch { return OFFICIAL_TILE_DEFAULTS; }
+    };
+
+    const officialTileConfig: Record<OfficialTileId, { icon: typeof Newspaper; gradient: string; label: string; desc: string; activity?: string }> = {
+      news: { icon: Newspaper, gradient: "from-amber-600 to-orange-500", label: "Neuigkeiten", desc: "Updates & Ankündigungen", activity: `${(aregolandNews as unknown[]).length} Einträge` },
+      about: { icon: Heart, gradient: "from-pink-600 to-rose-500", label: "Über", desc: "Hintergrund, Roadmap, Spenden" },
+      support: { icon: MessageCircle, gradient: "from-blue-600 to-cyan-500", label: "Support", desc: "KI-Assistent", activity: "Bald verfügbar" },
+      world: { icon: Globe, gradient: "from-cyan-600 to-teal-500", label: "World", desc: "Öffentlicher Feed", activity: "Bald verfügbar" },
+    };
 
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         {/* Header */}
-        <div className="relative h-36 shrink-0 overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700">
+        <div className={`relative ${currentOfficialTab === "overview" ? "h-36" : "h-20"} shrink-0 overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 transition-all`}>
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900 pointer-events-none" />
-          <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
+          <button
+            onClick={() => currentOfficialTab === "overview" ? setView("list") : setActiveTab("overview" as typeof activeTab)}
+            className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20"
+          >
             <ArrowLeft size={20} />
           </button>
-          <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
-            <img src="/aregoland_space_icon_notxt.svg" alt="Aregoland" className="w-20 h-20 rounded-xl object-cover" />
-          </div>
+          {currentOfficialTab === "overview" && (
+            <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
+              <img src="/aregoland_space_icon_notxt.svg" alt="Aregoland" className="w-20 h-20 rounded-xl object-cover" />
+            </div>
+          )}
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
-            <h1 className="text-2xl font-bold">Aregoland</h1>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="px-4 border-b border-gray-800 shrink-0">
-          <div className="flex items-center gap-6 overflow-x-auto no-scrollbar pb-1">
-            {officialTabs.map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab as typeof activeTab)}
-                className={`py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  currentOfficialTab === tab ? "border-blue-500 text-blue-400" : "border-transparent text-gray-400 hover:text-gray-200"
-                }`}>
-                {officialTabLabel[tab]}
-              </button>
-            ))}
+            <h1 className={`font-bold ${currentOfficialTab === "overview" ? "text-2xl" : "text-lg ml-10"}`}>
+              {officialTabLabel[currentOfficialTab]}
+            </h1>
           </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 py-4">
+
+          {/* Kachel-Übersicht */}
+          {currentOfficialTab === "overview" && (() => {
+            const tiles = loadOfficialTileOrder();
+            return (
+              <div className="space-y-4">
+                <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    Der offizielle Space für Neuigkeiten, Roadmap und Support.
+                  </p>
+                </div>
+                <DndContext
+                  sensors={tileSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event: DragEndEvent) => {
+                    const { active, over } = event;
+                    if (over && active.id !== over.id) {
+                      const oldIndex = tiles.indexOf(active.id as OfficialTileId);
+                      const newIndex = tiles.indexOf(over.id as OfficialTileId);
+                      const newOrder = arrayMove(tiles, oldIndex, newIndex);
+                      localStorage.setItem("aregoland_official_tiles", JSON.stringify(newOrder));
+                      // Force re-render
+                      setActiveTab("overview" as typeof activeTab);
+                    }
+                  }}
+                >
+                  <SortableContext items={tiles} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                      {tiles.map(tileId => {
+                        const cfg = officialTileConfig[tileId];
+                        const Icon = cfg.icon;
+                        return (
+                          <SortableTile key={tileId} id={tileId}>
+                            <button
+                              onClick={() => setActiveTab(tileId as typeof activeTab)}
+                              className="w-full relative bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-2xl p-4 text-left transition-all group flex items-center gap-4"
+                            >
+                              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${cfg.gradient} flex items-center justify-center shrink-0`}>
+                                <Icon size={22} className="text-white" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{cfg.label}</div>
+                                <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{cfg.desc}</div>
+                                {cfg.activity && (
+                                  <div className="text-[10px] text-gray-600 mt-1 flex items-center gap-1">
+                                    <Clock size={10} className="shrink-0" />
+                                    <span className="truncate">{cfg.activity}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <ChevronRight size={16} className="text-gray-600 shrink-0" />
+                            </button>
+                          </SortableTile>
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
+            );
+          })()}
+
           {currentOfficialTab === "news" && (
             <div className="space-y-3">
               {(aregolandNews as { id: string; date: string; title: string; text: string }[]).slice().reverse().map(entry => (
