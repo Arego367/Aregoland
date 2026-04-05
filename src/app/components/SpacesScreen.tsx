@@ -1107,6 +1107,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
   const handleDeleteSpace = (id: string) => {
     if (id === AREGOLAND_OFFICIAL_ID) return; // Official Space nicht löschbar
+    const space = spaces.find(s => s.id === id);
+    if (space?.visibility === "public") {
+      unregisterPublicSpace(id).catch(() => {});
+    }
     const updated = spaces.filter(s => s.id !== id);
     setSpaces(updated);
     saveSpaces(updated);
