@@ -400,9 +400,11 @@ interface SpacesScreenProps {
   onOpenQRCode: () => void;
   onOpenSettings: () => void;
   onShowToast?: (text: string, type?: 'info' | 'warning') => void;
+  deepLink?: { spaceId: string; tab?: string } | null;
+  onDeepLinkConsumed?: () => void;
 }
 
-export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onShowToast }: SpacesScreenProps) {
+export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onShowToast, deepLink, onDeepLinkConsumed }: SpacesScreenProps) {
   const { t } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
   const [spaces, setSpaces] = useState<Space[]>(() => {
@@ -584,6 +586,23 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // Roadmap collapsible state
   const [openRoadmap, setOpenRoadmap] = useState<Record<string, boolean>>({ done: false, wip: true, planned: false });
   const toggleRoadmap = (key: string) => setOpenRoadmap(prev => ({ ...prev, [key]: !prev[key] }));
+
+  // Deep-Link: direkt in einen Space + Tab navigieren
+  useEffect(() => {
+    if (!deepLink) return;
+    // Spaces neu laden (könnte gerade per join_response hinzugefügt worden sein)
+    const userSpaces = loadSpaces().filter(s => s.id !== AREGOLAND_OFFICIAL_ID);
+    const all = [AREGOLAND_OFFICIAL_SPACE, ...userSpaces];
+    const ordered = applyOrder(all);
+    setSpaces(ordered);
+    const target = ordered.find(s => s.id === deepLink.spaceId);
+    if (target) {
+      setSelectedSpace(target);
+      setView("detail");
+      setActiveTab((deepLink.tab ?? "overview") as typeof activeTab);
+    }
+    onDeepLinkConsumed?.();
+  }, [deepLink]);
 
   // Stiller Heartbeat für öffentliche Spaces (alle 3 Tage, für Nutzer unsichtbar)
   useEffect(() => {

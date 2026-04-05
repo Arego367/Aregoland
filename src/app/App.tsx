@@ -89,12 +89,15 @@ export default function App() {
   const [contactStatusMap, setContactStatusMap] = useState<Record<string, ContactStatus>>(() => loadContactStatuses());
 
   // In-App Toast-Benachrichtigung (auf jedem Screen sichtbar)
-  const [toast, setToast] = useState<{ text: string; type: 'info' | 'warning' } | null>(null);
+  const [toast, setToast] = useState<{ text: string; type: 'info' | 'warning'; onClick?: () => void; actionLabel?: string; onAction?: () => void } | null>(null);
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 5000);
+    const t = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // Deep-Link in einen Space (spaceId + tab)
+  const [spaceDeepLink, setSpaceDeepLink] = useState<{ spaceId: string; tab?: string } | null>(null);
 
   // Eingehender Anruf wenn Chat nicht offen
   const [incomingCall, setIncomingCall] = useState<{
@@ -480,7 +483,42 @@ export default function App() {
 
         // Beitrittsanfrage empfangen (Gründer)
         if (msg.type === 'join_request' && typeof msg.user_name === 'string') {
-          setToast({ text: `Neue Beitrittsanfrage von ${msg.user_name || msg.user_id}`, type: 'info' });
+          const reqSpaceId = msg.space_id;
+          const reqUserId = msg.user_id;
+          const reqUserName = msg.user_name || msg.user_id;
+          setToast({
+            text: `Neue Beitrittsanfrage von ${reqUserName}`,
+            type: 'info',
+            onClick: () => {
+              setSpaceDeepLink({ spaceId: reqSpaceId, tab: 'members' });
+              setCurrentScreen('spaces');
+              setToast(null);
+            },
+            actionLabel: 'Annehmen',
+            onAction: async () => {
+              if (!identity) return;
+              // Space-Name aus localStorage holen
+              try {
+                const spaces: any[] = JSON.parse(localStorage.getItem('aregoland_spaces') ?? '[]');
+                const sp = spaces.find((s: any) => s.id === reqSpaceId);
+                await fetch('/join-request/respond', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    user_id: reqUserId, space_id: reqSpaceId,
+                    gruender_id: identity.aregoId, action: 'approve',
+                    space_name: sp?.name ?? '', space_template: sp?.template ?? 'community',
+                  }),
+                });
+                // Mitglied lokal hinzufügen
+                if (sp) {
+                  sp.members = [...(sp.members ?? []), { aregoId: reqUserId, displayName: reqUserName, role: 'member', joinedAt: new Date().toISOString() }];
+                  localStorage.setItem('aregoland_spaces', JSON.stringify(spaces));
+                }
+              } catch { /* ignore */ }
+              setToast(null);
+            },
+          });
           return;
         }
 
@@ -519,10 +557,26 @@ export default function App() {
               }
             } catch { /* ignore */ }
             removePendingRequest(msg.space_id);
-            setToast({ text: `Deine Anfrage für „${spaceName}" wurde angenommen`, type: 'info' });
+            const approvedSpaceId = msg.space_id;
+            setToast({
+              text: `Deine Anfrage für „${spaceName}" wurde angenommen`,
+              type: 'info',
+              onClick: () => {
+                setSpaceDeepLink({ spaceId: approvedSpaceId, tab: 'overview' });
+                setCurrentScreen('spaces');
+                setToast(null);
+              },
+            });
           } else {
             removePendingRequest(msg.space_id);
-            setToast({ text: `Deine Anfrage für „${spaceName}" wurde abgelehnt`, type: 'warning' });
+            setToast({
+              text: `Deine Anfrage für „${spaceName}" wurde abgelehnt`,
+              type: 'warning',
+              onClick: () => {
+                setCurrentScreen('spaces');
+                setToast(null);
+              },
+            });
           }
           return;
         }
@@ -898,7 +952,7 @@ export default function App() {
       )}
       {currentScreen === "childProfile" && <ChildProfileScreen onBack={() => setCurrentScreen("people")} />}
       {currentScreen === "calendar" && <CalendarScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} />}
-      {currentScreen === "spaces" && <SpacesScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} onShowToast={(text, type) => setToast({ text, type: type ?? 'info' })} />}
+      {currentScreen === "spaces" && <SpacesScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} onShowToast={(text, type) => setToast({ text, type: type ?? 'info' })} deepLink={spaceDeepLink} onDeepLinkConsumed={() => setSpaceDeepLink(null)} />}
       {currentScreen === "connect" && <ConnectScreen onBack={() => setCurrentScreen("dashboard")} />}
       {currentScreen === "documents" && <DocumentsScreen onBack={() => setCurrentScreen("dashboard")} />}
 
@@ -909,13 +963,27 @@ export default function App() {
             initial={{ y: -80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -80, opacity: 0 }}
+            onClick={toast.onClick}
             className={`fixed top-4 left-4 right-4 z-[300] p-4 rounded-2xl shadow-2xl backdrop-blur-xl border ${
+              toast.onClick ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''
+            } ${
               toast.type === 'warning'
                 ? 'bg-red-950/90 border-red-800 text-red-200'
                 : 'bg-blue-950/90 border-blue-800 text-blue-200'
             }`}
           >
-            <p className="text-sm font-medium text-center">{toast.text}</p>
+            <div className={`flex items-center ${toast.actionLabel ? 'justify-between' : 'justify-center'} gap-3`}>
+              <p className="text-sm font-medium flex-1">{toast.text}</p>
+              {toast.actionLabel && toast.onAction && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); toast.onAction!(); }}
+                  className="shrink-0 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg transition-colors"
+                >
+                  {toast.actionLabel}
+                </button>
+              )}
+            </div>
+            {toast.onClick && <p className="text-[10px] opacity-50 mt-1 text-center">Antippen zum Öffnen</p>}
           </motion.div>
         )}
       </AnimatePresence>
