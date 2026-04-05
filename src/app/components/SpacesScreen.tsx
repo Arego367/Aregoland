@@ -12,6 +12,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
 import { Html5Qrcode } from "html5-qrcode";
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, maybeHeartbeat, type PublicSpace } from "@/app/lib/spaces-api";
 import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
@@ -366,6 +369,28 @@ function getTemplate(id: SpaceTemplate) {
   return TEMPLATES.find(t => t.id === id) ?? TEMPLATES[TEMPLATES.length - 1];
 }
 
+// ── Sortable Tile (dnd-kit) ──
+
+interface SortableTileProps {
+  id: string;
+  children: React.ReactNode;
+}
+
+function SortableTile({ id, children }: SortableTileProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.9 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
+
 // ── Component ──
 
 interface SpacesScreenProps {
@@ -386,6 +411,12 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [view, setView] = useState<"list" | "newMenu" | "templates" | "create" | "detail" | "invite" | "discover" | "scanInvite">("list");
   const [selectedTemplate, setSelectedTemplate] = useState<SpaceTemplate | null>(null);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
+
+  // dnd-kit Sensoren für Kachel-Reorder (mit Aktivierungsdistanz damit Klick funktioniert)
+  const tileSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  );
 
   // Search & filter & sort
   const [searchQuery, setSearchQuery] = useState("");
@@ -2405,49 +2436,58 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     </div>
                   </div>
 
-                  {/* Kachel-Grid — Drag & Drop */}
-                  <Reorder.Group
-                    axis="y"
-                    values={tiles}
-                    onReorder={(newOrder) => { setTileOrder(newOrder); saveTileOrder(selectedSpace.id, newOrder); }}
-                    className="grid grid-cols-2 gap-2"
-                    style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}
+                  {/* Kachel-Grid — Drag & Drop (dnd-kit) */}
+                  <DndContext
+                    sensors={tileSensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(event: DragEndEvent) => {
+                      const { active, over } = event;
+                      if (over && active.id !== over.id) {
+                        const oldIndex = tiles.indexOf(active.id as TileId);
+                        const newIndex = tiles.indexOf(over.id as TileId);
+                        const newOrder = arrayMove(tiles, oldIndex, newIndex);
+                        setTileOrder(newOrder);
+                        saveTileOrder(selectedSpace.id, newOrder);
+                      }
+                    }}
                   >
-                    {tiles.map(tileId => {
-                      const cfg = TILE_CONFIG[tileId];
-                      const Icon = cfg.icon;
-                      return (
-                        <Reorder.Item
-                          key={tileId}
-                          value={tileId}
-                          className="list-none"
-                          whileDrag={{ scale: 1.04, zIndex: 50 }}
-                        >
-                          <button
-                            onClick={() => setActiveTab(tileId)}
-                            className="w-full relative bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-2xl p-4 text-left transition-all group"
-                          >
-                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${cfg.gradient} flex items-center justify-center mb-2.5`}>
-                              <Icon size={20} className="text-white" />
-                            </div>
-                            <div className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{cfg.label}</div>
-                            <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{cfg.desc}</div>
-                            {cfg.activity && (
-                              <div className="text-[10px] text-gray-600 mt-1.5 flex items-center gap-1">
-                                <Clock size={10} className="shrink-0" />
-                                <span className="truncate">{cfg.activity}</span>
-                              </div>
-                            )}
-                            {tileId === "chats" && chatUnread > 0 && (
-                              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center">
-                                {chatUnread > 9 ? "9+" : chatUnread}
-                              </div>
-                            )}
-                          </button>
-                        </Reorder.Item>
-                      );
-                    })}
-                  </Reorder.Group>
+                    <SortableContext items={tiles} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {tiles.map(tileId => {
+                          const cfg = TILE_CONFIG[tileId];
+                          const Icon = cfg.icon;
+                          return (
+                            <SortableTile key={tileId} id={tileId}>
+                              <button
+                                onClick={() => setActiveTab(tileId)}
+                                className="w-full relative bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-2xl p-4 text-left transition-all group flex items-center gap-4"
+                              >
+                                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${cfg.gradient} flex items-center justify-center shrink-0`}>
+                                  <Icon size={22} className="text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{cfg.label}</div>
+                                  <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{cfg.desc}</div>
+                                  {cfg.activity && (
+                                    <div className="text-[10px] text-gray-600 mt-1 flex items-center gap-1">
+                                      <Clock size={10} className="shrink-0" />
+                                      <span className="truncate">{cfg.activity}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {tileId === "chats" && chatUnread > 0 && (
+                                  <div className="w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    {chatUnread > 9 ? "9+" : chatUnread}
+                                  </div>
+                                )}
+                                <ChevronRight size={16} className="text-gray-600 shrink-0" />
+                              </button>
+                            </SortableTile>
+                          );
+                        })}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                 </>
               );
             })()}
