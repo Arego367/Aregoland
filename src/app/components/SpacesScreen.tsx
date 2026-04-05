@@ -989,13 +989,43 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   };
 
   const handleChangeRole = (aregoId: string, newRole: SpaceRole) => {
-    if (!selectedSpace) return;
+    if (!selectedSpace || !identity) return;
+    const member = selectedSpace.members.find(m => m.aregoId === aregoId);
+    if (!member) return;
+    const oldRole = member.role;
+    const roleName = newRole;
+
+    // Mitgliederliste aktualisieren
+    const updatedMembers = selectedSpace.members.map(m => m.aregoId === aregoId ? { ...m, role: newRole } : m);
+
+    // Automatischer Neuigkeiten-Post
+    const rolePost: SpacePost = {
+      id: `post-${Date.now().toString(36)}`,
+      authorId: identity.aregoId,
+      authorName: identity.displayName,
+      authorRole: (selectedSpace.members.find(m => m.aregoId === identity.aregoId)?.role ?? "member") as SpaceRole,
+      title: `Rolle geändert`,
+      text: `${member.displayName} hat die Rolle „${roleName}" erhalten.`,
+      badge: "announcement" as const,
+      pinned: false,
+      upvotes: [],
+      comments: [],
+      createdAt: new Date().toISOString(),
+    };
+
     const updated = {
       ...selectedSpace,
-      members: selectedSpace.members.map(m => m.aregoId === aregoId ? { ...m, role: newRole } : m),
+      members: updatedMembers,
+      posts: [...(selectedSpace.posts ?? []), rolePost],
     };
     updateSpace(updated);
+    onShowToast?.("Änderung gespeichert", "info");
     setEditingMember(null);
+
+    // Toast an betroffenes Mitglied senden (via space_sync)
+    if (aregoId !== identity.aregoId) {
+      sendSpaceSync(aregoId, buildSyncPayload(updated)).catch(() => {});
+    }
   };
 
   const handleRemoveMember = (aregoId: string) => {
@@ -1005,6 +1035,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       members: selectedSpace.members.filter(m => m.aregoId !== aregoId),
     };
     updateSpace(updated);
+    onShowToast?.("Änderung gespeichert", "info");
   };
 
   const registerInviteShortCode = async (encoded: string) => {
@@ -1467,6 +1498,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         ),
       };
       updateSpace(updated);
+      onShowToast?.("Änderung gespeichert", "info");
     } else {
       // Create new channel
       const channel: SpaceChannel = {
@@ -1481,6 +1513,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         unreadCount: 0,
       };
       updateSpace({ ...selectedSpace, channels: [...(selectedSpace.channels ?? []), channel] });
+      onShowToast?.("Änderung gespeichert", "info");
     }
     setChannelName("");
     setChannelWriteRoles(new Set(["member"]));
@@ -1529,6 +1562,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       channels: selectedSpace.channels.filter(ch => ch.id !== channelId),
     };
     updateSpace(updated);
+    onShowToast?.("Änderung gespeichert", "info");
     if (openChannel?.id === channelId) handleCloseChannel();
   };
 
@@ -3722,6 +3756,12 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 return (myCustomRole.permissions.visibleSettingsSections ?? []).includes(sectionId);
               };
 
+              // Auto-Save Wrapper für Einstellungen
+              const saveSettings = (updated: Space) => {
+                updateSpace(updated);
+                onShowToast?.("Änderung gespeichert", "info");
+              };
+
               // Einheitliche aufklappbare Sektion
               const Section = ({ id, icon, title, children, visible = true }: { id: string; icon: React.ReactNode; title: string; children: React.ReactNode; visible?: boolean }) => {
                 if (!visible) return null;
@@ -3786,7 +3826,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                             const file = e.target.files?.[0]; if (!file) return; e.target.value = "";
                             const reader = new FileReader(); reader.onload = () => {
                               saveAppearance(selectedSpace.id, { ...app, icon: { type: "image", value: reader.result as string } });
-                              updateSpace({ ...selectedSpace }); setShowIconPicker(false);
+                              saveSettings({ ...selectedSpace }); setShowIconPicker(false);
                             }; reader.readAsDataURL(file);
                           }} />
                           <AnimatePresence>
@@ -3797,7 +3837,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                     {EMOJI_QUICK.map(em => (
                                       <button key={em} onClick={() => {
                                         saveAppearance(selectedSpace.id, { ...app, icon: { type: "emoji", value: em } });
-                                        updateSpace({ ...selectedSpace }); setShowIconPicker(false);
+                                        saveSettings({ ...selectedSpace }); setShowIconPicker(false);
                                       }} className="w-10 h-10 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-xl transition-colors">{em}</button>
                                     ))}
                                   </div>
@@ -3816,7 +3856,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                     {BANNER_PRESETS.map(g => (
                                       <button key={g} onClick={() => {
                                         saveAppearance(selectedSpace.id, { ...app, banner: { type: "color", value: g } });
-                                        updateSpace({ ...selectedSpace, color: g }); setShowBannerPicker(false);
+                                        saveSettings({ ...selectedSpace, color: g }); setShowBannerPicker(false);
                                       }} className={`w-10 h-10 rounded-lg bg-gradient-to-br ${g} border-2 ${selectedSpace.color === g ? "border-white" : "border-transparent"} hover:border-gray-400 transition-all`} />
                                     ))}
                                   </div>
@@ -3831,7 +3871,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                               defaultValue={selectedSpace.description}
                               onBlur={e => {
                                 const val = e.target.value.trim();
-                                if (val !== selectedSpace.description) updateSpace({ ...selectedSpace, description: val });
+                                if (val !== selectedSpace.description) saveSettings({ ...selectedSpace, description: val });
                               }}
                               placeholder="Worum geht es in diesem Space?"
                               rows={3}
@@ -3850,7 +3890,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         {(selectedSpace.tags ?? []).map(tag => (
                           <span key={tag} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50">
                             {tag}
-                            <button onClick={() => updateSpace({ ...selectedSpace, tags: (selectedSpace.tags ?? []).filter(t => t !== tag) })}
+                            <button onClick={() => saveSettings({ ...selectedSpace, tags: (selectedSpace.tags ?? []).filter(t => t !== tag) })}
                               className="hover:text-white transition-colors"><X size={11} /></button>
                           </span>
                         ))}
@@ -3871,7 +3911,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                       onClick={() => {
                                         const current = selectedSpace.tags ?? [];
                                         const next = active ? current.filter(t => t !== tag) : [...current, tag];
-                                        updateSpace({ ...selectedSpace, tags: next });
+                                        saveSettings({ ...selectedSpace, tags: next });
                                       }}
                                       className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
                                         active ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-700 text-gray-500 hover:bg-gray-600"
@@ -3886,7 +3926,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                   onKeyDown={e => {
                                     if (e.key === "Enter" && settingsCustomTag.trim()) {
                                       const current = selectedSpace.tags ?? [];
-                                      if (!current.includes(settingsCustomTag.trim())) updateSpace({ ...selectedSpace, tags: [...current, settingsCustomTag.trim()] });
+                                      if (!current.includes(settingsCustomTag.trim())) saveSettings({ ...selectedSpace, tags: [...current, settingsCustomTag.trim()] });
                                       setSettingsCustomTag("");
                                     }
                                   }}
@@ -3895,7 +3935,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                 <button onClick={() => {
                                     if (settingsCustomTag.trim()) {
                                       const current = selectedSpace.tags ?? [];
-                                      if (!current.includes(settingsCustomTag.trim())) updateSpace({ ...selectedSpace, tags: [...current, settingsCustomTag.trim()] });
+                                      if (!current.includes(settingsCustomTag.trim())) saveSettings({ ...selectedSpace, tags: [...current, settingsCustomTag.trim()] });
                                       setSettingsCustomTag("");
                                     }
                                   }}
@@ -3924,7 +3964,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           <button key={opt.id}
                             onClick={async () => {
                               const updated = { ...selectedSpace, visibility: opt.id };
-                              updateSpace(updated);
+                              saveSettings(updated);
                               if (opt.id === "public" && identity) {
                                 await registerPublicSpace({
                                   space_id: selectedSpace.id,
@@ -3977,7 +4017,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                 { id: "transfer" as const, label: "Weitergeben", desc: "An nächstes Mitglied nach Rolle" },
                               ]).map(rule => (
                                 <button key={rule.id}
-                                  onClick={() => updateSpace({ ...selectedSpace, inaktivitaets_regel: rule.id })}
+                                  onClick={() => saveSettings({ ...selectedSpace, inaktivitaets_regel: rule.id })}
                                   className={`flex-1 flex flex-col items-center gap-1 p-2.5 rounded-xl border transition-all text-center ${
                                     (selectedSpace.inaktivitaets_regel ?? "delete") === rule.id
                                       ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
@@ -4211,14 +4251,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                             {allCustomRoles.map(cr => (
                                               <button key={cr.id}
                                                 onClick={() => {
-                                                  if (!selectedSpace) return;
-                                                  updateSpace({
-                                                    ...selectedSpace,
-                                                    members: selectedSpace.members.map(m =>
-                                                      m.aregoId === member.aregoId ? { ...m, role: cr.name as SpaceRole } : m
-                                                    ),
-                                                  });
-                                                  setEditingMember(null);
+                                                  handleChangeRole(member.aregoId, cr.name as SpaceRole);
                                                 }}
                                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                                   member.role === (cr.name as SpaceRole)
@@ -4258,7 +4291,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                                           };
                                                         }
                                                       });
-                                                      updateSpace({ ...selectedSpace, channels: updatedChannels });
+                                                      saveSettings({ ...selectedSpace, channels: updatedChannels });
                                                     }}
                                                     className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-800/50 bg-gray-900/30 transition-colors">
                                                     <div className="flex items-center gap-2">
@@ -4461,7 +4494,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                 </button>
                                 <button onClick={() => {
                                   const updated = { ...selectedSpace, customRoles: (selectedSpace.customRoles ?? []).filter(r => r.id !== cr.id) };
-                                  updateSpace(updated);
+                                  saveSettings(updated);
                                 }} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
                                   <Trash2 size={13} />
                                 </button>
@@ -4562,7 +4595,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                               const perms = { ...newRolePerms, visibleSettingsSections: [...(newRolePerms.visibleSettingsSections ?? [])] };
                               if (!perms.viewSettings) perms.visibleSettingsSections = [];
                               if (editingRoleId) {
-                                updateSpace({
+                                saveSettings({
                                   ...selectedSpace,
                                   customRoles: (selectedSpace.customRoles ?? []).map(r =>
                                     r.id === editingRoleId ? { ...r, name: newRoleName.trim(), color: newRoleColor, permissions: perms } : r
@@ -4575,7 +4608,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                   color: newRoleColor,
                                   permissions: perms,
                                 };
-                                updateSpace({ ...selectedSpace, customRoles: [...(selectedSpace.customRoles ?? []), role] });
+                                saveSettings({ ...selectedSpace, customRoles: [...(selectedSpace.customRoles ?? []), role] });
                               }
                               setNewRoleName(""); setNewRoleColor("#3b82f6");
                               setNewRolePerms({ inviteMembers: false, removeMembers: false, manageChats: false, postNews: false, createEvents: false, viewSettings: false, visibleSettingsSections: [] });
