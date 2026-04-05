@@ -2334,38 +2334,32 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         {/* Header with gradient banner + centered icon */}
-        <div className={`relative h-36 shrink-0 bg-gradient-to-br ${selectedSpace.color}`}>
+        <div className={`relative ${activeTab === "overview" ? "h-36" : "h-20"} shrink-0 bg-gradient-to-br ${selectedSpace.color} transition-all`}>
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900 pointer-events-none" />
-          <button onClick={() => setView("list")} className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20">
+          <button
+            onClick={() => activeTab === "overview" ? setView("list") : setActiveTab("overview")}
+            className="absolute top-4 left-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white z-20"
+          >
             <ArrowLeft size={20} />
           </button>
-          {/* Centered Icon */}
-          <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
-            {appearance.icon?.type === "image" ? (
-              <img src={appearance.icon.value} className="w-20 h-20 rounded-xl object-cover" />
-            ) : appearance.icon?.type === "emoji" ? (
-              <div className="w-20 h-20 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-4xl">{appearance.icon.value}</div>
-            ) : (
-              <div className="w-20 h-20 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-3xl font-bold text-white">{(selectedSpace.name[0] ?? "").toUpperCase()}</div>
-            )}
-          </div>
+          {/* Centered Icon — nur auf Übersicht */}
+          {activeTab === "overview" && (
+            <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
+              {appearance.icon?.type === "image" ? (
+                <img src={appearance.icon.value} className="w-20 h-20 rounded-xl object-cover" />
+              ) : appearance.icon?.type === "emoji" ? (
+                <div className="w-20 h-20 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-4xl">{appearance.icon.value}</div>
+              ) : (
+                <div className="w-20 h-20 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-3xl font-bold text-white">{(selectedSpace.name[0] ?? "").toUpperCase()}</div>
+              )}
+            </div>
+          )}
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
-            <h1 className="text-2xl font-bold">{selectedSpace.name}</h1>
+            <h1 className={`font-bold ${activeTab === "overview" ? "text-2xl" : "text-lg ml-10"}`}>
+              {activeTab === "overview" ? selectedSpace.name : t(`spaces.tab_${activeTab}`)}
+            </h1>
           </div>
         </div>
-
-        {/* Back-to-overview bar (nur wenn nicht auf Übersicht) */}
-        {activeTab !== "overview" && (
-          <div className="px-4 border-b border-gray-800 shrink-0">
-            <button
-              onClick={() => setActiveTab("overview")}
-              className="flex items-center gap-2 py-2.5 text-sm font-medium text-gray-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft size={16} />
-              {t(`spaces.tab_${activeTab}`)}
-            </button>
-          </div>
-        )}
 
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto p-4">
