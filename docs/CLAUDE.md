@@ -115,5 +115,6 @@ EL, MT + CH-Varianten (DE/FR/IT)
 
 - Neue i18n-Keys NUR auf Deutsch erstellen
 - Keine Emojis in Quellcode-Strings (Vite HMR bricht sonst)
+- Nach jeder Aufgabe: git commit + git push + pnpm build (Aras prueft sofort im Browser)
 - Nach jeder Session: diese CLAUDE.md aktualisieren + committen
 - Aras gibt vor, was gebaut wird — Claude Code braucht keine Roadmap
