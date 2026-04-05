@@ -2633,6 +2633,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "GitHub public + README", desc: "Repository oeffentlich, Dokumentation fuer Mitwirkende." },
                       { title: "Prod-Build + Nginx statisch", desc: "App wird als statische Dateien ausgeliefert, kein Dev-Server mehr." },
                       { title: "Weitere EU-Sprachen (24 Sprachen)", desc: "Aregoland ist jetzt in 24 Sprachen verfuegbar — alle EU-Sprachen plus AR, RU, UK." },
+                      { title: "Oeffentliche Space-Suche", desc: "Directory-Endpoint, Heartbeat, Tags, Sortierung — oeffentliche Spaces finden." },
+                      { title: "Spaces Kachel-Navigation", desc: "Ersetzt die alte Tab-Leiste — Drag & Drop, volle Breite, Beschreibung." },
+                      { title: "Space Beitritts-System mit Genehmigung", desc: "Beitrittsanfragen, Gruender-Genehmigung, P2P mit Server-Buffer." },
+                      { title: "Space Echtzeit-Sync (Gossip-Protokoll)", desc: "Dezentraler Sync — Icon, Beschreibung, Mitglieder, Rollen, Channels." },
+                      { title: "GitHub Support-System", desc: "Support-Chat erstellt GitHub Issues, mit Rate-Limiting (5/10s)." },
                     ],
                   },
                   {
@@ -2651,7 +2656,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       { title: "Spaces Video Calls + Streaming", desc: "Meeting- und Webinar-Modus fuer Spaces." },
                       { title: "Angepinnte Chats + Zwei Profile", desc: "Wichtige Chats oben, Privat- und Arbeitsprofil parallel." },
                       { title: "Erweiterter Backup + dezentrale Wiederherstellung", desc: ".arego Format, E2E verschluesselt, Shamir's Secret Sharing." },
-                      { title: "Oeffentliche Space-Suche", desc: "Directory-Endpoint fuer oeffentliche Spaces." },
                     ],
                   },
                   {
