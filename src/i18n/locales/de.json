@@ -688,7 +688,18 @@
     "searchPlaceholder": "Space suchen...",
     "noSearchResults": "Kein Space gefunden",
     "tags": "Tags",
-    "customTag": "Eigenen Tag erstellen"
+    "customTag": "Eigenen Tag erstellen",
+    "sortByName": "Nach Name",
+    "sortByDate": "Nach Beitrittsdatum",
+    "spaceNickname": "Spitzname in diesem Space",
+    "spaceNicknamePlaceholder": "Spitzname eingeben...",
+    "nicknameSaved": "Spitzname gespeichert.",
+    "nicknameRequired": "Dieser Space erfordert einen Spitznamen.",
+    "nicknameOnlyJoinHint": "Bitte f\u00fcge in deinem Space-Profil einen Spitznamen ein — dieser Space erlaubt keine echten Namen.",
+    "displayNameRule": "Anzeigename im Space",
+    "realNameAllowed": "Echter Name erlaubt",
+    "nicknameOnlyRequired": "Nur Spitzname erlaubt",
+    "nicknameOnlyHint": "Mitglieder m\u00fcssen einen Spitznamen eintragen. Wer keinen hat, wird mit Arego-ID angezeigt."
   },
   "childProfile": {
     "title": "Kinder-Profile",

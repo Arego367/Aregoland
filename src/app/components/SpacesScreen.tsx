@@ -29,13 +29,14 @@ const AREGOLAND_OFFICIAL_ID = "__aregoland_official__";
 
 type SpaceTemplate = "family" | "school" | "club" | "work" | "government" | "community" | "custom";
 type SpaceRole = "founder" | "admin" | "member" | "guest";
-type IdentityRule = "real_name" | "nickname" | "mixed" | "role_based";
+type IdentityRule = "real_name" | "nickname" | "nickname_only" | "mixed" | "role_based";
 
 interface SpaceMember {
   aregoId: string;
   displayName: string;
   role: SpaceRole;
   joinedAt?: string;
+  spaceNickname?: string;
 }
 
 interface SpaceComment {
@@ -266,6 +267,14 @@ function buildSyncPayload(space: Space): SpaceSyncPayload {
     settings: space.settings,
     appearance: (appearance.icon || appearance.banner) ? appearance : undefined,
   };
+}
+
+/** Anzeigename eines Mitglieds im Space (Spitzname > echter Name > Arego-ID) */
+function memberDisplayName(member: SpaceMember, identityRule: IdentityRule): string {
+  if (identityRule === "nickname_only") {
+    return member.spaceNickname || member.aregoId;
+  }
+  return member.spaceNickname || member.displayName || member.aregoId;
 }
 
 const ORDER_KEY = "aregoland_spaces_order";
@@ -544,6 +553,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [memberSort, setMemberSort] = useState<"role" | "name" | "date">("role");
   const [memberSortDateAsc, setMemberSortDateAsc] = useState(false);
+  const [memberMgmtSort, setMemberMgmtSort] = useState<"name" | "date">("name");
 
   // Chats
   const [showCreateChannel, setShowCreateChannel] = useState(false);
@@ -814,6 +824,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       setView("detail");
       setActiveTab("overview");
       setInviteJoined(true);
+      // Toast bei nickname_only Spaces
+      if (newSpace.identityRule === "nickname_only") {
+        onShowToast?.(t('spaces.nicknameOnlyJoinHint'), "info");
+      }
       return true;
     } catch { return false; }
   }, [spaces, identity]);
@@ -3571,6 +3585,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
               const renderMember = (member: typeof membersWithDate[0]) => {
                 const isMe = member.aregoId === identity?.aregoId;
+                const name = memberDisplayName(member, selectedSpace.identityRule);
                 return (
                 <div key={member.aregoId} className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
                   <div className="flex items-center justify-between p-3">
@@ -3580,10 +3595,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       className={`flex items-center gap-3 text-left ${isMe ? "" : "hover:opacity-80 transition-opacity"}`}
                     >
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-sm font-bold text-white">
-                        {(member.displayName[0] ?? "").toUpperCase()}
+                        {(name[0] ?? "?").toUpperCase()}
                       </div>
                       <div>
-                        <div className="font-medium text-sm">{member.displayName}</div>
+                        <div className="font-medium text-sm">{name}</div>
                         <div className="text-xs text-gray-500 font-mono">{member.aregoId}</div>
                         <div className="text-[10px] text-gray-600 mt-0.5">{formatJoinDate(member.joinedAt)}</div>
                       </div>
@@ -3831,10 +3846,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   {/* Avatar + Name */}
                   <div className="flex flex-col items-center text-center space-y-3">
                     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-2xl font-bold text-white">
-                      {(myMember?.displayName?.[0] ?? "?").toUpperCase()}
+                      {(memberDisplayName(myMember!, selectedSpace.identityRule)[0] ?? "?").toUpperCase()}
                     </div>
                     <div>
-                      <div className="text-lg font-bold">{myMember?.displayName ?? "?"}</div>
+                      <div className="text-lg font-bold">{memberDisplayName(myMember!, selectedSpace.identityRule)}</div>
+                      {myMember?.spaceNickname && <div className="text-xs text-gray-400">@{myMember.spaceNickname}</div>}
                       <div className="text-xs text-gray-500 font-mono">{identity?.aregoId}</div>
                     </div>
                     {/* Role badge */}
@@ -3842,6 +3858,33 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       <Shield size={12} />
                       {t(`spaces.role_${myRole}`)}
                     </div>
+                  </div>
+
+                  {/* Spitzname im Space */}
+                  <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 space-y-2">
+                    <label className="text-xs font-medium text-gray-400">{t('spaces.spaceNickname')}</label>
+                    <input
+                      type="text"
+                      defaultValue={myMember?.spaceNickname ?? ""}
+                      placeholder={t('spaces.spaceNicknamePlaceholder')}
+                      onBlur={e => {
+                        const val = e.target.value.trim();
+                        if (val !== (myMember?.spaceNickname ?? "")) {
+                          updateSpace({
+                            ...selectedSpace,
+                            members: selectedSpace.members.map(m =>
+                              m.aregoId === identity?.aregoId ? { ...m, spaceNickname: val || undefined } : m
+                            ),
+                          });
+                          onShowToast?.(t('spaces.nicknameSaved'), "info");
+                        }
+                      }}
+                      onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                      className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all"
+                    />
+                    {selectedSpace.identityRule === "nickname_only" && !myMember?.spaceNickname && (
+                      <p className="text-[10px] text-amber-400">{t('spaces.nicknameRequired')}</p>
+                    )}
                   </div>
 
                   {/* Netzwerk-Helfer — nur wenn Rolle es erlaubt */}
@@ -4014,6 +4057,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     >
                       <div className="text-gray-400">{icon}</div>
                       <span className="text-sm font-semibold text-white flex-1 text-left">{title}</span>
+                      <Edit2 size={12} className="text-gray-600" />
                       <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                     </button>
                     <AnimatePresence>
@@ -4273,6 +4317,29 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       )}
                   </Section>
 
+                  {/* ── Anzeigename ── */}
+                  <Section id="displayname" icon={<User size={16} />} title={t('spaces.displayNameRule')} visible={canSeeSection("visibility")}>
+                    <div className="flex gap-2">
+                      {([
+                        { id: "real_name" as IdentityRule, label: t('spaces.realNameAllowed') },
+                        { id: "nickname_only" as IdentityRule, label: t('spaces.nicknameOnlyRequired') },
+                      ]).map(opt => (
+                        <button key={opt.id}
+                          onClick={() => saveSettings({ ...selectedSpace, identityRule: opt.id })}
+                          className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-medium transition-all border ${
+                            selectedSpace.identityRule === opt.id
+                              ? "bg-blue-600/20 text-blue-400 border-blue-500/50"
+                              : "bg-gray-800/50 text-gray-500 border-gray-700/50 hover:bg-gray-800"
+                          }`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    {selectedSpace.identityRule === "nickname_only" && (
+                      <p className="text-[10px] text-amber-400/80 leading-relaxed">{t('spaces.nicknameOnlyHint')}</p>
+                    )}
+                  </Section>
+
                   {/* ── Einladung ── */}
                   {canSeeSection("invite") && (
                     <div className="border border-gray-700/50 rounded-2xl overflow-hidden">
@@ -4439,13 +4506,25 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     {(() => {
                       const allCustomRoles = selectedSpace.customRoles ?? [];
                       const allChannels = selectedSpace.channels ?? [];
+                      const manageable = selectedSpace.members.filter(m => m.role !== "founder");
+                      const sorted = [...manageable].sort((a, b) => {
+                        if (memberMgmtSort === "name") return memberDisplayName(a, selectedSpace.identityRule).localeCompare(memberDisplayName(b, selectedSpace.identityRule));
+                        return new Date(b.joinedAt ?? 0).getTime() - new Date(a.joinedAt ?? 0).getTime();
+                      });
                       return (
                         <div className="space-y-2">
-                          {selectedSpace.members.filter(m => m.role !== "founder").map(member => {
+                          {/* Sortierung */}
+                          <div className="flex gap-1.5">
+                            {(["name", "date"] as const).map(s => (
+                              <button key={s} onClick={() => setMemberMgmtSort(s)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${memberMgmtSort === s ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50" : "bg-gray-800 text-gray-500 hover:bg-gray-700"}`}>
+                                {s === "name" ? t('spaces.sortByName') : t('spaces.sortByDate')}
+                              </button>
+                            ))}
+                          </div>
+                          {sorted.map(member => {
                             const isExpanded = editingMember === member.aregoId;
-                            const memberChannelIds = allChannels.filter(ch =>
-                              ch.readRoles.includes(member.role) || ch.writeRoles.includes(member.role)
-                            ).map(ch => ch.id);
+                            const name = memberDisplayName(member, selectedSpace.identityRule);
                             return (
                               <div key={member.aregoId} className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
                                 <button
@@ -4454,10 +4533,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                 >
                                   <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-sm font-bold text-white">
-                                      {(member.displayName[0] ?? "").toUpperCase()}
+                                      {(name[0] ?? "?").toUpperCase()}
                                     </div>
                                     <div className="text-left">
-                                      <div className="text-sm font-medium">{member.displayName}</div>
+                                      <div className="text-sm font-medium">{name}</div>
                                       <div className="text-[10px] text-gray-500 font-mono">{member.aregoId}</div>
                                     </div>
                                   </div>
