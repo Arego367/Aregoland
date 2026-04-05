@@ -7,7 +7,12 @@
  *
  *  POST /spaces        → Öffentlichen Space registrieren / aktualisieren (Heartbeat)
  *  GET  /spaces        → Alle öffentlichen Spaces abrufen (sortierbar)
+ *  GET  /spaces/tags   → Alle einzigartigen Tags
  *  DELETE /spaces/:id  → Space aus öffentlicher Liste entfernen
+ *
+ *  POST /join-request          → Beitrittsanfrage stellen
+ *  GET  /join-requests/:id     → Ausstehende Anfragen für Gründer
+ *  POST /join-request/respond  → Anfrage genehmigen oder ablehnen
  *
  * WebSocket:
  *  Räume vom Typ "chat:…" / normale IDs → max 2 Peers (P2P Chat)
@@ -57,6 +62,18 @@ async function initDb() {
       letzte_aktivitaet  TEXT NOT NULL,
       oeffentlich        INTEGER DEFAULT 1,
       inaktivitaets_regel TEXT DEFAULT 'delete'
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS join_requests (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id            TEXT NOT NULL,
+      user_name          TEXT DEFAULT '',
+      space_id           TEXT NOT NULL,
+      gruender_id        TEXT NOT NULL,
+      status             TEXT DEFAULT 'pending',
+      erstellt_am        TEXT NOT NULL,
+      UNIQUE(user_id, space_id)
     )
   `);
   persistDb();
@@ -275,6 +292,90 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ spaces }));
     } catch {
       res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── POST /join-request — Beitrittsanfrage stellen ──────────────────────────
+  if (req.method === 'POST' && req.url === '/join-request') {
+    try {
+      const body = await readBody(req);
+      const { user_id, user_name, space_id, gruender_id } = JSON.parse(body);
+      if (!user_id || !space_id || !gruender_id) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'user_id, space_id, gruender_id erforderlich' }));
+        return;
+      }
+      const now = new Date().toISOString();
+      db.run(`
+        INSERT OR IGNORE INTO join_requests (user_id, user_name, space_id, gruender_id, status, erstellt_am)
+        VALUES (?, ?, ?, ?, 'pending', ?)
+      `, [user_id, (user_name ?? '').slice(0, 100), space_id, gruender_id, now]);
+      persistDb();
+
+      // Wenn Gründer online → sofort per WebSocket benachrichtigen
+      const founderSockets = onlineUsers.get(gruender_id);
+      if (founderSockets) {
+        const notify = JSON.stringify({ type: 'join_request', user_id, user_name: user_name ?? '', space_id });
+        for (const ws of founderSockets) {
+          if (ws.readyState === 1) ws.send(notify);
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── GET /join-requests/:gruender_id — Ausstehende Anfragen für Gründer ────
+  const joinReqMatch = req.method === 'GET' && req.url?.match(/^\/join-requests\/([^/]+)$/);
+  if (joinReqMatch) {
+    try {
+      const gruenderId = decodeURIComponent(joinReqMatch[1]);
+      const stmt = db.prepare(`SELECT * FROM join_requests WHERE gruender_id = ? AND status = 'pending'`);
+      stmt.bind([gruenderId]);
+      const requests = [];
+      while (stmt.step()) requests.push(stmt.getAsObject());
+      stmt.free();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ requests }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── POST /join-request/respond — Anfrage genehmigen oder ablehnen ─────────
+  if (req.method === 'POST' && req.url === '/join-request/respond') {
+    try {
+      const body = await readBody(req);
+      const { user_id, space_id, gruender_id, action } = JSON.parse(body);
+      if (!user_id || !space_id || !gruender_id || !['approve', 'reject'].includes(action)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'user_id, space_id, gruender_id, action (approve|reject) erforderlich' }));
+        return;
+      }
+
+      // Anfrage löschen
+      db.run(`DELETE FROM join_requests WHERE user_id = ? AND space_id = ?`, [user_id, space_id]);
+      persistDb();
+
+      // Nutzer benachrichtigen wenn online
+      const userSockets = onlineUsers.get(user_id);
+      if (userSockets) {
+        const notify = JSON.stringify({ type: 'join_response', space_id, action });
+        for (const ws of userSockets) {
+          if (ws.readyState === 1) ws.send(notify);
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
     }
     return;
   }
