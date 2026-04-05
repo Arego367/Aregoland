@@ -159,6 +159,7 @@
 10. ✅ Aregoland Official Space mit Roadmap (2026-04-02)
 11. ✅ Space-Karten Design: Gradient, Icon zentriert, Template-Label entfernt (2026-04-02)
 12. ✅ Mitglieder-Tab Sortierung: Rolle, Name, Beitrittsdatum+Uhrzeit (2026-04-02)
+13. ✅ Oeffentliche Space-Suche: Server-Seite (SQLite + REST), Space-Settings Backend-Anbindung, Neuer-Space-Flow mit 3 Optionen (2026-04-05)
 
 ---
 

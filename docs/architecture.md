@@ -47,7 +47,7 @@
 - SPA-Fallback: `try_files $uri $uri/ /index.html`
 - Assets mit 1 Jahr Cache (`/assets/`, immutable)
 - Service Worker + Manifest ohne Cache (no-store)
-- Proxy: `/ws-signal` + `/code` -> Signaling (127.0.0.1:3001)
+- Proxy: `/ws-signal` + `/code` + `/spaces` -> Signaling (127.0.0.1:3001)
 - Config: `/etc/nginx/sites-available/aregoland`
 
 ## SSL
@@ -55,13 +55,18 @@
 - Let's Encrypt Zertifikate fuer alle 6 Domains (aregoland.de/com/eu + www)
 - Automatische Erneuerung via certbot
 
-## Signaling-Server v4
+## Signaling-Server v5
 
 - Node.js WebSocket Server (Port 3001, Docker)
 - Kurzcode-Store (In-Memory, TTL 1h, single-use)
 - Presence-System (Online/Offline Push-Updates)
 - Inbox-Rooms mit Offline-Pufferung (24h TTL)
 - Space-Chat-Rooms (`space-chat:` Prefix, bis 500 Peers, Offline-Pufferung)
+- Oeffentliche Space-Suche (SQLite, Volume /data/spaces.db)
+  - POST /spaces: Space registrieren / Heartbeat (UPSERT)
+  - GET /spaces: Oeffentliche Spaces abrufen (sortierbar nach name, mitglieder, neueste, aktivitaet)
+  - DELETE /spaces/:id: Space aus oeffentlicher Liste entfernen (nur Gruender)
+  - Cronjob: taeglich Eintraege aelter als 30 Tage automatisch loeschen
 - Blindes Relay — Server liest keine Nachrichteninhalte
 - Auto-Start via systemd + Docker (`start.sh`, `arego-signaling.service`)
 - Dockerfile vorhanden
