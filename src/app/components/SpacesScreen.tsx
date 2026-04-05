@@ -7,7 +7,7 @@ import {
   Info, Check, X, GripVertical, UserPlus, Crown, Eye, ChevronDown,
   Pin, ThumbsUp, MessageSquare, Megaphone, Newspaper, Send, Lock, Layers,
   Paperclip, Mic, Play, Pause, Download, AtSign, Image as ImageIcon, FileText, Square,
-  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff, Camera, RotateCcw
+  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff, Camera, RotateCcw, Copy
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
@@ -424,6 +424,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [customTtlValue, setCustomTtlValue] = useState("14");
   const [customTtlUnit, setCustomTtlUnit] = useState<"hours" | "days">("days");
   const [inviteEncoded, setInviteEncoded] = useState("");
+  const [inviteShortCode, setInviteShortCode] = useState("");
+  const [inviteCodeLoading, setInviteCodeLoading] = useState(false);
+  const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
+  const [settingsInviteOpen, setSettingsInviteOpen] = useState(false);
 
   const getInviteTtlMs = () => {
     if (inviteTtlId === "custom") {
@@ -825,18 +829,36 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     updateSpace(updated);
   };
 
+  const registerInviteShortCode = async (encoded: string) => {
+    setInviteCodeLoading(true);
+    setInviteShortCode("");
+    try {
+      const res = await fetch('/code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: encoded }),
+      });
+      if (res.ok) {
+        const { code } = await res.json();
+        setInviteShortCode(code);
+      }
+    } catch { /* server unreachable */ }
+    setInviteCodeLoading(false);
+  };
+
   const handleOpenInvite = () => {
     if (!selectedSpace) return;
     const encoded = createInvitePayload(selectedSpace, inviteRole, getInviteTtlMs());
     setInviteEncoded(encoded);
-    setView("invite");
+    setSettingsInviteOpen(true);
+    setActiveTab("settings");
+    registerInviteShortCode(encoded);
   };
 
   const regenerateInvite = (role?: SpaceRole, ttlId?: string) => {
     if (!selectedSpace) return;
     const r = role ?? inviteRole;
     const oldId = ttlId ?? inviteTtlId;
-    // Enforce max 30d for admin/moderator
     let finalTtlId = oldId;
     if (isHighRole(r) && (oldId === "unlimited")) finalTtlId = "30d";
     if (ttlId !== finalTtlId) setInviteTtlId(finalTtlId);
@@ -845,7 +867,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           ? parseInt(customTtlValue || "1") * 60 * 60 * 1000
           : parseInt(customTtlValue || "1") * 24 * 60 * 60 * 1000)
       : INVITE_TTLS.find(t => t.id === finalTtlId)?.ms ?? 24 * 60 * 60 * 1000;
-    setInviteEncoded(createInvitePayload(selectedSpace, r, ms));
+    const encoded = createInvitePayload(selectedSpace, r, ms);
+    setInviteEncoded(encoded);
+    registerInviteShortCode(encoded);
   };
 
   const handleCreatePost = () => {
@@ -3147,22 +3171,6 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     </div>
                   </div>
 
-                  {/* Invite button */}
-                  {canManage && (
-                    <button
-                      onClick={handleOpenInvite}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-blue-600/20 to-transparent border border-blue-500/30 hover:bg-blue-600/30 transition-colors mb-2"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-400">
-                        <UserPlus size={20} />
-                      </div>
-                      <div className="text-left">
-                        <div className="text-sm font-bold text-blue-400">{t('spaces.inviteMember')}</div>
-                        <div className="text-xs text-gray-500">{t('spaces.inviteMemberDesc')}</div>
-                      </div>
-                    </button>
-                  )}
-
                   {/* Sortier-Leiste */}
                   <div className="flex items-center gap-1.5 mb-3 mt-1">
                     {(["role", "name", "date"] as const).map(s => (
@@ -3596,6 +3604,168 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     </div>
                   )}
 
+                  {/* Einladung — nur Admin/Founder */}
+                  {canManageSettings && (
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => {
+                          if (!settingsInviteOpen) handleOpenInvite();
+                          else setSettingsInviteOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between"
+                      >
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1 flex items-center gap-1.5">
+                          <UserPlus size={11} /> Einladung
+                        </h3>
+                        <ChevronDown size={14} className={`text-gray-500 transition-transform ${settingsInviteOpen ? "rotate-180" : ""}`} />
+                      </button>
+
+                      <AnimatePresence>
+                        {settingsInviteOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="space-y-3">
+                              {/* Rolle + Gültigkeit */}
+                              <div className="flex gap-3">
+                                <div className="flex-1 space-y-1.5">
+                                  <label className="text-[10px] font-medium text-gray-500 px-1">{t('spaces.inviteAs')}</label>
+                                  <select
+                                    value={inviteRole}
+                                    onChange={e => { const r = e.target.value as SpaceRole; setInviteRole(r); regenerateInvite(r); }}
+                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center" }}
+                                  >
+                                    {INVITABLE_ROLES.map(({ role }) => (
+                                      <option key={role} value={role}>{t(`spaces.role_${role}`)}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="flex-1 space-y-1.5">
+                                  <label className="text-[10px] font-medium text-gray-500 px-1">{t('spaces.inviteTtl')}</label>
+                                  <select
+                                    value={inviteTtlId}
+                                    onChange={e => {
+                                      const id = e.target.value;
+                                      if (id === "unlimited" && isHighRole(inviteRole)) return;
+                                      setInviteTtlId(id);
+                                      if (id !== "custom") regenerateInvite(undefined, id);
+                                    }}
+                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center" }}
+                                  >
+                                    {INVITE_TTLS.map(ttl => {
+                                      const disabled = ttl.id === "unlimited" && isHighRole(inviteRole);
+                                      return (
+                                        <option key={ttl.id} value={ttl.id} disabled={disabled}>
+                                          {t(`spaces.ttl_${ttl.id}`)}{disabled ? ` (${t('spaces.ttlMaxForRole')})` : ""}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                </div>
+                              </div>
+
+                              {/* Custom TTL */}
+                              {inviteTtlId === "custom" && (
+                                <div className="flex items-center gap-2">
+                                  <input type="number" min={1} max={customTtlUnit === "hours" ? 720 : 365}
+                                    value={customTtlValue} onChange={e => setCustomTtlValue(e.target.value)}
+                                    onBlur={() => regenerateInvite(undefined, "custom")}
+                                    className="w-20 bg-gray-800/50 border border-gray-700 rounded-xl px-2 py-2 text-xs text-white text-center focus:outline-none focus:border-blue-500 transition-all" />
+                                  <select value={customTtlUnit}
+                                    onChange={e => { setCustomTtlUnit(e.target.value as "hours" | "days"); setTimeout(() => regenerateInvite(undefined, "custom"), 0); }}
+                                    className="bg-gray-800/50 border border-gray-700 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}>
+                                    <option value="hours">{t('spaces.ttlHours')}</option>
+                                    <option value="days">{t('spaces.ttlDays')}</option>
+                                  </select>
+                                </div>
+                              )}
+
+                              {isHighRole(inviteRole) && (
+                                <p className="text-[10px] text-yellow-400/70 px-1">{t('spaces.ttlMaxForRole')}</p>
+                              )}
+
+                              {/* QR-Code */}
+                              {inviteEncoded && (
+                                <div className="flex flex-col items-center">
+                                  <div className="bg-white p-4 rounded-2xl shadow-xl">
+                                    <QRCodeSvg value={inviteEncoded} size={180} bgColor="#fff" fgColor="#111827" />
+                                  </div>
+                                  <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
+                                    <Clock size={12} />
+                                    <span>{t('spaces.inviteValidFor', { time: getInviteTtlLabel() })}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Kurzcode */}
+                              <div className="bg-gray-800/60 border border-gray-700 rounded-2xl p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <Hash size={13} className="text-blue-400" />
+                                    <span className="text-xs font-semibold text-white">Kurzcode</span>
+                                    <span className="text-[10px] text-gray-500">— 1h gültig, einmalig</span>
+                                  </div>
+                                </div>
+                                {inviteCodeLoading ? (
+                                  <div className="flex justify-center py-2">
+                                    <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                  </div>
+                                ) : inviteShortCode ? (
+                                  <div className="flex items-center justify-between bg-gray-900/60 rounded-xl px-4 py-2.5">
+                                    <span className="text-xl font-mono font-bold tracking-[0.3em] text-blue-300">{inviteShortCode}</span>
+                                    <button
+                                      onClick={async () => {
+                                        await navigator.clipboard.writeText(inviteShortCode);
+                                        setInviteCodeCopied(true);
+                                        setTimeout(() => setInviteCodeCopied(false), 2000);
+                                      }}
+                                      className="p-1.5 text-gray-500 hover:text-white hover:bg-gray-700 rounded-lg transition-all"
+                                    >
+                                      {inviteCodeCopied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <p className="text-[10px] text-gray-600 text-center">Server nicht erreichbar</p>
+                                )}
+                              </div>
+
+                              {/* Teilen + Deaktivieren */}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={async () => {
+                                    if (navigator.share) {
+                                      try {
+                                        await navigator.share({ title: selectedSpace.name, text: t('spaces.inviteShareText', { name: selectedSpace.name }), url: `https://aregoland.de/?invite=${encodeURIComponent(inviteEncoded)}` });
+                                      } catch { /* cancelled */ }
+                                    } else {
+                                      await navigator.clipboard.writeText(inviteEncoded);
+                                    }
+                                  }}
+                                  className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
+                                >
+                                  <Share2 size={16} />
+                                  {t('common.share')}
+                                </button>
+                                <button
+                                  onClick={() => { setInviteEncoded(""); setInviteShortCode(""); setSettingsInviteOpen(false); }}
+                                  className="px-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 font-bold py-2.5 rounded-xl transition-all flex items-center justify-center border border-red-500/30"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+
                   {/* Chats verwalten — nur Admin/Founder */}
                   {canManageSettings && (
                     <div className="space-y-3">
@@ -4014,152 +4184,12 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   }
 
   // ── INVITE VIEW ──
+  // Fallback: alte Invite-View leitet auf Settings-Tab um
   if (view === "invite" && selectedSpace) {
-    const tmpl = getTemplate(selectedSpace.template);
-    return (
-      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
-        {renderHeader(t('spaces.inviteMember'), () => { setView("detail"); setActiveTab("members"); })}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-4">
-
-            {/* Space info — compact */}
-            <div className="flex items-center gap-3 bg-gray-800/50 border border-gray-700/50 rounded-xl p-2.5">
-              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${selectedSpace.color}`} />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold truncate">{selectedSpace.name}</div>
-              </div>
-              <span className="text-xs text-gray-500">{selectedSpace.members.length} {t('spaces.members')}</span>
-            </div>
-
-            {/* Role + TTL — two dropdowns side by side */}
-            <div className="flex gap-3">
-              {/* Role dropdown */}
-              <div className="flex-1 space-y-1.5">
-                <label className="text-xs font-medium text-gray-400 px-1">{t('spaces.inviteAs')}</label>
-                <select
-                  value={inviteRole}
-                  onChange={e => { const r = e.target.value as SpaceRole; setInviteRole(r); regenerateInvite(r); }}
-                  className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}
-                >
-                  {INVITABLE_ROLES.map(({ role }) => (
-                    <option key={role} value={role}>{t(`spaces.role_${role}`)}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* TTL dropdown + custom input inline */}
-              <div className="flex-1 space-y-1.5">
-                <label className="text-xs font-medium text-gray-400 px-1">{t('spaces.inviteTtl')}</label>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={inviteTtlId}
-                    onChange={e => {
-                      const id = e.target.value;
-                      if (id === "unlimited" && isHighRole(inviteRole)) return;
-                      setInviteTtlId(id);
-                      if (id !== "custom") regenerateInvite(undefined, id);
-                    }}
-                    className={`bg-gray-800/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer ${inviteTtlId === "custom" ? "w-auto shrink-0" : "w-full"}`}
-                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: "32px" }}
-                  >
-                    {INVITE_TTLS.map(ttl => {
-                      const disabled = ttl.id === "unlimited" && isHighRole(inviteRole);
-                      return (
-                        <option key={ttl.id} value={ttl.id} disabled={disabled}>
-                          {t(`spaces.ttl_${ttl.id}`)}{disabled ? ` (${t('spaces.ttlMaxForRole')})` : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  {inviteTtlId === "custom" && (
-                    <>
-                      <input
-                        type="number"
-                        min={1}
-                        max={customTtlUnit === "hours" ? 720 : 365}
-                        value={customTtlValue}
-                        onChange={e => setCustomTtlValue(e.target.value)}
-                        onBlur={() => regenerateInvite(undefined, "custom")}
-                        className="w-16 bg-gray-800/50 border border-gray-700 rounded-xl px-2 py-2.5 text-sm text-white text-center focus:outline-none focus:border-blue-500 transition-all"
-                      />
-                      <select
-                        value={customTtlUnit}
-                        onChange={e => { setCustomTtlUnit(e.target.value as "hours" | "days"); setTimeout(() => regenerateInvite(undefined, "custom"), 0); }}
-                        className="bg-gray-800/50 border border-gray-700 rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center", paddingRight: "28px" }}
-                      >
-                        <option value="hours">{t('spaces.ttlHours')}</option>
-                        <option value="days">{t('spaces.ttlDays')}</option>
-                      </select>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* High role warning */}
-            {isHighRole(inviteRole) && (
-              <div className="text-[11px] text-yellow-400/70 px-1">
-                {t('spaces.ttlMaxForRole')}
-              </div>
-            )}
-
-            {/* QR Code */}
-            {inviteEncoded && (
-              <div className="flex flex-col items-center space-y-3">
-                <div className="bg-white p-4 rounded-2xl shadow-xl">
-                  <QRCodeSvg value={inviteEncoded} size={200} bgColor="#fff" fgColor="#111827" />
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <Clock size={12} />
-                  <span>{t('spaces.inviteValidFor', { time: getInviteTtlLabel() })}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Beitritts-Hinweis — compact */}
-            <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">{t('spaces.joinPreview')}</p>
-              <div className="text-xs text-gray-300 space-y-0.5">
-                <p>• {t('spaces.joinAs', { role: t(`spaces.role_${inviteRole}`) })}</p>
-                {selectedSpace.settings.idVerification && <p>• {t('spaces.joinIdRequired')}</p>}
-                {selectedSpace.identityRule === "real_name" && <p>• {t('spaces.joinRealName')}</p>}
-                {selectedSpace.identityRule === "nickname" && <p>• {t('spaces.joinNickname')}</p>}
-              </div>
-            </div>
-
-            {/* Share + Deaktivieren */}
-            <div className="flex gap-2">
-              <button
-                onClick={async () => {
-                  if (navigator.share) {
-                    try {
-                      await navigator.share({ title: selectedSpace.name, text: t('spaces.inviteShareText', { name: selectedSpace.name }), url: `https://aregoland.de/?invite=${encodeURIComponent(inviteEncoded)}` });
-                    } catch { /* cancelled */ }
-                  } else {
-                    await navigator.clipboard.writeText(inviteEncoded);
-                  }
-                }}
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
-              >
-                <Share2 size={18} />
-                {t('common.share')}
-              </button>
-              {inviteEncoded && (
-                <button
-                  onClick={() => setInviteEncoded("")}
-                  className="px-4 bg-red-600/20 hover:bg-red-600/30 text-red-400 font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 border border-red-500/30"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-
-          </div>
-        </div>
-      </div>
-    );
+    setView("detail");
+    setActiveTab("settings");
+    setSettingsInviteOpen(true);
+    if (!inviteEncoded) handleOpenInvite();
   }
 
   return null;
