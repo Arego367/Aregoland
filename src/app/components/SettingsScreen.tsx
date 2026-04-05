@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, HelpCircle, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ExternalLink, Mail, ChevronDown, ChevronUp, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, HelpCircle, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ExternalLink, Mail, ChevronDown, ChevronUp, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, loadChildren, saveChild, removeChild, createChildLinkPayload, type ChildAccount } from "@/app/auth/identity";
@@ -779,36 +779,56 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
             {/* Discoverable toggle (Opt-in) */}
             <div className="space-y-2">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.discoverability')}</h3>
-              <div className={`bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 ${isChildAccount ? "opacity-60" : ""}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${discoverable && !isChildAccount ? "bg-green-500/20 text-green-400" : "bg-gray-700/50 text-gray-500"}`}>
+              <div className={`bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3 ${isChildAccount ? "opacity-60" : ""}`}>
+                {/* Toggle-Zeile */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`p-2 rounded-lg shrink-0 ${discoverable && !isChildAccount ? "bg-green-500/20 text-green-400" : "bg-gray-700/50 text-gray-500"}`}>
                       {discoverable && !isChildAccount ? <Eye size={18} /> : <EyeOff size={18} />}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="font-medium text-sm">{t('settings.publiclyDiscoverable')}</div>
-                      <div className="text-xs text-gray-500">{t('settings.discoverableDesc')}</div>
+                      <div className="text-[11px] text-gray-500 mt-0.5">{t('settings.discoverableShort')}</div>
                     </div>
                   </div>
                   <button
                     onClick={handleDiscoverableToggle}
                     disabled={isChildAccount || directoryStatus === "loading"}
-                    className={`relative w-12 h-6 rounded-full transition-colors ${isChildAccount ? "bg-gray-700 cursor-not-allowed" : discoverable ? "bg-green-600" : "bg-gray-600"}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${isChildAccount ? "bg-gray-700 cursor-not-allowed" : discoverable ? "bg-green-600" : "bg-gray-600"}`}
                   >
-                    <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${discoverable && !isChildAccount ? "translate-x-6" : "translate-x-0"}`} />
+                    <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${discoverable && !isChildAccount ? "translate-x-5" : "translate-x-0"}`} />
                   </button>
                 </div>
+
+                {/* Übermittelte Daten als Chips */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-gray-500 font-medium">{t('settings.discoverableDataLabel')}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-500/15 text-blue-400">Arego-ID</span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-purple-500/15 text-purple-400">{t('settings.firstName')}</span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-purple-500/15 text-purple-400">{t('settings.lastName')}</span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-cyan-500/15 text-cyan-400">{t('settings.nickname')}</span>
+                  </div>
+                  <p className="text-[9px] text-gray-600">{t('settings.discoverableOnlyIfSet')}</p>
+                </div>
+
+                {/* Löschhinweis */}
+                <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5">
+                  <Clock size={13} className="text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-amber-300/80 leading-relaxed">{t('settings.discoverableExpiry')}</p>
+                </div>
+
                 {isChildAccount && (
-                  <div className="mt-3 flex items-center gap-2 text-xs text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-lg p-2">
+                  <div className="flex items-center gap-2 text-xs text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-lg p-2">
                     <Baby size={14} className="shrink-0" />
                     {t('settings.childNotDiscoverable')}
                   </div>
                 )}
                 {directoryStatus === "success" && (
-                  <p className="mt-2 text-xs text-green-400">{discoverable ? t('settings.directoryRegister') : t('settings.directoryRemoved')}</p>
+                  <p className="text-xs text-green-400">{discoverable ? t('settings.directoryRegister') : t('settings.directoryRemoved')}</p>
                 )}
                 {directoryStatus === "error" && (
-                  <p className="mt-2 text-xs text-red-400">{t('common.error')}</p>
+                  <p className="text-xs text-red-400">{t('common.error')}</p>
                 )}
               </div>
             </div>
