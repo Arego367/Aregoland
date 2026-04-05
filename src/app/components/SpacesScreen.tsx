@@ -16,7 +16,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, fetchPublicTags, maybeHeartbeat, sendJoinRequest, fetchJoinRequests, respondJoinRequest, loadPendingRequests, savePendingRequest, removePendingRequest, type PublicSpace, type JoinRequest, type PendingJoinRequest } from "@/app/lib/spaces-api";
+import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, fetchPublicTags, maybeHeartbeat, sendJoinRequest, fetchJoinRequests, respondJoinRequest, loadPendingRequests, savePendingRequest, removePendingRequest, sendSpaceSync, type PublicSpace, type JoinRequest, type PendingJoinRequest, type SpaceSyncPayload } from "@/app/lib/spaces-api";
 import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
@@ -244,6 +244,27 @@ function loadAppearance(spaceId: string): SpaceAppearance {
 function saveAppearance(spaceId: string, app: SpaceAppearance) {
   try { const all = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "{}"); all[spaceId] = app; localStorage.setItem(APPEARANCE_KEY, JSON.stringify(all)); }
   catch { /* ignore */ }
+}
+
+function buildSyncPayload(space: Space): SpaceSyncPayload {
+  const appearance = loadAppearance(space.id);
+  return {
+    space_id: space.id,
+    name: space.name,
+    description: space.description,
+    template: space.template,
+    color: space.color,
+    identityRule: space.identityRule,
+    founderId: space.founderId,
+    members: space.members.map(m => ({ aregoId: m.aregoId, displayName: m.displayName, role: m.role, joinedAt: m.joinedAt })),
+    channels: space.channels.map(ch => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, createdAt: ch.createdAt })),
+    customRoles: space.customRoles,
+    tags: space.tags ?? [],
+    visibility: space.visibility,
+    guestPermissions: space.guestPermissions,
+    settings: space.settings,
+    appearance: (appearance.icon || appearance.banner) ? appearance : undefined,
+  };
 }
 
 const ORDER_KEY = "aregoland_spaces_order";
@@ -3387,8 +3408,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                       role: "member" as SpaceRole,
                                       joinedAt: new Date().toISOString(),
                                     };
-                                    updateSpace({ ...selectedSpace, members: [...selectedSpace.members, newMember] });
+                                    const updatedSpace = { ...selectedSpace, members: [...selectedSpace.members, newMember] };
+                                    updateSpace(updatedSpace);
                                     setJoinRequests(prev => prev.filter(r => r.id !== req.id));
+                                    // Vollständigen Space-Sync an neues Mitglied senden
+                                    sendSpaceSync(req.user_id, buildSyncPayload(updatedSpace)).catch(() => {});
                                   }
                                 }}
                                 className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg transition-colors"

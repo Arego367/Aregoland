@@ -50,7 +50,7 @@ import {
   type ContactStatus,
 } from "@/app/lib/chats";
 import { P2PManager, type P2PStatus, type CallSignal } from "@/app/lib/p2p-manager";
-import { removePendingRequest } from "@/app/lib/spaces-api";
+import { removePendingRequest, requestSpaceSync, sendSpaceSync, type SpaceSyncPayload } from "@/app/lib/spaces-api";
 import { Phone, PhoneOff, Video } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -455,6 +455,16 @@ export default function App() {
         aregoId: identity.aregoId,
         watchIds: contacts.map((c) => c.aregoId),
       }));
+
+      // Auto-Sync: Für jeden Space beim Founder aktuelle Daten anfragen
+      try {
+        const spaces: any[] = JSON.parse(localStorage.getItem('aregoland_spaces') ?? '[]');
+        for (const sp of spaces) {
+          if (sp.founderId && sp.founderId !== identity.aregoId) {
+            requestSpaceSync(sp.founderId, identity.aregoId, sp.id).catch(() => {});
+          }
+        }
+      } catch { /* ignore */ }
     };
 
     ws.onmessage = (e) => {
@@ -589,6 +599,82 @@ export default function App() {
               },
             });
           }
+          return;
+        }
+
+        // Space-Sync-Request von Mitglied — Founder antwortet mit vollständigen Daten
+        if (msg.type === 'space_sync_request' && typeof msg.requester_id === 'string' && typeof msg.space_id === 'string') {
+          try {
+            const SPACES_KEY = 'aregoland_spaces';
+            const APPEARANCE_KEY = 'aregoland_space_appearance';
+            const spaces: any[] = JSON.parse(localStorage.getItem(SPACES_KEY) ?? '[]');
+            const space = spaces.find((s: any) => s.id === msg.space_id && s.founderId === identity.aregoId);
+            if (space) {
+              const appearance = (() => { try { const all = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? '{}'); return all[space.id] ?? undefined; } catch { return undefined; } })();
+              const payload: SpaceSyncPayload = {
+                space_id: space.id,
+                name: space.name,
+                description: space.description ?? '',
+                template: space.template,
+                color: space.color,
+                identityRule: space.identityRule ?? 'nickname',
+                founderId: space.founderId,
+                members: (space.members ?? []).map((m: any) => ({ aregoId: m.aregoId, displayName: m.displayName, role: m.role, joinedAt: m.joinedAt })),
+                channels: (space.channels ?? []).map((ch: any) => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, createdAt: ch.createdAt })),
+                customRoles: space.customRoles ?? [],
+                tags: space.tags ?? [],
+                visibility: space.visibility ?? 'private',
+                guestPermissions: space.guestPermissions ?? { readChats: true },
+                settings: space.settings ?? {},
+                appearance,
+              };
+              sendSpaceSync(msg.requester_id, payload).catch(() => {});
+            }
+          } catch { /* ignore */ }
+          return;
+        }
+
+        // Space-Sync vom Gründer empfangen — lokalen Space aktualisieren
+        if (msg.type === 'space_sync' && typeof msg.space_id === 'string') {
+          try {
+            const SPACES_KEY = 'aregoland_spaces';
+            const APPEARANCE_KEY = 'aregoland_space_appearance';
+            const existing: any[] = JSON.parse(localStorage.getItem(SPACES_KEY) ?? '[]');
+            const idx = existing.findIndex((s: any) => s.id === msg.space_id);
+            const mergedSpace = {
+              ...(idx >= 0 ? existing[idx] : {}),
+              id: msg.space_id,
+              name: msg.name ?? existing[idx]?.name ?? '',
+              description: msg.description ?? '',
+              template: msg.template ?? 'community',
+              color: msg.color ?? existing[idx]?.color ?? 'from-purple-600 to-fuchsia-500',
+              identityRule: msg.identityRule ?? 'nickname',
+              founderId: msg.founderId ?? '',
+              members: msg.members ?? existing[idx]?.members ?? [],
+              posts: existing[idx]?.posts ?? [],
+              channels: msg.channels ?? existing[idx]?.channels ?? [],
+              subrooms: existing[idx]?.subrooms ?? [],
+              customRoles: msg.customRoles ?? [],
+              tags: msg.tags ?? [],
+              guestPermissions: msg.guestPermissions ?? { readChats: true },
+              visibility: msg.visibility ?? 'private',
+              settings: msg.settings ?? existing[idx]?.settings ?? {},
+              createdAt: existing[idx]?.createdAt ?? new Date().toISOString(),
+            };
+            if (idx >= 0) {
+              existing[idx] = mergedSpace;
+            } else {
+              existing.push(mergedSpace);
+            }
+            localStorage.setItem(SPACES_KEY, JSON.stringify(existing));
+
+            // Appearance separat speichern
+            if (msg.appearance) {
+              const allApp = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? '{}');
+              allApp[msg.space_id] = msg.appearance;
+              localStorage.setItem(APPEARANCE_KEY, JSON.stringify(allApp));
+            }
+          } catch { /* ignore */ }
           return;
         }
 

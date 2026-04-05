@@ -221,3 +221,49 @@ export function removePendingRequest(spaceId: string) {
   const list = loadPendingRequests().filter(r => r.space_id !== spaceId);
   localStorage.setItem(PENDING_REQUESTS_KEY, JSON.stringify(list));
 }
+
+// ── Space Sync ──────────────────────────────────────────────────────────────
+
+export interface SpaceSyncPayload {
+  space_id: string;
+  name: string;
+  description: string;
+  template: string;
+  color: string;
+  identityRule: string;
+  founderId: string;
+  members: { aregoId: string; displayName: string; role: string; joinedAt?: string }[];
+  channels: unknown[];
+  customRoles: unknown[];
+  tags: string[];
+  visibility: string;
+  guestPermissions: { readChats: boolean };
+  settings: unknown;
+  appearance?: { icon?: { type: string; value: string }; banner?: { type: string; value: string } };
+}
+
+export async function sendSpaceSync(targetUserId: string, payload: SpaceSyncPayload): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/space-sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_user_id: targetUserId, payload }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function requestSpaceSync(founderId: string, requesterId: string, spaceId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/space-sync-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ founder_id: founderId, requester_id: requesterId, space_id: spaceId }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

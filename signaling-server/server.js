@@ -396,6 +396,71 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ── POST /space-sync — Space-Daten an einen User senden (WS oder Inbox) ────
+  if (req.method === 'POST' && req.url === '/space-sync') {
+    try {
+      const body = await readBody(req);
+      const { target_user_id, payload } = JSON.parse(body);
+      if (!target_user_id || !payload) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'target_user_id und payload erforderlich' }));
+        return;
+      }
+
+      const msg = JSON.stringify({ type: 'space_sync', ...payload });
+
+      // Online per WebSocket
+      const userSockets = onlineUsers.get(target_user_id);
+      let delivered = false;
+      if (userSockets) {
+        for (const ws of userSockets) {
+          if (ws.readyState === 1) { ws.send(msg); delivered = true; }
+        }
+      }
+      // Offline → Inbox puffern (24h TTL)
+      if (!delivered) {
+        const inboxRoom = `inbox:${target_user_id}`;
+        storePending(inboxRoom, msg);
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, delivered }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /space-sync-request — Sync-Anfrage an Founder weiterleiten ───────
+  if (req.method === 'POST' && req.url === '/space-sync-request') {
+    try {
+      const body = await readBody(req);
+      const { founder_id, requester_id, space_id } = JSON.parse(body);
+      if (!founder_id || !requester_id || !space_id) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'founder_id, requester_id, space_id erforderlich' }));
+        return;
+      }
+
+      const msg = JSON.stringify({ type: 'space_sync_request', requester_id, space_id });
+
+      const founderSockets = onlineUsers.get(founder_id);
+      let delivered = false;
+      if (founderSockets) {
+        for (const ws of founderSockets) {
+          if (ws.readyState === 1) { ws.send(msg); delivered = true; }
+        }
+      }
+      // Nicht puffern — Sync-Requests nur wenn Founder online
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, delivered }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
   // ── POST /support — Support-Nachricht als GitHub Issue anlegen ──────────────
   if (req.method === 'POST' && req.url === '/support') {
     try {
