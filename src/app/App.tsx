@@ -477,6 +477,22 @@ export default function App() {
           return;
         }
 
+        // Beitrittsanfrage empfangen (Gründer)
+        if (msg.type === 'join_request' && typeof msg.user_name === 'string') {
+          setToast({ text: `Neue Beitrittsanfrage von ${msg.user_name || msg.user_id}`, type: 'info' });
+          return;
+        }
+
+        // Beitrittsantwort empfangen (Antragsteller)
+        if (msg.type === 'join_response' && typeof msg.space_id === 'string') {
+          if (msg.action === 'approve') {
+            setToast({ text: `Deine Anfrage für den Space wurde angenommen`, type: 'info' });
+          } else {
+            setToast({ text: `Deine Anfrage für den Space wurde abgelehnt`, type: 'warning' });
+          }
+          return;
+        }
+
         if (msg.type !== 'contact_reverse' || typeof msg.payload !== 'string') return;
         console.log('[App] contact_reverse empfangen via Inbox-WS');
         const p = decodePayload(msg.payload);
@@ -848,7 +864,7 @@ export default function App() {
       )}
       {currentScreen === "childProfile" && <ChildProfileScreen onBack={() => setCurrentScreen("people")} />}
       {currentScreen === "calendar" && <CalendarScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} />}
-      {currentScreen === "spaces" && <SpacesScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} />}
+      {currentScreen === "spaces" && <SpacesScreen onBack={() => setCurrentScreen("dashboard")} onOpenProfile={() => navigateTo("profile")} onOpenQRCode={() => navigateTo("qrcode")} onOpenSettings={() => navigateTo("settings")} onShowToast={(text, type) => setToast({ text, type: type ?? 'info' })} />}
       {currentScreen === "connect" && <ConnectScreen onBack={() => setCurrentScreen("dashboard")} />}
       {currentScreen === "documents" && <DocumentsScreen onBack={() => setCurrentScreen("dashboard")} />}
 

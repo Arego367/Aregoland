@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
+import { loadContacts, removeContact } from "@/app/auth/contacts";
 import { Html5Qrcode } from "html5-qrcode";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -398,9 +399,10 @@ interface SpacesScreenProps {
   onOpenProfile: () => void;
   onOpenQRCode: () => void;
   onOpenSettings: () => void;
+  onShowToast?: (text: string, type?: 'info' | 'warning') => void;
 }
 
-export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings }: SpacesScreenProps) {
+export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onShowToast }: SpacesScreenProps) {
   const { t } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
   const [spaces, setSpaces] = useState<Space[]>(() => {
@@ -567,6 +569,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [pendingRequests, setPendingRequests] = useState<PendingJoinRequest[]>(() => loadPendingRequests());
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [joinRequestSent, setJoinRequestSent] = useState<Set<string>>(new Set());
+
+  // Mitglied-Profil Popup
+  const [memberProfile, setMemberProfile] = useState<SpaceMember | null>(null);
 
   // Scan invite
   const [scanInput, setScanInput] = useState("");
@@ -3115,10 +3120,16 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) + " " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
               };
 
-              const renderMember = (member: typeof membersWithDate[0]) => (
+              const renderMember = (member: typeof membersWithDate[0]) => {
+                const isMe = member.aregoId === identity?.aregoId;
+                return (
                 <div key={member.aregoId} className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
                   <div className="flex items-center justify-between p-3">
-                    <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => !isMe && setMemberProfile(member)}
+                      disabled={isMe}
+                      className={`flex items-center gap-3 text-left ${isMe ? "" : "hover:opacity-80 transition-opacity"}`}
+                    >
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-sm font-bold text-white">
                         {(member.displayName[0] ?? "").toUpperCase()}
                       </div>
@@ -3127,7 +3138,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         <div className="text-xs text-gray-500 font-mono">{member.aregoId}</div>
                         <div className="text-[10px] text-gray-600 mt-0.5">{formatJoinDate(member.joinedAt)}</div>
                       </div>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${ROLE_COLORS[member.role].bg} ${ROLE_COLORS[member.role].text}`}>
                         {t(`spaces.role_${member.role}`)}
@@ -3175,7 +3186,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     )}
                   </AnimatePresence>
                 </div>
-              );
+              ); };
 
               // Anfragen für diesen Space filtern
               const spaceJoinRequests = joinRequests.filter(r => r.space_id === selectedSpace.id);
@@ -3301,6 +3312,80 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       {sortedMembers.map(renderMember)}
                     </div>
                   )}
+
+                  {/* Mitglied-Profil Popup */}
+                  <AnimatePresence>
+                    {memberProfile && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60"
+                        onClick={() => setMemberProfile(null)}
+                      >
+                        <motion.div
+                          initial={{ scale: 0.95, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.95, opacity: 0 }}
+                          onClick={e => e.stopPropagation()}
+                          className="bg-gray-800 border border-gray-700 rounded-2xl p-5 max-w-sm w-full shadow-xl space-y-4"
+                        >
+                          {/* Avatar + Name */}
+                          <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-xl font-bold text-white">
+                              {(memberProfile.displayName[0] ?? "").toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="text-lg font-bold">{memberProfile.displayName}</div>
+                              <div className="text-xs text-gray-500 font-mono">{memberProfile.aregoId}</div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md mt-1 inline-block ${ROLE_COLORS[memberProfile.role].bg} ${ROLE_COLORS[memberProfile.role].text}`}>
+                                {t(`spaces.role_${memberProfile.role}`)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Kontakt-Aktionen */}
+                          {(() => {
+                            const contacts = loadContacts();
+                            const isContact = contacts.some(c => c.aregoId === memberProfile.aregoId);
+                            return isContact ? (
+                              <button
+                                onClick={() => {
+                                  removeContact(memberProfile.aregoId);
+                                  onShowToast?.(`${memberProfile.displayName} aus Kontakten entfernt`, 'warning');
+                                  setMemberProfile(null);
+                                }}
+                                className="w-full flex items-center justify-center gap-2 py-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 font-bold rounded-xl transition-all border border-red-500/30 text-sm"
+                              >
+                                <Trash2 size={16} />
+                                Kontakt entfernen
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  onOpenQRCode();
+                                  onShowToast?.(`Öffne QR-Code um ${memberProfile.displayName} als Kontakt hinzuzufügen`, 'info');
+                                  setMemberProfile(null);
+                                }}
+                                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all text-sm"
+                              >
+                                <UserPlus size={16} />
+                                Kontakt hinzufügen
+                              </button>
+                            );
+                          })()}
+
+                          {/* Schließen */}
+                          <button
+                            onClick={() => setMemberProfile(null)}
+                            className="w-full text-center text-xs text-gray-500 hover:text-gray-300 py-1 transition-colors"
+                          >
+                            Schließen
+                          </button>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </>
               );
             })()}
