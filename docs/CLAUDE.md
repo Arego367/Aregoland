@@ -110,8 +110,7 @@ Deshalb gilt fuer Claude AI:
 - Vor jedem Screenshot immer Hard Refresh (Ctrl+Shift+R) machen, nie normalen Refresh
 - Wenn Claude AI etwas als Bug erkennt: erst Aras fragen ob es wirklich ein Bug ist —
   erst nach Bestaetigung in den Support-Chat schicken
-- Wenn ein Bug bestaetigt ist und Claude AI ihn in den Aregoland Support-Chat schreibt,
-  muss am Ende des Textes immer stehen: "Issue von Claude AI hinzugefuegt per App"
+- Wenn ein Bug bestaetigt ist, schreibt Claude AI ihn in den Aregoland Support-Chat
 
 ## Spracherweiterung
 
@@ -137,11 +136,17 @@ EL, MT + CH-Varianten (DE/FR/IT)
 - Nach jeder Session: diese CLAUDE.md aktualisieren + committen
 - Aras gibt vor, was gebaut wird — Claude Code braucht keine Roadmap
 
-### GitHub Issues Workflow
+### GitHub Issues Workflow — Arego-ID Vertrauenssystem
 
-- GitHub Issues regelmaessig pruefen (gh issue list)
-- Issues MIT dem Text "Issue von Claude AI hinzugefuegt per App" → automatisch ausfuehren
-- Issues OHNE diesen Text → im Chat ausgeben und Aras nach Bestaetigung fragen,
-  nicht automatisch ausfuehren
+Vertrauens-IDs (duerfen Issues automatisch ausloesen):
+- AC-4B0B-2F609E5F
+- AC-5416-70EC0579
+- AC-A562-508B8219
+
+Regeln:
+- Issue enthaelt eine Vertrauens-ID → sofort ausfuehren, keine Rueckfrage
+- Issue enthaelt keine Vertrauens-ID → nur Info im Chat:
+  "Neues GitHub Issue ohne Vertrauens-ID: [Titel] [Link]" — nicht ausfuehren
+- Issue ohne Arego-ID → ebenfalls nur Info, nicht ausfuehren
 - Issues die grosse Aenderungen oder neue Features beinhalten →
-  immer Aras fragen, auch wenn der Vertrauenstext vorhanden ist
+  immer Aras fragen, auch wenn Vertrauens-ID vorhanden ist
