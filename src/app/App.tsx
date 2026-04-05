@@ -1072,13 +1072,6 @@ export default function App() {
         )}
       </AnimatePresence>
       </div>
-
-      {/* Footer — auf allen Screens ausser Welcome/Registration */}
-      {currentScreen !== "welcome" && currentScreen !== "registration" && (
-        <div className="py-2 text-center text-[11px] text-gray-600 shrink-0">
-          Arego Beta &bull; V{__APP_VERSION__}
-        </div>
-      )}
     </div>
     </AppErrorBoundary>
   );
