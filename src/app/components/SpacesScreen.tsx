@@ -3686,21 +3686,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
               return (
                 <>
-                  {/* Stats summary */}
-                  <div className="grid grid-cols-3 gap-2 mb-2">
-                    <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-                      <div className="text-lg font-bold text-blue-400">{selectedSpace.members.length}</div>
-                      <div className="text-xs text-gray-500">{t('spaces.members')}</div>
-                    </div>
-                    <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-                      <div className="text-lg font-bold text-purple-400">{(selectedSpace.posts ?? []).length}</div>
-                      <div className="text-xs text-gray-500">{t('spaces.tab_news')}</div>
-                    </div>
-                    <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-                      <div className="text-lg font-bold text-green-400">{(selectedSpace.channels ?? []).length}</div>
-                      <div className="text-xs text-gray-500">{t('spaces.tab_chats')}</div>
-                    </div>
-                  </div>
+                  {/* Mitglieder-Anzahl */}
+                  <p className="text-xs text-gray-500 mb-2">{selectedSpace.members.length} {t('spaces.members')}</p>
 
                   {/* Beitrittsanfragen — nur Gründer/Admin */}
                   {canManage && spaceJoinRequests.length > 0 && (
