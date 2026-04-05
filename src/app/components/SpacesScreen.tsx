@@ -832,10 +832,71 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     } catch { return false; }
   }, [spaces, identity]);
 
-  const handleScanInvite = () => {
+  // Registry-basierte Einladung einlösen (Kurzcode → Server-Lookup)
+  const redeemInviteCode = useCallback(async (code: string): Promise<boolean> => {
+    const clean = code.trim().toUpperCase();
+    if (clean.length < 4 || clean.length > 8) return false;
+    try {
+      const res = await fetch(`/invite/${encodeURIComponent(clean)}`);
+      if (!res.ok) {
+        if (res.status === 404) setInviteScanError(t('spaces.inviteCodeInvalid'));
+        return false;
+      }
+      const data = await res.json();
+      // Bereits Mitglied?
+      const existing = spaces.find(s => s.id === data.spaceId);
+      if (existing) {
+        setSelectedSpace(existing);
+        setView("detail");
+        onShowToast?.(t('spaces.alreadyMember'), "info");
+        return true;
+      }
+      // Beitrittsanfrage senden
+      if (identity && data.founderId) {
+        const ok = await sendJoinRequest({
+          user_id: identity.aregoId,
+          user_name: identity.displayName,
+          space_id: data.spaceId,
+          gruender_id: data.founderId,
+        });
+        if (ok) {
+          savePendingRequest({ space_id: data.spaceId, space_name: data.spaceName ?? "Space", gruender_id: data.founderId, sent_at: new Date().toISOString() });
+          onShowToast?.(t('spaces.joinRequestSent'), "info");
+          setView("list");
+          return true;
+        }
+      }
+      // Fallback: Space direkt lokal erstellen (wie bisher)
+      const tmpl = getTemplate((data.template ?? "custom") as SpaceTemplate);
+      const initialMembers: SpaceMember[] = [];
+      if (data.founderId && data.founderName) {
+        initialMembers.push({ aregoId: data.founderId, displayName: data.founderName, role: "founder", joinedAt: new Date().toISOString() });
+      }
+      if (identity) {
+        initialMembers.push({ aregoId: identity.aregoId, displayName: identity.displayName, role: (data.role ?? "member") as SpaceRole, joinedAt: new Date().toISOString() });
+      }
+      const newSpace: Space = {
+        id: data.spaceId, name: data.spaceName ?? "Space", description: "", template: (data.template ?? "custom") as SpaceTemplate,
+        color: tmpl.gradient, identityRule: tmpl.defaultIdentityRule, founderId: data.founderId ?? "",
+        members: initialMembers, posts: [], channels: [], subrooms: [], customRoles: [], tags: [],
+        guestPermissions: { readChats: true }, createdAt: new Date().toISOString(), visibility: "private",
+        settings: { ...tmpl.defaultSettings },
+      };
+      const updated = [...spaces, newSpace];
+      setSpaces(updated); saveSpaces(updated);
+      setSelectedSpace(newSpace); setView("detail"); setActiveTab("overview"); setInviteJoined(true);
+      return true;
+    } catch { return false; }
+  }, [spaces, identity, t]);
+
+  const handleScanInvite = async () => {
     if (!scanInput.trim()) return;
+    // Versuche zuerst Registry-Lookup (Kurzcode)
+    const redeemed = await redeemInviteCode(scanInput);
+    if (redeemed) return;
+    // Fallback: altes Base64-Payload-Format
     if (!processInvitePayload(scanInput)) {
-      setInviteScanError("Ungültiger Einladungscode");
+      setInviteScanError(t('spaces.inviteCodeInvalid'));
     }
   };
 
@@ -858,12 +919,14 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
         scanner.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 220, height: 220 } },
-          (decoded) => {
+          async (decoded) => {
             scanner.stop().catch(() => {});
             inviteScannerRef.current = null;
             setInviteScanning(false);
-            if (!processInvitePayload(decoded)) {
-              setInviteScanError("Kein gültiger Space-Einladungscode");
+            // Registry-Lookup zuerst, dann Base64-Fallback
+            const redeemed = await redeemInviteCode(decoded);
+            if (!redeemed && !processInvitePayload(decoded)) {
+              setInviteScanError(t('spaces.inviteCodeInvalid'));
             }
           },
           () => {}
@@ -1068,18 +1131,30 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     onShowToast?.("Änderung gespeichert", "info");
   };
 
-  const registerInviteShortCode = async (encoded: string) => {
+  const registerInviteToRegistry = async (space: Space, role: SpaceRole, ttlMs: number) => {
+    if (!identity) return;
     setInviteCodeLoading(true);
     setInviteShortCode("");
     try {
-      const res = await fetch('/code', {
+      const expiresAt = ttlMs >= 365 * 24 * 60 * 60 * 1000 ? null : new Date(Date.now() + ttlMs).toISOString();
+      const res = await fetch('/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload: encoded }),
+        body: JSON.stringify({
+          spaceId: space.id,
+          spaceName: space.name,
+          role,
+          founderId: identity.aregoId,
+          founderName: identity.displayName,
+          expiresAt,
+          singleUse: false,
+        }),
       });
       if (res.ok) {
         const { code } = await res.json();
         setInviteShortCode(code);
+        // QR enthält nur den Kurzcode
+        setInviteEncoded(code);
       }
     } catch { /* server unreachable */ }
     setInviteCodeLoading(false);
@@ -1087,11 +1162,9 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
   const handleOpenInvite = () => {
     if (!selectedSpace) return;
-    const encoded = createInvitePayload(selectedSpace, inviteRole, getInviteTtlMs());
-    setInviteEncoded(encoded);
     setSettingsInviteOpen(true);
     setActiveTab("settings");
-    registerInviteShortCode(encoded);
+    registerInviteToRegistry(selectedSpace, inviteRole, getInviteTtlMs());
   };
 
   const regenerateInvite = (role?: SpaceRole, ttlId?: string) => {
@@ -1106,9 +1179,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           ? parseInt(customTtlValue || "1") * 60 * 60 * 1000
           : parseInt(customTtlValue || "1") * 24 * 60 * 60 * 1000)
       : INVITE_TTLS.find(t => t.id === finalTtlId)?.ms ?? 24 * 60 * 60 * 1000;
-    const encoded = createInvitePayload(selectedSpace, r, ms);
-    setInviteEncoded(encoded);
-    registerInviteShortCode(encoded);
+    registerInviteToRegistry(selectedSpace, r, ms);
   };
 
   const handleCreatePost = () => {

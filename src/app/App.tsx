@@ -459,6 +459,18 @@ export default function App() {
 
       // Space-Sync passiert jetzt lazy per Gossip Protocol (space-meta: rooms)
       // wenn der User einen Space öffnet — nicht mehr beim App-Start
+
+      // Invite-Registry Heartbeat (alle 2 Tage)
+      try {
+        const lastHb = localStorage.getItem('aregoland_invite_heartbeat');
+        if (!lastHb || Date.now() - new Date(lastHb).getTime() > 2 * 24 * 60 * 60 * 1000) {
+          fetch('/invite/heartbeat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ founderId: identity.aregoId }),
+          }).then(() => localStorage.setItem('aregoland_invite_heartbeat', new Date().toISOString())).catch(() => {});
+        }
+      } catch { /* ignore */ }
     };
 
     ws.onmessage = (e) => {

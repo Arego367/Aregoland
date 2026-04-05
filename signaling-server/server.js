@@ -91,6 +91,20 @@ async function initDb() {
       updated_at        TEXT NOT NULL
     )
   `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS invite_registry (
+      short_code        TEXT PRIMARY KEY,
+      space_id          TEXT NOT NULL,
+      space_name        TEXT DEFAULT '',
+      role              TEXT DEFAULT 'member',
+      founder_id        TEXT NOT NULL,
+      founder_name      TEXT DEFAULT '',
+      created_at        TEXT NOT NULL,
+      last_heartbeat    TEXT NOT NULL,
+      expires_at        TEXT DEFAULT NULL,
+      single_use        INTEGER DEFAULT 0
+    )
+  `);
   persistDb();
 }
 
@@ -106,6 +120,10 @@ setInterval(() => {
   db.run(`DELETE FROM public_spaces WHERE letzte_aktivitaet < ?`, [spaceCutoff]);
   const directoryCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
   db.run(`DELETE FROM user_directory WHERE updated_at < ?`, [directoryCutoff]);
+  // Invite-Registry: Heartbeat älter als 3 Tage + abgelaufene Codes
+  db.run(`DELETE FROM invite_registry WHERE last_heartbeat < ?`, [directoryCutoff]);
+  const now = new Date().toISOString();
+  db.run(`DELETE FROM invite_registry WHERE expires_at IS NOT NULL AND expires_at < ?`, [now]);
   persistDb();
 }, 24 * 60 * 60 * 1000).unref(); // einmal täglich
 
@@ -551,6 +569,95 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ profiles }));
     } catch {
       res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── POST /invite — Einladungscode in Registry registrieren ──────────────────
+  if (req.method === 'POST' && req.url === '/invite') {
+    try {
+      const body = await readBody(req);
+      const { spaceId, spaceName, role, founderId, founderName, expiresAt, singleUse } = JSON.parse(body);
+      if (!spaceId || !founderId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'spaceId, founderId erforderlich' }));
+        return;
+      }
+      const code = generateCode();
+      const now = new Date().toISOString();
+      db.run(
+        `INSERT INTO invite_registry (short_code, space_id, space_name, role, founder_id, founder_name, created_at, last_heartbeat, expires_at, single_use)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [code, spaceId, spaceName ?? '', role ?? 'member', founderId, founderName ?? '', now, now, expiresAt ?? null, singleUse ? 1 : 0]
+      );
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, code }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── GET /invite/:code — Einladungscode nachschlagen ────────────────────────
+  if (req.method === 'GET' && req.url?.startsWith('/invite/')) {
+    try {
+      const code = req.url.slice('/invite/'.length).toUpperCase().trim();
+      if (!code) { res.writeHead(400); res.end(); return; }
+      const now = new Date().toISOString();
+      const rows = db.exec(
+        `SELECT space_id, space_name, role, founder_id, founder_name, expires_at, single_use
+         FROM invite_registry
+         WHERE short_code = ? AND (expires_at IS NULL OR expires_at > ?) AND last_heartbeat > ?`,
+        [code, now, new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()]
+      );
+      if (!rows[0]?.values?.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not_found' }));
+        return;
+      }
+      const r = rows[0].values[0];
+      const invite = { spaceId: r[0], spaceName: r[1], role: r[2], founderId: r[3], founderName: r[4] };
+      // Einmalige Codes sofort löschen
+      if (r[6]) {
+        db.run(`DELETE FROM invite_registry WHERE short_code = ?`, [code]);
+        persistDb();
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(invite));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── DELETE /invite/:code — Einladungscode widerrufen ───────────────────────
+  if (req.method === 'DELETE' && req.url?.startsWith('/invite/')) {
+    try {
+      const code = req.url.slice('/invite/'.length).toUpperCase().trim();
+      db.run(`DELETE FROM invite_registry WHERE short_code = ?`, [code]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /invite/heartbeat — Alle Codes eines Founders erneuern ────────────
+  if (req.method === 'POST' && req.url === '/invite/heartbeat') {
+    try {
+      const body = await readBody(req);
+      const { founderId } = JSON.parse(body);
+      if (!founderId) { res.writeHead(400); res.end(); return; }
+      const now = new Date().toISOString();
+      db.run(`UPDATE invite_registry SET last_heartbeat = ? WHERE founder_id = ?`, [now, founderId]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
     }
     return;
   }

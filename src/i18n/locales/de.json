@@ -706,7 +706,10 @@
     "displayNameRule": "Anzeigename im Space",
     "realNameAllowed": "Echter Name erlaubt",
     "nicknameOnlyRequired": "Nur Spitzname erlaubt",
-    "nicknameOnlyHint": "Mitglieder m\u00fcssen einen Spitznamen eintragen. Wer keinen hat, wird mit Arego-ID angezeigt."
+    "nicknameOnlyHint": "Mitglieder m\u00fcssen einen Spitznamen eintragen. Wer keinen hat, wird mit Arego-ID angezeigt.",
+    "inviteCodeInvalid": "Dieser Einladungscode ist ung\u00fcltig oder abgelaufen.",
+    "alreadyMember": "Du bist bereits in diesem Space.",
+    "joinRequestSent": "Beitrittsanfrage gesendet. Warte auf Genehmigung."
   },
   "childProfile": {
     "title": "Kinder-Profile",
