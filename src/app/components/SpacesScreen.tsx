@@ -15,7 +15,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, maybeHeartbeat, type PublicSpace } from "@/app/lib/spaces-api";
+import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, fetchPublicTags, maybeHeartbeat, type PublicSpace } from "@/app/lib/spaces-api";
 import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
@@ -561,6 +561,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [discoverLang, setDiscoverLang] = useState<string>(localStorage.getItem('aregoland_language') ?? 'de');
   const [discoverSearch, setDiscoverSearch] = useState("");
   const [discoverTag, setDiscoverTag] = useState<string | null>(null);
+  const [discoverTags, setDiscoverTags] = useState<string[]>([]);
 
   // Scan invite
   const [scanInput, setScanInput] = useState("");
@@ -604,7 +605,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   }, [discoverSort, discoverLang, discoverSearch, discoverTag]);
 
   useEffect(() => {
-    if (view === "discover") loadDiscoverSpaces();
+    if (view === "discover") {
+      loadDiscoverSpaces();
+      fetchPublicTags().then(setDiscoverTags);
+    }
   }, [view, loadDiscoverSpaces]);
 
   const processInvitePayload = useCallback((encoded: string): boolean => {
@@ -1724,7 +1728,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
               >
                 <option value="">Alle Tags</option>
-                {SPACE_TAGS.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                {discoverTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
               </select>
             </div>
 

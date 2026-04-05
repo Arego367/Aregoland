@@ -81,6 +81,18 @@ export async function searchPublicSpaces(params?: {
   }
 }
 
+/** Alle einzigartigen Tags aus öffentlichen Spaces abrufen */
+export async function fetchPublicTags(): Promise<string[]> {
+  try {
+    const res = await fetch(`${BASE}/spaces/tags`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.tags ?? [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Stiller Heartbeat (alle 3 Tage) ──────────────────────────────────────────
 
 const HEARTBEAT_KEY = 'aregoland_space_heartbeats'; // { [spaceId]: lastHeartbeat ISO }

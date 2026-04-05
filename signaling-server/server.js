@@ -204,6 +204,25 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ── GET /spaces/tags — Alle einzigartigen Tags ──────────────────────────────
+  if (req.method === 'GET' && req.url === '/spaces/tags') {
+    try {
+      const stmt = db.prepare('SELECT tags FROM public_spaces WHERE oeffentlich = 1');
+      const allTags = new Set();
+      while (stmt.step()) {
+        const row = stmt.getAsObject();
+        for (const tag of JSON.parse(row.tags || '[]')) allTags.add(tag);
+      }
+      stmt.free();
+      const sorted = [...allTags].sort((a, b) => String(a).localeCompare(String(b)));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ tags: sorted }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
   // ── GET /spaces — Öffentliche Spaces abrufen ───────────────────────────────
   if (req.method === 'GET' && req.url?.startsWith('/spaces')) {
     try {
