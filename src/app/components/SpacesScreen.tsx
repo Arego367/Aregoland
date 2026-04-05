@@ -3294,52 +3294,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         <div className="text-[10px] text-gray-600 mt-0.5">{formatJoinDate(member.joinedAt)}</div>
                       </div>
                     </button>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${ROLE_COLORS[member.role].bg} ${ROLE_COLORS[member.role].text}`}>
-                        {t(`spaces.role_${member.role}`)}
-                      </span>
-                      {canManage && member.role !== "founder" && (
-                        <button
-                          onClick={() => setEditingMember(editingMember === member.aregoId ? null : member.aregoId)}
-                          className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                      )}
-                    </div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${ROLE_COLORS[member.role].bg} ${ROLE_COLORS[member.role].text}`}>
+                      {t(`spaces.role_${member.role}`)}
+                    </span>
                   </div>
-
-                  {/* Role edit panel */}
-                  <AnimatePresence>
-                    {editingMember === member.aregoId && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                        <div className="px-3 pb-3 pt-1 border-t border-gray-700/50 space-y-2">
-                          <p className="text-xs text-gray-500 font-medium">{t('spaces.changeRole')}</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {ROLE_ORDER.filter(r => r !== "founder").map(r => (
-                              <button
-                                key={r}
-                                onClick={() => handleChangeRole(member.aregoId, r)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                  member.role === r
-                                    ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current`
-                                    : "bg-gray-800 text-gray-500 hover:bg-gray-700"
-                                }`}
-                              >
-                                {t(`spaces.role_${r}`)}
-                              </button>
-                            ))}
-                          </div>
-                          <button
-                            onClick={() => handleRemoveMember(member.aregoId)}
-                            className="w-full text-red-400 text-xs font-medium py-1.5 hover:bg-red-500/10 rounded-lg transition-colors"
-                          >
-                            {t('spaces.removeMember')}
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
               ); };
 
@@ -4145,6 +4103,149 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     </div>
                   )}
 
+                  {/* ── Mitglieder verwalten ── */}
+                  <Section id="members" icon={<Users size={16} />} title={t('spaces.manageMembers')} visible={canSeeSection("members")}>
+                    {(() => {
+                      const allCustomRoles = selectedSpace.customRoles ?? [];
+                      const allChannels = selectedSpace.channels ?? [];
+                      return (
+                        <div className="space-y-2">
+                          {selectedSpace.members.filter(m => m.role !== "founder").map(member => {
+                            const isExpanded = editingMember === member.aregoId;
+                            const memberChannelIds = allChannels.filter(ch =>
+                              ch.readRoles.includes(member.role) || ch.writeRoles.includes(member.role)
+                            ).map(ch => ch.id);
+                            return (
+                              <div key={member.aregoId} className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
+                                <button
+                                  onClick={() => setEditingMember(isExpanded ? null : member.aregoId)}
+                                  className="w-full flex items-center justify-between p-3 hover:bg-gray-800/30 transition-colors"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-sm font-bold text-white">
+                                      {(member.displayName[0] ?? "").toUpperCase()}
+                                    </div>
+                                    <div className="text-left">
+                                      <div className="text-sm font-medium">{member.displayName}</div>
+                                      <div className="text-[10px] text-gray-500 font-mono">{member.aregoId}</div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${ROLE_COLORS[member.role]?.bg ?? "bg-gray-700"} ${ROLE_COLORS[member.role]?.text ?? "text-gray-400"}`}>
+                                      {t(`spaces.role_${member.role}`, member.role)}
+                                    </span>
+                                    <ChevronDown size={14} className={`text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                  </div>
+                                </button>
+
+                                <AnimatePresence>
+                                  {isExpanded && (
+                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                      <div className="px-3 pb-3 pt-1 border-t border-gray-700/50 space-y-3">
+                                        {/* Rolle zuweisen */}
+                                        <div className="space-y-1.5">
+                                          <p className="text-xs text-gray-500 font-medium">{t('spaces.assignRole')}</p>
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {ROLE_ORDER.filter(r => r !== "founder").map(r => (
+                                              <button key={r}
+                                                onClick={() => handleChangeRole(member.aregoId, r)}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                                  member.role === r
+                                                    ? `${ROLE_COLORS[r].bg} ${ROLE_COLORS[r].text} ring-1 ring-current`
+                                                    : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                                                }`}>
+                                                {t(`spaces.role_${r}`)}
+                                              </button>
+                                            ))}
+                                            {allCustomRoles.map(cr => (
+                                              <button key={cr.id}
+                                                onClick={() => {
+                                                  if (!selectedSpace) return;
+                                                  updateSpace({
+                                                    ...selectedSpace,
+                                                    members: selectedSpace.members.map(m =>
+                                                      m.aregoId === member.aregoId ? { ...m, role: cr.name as SpaceRole } : m
+                                                    ),
+                                                  });
+                                                  setEditingMember(null);
+                                                }}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                                  member.role === (cr.name as SpaceRole)
+                                                    ? "ring-1 ring-current"
+                                                    : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                                                }`}
+                                                style={member.role === (cr.name as SpaceRole) ? { backgroundColor: `${cr.color}30`, color: cr.color } : undefined}>
+                                                {cr.name}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Chat-Zugehörigkeit */}
+                                        {allChannels.length > 0 && (
+                                          <div className="space-y-1.5">
+                                            <p className="text-xs text-gray-500 font-medium">{t('spaces.memberChats')}</p>
+                                            <div className="space-y-1">
+                                              {allChannels.map(ch => {
+                                                const hasAccess = ch.readRoles.includes(member.role) || ch.writeRoles.includes(member.role);
+                                                return (
+                                                  <button key={ch.id}
+                                                    onClick={() => {
+                                                      const updatedChannels = allChannels.map(c => {
+                                                        if (c.id !== ch.id) return c;
+                                                        if (hasAccess) {
+                                                          return {
+                                                            ...c,
+                                                            readRoles: c.readRoles.filter(r => r !== member.role),
+                                                            writeRoles: c.writeRoles.filter(r => r !== member.role),
+                                                          };
+                                                        } else {
+                                                          return {
+                                                            ...c,
+                                                            readRoles: [...c.readRoles, member.role],
+                                                            writeRoles: [...c.writeRoles, member.role],
+                                                          };
+                                                        }
+                                                      });
+                                                      updateSpace({ ...selectedSpace, channels: updatedChannels });
+                                                    }}
+                                                    className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-800/50 bg-gray-900/30 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                      <Hash size={12} className="text-gray-500" />
+                                                      <span className="text-[11px] text-gray-300">{ch.name}</span>
+                                                    </div>
+                                                    <div className={`w-4 h-4 rounded flex items-center justify-center transition-colors ${hasAccess ? "bg-blue-600" : "bg-gray-700"}`}>
+                                                      {hasAccess && <Check size={10} className="text-white" />}
+                                                    </div>
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* Entfernen */}
+                                        <button
+                                          onClick={() => { handleRemoveMember(member.aregoId); setEditingMember(null); }}
+                                          className="w-full flex items-center justify-center gap-2 text-red-400 text-xs font-medium py-2 hover:bg-red-500/10 rounded-lg transition-colors border border-red-500/20">
+                                          <Trash2 size={12} />
+                                          {t('spaces.removeMember')}
+                                        </button>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            );
+                          })}
+                          {selectedSpace.members.filter(m => m.role !== "founder").length === 0 && (
+                            <p className="text-xs text-gray-600 text-center py-4">{t('spaces.noMembersToManage')}</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </Section>
+
                   {/* ── Chats verwalten ── */}
                   <Section id="chats" icon={<MessageCircle size={16} />} title={t('spaces.manageChats')} visible={canSeeSection("chats")}>
                     {/* Create Channel button */}
@@ -4295,7 +4396,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
                       {/* ── Benutzerdefinierte Rollen ── */}
                       {(selectedSpace.customRoles ?? []).map(cr => {
-                        const SECTION_IDS = ["appearance", "tags", "visibility", "invite", "chats", "roles"] as const;
+                        const SECTION_IDS = ["appearance", "tags", "visibility", "invite", "members", "chats", "roles"] as const;
                         return (
                           <div key={cr.id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3">
                             <div className="flex items-center justify-between mb-2">
@@ -4379,7 +4480,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                               <label className="text-xs font-medium text-gray-400">{t('spaces.settingsSections')}</label>
                               <p className="text-[10px] text-gray-600">{t('spaces.settingsSectionsHint')}</p>
                               <div className="space-y-1">
-                                {(["appearance", "tags", "visibility", "invite", "chats", "roles"] as const).map(sec => {
+                                {(["appearance", "tags", "visibility", "invite", "members", "chats", "roles"] as const).map(sec => {
                                   const active = (newRolePerms.visibleSettingsSections ?? []).includes(sec);
                                   return (
                                     <button key={sec}
