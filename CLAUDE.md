@@ -10,3 +10,4 @@
 - [docs/spaces.md](docs/spaces.md) — Spaces Architektur
 - [docs/sprachen.md](docs/sprachen.md) — i18n Uebersetzungs-Tracking
 - [docs/aras.md](docs/aras.md) — Profil von Aras
+- [docs/vision.md](docs/vision.md) — Vision, Features, Geschaeftsmodell, Marketing

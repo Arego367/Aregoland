@@ -13,6 +13,7 @@
 ## Staerken
 - Infrastrukturplanung, Workflow-Optimierung, System Design
 - AI-Tool-Integration, Solo-Projektmanagement
+- ADHS als Superpower — Kopf dreht sich pausenlos, Aregoland ist das Ziel zum Lenken
 
 ## Arbeitsstil
 - Direkte, spielerische Kommunikation
@@ -22,15 +23,7 @@
 - "CC" = Claude Code (Kurzform)
 - Ideen kommen nachts oder unter der Dusche
 - Fauler Arsch mit smarten Ideen (Eigenbezeichnung)
-
-## Sport
-- Montag: Rueckenfit, Dienstag: Pilates, Mittwoch & Freitag: Gym
-
-## Fuer Marketing
-- Authentisch, direkt, Privacy-first
-- Europaeisch, DSGVO-konform
-- David gegen Goliath
-- Kostendeckend, nicht gewinnorientiert
+- Baut die App nebenbei — beim Zocken, TV schauen, auf dem Sofa
 
 ## Workflow & Dokumentation
 
@@ -50,10 +43,15 @@ Aras arbeitet auf zwei Geraeten:
 - **PC**: Standard-Modus (auch wenn nichts gesagt wird)
   → Normal arbeiten, CC Aufgaben bereitstellen und ausfuehren
 
-## Wer ist Aras
+## Geraete-IDs
 
-- Baut Aregoland fuer sich und seine Familie — kein Druck, kein Investor
-- Kopf dreht sich pausenlos — Aregoland ist das Ziel zum Lenken
-- Baut die App nebenbei — beim Zocken, TV schauen
-- Launch-Timing egal — auch in 10 Jahren waere es okay
-- Spass am Bauen ist wichtiger als der Launch
+- Chrome = AC-4B0B-2F609E5F
+- Edge = Gruender
+
+## Kommunikation mit Claude
+
+- Aras beschreibt was er will, Claude formuliert die Aufgabe
+- Keine Rueckfragen zu Design, Farben, Position, Texten oder UX-Details
+- Keine Code-Snippets oder Dateiinhalte anfordern
+- Keine technischen Optionen auflisten — einfach entscheiden
+- Im Zweifel: einfach machen, Aras gibt Feedback
