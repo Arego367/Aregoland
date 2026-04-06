@@ -12,47 +12,37 @@ Eine digitale Lebensinfrastruktur für Europa. Nicht noch eine App — eine komp
 
 Kurz: Er will WeChat — aber dezentral, DSGVO-konform, und niemand außer dir hat deine Daten.
 
+Aregoland ist kein Startup das verkauft werden will. Es ist Infrastruktur die bleibt.
+
 ## Warum will er es
 
 Er baute es für seine Töchter. WhatsApp gehört Meta. iMessage nur Apple. Telegram speichert alles. Signal hat keine Spaces, keinen Kalender, kein Kinderschutzsystem. Kein einziger Messenger kombiniert echte P2P-Verschlüsselung + Kinderschutz by Design + Community-Features + DSGVO + kein Algorithmus.
 
 TikTok, Instagram, Facebook wollen Aufmerksamkeit verkaufen. Algorithmen optimiert auf Empörung, Hass, Angst. Kinder die süchtig werden. Eltern ohne Kontrolle. Wissenschaftler die seit 20 Jahren warnen — niemand hört zu. Meta wurde in den USA verklagt wegen Algorithmen die Kinder abhängig machen. Die Politik diskutiert Verbote. Aras löst das Problem technisch — Verbote werden überflüssig.
 
-Dr. Philip Lorenz-Spreen fragte: "Wie würde eine demokratische Plattform aussehen, die unseren Werten entspricht?" Aregoland ist die Antwort.
+Wissenschaftler fordern seit 20 Jahren eine demokratische europäische Plattform. Niemand hat sie gebaut. Aregoland ist die Antwort.
 
 Philosophie: "Wenn es nicht ums Geld geht, wird es gut." Kein Investor-Druck. Kein Wachstum um jeden Preis. Wenn es gut ist, kommt die Werbung von alleine.
 
 ## Was hat er bereits gebaut
 
-- P2P verschlüsselter Messenger (Chat, Audio/Video, Sprachnachrichten, Dateitransfer)
-- Kontaktsystem via QR-Code und Kurzcode
-- Online/Offline Status
-- Sprachnachrichten, Emoji-Picker, Unread-Badges, Browser-Notifications
-- Blocksystem
-- Profil-Screen mit dynamischen Feldern
-- QR-Code Screen
-- Familien- und Kinderverwaltung mit FSK-Ratings
-- Settings (Benachrichtigungen, Datenschutz, Datenverwaltung)
-- Recovery Flow (QR-Scan + manuelle Schlüsseleingabe)
-- Kalender (Monat/Woche/Tag, Event-Erstellung, localStorage)
-- Spaces: 7 Vorlagen, Rollen-System, Neuigkeiten/Profil/Chat-Tabs, QR-Einladungen, Öffentliche Suche mit Heartbeat, Gossip Protocol P2P Sync, Beitritts-System mit Genehmigung
-- Hardcoded "Aregoland Official Space" mit Roadmap
-- Öffentliche Nutzerprofile (in Arbeit)
-- PWA für iOS und Android
-- 24 EU-Sprachen
-- GitHub Support-System auf Arego-ID Basis
+Ein funktionierender P2P-Messenger mit E2E-verschlüsseltem Chat, Audio/Video-Anrufen, Sprachnachrichten und Dateitransfer — als PWA für alle Plattformen. Dazu ein vollständiges Spaces-System mit 7 Vorlagen, Rollen, QR-Einladungen, öffentlicher Suche und P2P-Sync via Gossip Protocol. Kalender, Kinderverwaltung mit FSK-Ratings, Profil-System, Recovery-Flow, Block-System und Settings sind gebaut und nutzbar. Die App läuft in 24 EU-Sprachen, hat ein GitHub-Support-System auf Arego-ID-Basis und einen hardcoded "Aregoland Official Space" mit Roadmap.
 
-## Wie hat er es gelöst
+## Wie funktioniert Aregoland
 
 Alles läuft P2P — direkt von Gerät zu Gerät. Der Server vermittelt nur den ersten Kontakt (Signaling), danach ist er raus. Server sieht keine Inhalte, keine Metadaten, kein "wer mit wem", kein "wann". Nutzer löscht App — alles weg, unwiderruflich.
 
-Authentifizierung passwordless via WebCrypto ECDSA. Jeder Nutzer bekommt eine eindeutige Arego-ID (Format: AC-XXXX-XXXXXXXX). Keine Handynummer, kein Passwort. Die Arego-ID macht die Handynummer überflüssig — struktureller Datenschutzvorteil der sich von selbst erklärt.
+**Authentifizierung:** Passwordless via WebCrypto ECDSA. Jeder Nutzer bekommt eine eindeutige Arego-ID (Format: AC-XXXX-XXXXXXXX). Keine Handynummer, kein Passwort. Die Arego-ID macht die Handynummer überflüssig — struktureller Datenschutzvorteil der sich von selbst erklärt.
 
-Kinderschutz ist nicht eine Einstellung — es ist die Architektur. FSK 6 automatisch, kryptographisch erzwungen, nicht umgehbar. Eltern richten Kinder-Konto per QR ein, danach ist das Gerät gesperrt.
+**P2P:** WebRTC direkt zwischen Geräten. Signaling-Server handhabt nur ICE/SDP-Handshake, speichert nichts. coturn TURN-Server für NAT-Traversal wenn nötig.
 
-EUDI Wallet ab 2027 als einzige Verifikationsgrundlage — die EU baut die Infrastruktur, Aregoland liefert den Kanal.
+**Kinderschutz:** Nicht eine Einstellung — es ist die Architektur. FSK 6 automatisch für alle Kinder-Konten, kryptographisch erzwungen, nicht umgehbar. Eltern richten Kinder-Konto per QR ein, danach ist das Gerät gesperrt. FSK-Upgrades passieren kryptographisch über EUDI Wallet, automatisch am Geburtstag. Kinder unter 16 sind für Fremde unsichtbar. Kind-zu-Kind-Kontakt braucht Genehmigung beider Elternteile. Medienzeiten nach Wissenschaft — nicht änderbar.
 
-Open Source (AGPL-3.0) — Vertrauen durch Transparenz, wie Signal. Jeder kann prüfen ob die Versprechen stimmen.
+**Spaces:** Gründer erstellt Space, wählt Vorlage, teilt QR-Code. Mitglieder scannen, treten bei. Alles synchronisiert sich P2P via Gossip Protocol — kein Single Point of Failure.
+
+**EUDI Wallet:** EU baut bis Ende 2026 digitale Brieftasche für alle EU-Bürger. Enthält Identität, Altersnachweis, Dokumente. Aregoland registriert sich als Relying Party — Sandbox bereits offen. Ab 2027 einzige Verifikationsgrundlage.
+
+**Open Source:** AGPL-3.0 — Vertrauen durch Transparenz, wie Signal. Jeder kann prüfen ob die Versprechen stimmen.
 
 ## Was bringt das dem Nutzer
 
@@ -80,19 +70,9 @@ Für alle: Kein Tracking. Keine Werbung. Kein Datenverkauf. Niemals. Wer zahlt b
 
 **Pay** — Wero + EUDI Wallet. EPC QR-Code für kleine Läden (SEPA Instant, null Transaktionsgebühren). Creatoren bekommen 100% der Spenden direkt.
 
-## Wie funktioniert was
-
-**Kinderschutz:** FSK 6 ist automatisch für alle Kinder-Konten — kein Elternteil muss etwas einstellen. FSK-Upgrades passieren kryptographisch über EUDI Wallet, automatisch am Geburtstag. Kinder unter 16 sind für Fremde unsichtbar. Kind-zu-Kind-Kontakt braucht Genehmigung beider Elternteile. Medienzeiten nach Wissenschaft — nicht änderbar.
-
-**P2P:** WebRTC direkt zwischen Geräten. Signaling-Server handhabt nur ICE/SDP-Handshake, speichert nichts. coturn TURN-Server für NAT-Traversal wenn nötig.
-
-**Spaces:** Gründer erstellt Space, wählt Vorlage, teilt QR-Code. Mitglieder scannen, treten bei. Alles synchronisiert sich P2P via Gossip Protocol — kein Single Point of Failure.
-
-**EUDI Wallet:** EU baut bis Ende 2026 digitale Brieftasche für alle EU-Bürger. Enthält Identität, Altersnachweis, Dokumente. Aregoland registriert sich als Relying Party — Sandbox bereits offen.
-
 ## Geschäftsmodell
 
-1€/Monat pro Konto. ~50ct netto. Ab 1.200 Nutzern selbsttragend. Keine Werbung, kein Datenverkauf — niemals. App Store/Google Play zuerst. EUDI Wallet ab 2027. Wero als europäische Alternative. Stripe nur als letzter Fallback.
+1€/Monat pro Konto. ~50ct netto. Keine Werbung, kein Datenverkauf — niemals. App Store/Google Play zuerst. EUDI Wallet ab 2027. Wero als europäische Alternative. Stripe nur als letzter Fallback.
 
 Arego Cloud Storage optional gegen Aufpreis. Hetzner Object Storage: 1TB = ~7,72€/Monat, auf 200 Nutzer verteilt = 0,04€ pro Nutzer.
 
@@ -107,20 +87,7 @@ Stufe 4 — 2027+: EUDI Wallet vollständig integriert
 Stufe 5 — 2028+: Gesundheit (Befunde, Selbstauskunft, ePA-Alternative)
 Stufe 6 — Langfristig: Vollständige digitale Lebensinfrastruktur für Europa
 
-WeChat-Prinzip — aber niemand außer dir hat deine Daten. Aregoland ist kein Startup das verkauft werden will. Es ist Infrastruktur die bleibt.
-
-## Marketing — Social Media Strategie
-
-Phase 1 — Wer bin ich & das Problem (Wochen 1-4):
-Persönliche Reels. Kein Feature-Pitching. Dein Gesicht, deine Stimme, deine Geschichte als Vater. Die Meta-Klagen. Die Wissenschaftler. Die Politik-Diskussion. Warum baut ein alleinerziehender Vater aus Köln eine Alternative zu WhatsApp und TikTok?
-
-Phase 2 — Was ich gebaut habe (Wochen 5-8):
-App-Demos mit Screenshots. Kurze Reels: Kontakt hinzufügen, Space erstellen, Kinderkonto einrichten. Technischer aber immer mit Nutzer-Perspektive.
-
-Phase 3 — Warum es anders ist (Wochen 9+):
-Datenschutz einfach erklärt. Was speichere ich, was nicht. P2P erklärt für normale Menschen. FSK-System. EUDI Wallet.
-
-Ton: Direkt, ehrlich, mit Aras' Stimme und Akzent. Keine Hochglanz-Produktion. Authentisch.
+WeChat-Prinzip — aber niemand außer dir hat deine Daten.
 
 ## CC's Einschätzung
 
@@ -131,7 +98,4 @@ Ton: Direkt, ehrlich, mit Aras' Stimme und Akzent. Keine Hochglanz-Produktion. A
 - Die Langzeit-Vision von Stufe 1 bis 6 zeigt Ambition ohne Größenwahn — jede Stufe baut logisch auf der vorherigen auf.
 
 **Was fehlt oder überarbeitet werden könnte:**
-- Der Abschnitt "Was hat er bereits gebaut" ist eine Feature-Liste. Für eine Vision-Datei wäre eine kompaktere Zusammenfassung wirksamer ("Ein funktionierender P2P-Messenger mit Spaces, Kalender, Kinderschutz und 24-Sprachen-Support — als PWA für alle Plattformen").
-- Die Marketing-Strategie ist gut als Skizze, gehört aber eigentlich in ein eigenes Dokument (z.B. `docs/marketing.md`), damit die Vision-Datei fokussiert bleibt.
 - Es fehlt ein kurzer Abschnitt zu Risiken/Herausforderungen — z.B. WebRTC-Limitierungen bei Offline-Szenarien, EUDI-Wallet-Abhängigkeit von EU-Timeline, oder die Herausforderung als Solo-Founder ohne Team zu skalieren. Das würde die Vision ehrlicher und robuster machen.
-- "Wie funktioniert was" überschneidet sich teilweise mit "Wie hat er es gelöst" — könnte zusammengelegt werden.
