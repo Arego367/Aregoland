@@ -707,7 +707,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       const res = await fetch('/support', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, arego_id: identity.aregoId }),
+        body: JSON.stringify({ message: text, arego_id: await (await import('@/app/auth/crypto')).hashAregoId(identity.aregoId) }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -1198,6 +1198,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     setInviteShortCode("");
     try {
       const expiresAt = ttlMs >= 365 * 24 * 60 * 60 * 1000 ? null : new Date(Date.now() + ttlMs).toISOString();
+      const hashedFounderId = await (await import('@/app/auth/crypto')).hashAregoId(identity.aregoId);
       const res = await fetch('/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1205,7 +1206,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           spaceId: space.id,
           spaceName: space.name,
           role,
-          founderId: identity.aregoId,
+          founderId: hashedFounderId,
           founderName: identity.displayName,
           expiresAt,
           singleUse: false,

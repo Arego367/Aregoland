@@ -3,6 +3,30 @@
 
 const KEY_ALGO = { name: "ECDSA", namedCurve: "P-256" } as const;
 
+/**
+ * SHA-256 Hash einer Arego-ID — wird an den Server gesendet statt der echten ID.
+ * Die echte Arego-ID verlässt nie das Gerät des Nutzers.
+ */
+export async function hashAregoId(id: string): Promise<string> {
+  const data = new TextEncoder().encode(id);
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
+  return Array.from(hash).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Synchrone Version mit vorberechnetem Cache */
+let _hashCache: Record<string, string> = {};
+
+export function hashAregoIdSync(id: string): string {
+  return _hashCache[id] ?? id; // Fallback auf rohe ID wenn nicht gecached
+}
+
+/** Muss einmal beim Start aufgerufen werden */
+export async function precomputeHash(id: string): Promise<string> {
+  const h = await hashAregoId(id);
+  _hashCache[id] = h;
+  return h;
+}
+
 export async function generateIdentityKeyPair(): Promise<CryptoKeyPair> {
   if (!crypto?.subtle) {
     throw new Error(

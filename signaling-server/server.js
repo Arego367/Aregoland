@@ -34,13 +34,21 @@
  *
  * Datenschutz: kein Logging, kein Disk-Speicher für Chats.
  *              Öffentliche Spaces in SQLite — nur vom Gründer freigegebene Daten.
+ *              Arego-IDs werden NIE im Klartext gespeichert — nur SHA-256 Hashes.
  */
 
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import initSqlJs from 'sql.js';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
+import { createHash } from 'crypto';
 import { testConnection as testStorage } from './storage.js';
+
+/** SHA-256 Hash — Arego-IDs werden nie im Klartext gespeichert */
+function hashId(id) {
+  if (!id) return '';
+  return createHash('sha256').update(String(id)).digest('hex');
+}
 
 const PORT = process.env.PORT || 3001;
 const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

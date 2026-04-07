@@ -5,6 +5,8 @@
  * Nginx proxied /spaces → 127.0.0.1:3001/spaces (wie /code).
  */
 
+import { hashAregoId } from '@/app/auth/crypto';
+
 const BASE = (import.meta as any).env?.VITE_SIGNALING_HTTP_URL ?? '';
 
 export interface PublicSpace {
@@ -36,7 +38,7 @@ export async function registerPublicSpace(data: {
     const res = await fetch(`${BASE}/spaces`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, gruender_id: await hashAregoId(data.gruender_id) }),
     });
     return res.ok;
   } catch {
@@ -50,7 +52,7 @@ export async function unregisterPublicSpace(spaceId: string, gruenderId: string)
     const res = await fetch(`${BASE}/spaces/${encodeURIComponent(spaceId)}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gruender_id: gruenderId }),
+      body: JSON.stringify({ gruender_id: await hashAregoId(gruenderId) }),
     });
     return res.ok;
   } catch {
@@ -153,7 +155,11 @@ export async function sendJoinRequest(data: {
     const res = await fetch(`${BASE}/join-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        user_id: await hashAregoId(data.user_id),
+        gruender_id: await hashAregoId(data.gruender_id),
+      }),
     });
     return res.ok;
   } catch {
@@ -164,7 +170,8 @@ export async function sendJoinRequest(data: {
 /** Ausstehende Anfragen für einen Gründer abrufen */
 export async function fetchJoinRequests(gruenderId: string): Promise<JoinRequest[]> {
   try {
-    const res = await fetch(`${BASE}/join-requests/${encodeURIComponent(gruenderId)}`);
+    const hashed = await hashAregoId(gruenderId);
+    const res = await fetch(`${BASE}/join-requests/${encodeURIComponent(hashed)}`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.requests ?? [];
@@ -188,7 +195,11 @@ export async function respondJoinRequest(data: {
     const res = await fetch(`${BASE}/join-request/respond`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        user_id: await hashAregoId(data.user_id),
+        gruender_id: await hashAregoId(data.gruender_id),
+      }),
     });
     return res.ok;
   } catch {
@@ -250,7 +261,7 @@ export async function sendSpaceSync(targetUserId: string, payload: SpaceSyncPayl
     const res = await fetch(`${BASE}/space-sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target_user_id: targetUserId, payload }),
+      body: JSON.stringify({ target_user_id: await hashAregoId(targetUserId), payload }),
     });
     return res.ok;
   } catch {
@@ -263,7 +274,11 @@ export async function requestSpaceSync(founderId: string, requesterId: string, s
     const res = await fetch(`${BASE}/space-sync-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ founder_id: founderId, requester_id: requesterId, space_id: spaceId }),
+      body: JSON.stringify({
+        founder_id: await hashAregoId(founderId),
+        requester_id: await hashAregoId(requesterId),
+        space_id: spaceId,
+      }),
     });
     return res.ok;
   } catch {

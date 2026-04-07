@@ -464,13 +464,16 @@ export default function App() {
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${proto}://${window.location.host}/ws-signal`);
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'join', roomId: `inbox:${identity.aregoId}` }));
+    ws.onopen = async () => {
+      const { hashAregoId } = await import('@/app/auth/crypto');
+      const hashedId = await hashAregoId(identity.aregoId);
+      ws.send(JSON.stringify({ type: 'join', roomId: `inbox:${hashedId}` }));
       const contacts = loadContacts();
+      const hashedWatchIds = await Promise.all(contacts.map((c) => hashAregoId(c.aregoId)));
       ws.send(JSON.stringify({
         type: 'presence_subscribe',
-        aregoId: identity.aregoId,
-        watchIds: contacts.map((c) => c.aregoId),
+        aregoId: hashedId,
+        watchIds: hashedWatchIds,
       }));
 
       // Space-Sync passiert jetzt lazy per Gossip Protocol (space-meta: rooms)
@@ -480,11 +483,15 @@ export default function App() {
       try {
         const lastHb = localStorage.getItem('aregoland_invite_heartbeat');
         if (!lastHb || Date.now() - new Date(lastHb).getTime() > 2 * 24 * 60 * 60 * 1000) {
-          fetch('/invite/heartbeat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ founderId: identity.aregoId }),
-          }).then(() => localStorage.setItem('aregoland_invite_heartbeat', new Date().toISOString())).catch(() => {});
+          import('@/app/auth/crypto').then(({ hashAregoId }) =>
+            hashAregoId(identity.aregoId).then(hashed =>
+              fetch('/invite/heartbeat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ founderId: hashed }),
+              }).then(() => localStorage.setItem('aregoland_invite_heartbeat', new Date().toISOString()))
+            )
+          ).catch(() => {});
         }
       } catch { /* ignore */ }
     };

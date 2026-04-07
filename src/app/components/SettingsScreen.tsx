@@ -57,12 +57,14 @@ function loadTabs(): { id: string; label: string }[] {
 
 async function directoryRegister(aregoId: string, displayName: string): Promise<boolean> {
   try {
+    const { hashAregoId } = await import("@/app/auth/crypto");
+    const hashedId = await hashAregoId(aregoId);
     const profile = JSON.parse(localStorage.getItem("arego_profile") ?? "{}");
     const res = await fetch("/directory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        aregoId,
+        aregoId: hashedId,
         displayName,
         firstName: profile.firstName ?? "",
         lastName: profile.lastName ?? "",
@@ -75,7 +77,9 @@ async function directoryRegister(aregoId: string, displayName: string): Promise<
 }
 async function directoryRemove(aregoId: string): Promise<boolean> {
   try {
-    const res = await fetch("/directory", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aregoId }) });
+    const { hashAregoId } = await import("@/app/auth/crypto");
+    const hashedId = await hashAregoId(aregoId);
+    const res = await fetch("/directory", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aregoId: hashedId }) });
     if (res.ok) localStorage.removeItem("aregoland_directory_last_heartbeat");
     return res.ok;
   } catch { return false; }
