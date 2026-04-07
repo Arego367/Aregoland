@@ -9,6 +9,15 @@ import { hashAregoId } from '@/app/auth/crypto';
 
 const BASE = (import.meta as any).env?.VITE_SIGNALING_HTTP_URL ?? '';
 
+/** Gibt den gecachten Auth-Hash zurück für X-Arego-Auth Header */
+function getAuthHash(): string {
+  return localStorage.getItem('aregoland_auth_hash') ?? '';
+}
+
+function authHeaders(): Record<string, string> {
+  return { 'Content-Type': 'application/json', 'X-Arego-Auth': getAuthHash() };
+}
+
 export interface PublicSpace {
   space_id: string;
   name: string;
@@ -37,7 +46,7 @@ export async function registerPublicSpace(data: {
   try {
     const res = await fetch(`${BASE}/spaces`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ ...data, gruender_id: await hashAregoId(data.gruender_id) }),
     });
     return res.ok;
@@ -51,7 +60,7 @@ export async function unregisterPublicSpace(spaceId: string, gruenderId: string)
   try {
     const res = await fetch(`${BASE}/spaces/${encodeURIComponent(spaceId)}`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ gruender_id: await hashAregoId(gruenderId) }),
     });
     return res.ok;
@@ -154,7 +163,7 @@ export async function sendJoinRequest(data: {
   try {
     const res = await fetch(`${BASE}/join-request`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({
         ...data,
         user_id: await hashAregoId(data.user_id),
@@ -194,7 +203,7 @@ export async function respondJoinRequest(data: {
   try {
     const res = await fetch(`${BASE}/join-request/respond`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({
         ...data,
         user_id: await hashAregoId(data.user_id),
@@ -260,7 +269,7 @@ export async function sendSpaceSync(targetUserId: string, payload: SpaceSyncPayl
   try {
     const res = await fetch(`${BASE}/space-sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ target_user_id: await hashAregoId(targetUserId), payload }),
     });
     return res.ok;
@@ -273,7 +282,7 @@ export async function requestSpaceSync(founderId: string, requesterId: string, s
   try {
     const res = await fetch(`${BASE}/space-sync-request`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({
         founder_id: await hashAregoId(founderId),
         requester_id: await hashAregoId(requesterId),
@@ -293,7 +302,7 @@ export async function redeemFskCode(spaceId: string, code: string): Promise<{ fs
   try {
     const res = await fetch(`${BASE}/fsk/redeem`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ space_id: spaceId, code }),
     });
     if (!res.ok) return null;
@@ -308,7 +317,7 @@ export async function sendFskHeartbeat(spaceId: string): Promise<boolean> {
   try {
     const res = await fetch(`${BASE}/fsk/heartbeat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ space_id: spaceId }),
     });
     return res.ok;

@@ -706,7 +706,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     try {
       const res = await fetch('/support', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_hash') ?? '' },
         body: JSON.stringify({ message: text, arego_id: await (await import('@/app/auth/crypto')).hashAregoId(identity.aregoId) }),
       });
       if (res.ok) {
@@ -1201,7 +1201,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       const hashedFounderId = await (await import('@/app/auth/crypto')).hashAregoId(identity.aregoId);
       const res = await fetch('/invite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_hash') ?? '' },
         body: JSON.stringify({
           spaceId: space.id,
           spaceName: space.name,

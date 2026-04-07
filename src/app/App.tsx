@@ -38,7 +38,7 @@ import DocumentsScreen from "@/app/components/DocumentsScreen";
 import CalendarScreen from "@/app/components/CalendarScreen";
 import { Tab } from "@/app/types";
 import { loadIdentity, UserIdentity } from "@/app/auth/identity";
-import { loadSubscription, hasAccess, initSubscription } from "@/app/auth/subscription";
+import { loadSubscription, hasAccess, initSubscription, getEffectiveStatus } from "@/app/auth/subscription";
 import { loadFsk, initFsk, isFskVerified, isFeatureLocked } from "@/app/auth/fsk";
 import { deriveRoomId, decodePayload } from "@/app/auth/share";
 import { saveContact, isNonceUsed, markNonceUsed, loadContacts, removeContact } from "@/app/auth/contacts";
@@ -437,6 +437,24 @@ export default function App() {
         setCurrentScreen("settings");
         return;
       }
+      // Auth beim Server registrieren (Hashed ID + Abo + FSK)
+      import('@/app/auth/crypto').then(({ hashAregoId }) =>
+        hashAregoId(existing.aregoId).then(hashed => {
+          const effectiveStatus = sub ? getEffectiveStatus(sub) : 'trial';
+          fetch('/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id_hash: hashed,
+              abo_status: effectiveStatus,
+              abo_gueltig_bis: sub?.expiresAt ?? sub?.trialEnd ?? null,
+              fsk_stufe: fsk?.level ?? 6,
+            }),
+          }).catch(() => {});
+          // Hash fuer spaetere API-Calls cachen
+          localStorage.setItem('aregoland_auth_hash', hashed);
+        })
+      ).catch(() => {});
       const saved = localStorage.getItem("aregoland_start_screen");
       const screenMap: Record<string, string> = { community: "spaces" };
       const mapped = screenMap[saved ?? ""] ?? saved;
@@ -487,7 +505,7 @@ export default function App() {
             hashAregoId(identity.aregoId).then(hashed =>
               fetch('/invite/heartbeat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_hash') ?? '' },
                 body: JSON.stringify({ founderId: hashed }),
               }).then(() => localStorage.setItem('aregoland_invite_heartbeat', new Date().toISOString()))
             )

@@ -35,6 +35,7 @@
  * Datenschutz: kein Logging, kein Disk-Speicher für Chats.
  *              Öffentliche Spaces in SQLite — nur vom Gründer freigegebene Daten.
  *              Arego-IDs werden NIE im Klartext gespeichert — nur SHA-256 Hashes.
+ *              Auth-Middleware prüft bei jedem API-Call: ID bekannt, Abo aktiv, FSK-Stufe.
  */
 
 import { createServer } from 'http';
@@ -130,6 +131,15 @@ async function initDb() {
       letzter_heartbeat TEXT NOT NULL
     )
   `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS user_auth (
+      id_hash           TEXT PRIMARY KEY,
+      abo_status        TEXT NOT NULL DEFAULT 'trial',
+      abo_gueltig_bis   TEXT DEFAULT NULL,
+      fsk_stufe         INTEGER NOT NULL DEFAULT 6,
+      letzter_heartbeat TEXT NOT NULL
+    )
+  `);
   persistDb();
 }
 
@@ -154,6 +164,9 @@ setInterval(() => {
   db.run(`DELETE FROM fsk_approved_spaces WHERE letzter_heartbeat < ?`, [fskCutoff]);
   // FSK: abgelaufene, nicht eingelöste Codes entfernen
   db.run(`DELETE FROM fsk_approved_spaces WHERE code_eingeloest = 0 AND code_gueltig_bis < ?`, [now]);
+  // Auth: Nutzer ohne Heartbeat > 90 Tage entfernen
+  const authCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  db.run(`DELETE FROM user_auth WHERE letzter_heartbeat < ?`, [authCutoff]);
   persistDb();
 }, 24 * 60 * 60 * 1000).unref(); // einmal täglich
 
@@ -190,7 +203,7 @@ function generateCode() {
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Arego-Auth');
 }
 
 function sanitizeId(s) {
@@ -212,11 +225,99 @@ function readBody(req) {
   });
 }
 
+// ── Auth Middleware ───────────────────────────────────────────────────────────
+
+/**
+ * Prüft anhand des X-Arego-Auth Headers:
+ * 1. Ist die Arego-ID (Hash) bekannt?
+ * 2. Ist das Abo aktiv oder Trial noch gültig?
+ * 3. Hat der Nutzer die nötige FSK-Stufe?
+ *
+ * @param {object} req - HTTP Request
+ * @param {object} res - HTTP Response
+ * @param {object} opts - { minFsk?: number } — minimale FSK-Stufe (default: keine Prüfung)
+ * @returns {object|null} — { id_hash, abo_status, fsk_stufe } oder null wenn blockiert
+ */
+function checkAuth(req, res, opts = {}) {
+  const authHeader = req.headers['x-arego-auth'];
+  if (!authHeader) {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'auth_required', message: 'X-Arego-Auth Header fehlt' }));
+    return null;
+  }
+
+  const rows = db.exec(`SELECT id_hash, abo_status, abo_gueltig_bis, fsk_stufe FROM user_auth WHERE id_hash = ?`, [authHeader]);
+  if (!rows.length || !rows[0].values.length) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'unknown_user', message: 'Nutzer nicht registriert' }));
+    return null;
+  }
+
+  const [id_hash, abo_status, abo_gueltig_bis, fsk_stufe] = rows[0].values[0];
+
+  // Abo prüfen: aktiv oder Trial noch gültig?
+  if (abo_status === 'expired') {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'subscription_expired', message: 'Kein aktives Abo — bitte Abo verlängern' }));
+    return null;
+  }
+  if (abo_gueltig_bis && new Date(abo_gueltig_bis) < new Date()) {
+    // Abo abgelaufen → Status auf expired setzen
+    db.run(`UPDATE user_auth SET abo_status = 'expired' WHERE id_hash = ?`, [id_hash]);
+    persistDb();
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'subscription_expired', message: 'Abo abgelaufen — bitte verlängern' }));
+    return null;
+  }
+
+  // FSK prüfen
+  const minFsk = opts.minFsk ?? 0;
+  if (fsk_stufe < minFsk) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'fsk_insufficient', message: `FSK ${minFsk} erforderlich — deine Stufe: FSK ${fsk_stufe}`, required: minFsk, current: fsk_stufe }));
+    return null;
+  }
+
+  return { id_hash, abo_status, fsk_stufe };
+}
+
 // ── HTTP Server ──────────────────────────────────────────────────────────────
 const server = createServer(async (req, res) => {
   cors(res);
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  // ── POST /auth/register — Nutzer registrieren / Status aktualisieren ──────
+  if (req.method === 'POST' && req.url === '/auth/register') {
+    try {
+      const body = await readBody(req);
+      const { id_hash, abo_status, abo_gueltig_bis, fsk_stufe } = JSON.parse(body);
+      if (!id_hash || !abo_status) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'id_hash und abo_status erforderlich' }));
+        return;
+      }
+      const validStatuses = ['trial', 'active', 'expired'];
+      const status = validStatuses.includes(abo_status) ? abo_status : 'trial';
+      const fsk = [6, 12, 16, 18].includes(fsk_stufe) ? fsk_stufe : 6;
+      const now = new Date().toISOString();
+      db.run(`
+        INSERT INTO user_auth (id_hash, abo_status, abo_gueltig_bis, fsk_stufe, letzter_heartbeat)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(id_hash) DO UPDATE SET
+          abo_status = excluded.abo_status,
+          abo_gueltig_bis = excluded.abo_gueltig_bis,
+          fsk_stufe = excluded.fsk_stufe,
+          letzter_heartbeat = excluded.letzter_heartbeat
+      `, [id_hash, status, abo_gueltig_bis ?? null, fsk, now]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
 
   // POST /code
   if (req.method === 'POST' && req.url === '/code') {
@@ -251,6 +352,7 @@ const server = createServer(async (req, res) => {
 
   // ── POST /spaces — Space registrieren / Heartbeat ──────────────────────��───
   if (req.method === 'POST' && req.url === '/spaces') {
+    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const data = JSON.parse(body);
@@ -366,6 +468,7 @@ const server = createServer(async (req, res) => {
 
   // ── POST /join-request — Beitrittsanfrage stellen ──────────────────────────
   if (req.method === 'POST' && req.url === '/join-request') {
+    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { user_id, user_name, space_id, gruender_id } = JSON.parse(body);
@@ -418,6 +521,7 @@ const server = createServer(async (req, res) => {
 
   // ── POST /join-request/respond — Anfrage genehmigen oder ablehnen ─────────
   if (req.method === 'POST' && req.url === '/join-request/respond') {
+    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { user_id, space_id, gruender_id, action, space_name, space_template, space_description, gruender_name } = JSON.parse(body);
@@ -461,6 +565,7 @@ const server = createServer(async (req, res) => {
 
   // ── POST /space-sync — Space-Daten an einen User senden (WS oder Inbox) ────
   if (req.method === 'POST' && req.url === '/space-sync') {
+    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { target_user_id, payload } = JSON.parse(body);
@@ -496,6 +601,7 @@ const server = createServer(async (req, res) => {
 
   // ── POST /space-sync-request — Sync-Anfrage an Founder weiterleiten ───────
   if (req.method === 'POST' && req.url === '/space-sync-request') {
+    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { founder_id, requester_id, space_id } = JSON.parse(body);
@@ -526,6 +632,7 @@ const server = createServer(async (req, res) => {
 
   // ── POST /directory — Nutzer im Verzeichnis registrieren / Heartbeat ────────
   if (req.method === 'POST' && req.url === '/directory') {
+    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { aregoId, displayName, firstName, lastName, nickname } = JSON.parse(body);
@@ -605,6 +712,7 @@ const server = createServer(async (req, res) => {
 
   // ── POST /invite — Einladungscode in Registry registrieren ──────────────────
   if (req.method === 'POST' && req.url === '/invite') {
+    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { spaceId, spaceName, role, founderId, founderName, expiresAt, singleUse } = JSON.parse(body);
@@ -677,6 +785,7 @@ const server = createServer(async (req, res) => {
 
   // ── POST /invite/heartbeat — Alle Codes eines Founders erneuern ────────────
   if (req.method === 'POST' && req.url === '/invite/heartbeat') {
+    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { founderId } = JSON.parse(body);
@@ -694,6 +803,7 @@ const server = createServer(async (req, res) => {
 
   // ── POST /support — Support-Nachricht als GitHub Issue anlegen ──────────────
   if (req.method === 'POST' && req.url === '/support') {
+    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { message, arego_id } = JSON.parse(body);
@@ -899,6 +1009,7 @@ const server = createServer(async (req, res) => {
   // ── DELETE /spaces/:id — Space aus öffentlicher Liste entfernen ─────────────
   const deleteMatch = req.method === 'DELETE' && req.url?.match(/^\/spaces\/(.+)$/);
   if (deleteMatch) {
+    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { gruender_id } = JSON.parse(body);
