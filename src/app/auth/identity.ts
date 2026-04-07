@@ -15,19 +15,17 @@ export interface UserIdentity {
   createdAt: string;
 }
 
-export interface ChildAccount {
-  aregoId: string;
-  displayName: string;
-  parentId: string;
-  fsk: 6 | 12 | 16 | 18;
-  createdAt: string;
-  firstName?: string;
-  lastName?: string;
-  nickname?: string;
+/** Server-seitige Kind-Daten (von GET /child-link/:parent_id) */
+export interface LinkedChild {
+  child_id: string;
+  first_name: string;
+  last_name: string;
+  nickname: string;
+  fsk_stufe: number;
+  created_at: string;
 }
 
 const STORAGE_KEY = "aregoland_identity";
-const CHILDREN_KEY = "aregoland_children";
 
 /** Erstellt eine neue Identität, speichert sie lokal und gibt sie zurück. */
 export async function createIdentity(displayName: string): Promise<UserIdentity> {
@@ -108,22 +106,34 @@ export async function importFromRecoveryPayload(
 
 // ── Kind-Konten ──────────────────────────────────────────────────────────────
 
-export function loadChildren(): ChildAccount[] {
+/** Prüft ob das aktuelle Konto ein Kind-Konto ist */
+export function isChildAccount(): boolean {
   try {
-    return JSON.parse(localStorage.getItem(CHILDREN_KEY) ?? '[]');
+    const id = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+    return id.ist_kind === true;
+  } catch { return false; }
+}
+
+/** Gibt die Verwalter-IDs des Kind-Kontos zurück */
+export function getVerwalter(): string[] {
+  try {
+    const id = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+    return Array.isArray(id.verwalter) ? id.verwalter : [];
   } catch { return []; }
 }
 
-export function saveChild(child: ChildAccount): void {
-  const children = loadChildren();
-  const idx = children.findIndex(c => c.aregoId === child.aregoId);
-  if (idx >= 0) children[idx] = child; else children.push(child);
-  localStorage.setItem(CHILDREN_KEY, JSON.stringify(children));
-}
-
-export function removeChild(aregoId: string): void {
-  const children = loadChildren().filter(c => c.aregoId !== aregoId);
-  localStorage.setItem(CHILDREN_KEY, JSON.stringify(children));
+/** Setzt das Konto als Kind-Konto mit Verwalter (max 2) */
+export function setKindStatus(parentId: string): void {
+  try {
+    const id = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+    id.ist_kind = true;
+    const verwalter: string[] = Array.isArray(id.verwalter) ? id.verwalter : [];
+    if (!verwalter.includes(parentId) && verwalter.length < 2) {
+      verwalter.push(parentId);
+    }
+    id.verwalter = verwalter;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(id));
+  } catch {}
 }
 
 /** Erstellt ein Kind-Konto-Linking-Payload als Base64 (TTL 10 Min, einmalig) */

@@ -1133,12 +1133,30 @@ wss.on('connection', (ws) => {
         statuses[id] = !!(sockets && sockets.size > 0);
       }
 
+      // Kind-Status aus child_links ermitteln
+      const childRows = db.exec(`SELECT parent_id FROM child_links WHERE child_id = ?`, [aregoId]);
+      const verwalter = childRows.length ? childRows[0].values.map(r => r[0]) : [];
+      const istKind = verwalter.length > 0;
+
+      // Verknüpfte Kinder dieses Nutzers (als Elternteil)
+      const linkedRows = db.exec(`SELECT child_id, child_first_name, child_last_name, child_nickname, fsk_stufe FROM child_links WHERE parent_id = ?`, [aregoId]);
+      const linkedChildren = linkedRows.length ? linkedRows[0].values.map(r => ({
+        child_id: r[0], first_name: r[1], last_name: r[2], nickname: r[3], fsk_stufe: r[4],
+      })) : [];
+
+      // Session erweitern
+      session.ist_kind = istKind;
+      session.verwalter = verwalter;
+
       // Auth bestätigen mit allen Kontodaten
       ws.send(JSON.stringify({
         type: 'auth_ok',
         arego_id: aregoId,
         abo_status: aboStatus,
         fsk_stufe: fskStufe,
+        ist_kind: istKind,
+        verwalter,
+        linked_children: linkedChildren,
         statuses,
       }));
 
@@ -1149,6 +1167,62 @@ wss.on('connection', (ws) => {
         for (const w of myWatchers) {
           if (w !== ws && w.readyState === 1) w.send(update);
         }
+      }
+      return;
+    }
+
+    // ── Kind-Aktion: Kind will etwas tun → Server leitet an Verwalter ──────
+    if (msg.type === 'child_action_request') {
+      const session = wsSessions.get(ws);
+      if (!session?.ist_kind || !session.verwalter?.length) return;
+
+      const requestId = `cr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      const notify = JSON.stringify({
+        type: 'child_action_request',
+        request_id: requestId,
+        child_id: session.arego_id,
+        action: String(msg.action ?? '').slice(0, 50),
+        details: String(msg.details ?? '').slice(0, 200),
+      });
+
+      // An alle Verwalter senden (online oder inbox-puffer)
+      for (const parentId of session.verwalter) {
+        const parentSockets = onlineUsers.get(parentId);
+        if (parentSockets?.size) {
+          for (const pw of parentSockets) {
+            if (pw.readyState === 1) pw.send(notify);
+          }
+        } else {
+          // Verwalter offline → in Inbox zwischenspeichern
+          storePending(`inbox:${parentId}`, Buffer.from(notify));
+        }
+      }
+
+      // Kind bekommt Bestätigung dass Anfrage gesendet wurde
+      ws.send(JSON.stringify({ type: 'child_action_pending', request_id: requestId }));
+      return;
+    }
+
+    // ── Verwalter antwortet auf Kind-Aktion ──────────────────────────────────
+    if (msg.type === 'child_action_response') {
+      const childId = String(msg.child_id ?? '');
+      const approved = msg.approved === true;
+      if (!childId) return;
+
+      const notify = JSON.stringify({
+        type: 'child_action_response',
+        request_id: msg.request_id ?? '',
+        approved,
+        action: msg.action ?? '',
+      });
+
+      const childSockets = onlineUsers.get(childId);
+      if (childSockets?.size) {
+        for (const cw of childSockets) {
+          if (cw.readyState === 1) cw.send(notify);
+        }
+      } else {
+        storePending(`inbox:${childId}`, Buffer.from(notify));
       }
       return;
     }

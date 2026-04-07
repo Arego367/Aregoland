@@ -469,7 +469,8 @@
     "childNameEditLater": "Alle Felder sind optional und k\u00f6nnen sp\u00e4ter ge\u00e4ndert werden.",
     "childLinkedToast": "Du wurdest mit einem Elternteil verkn\u00fcpft.",
     "parentLinkedToast": "Kind erfolgreich hinzugef\u00fcgt.",
-    "generateQR": "QR-Code generieren"
+    "generateQR": "QR-Code generieren",
+    "childActionInfo": "Wenn dein Kind eine Aktion ausf\u00fchren m\u00f6chte (Kontakt hinzuf\u00fcgen, Space beitreten etc.), bekommst du eine Anfrage als Toast \u2014 egal wo in der App du gerade bist."
   },
   "calendar": {
     "title": "Kalender",

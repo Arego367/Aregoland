@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Activity, UserCheck, UserX, Plus } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
-import { deleteIdentity, loadIdentity, loadChildren, saveChild, removeChild, createChildLinkPayload, decodeChildLinkPayload, type ChildAccount } from "@/app/auth/identity";
+import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, type LinkedChild } from "@/app/auth/identity";
 import { deleteContacts, loadBlocked, unblockContact, loadContacts } from "@/app/auth/contacts";
 import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
@@ -196,7 +196,9 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
     }
   }, [startDropdownOpen]);
   const [profileVisibility, setProfileVisibility] = useState<"public" | "contacts" | "family" | "private">("contacts");
-  const [children, setChildren] = useState<ChildAccount[]>(() => loadChildren());
+  const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>(() => {
+    try { return JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]'); } catch { return []; }
+  });
   const [showAddChild, setShowAddChild] = useState(false);
   const [childFirstName, setChildFirstName] = useState("");
   const [childLastName, setChildLastName] = useState("");
@@ -216,7 +218,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [blockedList, setBlockedList] = useState<string[]>(() => loadBlocked());
   const availableTabs = useMemo(() => loadTabs(), []);
   const isChildAccount = useMemo(() => {
-    try { const id = JSON.parse(localStorage.getItem("aregoland_identity") ?? "{}"); return id.accountType === "child"; }
+    try { const id = JSON.parse(localStorage.getItem("aregoland_identity") ?? "{}"); return id.ist_kind === true || id.accountType === "child"; }
     catch { return false; }
   }, []);
   const { t, i18n } = useTranslation();
@@ -276,26 +278,22 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           try { scanner.clear(); } catch {}
           parentScannerRef.current = null;
 
-          // Kind-Konto mit Elternteil verknuepfen
-          const rawId = localStorage.getItem("aregoland_identity");
-          let childId = '';
-          if (rawId) {
-            try {
-              const id = JSON.parse(rawId);
-              childId = id.aregoId ?? '';
-              id.parentId = link.parentId;
-              id.parentName = link.parentName;
-              id.accountType = 'child';
-              // Namen vom Elternteil uebernehmen (ueberschreibt eigene)
-              if (link.childFirstName) id.firstName = link.childFirstName;
-              if (link.childLastName) id.lastName = link.childLastName;
-              if (link.childNickname) id.nickname = link.childNickname;
-              if (link.childFirstName || link.childNickname) {
-                id.displayName = link.childNickname || `${link.childFirstName} ${link.childLastName ?? ''}`.trim();
-              }
-              localStorage.setItem("aregoland_identity", JSON.stringify(id));
-            } catch {}
-          }
+          // Kind-Konto mit Elternteil verknuepfen: ist_kind + verwalter
+          const childId = identity?.aregoId ?? '';
+          setKindStatus(link.parentId);
+
+          // Namen vom Elternteil uebernehmen
+          try {
+            const id = JSON.parse(localStorage.getItem("aregoland_identity") ?? '{}');
+            id.parentName = link.parentName;
+            if (link.childFirstName) id.firstName = link.childFirstName;
+            if (link.childLastName) id.lastName = link.childLastName;
+            if (link.childNickname) id.nickname = link.childNickname;
+            if (link.childFirstName || link.childNickname) {
+              id.displayName = link.childNickname || `${link.childFirstName} ${link.childLastName ?? ''}`.trim();
+            }
+            localStorage.setItem("aregoland_identity", JSON.stringify(id));
+          } catch {}
 
           // FSK 6 setzen — Kind-Konten bekommen immer FSK 6
           const fskUpdate: FskStatus = { level: 6, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
@@ -526,8 +524,8 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                    <span className="font-medium">{t('settings.familyChildren')}</span>
                  </div>
                  <div className="flex items-center gap-2">
-                   {children.length > 0 && (
-                     <span className="text-xs text-gray-500">{children.length}</span>
+                   {linkedChildren.length > 0 && (
+                     <span className="text-xs text-gray-500">{linkedChildren.length}</span>
                    )}
                    <ChevronRight size={20} className="text-gray-500" />
                  </div>
@@ -1614,49 +1612,23 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
       setShowAddChild(true);
     };
 
-    const handleRemoveChild = (aregoId: string) => {
-      removeChild(aregoId);
-      setChildren(loadChildren());
-      setSelectedChild(null);
-    };
-
     // Eltern-Kontrollzentrale fuer ein einzelnes Kind
-    const activeChild = selectedChild ? children.find(c => c.aregoId === selectedChild) : null;
+    const activeChild = selectedChild ? linkedChildren.find(c => c.child_id === selectedChild) : null;
     if (activeChild) {
-      // Simulierte Daten (spaeter ueber Signaling-Server)
-      const childActivity = localStorage.getItem(`aregoland_child_activity_${activeChild.aregoId}`);
-      const lastSeen = childActivity ? JSON.parse(childActivity) : null;
-      const childContacts: { name: string; status: "allowed" | "blocked" }[] = JSON.parse(localStorage.getItem(`aregoland_child_contacts_${activeChild.aregoId}`) || "[]");
-      const childSpaces: { name: string; status: "allowed" | "blocked" }[] = JSON.parse(localStorage.getItem(`aregoland_child_spaces_${activeChild.aregoId}`) || "[]");
 
-      const toggleContact = (idx: number) => {
-        const updated = [...childContacts];
-        updated[idx] = { ...updated[idx], status: updated[idx].status === "allowed" ? "blocked" : "allowed" };
-        localStorage.setItem(`aregoland_child_contacts_${activeChild.aregoId}`, JSON.stringify(updated));
-        setSelectedChild(activeChild.aregoId); // force re-render
-      };
-
-      const toggleSpace = (idx: number) => {
-        const updated = [...childSpaces];
-        updated[idx] = { ...updated[idx], status: updated[idx].status === "allowed" ? "blocked" : "allowed" };
-        localStorage.setItem(`aregoland_child_spaces_${activeChild.aregoId}`, JSON.stringify(updated));
-        setSelectedChild(activeChild.aregoId);
-      };
+      const childName = activeChild.nickname || `${activeChild.first_name} ${activeChild.last_name}`.trim() || activeChild.child_id;
 
       return (
         <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
           <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
-            <button
-              onClick={() => setSelectedChild(null)}
-              className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
-            >
+            <button onClick={() => setSelectedChild(null)} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all">
               <ArrowLeft size={24} />
             </button>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                {activeChild.displayName[0]?.toUpperCase()}
+                {childName[0]?.toUpperCase()}
               </div>
-              <h1 className="text-xl font-bold">{activeChild.displayName}</h1>
+              <h1 className="text-xl font-bold">{childName}</h1>
             </div>
           </header>
 
@@ -1667,102 +1639,22 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
                 <Shield size={20} className="text-green-400 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-green-400">FSK 6 — {t('settings.childFskProtected')}</p>
+                  <p className="text-sm font-medium text-green-400">FSK {activeChild.fsk_stufe} — {t('settings.childFskProtected')}</p>
                   <p className="text-xs text-gray-500">{t('settings.childFskUpgradeHint')}</p>
                 </div>
               </div>
 
-              {/* Aktivitaet */}
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Activity size={18} /></div>
-                  <p className="font-medium">{t('settings.childActivity')}</p>
-                </div>
-                <div className="bg-gray-900/50 rounded-xl p-3">
-                  {lastSeen ? (
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between"><span className="text-gray-400">{t('settings.childLastSeen')}</span><span className="text-gray-300">{lastSeen.time}</span></div>
-                      <div className="flex justify-between"><span className="text-gray-400">{t('settings.childCurrentScreen')}</span><span className="text-gray-300">{lastSeen.screen}</span></div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 text-center py-2">{t('settings.childNoActivity')}</p>
-                  )}
-                </div>
+              {/* Info: Anfragen kommen als Toast */}
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 flex gap-3">
+                <Bell size={18} className="text-blue-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-300/80">{t('settings.childActionInfo')}</p>
               </div>
 
-              {/* Chats einsehen */}
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="bg-purple-500/20 p-2 rounded-lg text-purple-400"><MessageSquare size={18} /></div>
-                  <p className="font-medium">{t('settings.childChats')}</p>
-                </div>
-                <div className="bg-gray-900/50 rounded-xl p-3">
-                  <p className="text-sm text-gray-500 text-center py-2">{t('settings.childChatsEmpty')}</p>
-                </div>
-                <p className="text-xs text-gray-600 text-center">{t('settings.childChatsHint')}</p>
+              {/* Kind-ID */}
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">
+                <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Arego-ID</p>
+                <p className="text-sm text-gray-400 font-mono">{activeChild.child_id}</p>
               </div>
-
-              {/* Kontakte verwalten */}
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400"><Users size={18} /></div>
-                    <p className="font-medium">{t('settings.childContacts')}</p>
-                  </div>
-                </div>
-                {childContacts.length === 0 ? (
-                  <div className="bg-gray-900/50 rounded-xl p-3">
-                    <p className="text-sm text-gray-500 text-center py-2">{t('settings.childContactsEmpty')}</p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-900/50 rounded-xl overflow-hidden">
-                    {childContacts.map((c, i) => (
-                      <div key={i} className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800 last:border-0">
-                        <span className="text-sm text-gray-300">{c.name}</span>
-                        <button onClick={() => toggleContact(i)} className={`p-1.5 rounded-lg transition-colors ${c.status === "allowed" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
-                          {c.status === "allowed" ? <UserCheck size={16} /> : <UserX size={16} />}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-gray-600 text-center">{t('settings.childContactsHint')}</p>
-              </div>
-
-              {/* Spaces verwalten */}
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-orange-500/20 p-2 rounded-lg text-orange-400"><Globe size={18} /></div>
-                    <p className="font-medium">{t('settings.childSpaces')}</p>
-                  </div>
-                </div>
-                {childSpaces.length === 0 ? (
-                  <div className="bg-gray-900/50 rounded-xl p-3">
-                    <p className="text-sm text-gray-500 text-center py-2">{t('settings.childSpacesEmpty')}</p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-900/50 rounded-xl overflow-hidden">
-                    {childSpaces.map((s, i) => (
-                      <div key={i} className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800 last:border-0">
-                        <span className="text-sm text-gray-300">{s.name}</span>
-                        <button onClick={() => toggleSpace(i)} className={`p-1.5 rounded-lg transition-colors ${s.status === "allowed" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
-                          {s.status === "allowed" ? <Check size={16} /> : <Ban size={16} />}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-gray-600 text-center">{t('settings.childSpacesHint')}</p>
-              </div>
-
-              {/* Kind entfernen */}
-              <button
-                onClick={() => handleRemoveChild(activeChild.aregoId)}
-                className="w-full text-red-400 text-sm font-medium py-3 hover:bg-red-500/10 rounded-xl transition-colors"
-              >
-                {t('settings.removeChild')}
-              </button>
 
             </div>
           </div>
@@ -1801,31 +1693,34 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
             {/* Verknuepfte Kinder */}
             <div className="space-y-2">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.linkedChildren')}</h3>
-              {children.length === 0 ? (
+              {linkedChildren.length === 0 ? (
                 <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-6 text-center">
                   <Baby size={40} className="text-gray-600 mx-auto mb-3" />
                   <p className="text-sm text-gray-500">{t('settings.noChildren')}</p>
                 </div>
               ) : (
                 <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
-                  {children.map((child) => (
-                    <button
-                      key={child.aregoId}
-                      onClick={() => setSelectedChild(child.aregoId)}
-                      className="w-full p-4 border-b border-gray-700/50 last:border-0 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                          {child.displayName[0]?.toUpperCase()}
+                  {linkedChildren.map((child) => {
+                    const name = child.nickname || `${child.first_name} ${child.last_name}`.trim() || child.child_id;
+                    return (
+                      <button
+                        key={child.child_id}
+                        onClick={() => setSelectedChild(child.child_id)}
+                        className="w-full p-4 border-b border-gray-700/50 last:border-0 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                            {name[0]?.toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-medium">{name}</div>
+                            <div className="text-xs text-gray-500">FSK {child.fsk_stufe} — {t('settings.childFskProtected')}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="font-medium">{child.displayName}</div>
-                          <div className="text-xs text-gray-500">FSK 6 — {t('settings.childFskProtected')}</div>
-                        </div>
-                      </div>
-                      <ChevronRight size={20} className="text-gray-500" />
-                    </button>
-                  ))}
+                        <ChevronRight size={20} className="text-gray-500" />
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

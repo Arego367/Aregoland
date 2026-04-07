@@ -37,7 +37,7 @@ import ChatScreen from "@/app/components/ChatScreen";
 import DocumentsScreen from "@/app/components/DocumentsScreen";
 import CalendarScreen from "@/app/components/CalendarScreen";
 import { Tab } from "@/app/types";
-import { loadIdentity, saveChild, UserIdentity } from "@/app/auth/identity";
+import { loadIdentity, type LinkedChild, UserIdentity } from "@/app/auth/identity";
 import { loadSubscription, hasAccess, initSubscription, getEffectiveStatus } from "@/app/auth/subscription";
 import { loadFsk, initFsk, isFskVerified, isFeatureLocked } from "@/app/auth/fsk";
 import { deriveRoomId, decodePayload } from "@/app/auth/share";
@@ -511,6 +511,10 @@ export default function App() {
               return next;
             });
           }
+          // Verknüpfte Kinder vom Server im SessionStorage cachen
+          if (msg.linked_children) {
+            sessionStorage.setItem('aregoland_linked_children', JSON.stringify(msg.linked_children));
+          }
           return;
         }
 
@@ -533,16 +537,46 @@ export default function App() {
         // Kind wurde verknüpft — Elternteil benachrichtigen
         if (msg.type === 'child_linked' && msg.child_id) {
           const displayName = msg.nickname || `${msg.first_name ?? ''} ${msg.last_name ?? ''}`.trim() || msg.child_id;
-          saveChild({
-            aregoId: msg.child_id,
-            displayName,
-            parentId: identity?.aregoId ?? '',
-            fsk: 6,
-            createdAt: new Date().toISOString(),
-          });
+          // Session-Cache aktualisieren
+          try {
+            const cached = JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]');
+            cached.push({ child_id: msg.child_id, first_name: msg.first_name, last_name: msg.last_name, nickname: msg.nickname, fsk_stufe: 6 });
+            sessionStorage.setItem('aregoland_linked_children', JSON.stringify(cached));
+          } catch {}
           const toastEl = document.createElement('div');
           toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
           toastEl.textContent = `Kind "${displayName}" erfolgreich hinzugef\u00fcgt`;
+          document.body.appendChild(toastEl);
+          setTimeout(() => toastEl.remove(), 4000);
+          return;
+        }
+
+        // Kind-Aktionsanfrage — Verwalter bekommt Toast zum Zulassen/Ablehnen
+        if (msg.type === 'child_action_request' && msg.child_id) {
+          const toastEl = document.createElement('div');
+          toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-medium max-w-sm text-center space-y-2';
+          toastEl.innerHTML = `
+            <p>${msg.child_id} m\u00f6chte: <strong>${msg.details ?? msg.action}</strong></p>
+            <div style="display:flex;gap:8px;justify-content:center">
+              <button id="cr-allow" style="padding:6px 16px;border-radius:8px;background:#16a34a;color:white;font-weight:600;border:none;cursor:pointer">Zulassen</button>
+              <button id="cr-deny" style="padding:6px 16px;border-radius:8px;background:#dc2626;color:white;font-weight:600;border:none;cursor:pointer">Ablehnen</button>
+            </div>`;
+          document.body.appendChild(toastEl);
+          const respond = (approved: boolean) => {
+            ws.send(JSON.stringify({ type: 'child_action_response', child_id: msg.child_id, request_id: msg.request_id, approved, action: msg.action }));
+            toastEl.remove();
+          };
+          toastEl.querySelector('#cr-allow')?.addEventListener('click', () => respond(true));
+          toastEl.querySelector('#cr-deny')?.addEventListener('click', () => respond(false));
+          setTimeout(() => toastEl.remove(), 30000);
+          return;
+        }
+
+        // Kind bekommt Antwort auf Aktionsanfrage
+        if (msg.type === 'child_action_response') {
+          const toastEl = document.createElement('div');
+          toastEl.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 ${msg.approved ? 'bg-green-600' : 'bg-red-600'} text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center`;
+          toastEl.textContent = msg.approved ? 'Dein Verwalter hat die Aktion erlaubt.' : 'Dein Verwalter hat die Aktion abgelehnt.';
           document.body.appendChild(toastEl);
           setTimeout(() => toastEl.remove(), 4000);
           return;
