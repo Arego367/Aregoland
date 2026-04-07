@@ -35,7 +35,6 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
   const [recoveryKey, setRecoveryKey] = useState("");
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [recovering, setRecovering] = useState(false);
-  const [childName, setChildName] = useState("");
   const [childError, setChildError] = useState<string | null>(null);
   const [childCreating, setChildCreating] = useState(false);
   const [childScanActive, setChildScanActive] = useState(false);
@@ -51,7 +50,6 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
   }, []);
 
   const startChildScanner = useCallback(async () => {
-    if (!childName.trim()) { setChildError(t('welcome.childNameRequired')); return; }
     setChildError(null);
     setChildScanActive(true);
     try {
@@ -75,7 +73,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
           setChildScanActive(false);
           setChildCreating(true);
           try {
-            await createChildIdentity(childName.trim(), link.parentId, 6);
+            await createChildIdentity(link.parentName, link.parentId, 6);
             onGetStarted();
           } catch {
             setChildError(t('welcome.childCreateError'));
@@ -89,7 +87,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
       setChildError(t('settings.fskParentCameraError'));
       setChildScanActive(false);
     }
-  }, [childName, t, onGetStarted]);
+  }, [t, onGetStarted]);
 
   const handleRecoverWithKey = async () => {
     if (!recoveryKey.trim() || recovering) return;
@@ -417,7 +415,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
           >
             <div className="flex items-center gap-4 mb-6">
               <button
-                onClick={() => { setView("welcome"); setChildError(null); setChildName(""); stopChildScanner(); }}
+                onClick={() => { setView("welcome"); setChildError(null); stopChildScanner(); }}
                 className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
               >
                 <ChevronLeft size={28} />
@@ -432,18 +430,6 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                 <p className="text-sm text-pink-200/80 leading-relaxed">
                   {t('welcome.childInfo')}
                 </p>
-              </div>
-
-              {/* Child Name */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-400">{t('welcome.childNameLabel')}</label>
-                <input
-                  type="text"
-                  value={childName}
-                  onChange={(e) => setChildName(e.target.value)}
-                  placeholder={t('welcome.childNamePlaceholder')}
-                  className="w-full bg-gray-800/80 backdrop-blur-md border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all"
-                />
               </div>
 
               {/* QR Scanner */}
@@ -471,7 +457,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
             {!childScanActive && (
               <button
                 onClick={startChildScanner}
-                disabled={!childName.trim() || childCreating}
+                disabled={childCreating}
                 className="w-full mt-4 bg-pink-600 hover:bg-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-pink-600/25 active:scale-98"
               >
                 {childCreating ? (

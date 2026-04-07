@@ -198,7 +198,9 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [profileVisibility, setProfileVisibility] = useState<"public" | "contacts" | "family" | "private">("contacts");
   const [children, setChildren] = useState<ChildAccount[]>(() => loadChildren());
   const [showAddChild, setShowAddChild] = useState(false);
-  const [childName, setChildName] = useState("");
+  const [childFirstName, setChildFirstName] = useState("");
+  const [childLastName, setChildLastName] = useState("");
+  const [childNickname, setChildNickname] = useState("");
 
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
@@ -1445,51 +1447,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               <p className="text-xs text-gray-500 text-center">{t('settings.fskEudiHint')}</p>
             </div>
 
-            {/* Option 2: Elternteil per QR-Code */}
-            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-pink-500/20 p-2 rounded-lg text-pink-400">
-                  <Baby size={18} />
-                </div>
-                <div>
-                  <p className="font-medium">{t('settings.fskParentTitle')}</p>
-                  <p className="text-xs text-gray-500">{t('settings.fskParentDesc')}</p>
-                </div>
-              </div>
-
-              {parentLinked || (fsk?.verified && fsk.method === "parent") ? (
-                <div className="flex items-center gap-2 justify-center py-2">
-                  <Check size={18} className="text-green-400" />
-                  <p className="text-sm text-green-400">{t('settings.fskParentLinked', { name: parentLinked || t('settings.fskParentDefault') })}</p>
-                </div>
-              ) : parentScanActive ? (
-                <>
-                  <div id="parent-scan-region" className="w-full rounded-xl overflow-hidden" />
-                  <button
-                    onClick={stopParentScanner}
-                    className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <X size={18} />
-                    {t('common.cancel')}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={startParentScanner}
-                    className="w-full bg-pink-600 hover:bg-pink-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Camera size={18} />
-                    {t('settings.fskParentBtn')}
-                  </button>
-                  <p className="text-xs text-gray-500 text-center">{t('settings.fskParentScanHint')}</p>
-                </>
-              )}
-
-              {parentScanError && (
-                <p className="text-xs text-red-400 text-center">{parentScanError}</p>
-              )}
-            </div>
+            {/* Elternteil-Verknüpfung → verschoben nach Familie & Kinder */}
 
           </div>
         </div>
@@ -1759,7 +1717,10 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
       );
     }
 
-    // Familie-Hauptansicht: Kinderliste + QR generieren
+    const fskLevel = loadFsk()?.level ?? 6;
+    const isFsk18 = fskLevel >= 18;
+
+    // Familie-Hauptansicht: Kinderliste + QR generieren + Elternteil verknuepfen
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
@@ -1816,11 +1777,22 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               )}
             </div>
 
-            {/* Kind hinzufuegen per QR */}
+            {/* Kind hinzufuegen — nur FSK 18 */}
             {!showAddChild ? (
               <button
-                onClick={handleGenerateQR}
-                className="w-full bg-pink-600 hover:bg-pink-500 text-white font-semibold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-pink-600/20 active:scale-98"
+                onClick={() => {
+                  if (!isFsk18) {
+                    // Toast statt Aktion
+                    const el = document.createElement('div');
+                    el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-orange-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
+                    el.textContent = t('settings.addChildFsk18Required');
+                    document.body.appendChild(el);
+                    setTimeout(() => el.remove(), 3000);
+                    return;
+                  }
+                  handleGenerateQR();
+                }}
+                className={`w-full font-semibold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-98 ${isFsk18 ? 'bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-600/20' : 'bg-gray-800 text-gray-500 border border-gray-700/50 cursor-not-allowed'}`}
               >
                 <QrCode size={20} />
                 {t('settings.addChild')}
@@ -1829,11 +1801,11 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-5 space-y-5"
+                className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-5 space-y-4"
               >
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-lg">{t('settings.addChild')}</h3>
-                  <button onClick={() => { setShowAddChild(false); setQrDataUrl(null); setChildName(""); }} className="p-1 text-gray-500 hover:text-white">
+                  <button onClick={() => { setShowAddChild(false); setQrDataUrl(null); setChildFirstName(""); setChildLastName(""); setChildNickname(""); }} className="p-1 text-gray-500 hover:text-white">
                     <X size={20} />
                   </button>
                 </div>
@@ -1841,6 +1813,17 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                 <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 flex gap-2">
                   <Shield size={16} className="text-green-400 shrink-0 mt-0.5" />
                   <p className="text-xs text-green-300/80">{t('settings.addChildFskHint')}</p>
+                </div>
+
+                {/* Optionale Namensfelder */}
+                <div className="space-y-3">
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">{t('settings.childNameOptional')}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" value={childFirstName} onChange={e => setChildFirstName(e.target.value)} placeholder={t('settings.childFirstName')} className="bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500 transition-all" />
+                    <input type="text" value={childLastName} onChange={e => setChildLastName(e.target.value)} placeholder={t('settings.childLastName')} className="bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500 transition-all" />
+                  </div>
+                  <input type="text" value={childNickname} onChange={e => setChildNickname(e.target.value)} placeholder={t('settings.childNickname')} className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500 transition-all" />
+                  <p className="text-[10px] text-gray-600">{t('settings.childNameEditLater')}</p>
                 </div>
 
                 {/* QR Code */}
@@ -1858,6 +1841,51 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
 
                 <p className="text-xs text-gray-500 text-center">{t('settings.addChildScanInstruction')}</p>
               </motion.div>
+            )}
+
+            {/* Elternteil verknuepfen — fuer Kind-Konten */}
+            {isChildAccount && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.fskParentTitle')}</h3>
+                <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-pink-500/20 p-2 rounded-lg text-pink-400">
+                      <HeartHandshake size={18} />
+                    </div>
+                    <div>
+                      <p className="font-medium">{t('settings.fskParentTitle')}</p>
+                      <p className="text-xs text-gray-500">{t('settings.fskParentDesc')}</p>
+                    </div>
+                  </div>
+
+                  {parentLinked || (loadFsk()?.verified && loadFsk()?.method === "parent") ? (
+                    <div className="flex items-center gap-2 justify-center py-2">
+                      <Check size={18} className="text-green-400" />
+                      <p className="text-sm text-green-400">{t('settings.fskParentLinked', { name: parentLinked || t('settings.fskParentDefault') })}</p>
+                    </div>
+                  ) : parentScanActive ? (
+                    <>
+                      <div id="parent-scan-region" className="w-full rounded-xl overflow-hidden" />
+                      <button onClick={stopParentScanner} className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2">
+                        <X size={18} />
+                        {t('common.cancel')}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={startParentScanner} className="w-full bg-pink-600 hover:bg-pink-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2">
+                        <Camera size={18} />
+                        {t('settings.fskParentBtn')}
+                      </button>
+                      <p className="text-xs text-gray-500 text-center">{t('settings.fskParentScanHint')}</p>
+                    </>
+                  )}
+
+                  {parentScanError && (
+                    <p className="text-xs text-red-400 text-center">{parentScanError}</p>
+                  )}
+                </div>
+              </div>
             )}
 
           </div>

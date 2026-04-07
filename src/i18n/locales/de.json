@@ -460,7 +460,13 @@
     "childContactsHint": "Tippe auf das Symbol, um einen Kontakt zuzulassen oder zu blockieren.",
     "childSpaces": "Spaces verwalten",
     "childSpacesEmpty": "Noch keine Spaces beigetreten.",
-    "childSpacesHint": "Tippe auf das Symbol, um einen Space zuzulassen oder zu blockieren."
+    "childSpacesHint": "Tippe auf das Symbol, um einen Space zuzulassen oder zu blockieren.",
+    "addChildFsk18Required": "Nur verifizierte Erwachsene (FSK 18) k\u00f6nnen Kinder hinzuf\u00fcgen.",
+    "childNameOptional": "Name (optional)",
+    "childFirstName": "Vorname",
+    "childLastName": "Nachname",
+    "childNickname": "Spitzname",
+    "childNameEditLater": "Alle Felder sind optional und k\u00f6nnen sp\u00e4ter ge\u00e4ndert werden."
   },
   "calendar": {
     "title": "Kalender",
