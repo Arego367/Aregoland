@@ -130,8 +130,7 @@ const FSK_LEVELS = [
 ];
 
 export default function SettingsScreen({ onBack, onResetAccount }: SettingsScreenProps) {
-  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "family" | "notifications">("main");
-  const [storageActivateOpen, setStorageActivateOpen] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "subscription" | "family" | "notifications">("main");
   const [voucherCode, setVoucherCode] = useState("");
   const [selectedLang, setSelectedLang] = useState(() => LANGUAGES.find(l => l.code === localStorage.getItem('aregoland_language')) || LANGUAGES.find(l => l.code === 'de')!);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
@@ -298,9 +297,25 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-4 max-w-lg mx-auto">
+            {/* Section: Abo */}
+            <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
+               <button
+                 onClick={() => setActiveSubmenu("subscription")}
+                 className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+               >
+                 <div className="flex items-center gap-3">
+                   <div className="bg-amber-500/20 p-2 rounded-lg text-amber-400">
+                     <CreditCard size={20} />
+                   </div>
+                   <span className="font-medium">{t('settings.subscriptionSection')}</span>
+                 </div>
+                 <ChevronRight size={20} className="text-gray-500" />
+               </button>
+            </div>
+
             {/* Section: General */}
             <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
-               <button 
+               <button
                  onClick={() => setActiveSubmenu("app")}
                 className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
                >
@@ -1017,6 +1032,90 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
     );
   }
 
+  // Subscription Submenu — "Abo & Zahlung"
+  if (activeSubmenu === "subscription") {
+    const storageActive = localStorage.getItem("aregoland_storage_active") === "true";
+    const storageLimitMB = parseFloat(localStorage.getItem("aregoland_storage_limit_mb") || "1024");
+    const planExpiry = localStorage.getItem("aregoland_plan_expiry") || "";
+
+    return (
+      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+        <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
+          <button
+            onClick={() => setActiveSubmenu("main")}
+            className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
+          >
+            <ArrowLeft size={24} />
+          </button>
+          <h1 className="text-xl font-bold">{t('settings.subscriptionSection')}</h1>
+        </header>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-6 max-w-lg mx-auto">
+
+            {/* Aktueller Plan */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">{t('settings.subCurrentPlan')}</p>
+              {!storageActive ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-gray-500" />
+                  <div>
+                    <p className="text-gray-300 font-medium">{t('settings.subPlanFree')}</p>
+                    <p className="text-xs text-gray-500">{t('settings.subPlanFreeDesc')}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-green-400" />
+                  <div>
+                    <p className="text-green-400 font-medium">{t('settings.subPlanActive')}</p>
+                    <p className="text-xs text-gray-400">
+                      {(storageLimitMB / 1024).toFixed(0)} GB
+                      {planExpiry && ` \u00b7 ${t('settings.subUntil')} ${planExpiry}`}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Gutscheincode */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">{t('settings.subVoucher')}</p>
+              <p className="text-sm text-gray-500">{t('settings.subVoucherDesc')}</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={voucherCode}
+                  onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                  placeholder={t('settings.subVoucherPlaceholder')}
+                  className="flex-1 bg-gray-700 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  disabled={!voucherCode.trim()}
+                  className="bg-amber-600 hover:bg-amber-500 disabled:bg-gray-600 disabled:text-gray-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+                >
+                  {t('settings.subRedeem')}
+                </button>
+              </div>
+            </div>
+
+            {/* Zahlungsmethode */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">{t('settings.subPaymentMethod')}</p>
+              <button
+                disabled
+                className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <CreditCard size={18} />
+                {t('settings.subPaymentSoon')}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Storage Submenu — "Meine Daten & Speicher"
   if (activeSubmenu === "storage") {
     const storageActive = localStorage.getItem("aregoland_storage_active") === "true";
@@ -1087,73 +1186,6 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
                 </div>
               )}
             </div>
-
-            {/* Freischalten Button */}
-            {!storageActive && (
-              <button
-                onClick={() => setStorageActivateOpen(true)}
-                className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 px-4 rounded-2xl transition-colors"
-              >
-                {t('settings.storageActivate')}
-              </button>
-            )}
-
-            {/* Freischalten Modal */}
-            <AnimatePresence>
-              {storageActivateOpen && (
-                <motion.div
-                  className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  onClick={() => setStorageActivateOpen(false)}
-                >
-                  <motion.div
-                    className="bg-gray-800 rounded-2xl border border-gray-700 p-6 max-w-sm w-full space-y-5"
-                    initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                  >
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-bold">{t('settings.storageActivateTitle')}</h2>
-                      <button onClick={() => setStorageActivateOpen(false)} className="text-gray-500 hover:text-white p-1">
-                        <X size={20} />
-                      </button>
-                    </div>
-                    <p className="text-sm text-gray-400">{t('settings.storageActivateDesc')}</p>
-
-                    {/* Gutscheincode */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-300">{t('settings.storageVoucher')}</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={voucherCode}
-                          onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                          placeholder={t('settings.storageVoucherPlaceholder')}
-                          className="flex-1 bg-gray-700 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
-                        />
-                        <button
-                          disabled={!voucherCode.trim()}
-                          className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 disabled:text-gray-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
-                        >
-                          {t('settings.storageRedeem')}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Abo */}
-                    <div className="border-t border-gray-700 pt-4 space-y-2">
-                      <label className="text-sm font-medium text-gray-300">{t('settings.storageSubscription')}</label>
-                      <button
-                        disabled
-                        className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
-                      >
-                        <CreditCard size={18} />
-                        {t('settings.storageSoonAvailable')}
-                      </button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* Was gespeichert werden soll */}
             <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">

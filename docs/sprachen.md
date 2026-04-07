@@ -51,14 +51,18 @@ Alle Namespaces sind in allen 24 Sprachen vollstaendig uebersetzt (Stand 2026-04
 | SettingsScreen | settings.storageInactive | Kein Speicher aktiv (Standard, kostenlos) | — | — |
 | SettingsScreen | settings.storageActive | Speicher aktiv | — | — |
 | SettingsScreen | settings.storageUsed | belegt | — | — |
-| SettingsScreen | settings.storageActivate | Speicher freischalten | — | — |
-| SettingsScreen | settings.storageActivateTitle | Speicher freischalten | — | — |
-| SettingsScreen | settings.storageActivateDesc | Schalte Server-Speicher frei... | — | — |
-| SettingsScreen | settings.storageVoucher | Gutscheincode | — | — |
-| SettingsScreen | settings.storageVoucherPlaceholder | Code eingeben | — | — |
-| SettingsScreen | settings.storageRedeem | Einloesen | — | — |
-| SettingsScreen | settings.storageSubscription | Abo abschliessen | — | — |
-| SettingsScreen | settings.storageSoonAvailable | Bald verfuegbar | — | — |
+| SettingsScreen | settings.subscriptionSection | Abo & Zahlung | — | — |
+| SettingsScreen | settings.subCurrentPlan | Aktueller Plan | — | — |
+| SettingsScreen | settings.subPlanFree | Kostenlos | — | — |
+| SettingsScreen | settings.subPlanFreeDesc | Kein Server-Speicher... | — | — |
+| SettingsScreen | settings.subPlanActive | Aktiv | — | — |
+| SettingsScreen | settings.subUntil | bis | — | — |
+| SettingsScreen | settings.subVoucher | Gutscheincode | — | — |
+| SettingsScreen | settings.subVoucherDesc | Du hast einen Gutscheincode... | — | — |
+| SettingsScreen | settings.subVoucherPlaceholder | Code eingeben | — | — |
+| SettingsScreen | settings.subRedeem | Einloesen | — | — |
+| SettingsScreen | settings.subPaymentMethod | Zahlungsmethode | — | — |
+| SettingsScreen | settings.subPaymentSoon | Bald verfuegbar | — | — |
 | SettingsScreen | settings.storageSyncOptions | Was soll gespeichert werden? | — | — |
 | SettingsScreen | settings.storageSyncDesc | Waehle aus, welche Daten... | — | — |
 | SettingsScreen | settings.storageSyncAvatar | Profilbild | — | — |
