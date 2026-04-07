@@ -37,7 +37,7 @@ import ChatScreen from "@/app/components/ChatScreen";
 import DocumentsScreen from "@/app/components/DocumentsScreen";
 import CalendarScreen from "@/app/components/CalendarScreen";
 import { Tab } from "@/app/types";
-import { loadIdentity, UserIdentity } from "@/app/auth/identity";
+import { loadIdentity, saveChild, UserIdentity } from "@/app/auth/identity";
 import { loadSubscription, hasAccess, initSubscription, getEffectiveStatus } from "@/app/auth/subscription";
 import { loadFsk, initFsk, isFskVerified, isFeatureLocked } from "@/app/auth/fsk";
 import { deriveRoomId, decodePayload } from "@/app/auth/share";
@@ -527,6 +527,24 @@ export default function App() {
             }
             return next;
           });
+          return;
+        }
+
+        // Kind wurde verknüpft — Elternteil benachrichtigen
+        if (msg.type === 'child_linked' && msg.child_id) {
+          const displayName = msg.nickname || `${msg.first_name ?? ''} ${msg.last_name ?? ''}`.trim() || msg.child_id;
+          saveChild({
+            aregoId: msg.child_id,
+            displayName,
+            parentId: identity?.aregoId ?? '',
+            fsk: 6,
+            createdAt: new Date().toISOString(),
+          });
+          const toastEl = document.createElement('div');
+          toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
+          toastEl.textContent = `Kind "${displayName}" erfolgreich hinzugef\u00fcgt`;
+          document.body.appendChild(toastEl);
+          setTimeout(() => toastEl.remove(), 4000);
           return;
         }
 

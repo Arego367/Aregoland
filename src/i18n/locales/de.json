@@ -466,7 +466,10 @@
     "childFirstName": "Vorname",
     "childLastName": "Nachname",
     "childNickname": "Spitzname",
-    "childNameEditLater": "Alle Felder sind optional und k\u00f6nnen sp\u00e4ter ge\u00e4ndert werden."
+    "childNameEditLater": "Alle Felder sind optional und k\u00f6nnen sp\u00e4ter ge\u00e4ndert werden.",
+    "childLinkedToast": "Du wurdest mit einem Elternteil verkn\u00fcpft.",
+    "parentLinkedToast": "Kind erfolgreich hinzugef\u00fcgt.",
+    "generateQR": "QR-Code generieren"
   },
   "calendar": {
     "title": "Kalender",

@@ -278,12 +278,21 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
 
           // Kind-Konto mit Elternteil verknuepfen
           const rawId = localStorage.getItem("aregoland_identity");
+          let childId = '';
           if (rawId) {
             try {
               const id = JSON.parse(rawId);
+              childId = id.aregoId ?? '';
               id.parentId = link.parentId;
               id.parentName = link.parentName;
               id.accountType = 'child';
+              // Namen vom Elternteil uebernehmen (ueberschreibt eigene)
+              if (link.childFirstName) id.firstName = link.childFirstName;
+              if (link.childLastName) id.lastName = link.childLastName;
+              if (link.childNickname) id.nickname = link.childNickname;
+              if (link.childFirstName || link.childNickname) {
+                id.displayName = link.childNickname || `${link.childFirstName} ${link.childLastName ?? ''}`.trim();
+              }
               localStorage.setItem("aregoland_identity", JSON.stringify(id));
             } catch {}
           }
@@ -292,8 +301,31 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           const fskUpdate: FskStatus = { level: 6, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
           saveFsk(fskUpdate);
           onFskUpdated?.();
+
+          // Server benachrichtigen (Kind → Elternteil verknuepfen)
+          if (childId && link.parentId) {
+            fetch('/child-link', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                child_id: childId,
+                parent_id: link.parentId,
+                first_name: link.childFirstName ?? '',
+                last_name: link.childLastName ?? '',
+                nickname: link.childNickname ?? '',
+              }),
+            }).catch(() => {});
+          }
+
           setParentScanActive(false);
           setParentLinked(link.parentName);
+
+          // Toast fuer Kind
+          const toastEl = document.createElement('div');
+          toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
+          toastEl.textContent = t('settings.childLinkedToast');
+          document.body.appendChild(toastEl);
+          setTimeout(() => toastEl.remove(), 4000);
         },
         () => {} // Kein Fehler bei fehlgeschlagenem Frame
       );
@@ -1572,7 +1604,11 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   if (activeSubmenu === "family") {
     const handleGenerateQR = async () => {
       if (!identity) return;
-      const payload = createChildLinkPayload(identity);
+      const payload = createChildLinkPayload(identity, {
+        firstName: childFirstName.trim() || undefined,
+        lastName: childLastName.trim() || undefined,
+        nickname: childNickname.trim() || undefined,
+      });
       const url = await QRCode.toDataURL(payload, { width: 280, margin: 2, color: { dark: '#ffffff', light: '#00000000' } });
       setQrDataUrl(url);
       setShowAddChild(true);
@@ -1799,7 +1835,6 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               <button
                 onClick={() => {
                   if (!isFsk18) {
-                    // Toast statt Aktion
                     const el = document.createElement('div');
                     el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-orange-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
                     el.textContent = t('settings.addChildFsk18Required');
@@ -1807,7 +1842,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                     setTimeout(() => el.remove(), 3000);
                     return;
                   }
-                  handleGenerateQR();
+                  setShowAddChild(true);
                 }}
                 className={`w-full font-semibold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-98 ${isFsk18 ? 'bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-600/20' : 'bg-gray-800 text-gray-500 border border-gray-700/50 cursor-not-allowed'}`}
               >
@@ -1832,7 +1867,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   <p className="text-xs text-green-300/80">{t('settings.addChildFskHint')}</p>
                 </div>
 
-                {/* Optionale Namensfelder */}
+                {/* Namensfelder — werden in QR kodiert */}
                 <div className="space-y-3">
                   <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">{t('settings.childNameOptional')}</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -1843,20 +1878,29 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   <p className="text-[10px] text-gray-600">{t('settings.childNameEditLater')}</p>
                 </div>
 
-                {/* QR Code */}
-                {qrDataUrl && (
-                  <div className="flex flex-col items-center space-y-3">
-                    <div className="bg-gray-900 p-4 rounded-2xl">
-                      <img src={qrDataUrl} alt="Child Link QR" className="w-56 h-56" />
+                {/* QR generieren oder anzeigen */}
+                {!qrDataUrl ? (
+                  <button
+                    onClick={handleGenerateQR}
+                    className="w-full bg-pink-600 hover:bg-pink-500 text-white font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <QrCode size={18} />
+                    {t('settings.generateQR')}
+                  </button>
+                ) : (
+                  <>
+                    <div className="flex flex-col items-center space-y-3">
+                      <div className="bg-gray-900 p-4 rounded-2xl">
+                        <img src={qrDataUrl} alt="Child Link QR" className="w-56 h-56" />
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <QrCode size={14} />
+                        <span>{t('settings.qrTTL')}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <QrCode size={14} />
-                      <span>{t('settings.qrTTL')}</span>
-                    </div>
-                  </div>
+                    <p className="text-xs text-gray-500 text-center">{t('settings.addChildScanInstruction')}</p>
+                  </>
                 )}
-
-                <p className="text-xs text-gray-500 text-center">{t('settings.addChildScanInstruction')}</p>
               </motion.div>
             )}
 

@@ -21,6 +21,9 @@ export interface ChildAccount {
   parentId: string;
   fsk: 6 | 12 | 16 | 18;
   createdAt: string;
+  firstName?: string;
+  lastName?: string;
+  nickname?: string;
 }
 
 const STORAGE_KEY = "aregoland_identity";
@@ -124,8 +127,8 @@ export function removeChild(aregoId: string): void {
 }
 
 /** Erstellt ein Kind-Konto-Linking-Payload als Base64 (TTL 10 Min, einmalig) */
-export function createChildLinkPayload(parentIdentity: UserIdentity): string {
-  const payload = {
+export function createChildLinkPayload(parentIdentity: UserIdentity, childNames?: { firstName?: string; lastName?: string; nickname?: string }): string {
+  const payload: Record<string, unknown> = {
     t: 'child-link' as const,
     pid: parentIdentity.aregoId,
     pn: parentIdentity.displayName,
@@ -133,6 +136,9 @@ export function createChildLinkPayload(parentIdentity: UserIdentity): string {
     n: Array.from(crypto.getRandomValues(new Uint8Array(4)))
       .map(b => b.toString(16).padStart(2, '0')).join(''),
   };
+  if (childNames?.firstName) payload.cfn = childNames.firstName;
+  if (childNames?.lastName) payload.cln = childNames.lastName;
+  if (childNames?.nickname) payload.cnn = childNames.nickname;
   const json = JSON.stringify(payload);
   return btoa(
     new TextEncoder().encode(json).reduce((s, b) => s + String.fromCharCode(b), '')
@@ -142,19 +148,24 @@ export function createChildLinkPayload(parentIdentity: UserIdentity): string {
 /** Dekodiert ein Kind-Konto-Linking-Payload vom Eltern-QR */
 export function decodeChildLinkPayload(encoded: string): {
   parentId: string; parentName: string; exp: number;
+  childFirstName?: string; childLastName?: string; childNickname?: string;
 } | null {
   try {
     const binary = atob(encoded.trim());
     const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
     const p = JSON.parse(new TextDecoder().decode(bytes));
-    // Kompaktes Format (t/pid/pn) oder Legacy (type/parentId/parentName)
     const type = p.t ?? p.type;
     const parentId = p.pid ?? p.parentId;
     const parentName = p.pn ?? p.parentName ?? '';
     const exp = p.exp;
     if (type !== 'child-link' || !parentId || !exp) return null;
     if (Date.now() > exp) return null;
-    return { parentId, parentName, exp };
+    return {
+      parentId, parentName, exp,
+      childFirstName: p.cfn ?? undefined,
+      childLastName: p.cln ?? undefined,
+      childNickname: p.cnn ?? undefined,
+    };
   } catch { return null; }
 }
 

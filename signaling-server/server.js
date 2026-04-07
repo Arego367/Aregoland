@@ -124,6 +124,18 @@ async function initDb() {
     )
   `);
   db.run(`
+    CREATE TABLE IF NOT EXISTS child_links (
+      child_id          TEXT NOT NULL,
+      parent_id         TEXT NOT NULL,
+      child_first_name  TEXT DEFAULT '',
+      child_last_name   TEXT DEFAULT '',
+      child_nickname    TEXT DEFAULT '',
+      fsk_stufe         INTEGER NOT NULL DEFAULT 6,
+      created_at        TEXT NOT NULL,
+      PRIMARY KEY (child_id, parent_id)
+    )
+  `);
+  db.run(`
     CREATE TABLE IF NOT EXISTS user_auth (
       arego_id          TEXT PRIMARY KEY,
       abo_status        TEXT NOT NULL DEFAULT 'trial',
@@ -798,6 +810,71 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: true }));
     } catch {
       res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /child-link — Kind mit Elternteil verknüpfen ───────────────────────
+  if (req.method === 'POST' && req.url === '/child-link') {
+    try {
+      const body = await readBody(req);
+      const { child_id, parent_id, first_name, last_name, nickname } = JSON.parse(body);
+      if (!child_id || !parent_id) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'child_id und parent_id erforderlich' }));
+        return;
+      }
+      // Max 2 Elternteile pro Kind
+      const existing = db.exec(`SELECT COUNT(*) FROM child_links WHERE child_id = ?`, [child_id]);
+      const count = existing.length ? existing[0].values[0][0] : 0;
+      if (count >= 2) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'max_parents', message: 'Maximal 2 Elternteile pro Kind' }));
+        return;
+      }
+      const now = new Date().toISOString();
+      db.run(`
+        INSERT OR REPLACE INTO child_links (child_id, parent_id, child_first_name, child_last_name, child_nickname, fsk_stufe, created_at)
+        VALUES (?, ?, ?, ?, ?, 6, ?)
+      `, [child_id, parent_id, (first_name ?? '').slice(0, 50), (last_name ?? '').slice(0, 50), (nickname ?? '').slice(0, 50), now]);
+      persistDb();
+
+      // Elternteil per WebSocket benachrichtigen
+      const parentSockets = onlineUsers.get(parent_id);
+      if (parentSockets) {
+        const notify = JSON.stringify({
+          type: 'child_linked',
+          child_id,
+          first_name: first_name ?? '',
+          last_name: last_name ?? '',
+          nickname: nickname ?? '',
+        });
+        for (const ws of parentSockets) {
+          if (ws.readyState === 1) ws.send(notify);
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── GET /child-link/:parent_id — Verknüpfte Kinder eines Elternteils ──────
+  const childLinkMatch = req.method === 'GET' && req.url?.match(/^\/child-link\/(.+)$/);
+  if (childLinkMatch) {
+    try {
+      const parentId = decodeURIComponent(childLinkMatch[1]);
+      const rows = db.exec(`SELECT child_id, child_first_name, child_last_name, child_nickname, fsk_stufe, created_at FROM child_links WHERE parent_id = ?`, [parentId]);
+      const children = rows.length ? rows[0].values.map(r => ({
+        child_id: r[0], first_name: r[1], last_name: r[2], nickname: r[3], fsk_stufe: r[4], created_at: r[5],
+      })) : [];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ children }));
+    } catch {
+      res.writeHead(500); res.end();
     }
     return;
   }
