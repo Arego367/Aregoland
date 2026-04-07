@@ -1082,6 +1082,7 @@ export default function App() {
           onBack={() => setCurrentScreen(returnTo)}
           subscriptionLocked={subLocked}
           onSubscriptionUnlocked={() => { setSubLocked(false); setCurrentScreen("dashboard"); }}
+          onFskUpdated={() => setFskStatus(loadFsk())}
           onResetAccount={() => {
             manager.disconnectAll();
             deletePersistedChats();

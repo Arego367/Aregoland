@@ -12,7 +12,7 @@ export interface FskStatus {
   level: FskLevel;
   verified: boolean;
   verifiedAt: string | null;
-  method: "eudi" | "parent" | null;
+  method: "eudi" | "parent" | "self" | null;
 }
 
 const STORAGE_KEY = "aregoland_fsk";

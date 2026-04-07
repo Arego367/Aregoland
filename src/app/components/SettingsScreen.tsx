@@ -7,7 +7,7 @@ import { deleteIdentity, loadIdentity, loadChildren, saveChild, removeChild, cre
 import { deleteContacts, loadBlocked, unblockContact, loadContacts } from "@/app/auth/contacts";
 import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
-import { loadFsk, type FskStatus } from "@/app/auth/fsk";
+import { loadFsk, saveFsk, type FskStatus } from "@/app/auth/fsk";
 
 const NOTIF_KEY = "aregoland_notifications";
 
@@ -94,6 +94,7 @@ interface SettingsScreenProps {
   onResetAccount?: () => void;
   subscriptionLocked?: boolean;
   onSubscriptionUnlocked?: () => void;
+  onFskUpdated?: () => void;
 }
 
 const LANGUAGES = [
@@ -133,7 +134,7 @@ const FSK_LEVELS = [
   { value: 18 as const, label: "FSK 18", color: "text-gray-500", bg: "bg-gray-700/50", enabled: false },
 ];
 
-export default function SettingsScreen({ onBack, onResetAccount, subscriptionLocked, onSubscriptionUnlocked }: SettingsScreenProps) {
+export default function SettingsScreen({ onBack, onResetAccount, subscriptionLocked, onSubscriptionUnlocked, onFskUpdated }: SettingsScreenProps) {
   const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "subscription" | "family" | "notifications" | "fsk">(subscriptionLocked ? "subscription" : "main");
   const [voucherCode, setVoucherCode] = useState("");
   const [subRefresh, setSubRefresh] = useState(0);
@@ -1290,6 +1291,25 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               </div>
             </div>
 
+            {/* FSK-Stufen Uebersicht */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">{t('settings.fskOverviewTitle')}</p>
+              {([
+                { level: 6, dot: "bg-green-400", key: "fskOverview6", descKey: "fskOverview6Desc" },
+                { level: 12, dot: "bg-yellow-400", key: "fskOverview12", descKey: "fskOverview12Desc" },
+                { level: 16, dot: "bg-orange-400", key: "fskOverview16", descKey: "fskOverview16Desc" },
+                { level: 18, dot: "bg-red-400", key: "fskOverview18", descKey: "fskOverview18Desc" },
+              ] as const).map(({ level, dot, key, descKey }) => (
+                <div key={level} className={`flex items-start gap-3 p-3 rounded-xl ${fsk?.level === level ? 'bg-white/5 ring-1 ring-white/10' : ''}`}>
+                  <span className={`mt-0.5 shrink-0 inline-block w-2.5 h-2.5 rounded-full ${dot}`} />
+                  <div>
+                    <p className="text-sm font-medium text-gray-200">{t(`settings.${key}`)}</p>
+                    <p className="text-xs text-gray-500">{t(`settings.${descKey}`)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {/* Erklaerung */}
             <div className="bg-orange-500/10 rounded-2xl p-4 border border-orange-500/20">
               <div className="flex gap-3">
@@ -1299,6 +1319,39 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   <p>{t('settings.fskWhyText')}</p>
                 </div>
               </div>
+            </div>
+
+            {/* Selbst verifizieren — temporaer */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-400">
+                  <Check size={18} />
+                </div>
+                <p className="font-medium">{t('settings.fskSelfVerifyTitle')}</p>
+              </div>
+              {fsk?.verified && fsk.method === "self" ? (
+                <p className="text-sm text-green-400 text-center py-2">{t('settings.fskSelfVerifyDone')}</p>
+              ) : !fsk?.verified ? (
+                <>
+                  <button
+                    onClick={() => {
+                      const updated: FskStatus = {
+                        level: 18,
+                        verified: true,
+                        verifiedAt: new Date().toISOString(),
+                        method: "self",
+                      };
+                      saveFsk(updated);
+                      onFskUpdated?.();
+                      setActiveSubmenu("fsk"); // force re-render
+                    }}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    {t('settings.fskSelfVerifyBtn')}
+                  </button>
+                  <p className="text-xs text-gray-500 text-center">{t('settings.fskSelfVerifyHint')}</p>
+                </>
+              ) : null}
             </div>
 
             {/* Option 1: EUDI Wallet */}
