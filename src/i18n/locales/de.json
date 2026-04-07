@@ -827,7 +827,11 @@
     "fskActivate": "Aktivieren",
     "fskActivated": "FSK {{level}} freigeschaltet \u2014 Space ist jetzt f\u00fcr j\u00fcngere Nutzer sichtbar.",
     "fskInvalidCode": "Ung\u00fcltiger Freischaltcode.",
-    "fskCodeHint": "Den Freischaltcode erh\u00e4ltst du per E-Mail nach Pr\u00fcfung deines Antrags."
+    "fskCodeHint": "Den Freischaltcode erh\u00e4ltst du per E-Mail nach Pr\u00fcfung deines Antrags.",
+    "settingsGroupAppearance": "Erscheinungsbild",
+    "settingsGroupAccess": "Zugang & Sichtbarkeit",
+    "settingsGroupManagement": "Verwaltung",
+    "settingsGroupSecurity": "Sicherheit & Kontrolle"
   },
   "childProfile": {
     "title": "Kinder-Profile",

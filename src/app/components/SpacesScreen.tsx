@@ -34,14 +34,14 @@ function SettingsSection({ id, icon, title, children, visible = true, isOpen, on
 }) {
   if (!visible) return null;
   return (
-    <div className="border border-gray-700/50 rounded-2xl overflow-hidden">
+    <div className="overflow-hidden">
       <button
         onClick={onToggle}
         className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-800/50 transition-colors"
       >
         <div className="text-gray-400">{icon}</div>
         <span className="text-sm font-semibold text-white flex-1 text-left">{title}</span>
-        <Edit2 size={14} className={`transition-colors ${isOpen ? "text-blue-400" : "text-gray-600"}`} />
+        <ChevronDown size={14} className={`transition-all ${isOpen ? "rotate-180 text-blue-400" : "text-gray-600"}`} />
       </button>
       <AnimatePresence>
         {isOpen && (
@@ -4155,9 +4155,12 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               // SettingsSection (stabil definiert ausserhalb) mit settingsOpen + toggleSection
 
               return (
-                <div className="space-y-2">
+                <div className="space-y-4">
 
-                  {/* ── Erscheinungsbild ── */}
+                  {/* ━━ Gruppe 1: Erscheinungsbild ━━ */}
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-2 mb-2">{t('spaces.settingsGroupAppearance')}</p>
+                    <div className="rounded-2xl overflow-hidden border border-gray-700/40 divide-y divide-gray-700/40">
                   <SettingsSection id="appearance" icon={<Edit2 size={16} />} title={t('spaces.appearance')} visible={canSeeSection("appearance")} isOpen={settingsOpen["appearance"] ?? false} onToggle={() => toggleSection("appearance")}>
                     {(() => {
                       const app = loadAppearance(selectedSpace.id);
@@ -4314,8 +4317,13 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       </AnimatePresence>
                     </div>
                   </SettingsSection>
+                    </div>
+                  </div>
 
-                  {/* ── Sichtbarkeit ── */}
+                  {/* ━━ Gruppe 2: Zugang & Sichtbarkeit ━━ */}
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-2 mb-2">{t('spaces.settingsGroupAccess')}</p>
+                    <div className="rounded-2xl overflow-hidden border border-gray-700/40 divide-y divide-gray-700/40">
                   <SettingsSection id="visibility" icon={<Eye size={16} />} title="Sichtbarkeit" visible={canSeeSection("visibility")} isOpen={settingsOpen["visibility"] ?? false} onToggle={() => toggleSection("visibility")}>
                       <div className="flex gap-2">
                         {([
@@ -4418,7 +4426,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
                   {/* ── QR-Code ── */}
                   {canSeeSection("invite") && (
-                    <div className="border border-gray-700/50 rounded-2xl overflow-hidden">
+                    <div className="overflow-hidden">
                       <button
                         onClick={() => {
                           if (!settingsInviteOpen) handleOpenInvite();
@@ -4428,7 +4436,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       >
                         <div className="text-gray-400"><QrCode size={16} /></div>
                         <span className="text-sm font-semibold text-white flex-1 text-left">QR-Code</span>
-                        <Edit2 size={14} className={`transition-colors ${settingsInviteOpen ? "text-blue-400" : "text-gray-600"}`} />
+                        <ChevronDown size={14} className={`transition-all ${settingsInviteOpen ? "rotate-180 text-blue-400" : "text-gray-600"}`} />
                       </button>
 
                       <AnimatePresence>
@@ -4576,8 +4584,13 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       </AnimatePresence>
                     </div>
                   )}
+                    </div>
+                  </div>
 
-                  {/* ── Mitglieder verwalten ── */}
+                  {/* ━━ Gruppe 3: Verwaltung ━━ */}
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-2 mb-2">{t('spaces.settingsGroupManagement')}</p>
+                    <div className="rounded-2xl overflow-hidden border border-gray-700/40 divide-y divide-gray-700/40">
                   <SettingsSection id="members" icon={<Users size={16} />} title={t('spaces.manageMembers')} visible={canSeeSection("members")} isOpen={settingsOpen["members"] ?? false} onToggle={() => toggleSection("members")}>
                     {(() => {
                       const allCustomRoles = selectedSpace.customRoles ?? [];
@@ -5034,8 +5047,13 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         <p className="text-[10px] text-gray-500 leading-relaxed">{t('spaces.guestRoleHint')}</p>
                       </div>
                   </SettingsSection>
+                    </div>
+                  </div>
 
-                  {/* ── Gründer-Rechte übertragen ── */}
+                  {/* ━━ Gruppe 4: Sicherheit & Kontrolle ━━ */}
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-2 mb-2">{t('spaces.settingsGroupSecurity')}</p>
+                    <div className="rounded-2xl overflow-hidden border border-gray-700/40 divide-y divide-gray-700/40">
                   <SettingsSection id="transfer" icon={<Crown size={16} />} title={t('spaces.transferFounder')} visible={myRole === "founder"} isOpen={settingsOpen["transfer"] ?? false} onToggle={() => toggleSection("transfer")}>
                     <div className="bg-gray-800/50 rounded-xl border border-yellow-900/30 p-4 space-y-3">
                         <p className="text-xs text-gray-400 leading-relaxed">{t('spaces.transferFounderDesc')}</p>
@@ -5178,6 +5196,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       </div>
                     </div>
                   </SettingsSection>
+                    </div>
+                  </div>
 
                   {/* ── Space löschen — mehrstufig ── */}
                   {deleteStep === 0 && (
