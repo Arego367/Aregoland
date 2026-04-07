@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
+import { loadFsk, type FskLevel } from "@/app/auth/fsk";
 import { loadContacts, removeContact } from "@/app/auth/contacts";
 import { Html5Qrcode } from "html5-qrcode";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -171,6 +172,7 @@ interface Space {
   createdAt: string;
   visibility: "public" | "private";
   inaktivitaets_regel?: "delete" | "transfer";
+  fsk: FskLevel;
   settings: {
     membersVisible: boolean;
     coHostingAllowed: boolean;
@@ -189,6 +191,7 @@ function loadSpaces(): Space[] {
     // Migration: ensure posts, channels, subrooms arrays exist
     return raw.map(s => ({
       ...s,
+      fsk: s.fsk ?? 18,
       posts: s.posts ?? [],
       channels: s.channels ?? [],
       subrooms: s.subrooms ?? [],
@@ -229,6 +232,7 @@ const AREGOLAND_OFFICIAL_SPACE: Space = {
   guestPermissions: { readChats: false },
   createdAt: "2026-04-02T00:00:00.000Z",
   visibility: "public",
+  fsk: 6,
   settings: { membersVisible: false, coHostingAllowed: false, publicJoin: false, idVerification: false },
 };
 
@@ -496,6 +500,7 @@ interface SpacesScreenProps {
 export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, onShowToast, deepLink, onDeepLinkConsumed }: SpacesScreenProps) {
   const { t } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
+  const userFsk = useMemo(() => loadFsk(), []);
   const [spaces, setSpaces] = useState<Space[]>(() => {
     const userSpaces = loadSpaces().filter(s => s.id !== AREGOLAND_OFFICIAL_ID);
     const all = [AREGOLAND_OFFICIAL_SPACE, ...userSpaces];
@@ -636,6 +641,13 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [deleteStep, setDeleteStep] = useState(0); // 0=none, 1=confirm, 2=transfer, 3=final
   const [transferToMember, setTransferToMember] = useState<string | null>(null);
+  // FSK Antrag
+  const [fskAntragInstitution, setFskAntragInstitution] = useState("");
+  const [fskAntragWebsite, setFskAntragWebsite] = useState("");
+  const [fskAntragEmail, setFskAntragEmail] = useState("");
+  const [fskAntragStufe, setFskAntragStufe] = useState<6 | 12 | 16>(6);
+  const [fskAntragSent, setFskAntragSent] = useState(false);
+  const [fskFreischaltcode, setFskFreischaltcode] = useState("");
 
   // News/Posts
   const [showCreatePost, setShowCreatePost] = useState(false);
@@ -1018,13 +1030,17 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // Filtered spaces for list view
   const filteredSpaces = useMemo(() => {
     let result = [...spaces];
+    const myLevel = userFsk?.level ?? 18;
+
+    // FSK-Filter: nur Spaces anzeigen deren FSK <= eigene Stufe
+    result = result.filter(s => (s.fsk ?? 18) <= myLevel);
 
     // When searching, also include public spaces from localStorage (simulated discovery)
     if (searchQuery.trim()) {
       try {
         const allStored: Space[] = JSON.parse(localStorage.getItem(SPACES_KEY) ?? "[]");
         const myIds = new Set(spaces.map(s => s.id));
-        const publicExtras = allStored.filter(s => !myIds.has(s.id) && (s.visibility ?? "private") === "public");
+        const publicExtras = allStored.filter(s => !myIds.has(s.id) && (s.visibility ?? "private") === "public" && (s.fsk ?? 18) <= myLevel);
         result = [...result, ...publicExtras];
       } catch { /* ignore */ }
     }
@@ -1088,6 +1104,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       guestPermissions: { readChats: true },
       createdAt: new Date().toISOString(),
       visibility: "private",
+      fsk: 18,
       settings: { ...tmpl.defaultSettings },
     };
     const updated = [...spaces, space];
@@ -5042,6 +5059,124 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           </button>
                         )}
                       </div>
+                  </SettingsSection>
+
+                  {/* ── FSK Verifizierung — nur Gruender ── */}
+                  <SettingsSection id="spaceFsk" icon={<Shield size={16} />} title={t('spaces.fskVerification')} visible={myRole === "founder"} isOpen={settingsOpen["spaceFsk"] ?? false} onToggle={() => toggleSection("spaceFsk")}>
+                    <div className="space-y-4">
+                      {/* Aktueller Status */}
+                      <div className="flex items-center gap-3 bg-gray-900/50 rounded-xl p-3">
+                        <div className={`w-3 h-3 rounded-full ${selectedSpace.fsk === 18 ? 'bg-red-400' : selectedSpace.fsk === 16 ? 'bg-orange-400' : selectedSpace.fsk === 12 ? 'bg-yellow-400' : 'bg-green-400'}`} />
+                        <div>
+                          <p className="text-sm font-medium">FSK {selectedSpace.fsk}</p>
+                          <p className="text-[10px] text-gray-500">{selectedSpace.fsk === 18 ? t('spaces.fskDefaultHint') : t('spaces.fskApprovedHint')}</p>
+                        </div>
+                      </div>
+
+                      {/* Erklaerung */}
+                      <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">
+                        <p className="text-xs text-orange-300/80 leading-relaxed">{t('spaces.fskExplanation')}</p>
+                      </div>
+
+                      {/* Antrag-Formular */}
+                      {selectedSpace.fsk === 18 && !fskAntragSent && (
+                        <div className="space-y-3">
+                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('spaces.fskApplicationTitle')}</p>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-gray-500">{t('spaces.fskInstitution')}</label>
+                            <input type="text" value={fskAntragInstitution} onChange={e => setFskAntragInstitution(e.target.value)} placeholder={t('spaces.fskInstitutionPlaceholder')} className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-gray-500">{t('spaces.fskWebsite')}</label>
+                            <input type="url" value={fskAntragWebsite} onChange={e => setFskAntragWebsite(e.target.value)} placeholder="https://..." className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-gray-500">{t('spaces.fskEmail')}</label>
+                            <input type="email" value={fskAntragEmail} onChange={e => setFskAntragEmail(e.target.value)} placeholder="kontakt@institution.de" className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all" />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-gray-500">{t('spaces.fskDesiredLevel')}</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {([6, 12, 16] as const).map(level => (
+                                <button key={level} onClick={() => setFskAntragStufe(level)} className={`py-2 rounded-xl text-sm font-bold transition-all ${fskAntragStufe === level ? (level === 6 ? 'bg-green-500/20 text-green-400 ring-2 ring-green-500' : level === 12 ? 'bg-yellow-500/20 text-yellow-400 ring-2 ring-yellow-500' : 'bg-orange-500/20 text-orange-400 ring-2 ring-orange-500') : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                                  FSK {level}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <button
+                            disabled={!fskAntragInstitution.trim() || !fskAntragEmail.trim()}
+                            onClick={() => {
+                              const subject = encodeURIComponent(`FSK-Antrag: ${selectedSpace.name} → FSK ${fskAntragStufe}`);
+                              const body = encodeURIComponent([
+                                `Space: ${selectedSpace.name}`,
+                                `Space-ID: ${selectedSpace.id}`,
+                                `Gr\u00fcnder-ID: ${selectedSpace.founderId}`,
+                                `Institution: ${fskAntragInstitution}`,
+                                `Webseite: ${fskAntragWebsite || '—'}`,
+                                `E-Mail: ${fskAntragEmail}`,
+                                `Gew\u00fcnschte Stufe: FSK ${fskAntragStufe}`,
+                                `Datum: ${new Date().toISOString()}`,
+                              ].join('\n'));
+                              window.open(`mailto:fsk@aregoland.de?subject=${subject}&body=${body}`, '_blank');
+                              setFskAntragSent(true);
+                            }}
+                            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+                          >
+                            <Send size={14} />
+                            {t('spaces.fskSendApplication')}
+                          </button>
+                        </div>
+                      )}
+
+                      {fskAntragSent && selectedSpace.fsk === 18 && (
+                        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 flex gap-2">
+                          <Check size={16} className="text-green-400 shrink-0 mt-0.5" />
+                          <p className="text-xs text-green-300/80">{t('spaces.fskApplicationSent')}</p>
+                        </div>
+                      )}
+
+                      {/* Freischaltcode eingeben */}
+                      <div className="space-y-2 pt-2 border-t border-gray-700/50">
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{t('spaces.fskActivationTitle')}</p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={fskFreischaltcode}
+                            onChange={e => setFskFreischaltcode(e.target.value.toUpperCase())}
+                            placeholder={t('spaces.fskCodePlaceholder')}
+                            className="flex-1 bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-green-500 transition-all font-mono tracking-wider"
+                          />
+                          <button
+                            disabled={!fskFreischaltcode.trim()}
+                            onClick={() => {
+                              // Freischaltcode Format: FSK{stufe}-{spaceId-hash}-{random}
+                              const match = fskFreischaltcode.match(/^FSK(\d+)-/);
+                              if (match) {
+                                const level = parseInt(match[1]) as FskLevel;
+                                if ([6, 12, 16].includes(level)) {
+                                  const updated = { ...selectedSpace, fsk: level };
+                                  updateSpace(updated);
+                                  setFskFreischaltcode("");
+                                  onShowToast?.(t('spaces.fskActivated', { level }));
+                                  return;
+                                }
+                              }
+                              onShowToast?.(t('spaces.fskInvalidCode'), 'warning');
+                            }}
+                            className="bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium px-4 py-2 rounded-xl transition-all text-sm"
+                          >
+                            {t('spaces.fskActivate')}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-gray-600">{t('spaces.fskCodeHint')}</p>
+                      </div>
+                    </div>
                   </SettingsSection>
 
                   {/* ── Space löschen — mehrstufig ── */}
