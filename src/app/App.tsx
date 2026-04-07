@@ -38,6 +38,7 @@ import DocumentsScreen from "@/app/components/DocumentsScreen";
 import CalendarScreen from "@/app/components/CalendarScreen";
 import { Tab } from "@/app/types";
 import { loadIdentity, UserIdentity } from "@/app/auth/identity";
+import { loadSubscription, hasAccess, initSubscription } from "@/app/auth/subscription";
 import { deriveRoomId, decodePayload } from "@/app/auth/share";
 import { saveContact, isNonceUsed, markNonceUsed, loadContacts, removeContact } from "@/app/auth/contacts";
 import {
@@ -83,6 +84,7 @@ export default function App() {
   }, []);
   const [activeChatData, setActiveChatData] = useState<{ id: string; name: string; avatarUrl: string; isGroup: boolean; roomId: string } | null>(null);
   const [identity, setIdentity] = useState<UserIdentity | null>(null);
+  const [subLocked, setSubLocked] = useState(false);
   const [totalUnread, setTotalUnread] = useState(() => getTotalUnread());
   const [onlineContacts, setOnlineContacts] = useState<Set<string>>(new Set());
   const [chatListVersion, setChatListVersion] = useState(0);
@@ -421,6 +423,14 @@ export default function App() {
     const existing = loadIdentity();
     if (existing) {
       setIdentity(existing);
+      // Abo pruefen — Legacy-Accounts ohne Subscription erhalten ein Trial
+      let sub = loadSubscription();
+      if (!sub) sub = initSubscription();
+      if (!hasAccess(sub)) {
+        setSubLocked(true);
+        setCurrentScreen("settings");
+        return;
+      }
       const saved = localStorage.getItem("aregoland_start_screen");
       const screenMap: Record<string, string> = { community: "spaces" };
       const mapped = screenMap[saved ?? ""] ?? saved;
@@ -1046,6 +1056,8 @@ export default function App() {
       {currentScreen === "settings" && (
         <SettingsScreen
           onBack={() => setCurrentScreen(returnTo)}
+          subscriptionLocked={subLocked}
+          onSubscriptionUnlocked={() => { setSubLocked(false); setCurrentScreen("dashboard"); }}
           onResetAccount={() => {
             manager.disconnectAll();
             deletePersistedChats();

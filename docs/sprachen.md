@@ -57,14 +57,25 @@ Alle Namespaces sind in allen 24 Sprachen vollstaendig uebersetzt (Stand 2026-04
 | SettingsScreen | settings.subPlanFreeDesc | Kein Server-Speicher... | — | — |
 | SettingsScreen | settings.subPlanActive | Aktiv | — | — |
 | SettingsScreen | settings.subUntil | bis | — | — |
+| SettingsScreen | settings.subStatusTrial | Testphase (7 Tage) | — | — |
+| SettingsScreen | settings.subTrialRemaining | Noch {{days}} Tage | — | — |
+| SettingsScreen | settings.subStatusExpired | Abgelaufen | — | — |
+| SettingsScreen | settings.subExpiredDesc | Dein Abo oder deine Testphase... | — | — |
+| SettingsScreen | settings.subLockedTitle | Zugang gesperrt | — | — |
+| SettingsScreen | settings.subLockedDesc | Dein Abo ist abgelaufen... | — | — |
+| SettingsScreen | settings.subPlan1m | 1 Monat | — | — |
+| SettingsScreen | settings.subPlan3m | 3 Monate | — | — |
+| SettingsScreen | settings.subPlan6m | 6 Monate | — | — |
+| SettingsScreen | settings.subPlan12m | 12 Monate | — | — |
+| SettingsScreen | settings.subDiscount | guenstiger | — | — |
 | SettingsScreen | settings.subAvailablePlans | Verfuegbare Plaene | — | — |
-| SettingsScreen | settings.subPlanCloudName | Arego Cloud | — | — |
-| SettingsScreen | settings.subPlanCloudPrice | 1,00 EUR / Monat | — | — |
 | SettingsScreen | settings.subPlanCloud1 | 5 GB Server-Speicher... | — | — |
 | SettingsScreen | settings.subPlanCloud2 | Daten sicher in Deutschland... | — | — |
 | SettingsScreen | settings.subPlanCloud3 | Jederzeit kuendbar | — | — |
-| SettingsScreen | settings.subPlanCloudBtn | Jetzt freischalten | — | — |
+| SettingsScreen | settings.subPlanCloudBtn | Bald verfuegbar | — | — |
 | SettingsScreen | settings.subPlanCloudHint | Zahlung per Gutscheincode... | — | — |
+| SettingsScreen | settings.subAutoRenew | Automatische Verlaengerung | — | — |
+| SettingsScreen | settings.subAutoRenewDesc | Abo wird automatisch verlaengert | — | — |
 | SettingsScreen | settings.subVoucher | Gutscheincode | — | — |
 | SettingsScreen | settings.subVoucherDesc | Du hast einen Gutscheincode... | — | — |
 | SettingsScreen | settings.subVoucherPlaceholder | Code eingeben | — | — |
