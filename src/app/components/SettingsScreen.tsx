@@ -199,6 +199,14 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>(() => {
     try { return JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]'); } catch { return []; }
   });
+  // Live-Update wenn Kind verknüpft wird
+  useEffect(() => {
+    const handler = () => {
+      try { setLinkedChildren(JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]')); } catch {}
+    };
+    window.addEventListener('arego-child-linked', handler);
+    return () => window.removeEventListener('arego-child-linked', handler);
+  }, []);
   const [showAddChild, setShowAddChild] = useState(false);
   const [childFirstName, setChildFirstName] = useState("");
   const [childLastName, setChildLastName] = useState("");
@@ -332,7 +340,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
       setParentScanError(t('settings.fskParentCameraError'));
       setParentScanActive(false);
     }
-  }, [t, onFskUpdated]);
+  }, [t, onFskUpdated, identity]);
 
   // Stiller Heartbeat für Directory (alle 2 Tage)
   useEffect(() => {

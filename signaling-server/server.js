@@ -839,19 +839,24 @@ const server = createServer(async (req, res) => {
       `, [child_id, parent_id, (first_name ?? '').slice(0, 50), (last_name ?? '').slice(0, 50), (nickname ?? '').slice(0, 50), now]);
       persistDb();
 
-      // Elternteil per WebSocket benachrichtigen
+      // Elternteil per WebSocket benachrichtigen (oder Inbox-Puffer)
+      const notify = JSON.stringify({
+        type: 'child_linked',
+        child_id,
+        first_name: first_name ?? '',
+        last_name: last_name ?? '',
+        nickname: nickname ?? '',
+      });
       const parentSockets = onlineUsers.get(parent_id);
+      let delivered = false;
       if (parentSockets) {
-        const notify = JSON.stringify({
-          type: 'child_linked',
-          child_id,
-          first_name: first_name ?? '',
-          last_name: last_name ?? '',
-          nickname: nickname ?? '',
-        });
         for (const ws of parentSockets) {
-          if (ws.readyState === 1) ws.send(notify);
+          if (ws.readyState === 1) { ws.send(notify); delivered = true; }
         }
+      }
+      if (!delivered) {
+        // Elternteil offline → in Inbox zwischenspeichern
+        storePending(`inbox:${parent_id}`, Buffer.from(notify));
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

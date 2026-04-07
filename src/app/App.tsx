@@ -543,6 +543,8 @@ export default function App() {
             cached.push({ child_id: msg.child_id, first_name: msg.first_name, last_name: msg.last_name, nickname: msg.nickname, fsk_stufe: 6 });
             sessionStorage.setItem('aregoland_linked_children', JSON.stringify(cached));
           } catch {}
+          // UI aktualisieren (SettingsScreen lauscht darauf)
+          window.dispatchEvent(new CustomEvent('arego-child-linked'));
           const toastEl = document.createElement('div');
           toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
           toastEl.textContent = `Kind "${displayName}" erfolgreich hinzugef\u00fcgt`;
