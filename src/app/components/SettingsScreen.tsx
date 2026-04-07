@@ -130,7 +130,9 @@ const FSK_LEVELS = [
 ];
 
 export default function SettingsScreen({ onBack, onResetAccount }: SettingsScreenProps) {
-  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "family" | "notifications" | "help">("main");
+  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "family" | "notifications" | "help">("main");
+  const [storageActivateOpen, setStorageActivateOpen] = useState(false);
+  const [voucherCode, setVoucherCode] = useState("");
   const [selectedLang, setSelectedLang] = useState(() => LANGUAGES.find(l => l.code === localStorage.getItem('aregoland_language')) || LANGUAGES.find(l => l.code === 'de')!);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const langDropdownRef = useRef<HTMLDivElement>(null);
@@ -337,6 +339,19 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
                      <Shield size={20} />
                    </div>
                    <span className="font-medium">{t('settings.privacy')}</span>
+                 </div>
+                 <ChevronRight size={20} className="text-gray-500" />
+               </button>
+
+               <button
+                 onClick={() => setActiveSubmenu("storage")}
+                 className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+               >
+                 <div className="flex items-center gap-3">
+                   <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400">
+                     <HardDrive size={20} />
+                   </div>
+                   <span className="font-medium">{t('settings.storageSection')}</span>
                  </div>
                  <ChevronRight size={20} className="text-gray-500" />
                </button>
@@ -1088,6 +1103,169 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
               <p className="text-sm font-medium text-gray-400">Aregoland</p>
               <p className="text-xs text-gray-600">Version 1.0.0 (Build 2026.03)</p>
               <p className="text-xs text-gray-700">AGPL-3.0</p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Storage Submenu — "Meine Daten & Speicher"
+  if (activeSubmenu === "storage") {
+    const storageActive = localStorage.getItem("aregoland_storage_active") === "true";
+    const storageUsedMB = parseFloat(localStorage.getItem("aregoland_storage_used_mb") || "0");
+    const storageLimitMB = parseFloat(localStorage.getItem("aregoland_storage_limit_mb") || "1024");
+    const storageOptions = JSON.parse(localStorage.getItem("aregoland_storage_options") || '{"avatar":false}');
+
+    const toggleStorageOption = (key: string) => {
+      const updated = { ...storageOptions, [key]: !storageOptions[key] };
+      localStorage.setItem("aregoland_storage_options", JSON.stringify(updated));
+    };
+
+    return (
+      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+        <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
+          <button
+            onClick={() => setActiveSubmenu("main")}
+            className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
+          >
+            <ArrowLeft size={24} />
+          </button>
+          <h1 className="text-xl font-bold">{t('settings.storageSection')}</h1>
+        </header>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-6 max-w-lg mx-auto">
+
+            {/* Erklaerung */}
+            <div className="bg-cyan-500/10 rounded-2xl p-4 border border-cyan-500/20">
+              <div className="flex gap-3">
+                <div className="mt-0.5 text-cyan-400 shrink-0"><HardDrive size={20} /></div>
+                <div className="space-y-2 text-sm text-gray-300">
+                  <p className="text-cyan-300 font-semibold">{t('settings.storageExplainTitle')}</p>
+                  <p>{t('settings.storageExplainText')}</p>
+                  <p className="text-gray-500">{t('settings.storageExplainOptional')}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Status */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">{t('settings.storageStatus')}</p>
+              {!storageActive ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-gray-500" />
+                  <span className="text-gray-400">{t('settings.storageInactive')}</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full bg-green-400" />
+                    <span className="text-green-400">{t('settings.storageActive')}</span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm text-gray-400">
+                      <span>{storageUsedMB.toFixed(0)} MB</span>
+                      <span>{(storageLimitMB / 1024).toFixed(0)} GB</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-cyan-500 rounded-full transition-all"
+                        style={{ width: `${Math.min((storageUsedMB / storageLimitMB) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {storageUsedMB.toFixed(0)} MB / {(storageLimitMB / 1024).toFixed(0)} GB {t('settings.storageUsed')}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Freischalten Button */}
+            {!storageActive && (
+              <button
+                onClick={() => setStorageActivateOpen(true)}
+                className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 px-4 rounded-2xl transition-colors"
+              >
+                {t('settings.storageActivate')}
+              </button>
+            )}
+
+            {/* Freischalten Modal */}
+            <AnimatePresence>
+              {storageActivateOpen && (
+                <motion.div
+                  className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  onClick={() => setStorageActivateOpen(false)}
+                >
+                  <motion.div
+                    className="bg-gray-800 rounded-2xl border border-gray-700 p-6 max-w-sm w-full space-y-5"
+                    initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-bold">{t('settings.storageActivateTitle')}</h2>
+                      <button onClick={() => setStorageActivateOpen(false)} className="text-gray-500 hover:text-white p-1">
+                        <X size={20} />
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-400">{t('settings.storageActivateDesc')}</p>
+
+                    {/* Gutscheincode */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-300">{t('settings.storageVoucher')}</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={voucherCode}
+                          onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                          placeholder={t('settings.storageVoucherPlaceholder')}
+                          className="flex-1 bg-gray-700 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                        />
+                        <button
+                          disabled={!voucherCode.trim()}
+                          className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 disabled:text-gray-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+                        >
+                          {t('settings.storageRedeem')}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Abo */}
+                    <div className="border-t border-gray-700 pt-4 space-y-2">
+                      <label className="text-sm font-medium text-gray-300">{t('settings.storageSubscription')}</label>
+                      <button
+                        disabled
+                        className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        <CreditCard size={18} />
+                        {t('settings.storageSoonAvailable')}
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Was gespeichert werden soll */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">{t('settings.storageSyncOptions')}</p>
+              <p className="text-sm text-gray-500 mb-4">{t('settings.storageSyncDesc')}</p>
+
+              <div className={`space-y-3 ${!storageActive ? 'opacity-50 pointer-events-none' : ''}`}>
+                {/* Profilbild */}
+                <label className="flex items-center justify-between p-3 bg-gray-800 rounded-xl cursor-pointer">
+                  <span className="text-sm font-medium">{t('settings.storageSyncAvatar')}</span>
+                  <div
+                    className={`relative w-12 h-6 rounded-full transition-colors ${storageOptions.avatar ? 'bg-cyan-500' : 'bg-gray-600'}`}
+                    onClick={() => toggleStorageOption('avatar')}
+                  >
+                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${storageOptions.avatar ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                  </div>
+                </label>
+              </div>
             </div>
 
           </div>

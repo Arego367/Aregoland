@@ -43,7 +43,25 @@ Alle Namespaces sind in allen 24 Sprachen vollstaendig uebersetzt (Stand 2026-04
 
 | Komponente | Key | DE | EN | LT |
 |------------|-----|----|----|-----|
-| — | *Keine offenen Keys* | — | — | — |
+| SettingsScreen | settings.storageSection | Meine Daten & Speicher | — | — |
+| SettingsScreen | settings.storageExplainTitle | Was wird hier gespeichert? | — | — |
+| SettingsScreen | settings.storageExplainText | Wenn du moechtest, kannst du... | — | — |
+| SettingsScreen | settings.storageExplainOptional | Das ist vollstaendig optional... | — | — |
+| SettingsScreen | settings.storageStatus | Status | — | — |
+| SettingsScreen | settings.storageInactive | Kein Speicher aktiv (Standard, kostenlos) | — | — |
+| SettingsScreen | settings.storageActive | Speicher aktiv | — | — |
+| SettingsScreen | settings.storageUsed | belegt | — | — |
+| SettingsScreen | settings.storageActivate | Speicher freischalten | — | — |
+| SettingsScreen | settings.storageActivateTitle | Speicher freischalten | — | — |
+| SettingsScreen | settings.storageActivateDesc | Schalte Server-Speicher frei... | — | — |
+| SettingsScreen | settings.storageVoucher | Gutscheincode | — | — |
+| SettingsScreen | settings.storageVoucherPlaceholder | Code eingeben | — | — |
+| SettingsScreen | settings.storageRedeem | Einloesen | — | — |
+| SettingsScreen | settings.storageSubscription | Abo abschliessen | — | — |
+| SettingsScreen | settings.storageSoonAvailable | Bald verfuegbar | — | — |
+| SettingsScreen | settings.storageSyncOptions | Was soll gespeichert werden? | — | — |
+| SettingsScreen | settings.storageSyncDesc | Waehle aus, welche Daten... | — | — |
+| SettingsScreen | settings.storageSyncAvatar | Profilbild | — | — |
 
 ## Anleitung: Uebersetzung nachholen
 

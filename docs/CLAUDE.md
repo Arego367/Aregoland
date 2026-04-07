@@ -39,6 +39,7 @@
 - Nginx Reverse Proxy + Let's Encrypt SSL (alle 3 Domains)
 - Signaling-Server: Node.js, Docker, Port 3001
 - Object Storage: Hetzner S3-kompatibel (storage.js), Bucket "aregoland", Presigned URLs
+- Storage-UI: Einstellungen > "Meine Daten & Speicher" — Gutschein/Abo freischalten, Sync-Optionen
 - TURN: coturn, Port 3478/5349
 - Repo ist public — Claude AI liest direkt von GitHub
 
