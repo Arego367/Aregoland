@@ -260,19 +260,20 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           parentScannerRef.current = null;
           setParentScanActive(false);
 
-          // Save parent info to identity
+          // Kind-Konto mit Elternteil verknuepfen
           const rawId = localStorage.getItem("aregoland_identity");
           if (rawId) {
             try {
               const id = JSON.parse(rawId);
               id.parentId = link.parentId;
               id.parentName = link.parentName;
+              id.accountType = 'child';
               localStorage.setItem("aregoland_identity", JSON.stringify(id));
             } catch {}
           }
 
-          // Set FSK verified with method parent
-          const updated: FskStatus = { level: 18, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
+          // FSK 6 setzen — Kind-Konten bekommen immer FSK 6
+          const updated: FskStatus = { level: 6, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
           saveFsk(updated);
           onFskUpdated?.();
           setParentLinked(link.parentName);
@@ -1447,8 +1448,6 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               <p className="text-xs text-gray-500 text-center">{t('settings.fskEudiHint')}</p>
             </div>
 
-            {/* Elternteil-Verknüpfung → verschoben nach Familie & Kinder */}
-
           </div>
         </div>
       </div>
@@ -1843,8 +1842,8 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               </motion.div>
             )}
 
-            {/* Elternteil verknuepfen — fuer Kind-Konten */}
-            {isChildAccount && (
+            {/* Elternteil verknuepfen */}
+            {(isChildAccount || !loadFsk()?.verified) && (
               <div className="space-y-2">
                 <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.fskParentTitle')}</h3>
                 <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
