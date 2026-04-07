@@ -1148,7 +1148,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <p className="text-amber-400 font-bold">{plan.price},00 \u20ac</p>
+                        <p className="text-amber-400 font-bold">{plan.price},00 {"\u20AC"}</p>
                         <button
                           disabled
                           className="bg-gray-700 text-gray-500 text-xs font-medium px-3 py-1.5 rounded-lg cursor-not-allowed"
