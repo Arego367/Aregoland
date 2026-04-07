@@ -1080,6 +1080,40 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
               )}
             </div>
 
+            {/* Verfuegbare Plaene — nur wenn kein aktiver Plan */}
+            {!storageActive && (
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-4">
+                <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">{t('settings.subAvailablePlans')}</p>
+                <div className="bg-gray-800 rounded-xl border border-amber-500/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-white font-semibold">{t('settings.subPlanCloudName')}</p>
+                    <p className="text-amber-400 font-bold">{t('settings.subPlanCloudPrice')}</p>
+                  </div>
+                  <ul className="space-y-2 text-sm text-gray-300">
+                    <li className="flex items-center gap-2">
+                      <Check size={14} className="text-amber-400 shrink-0" />
+                      {t('settings.subPlanCloud1')}
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check size={14} className="text-amber-400 shrink-0" />
+                      {t('settings.subPlanCloud2')}
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check size={14} className="text-amber-400 shrink-0" />
+                      {t('settings.subPlanCloud3')}
+                    </li>
+                  </ul>
+                  <button
+                    disabled
+                    className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-xl cursor-not-allowed transition-colors"
+                  >
+                    {t('settings.subPlanCloudBtn')}
+                  </button>
+                  <p className="text-xs text-gray-500 text-center">{t('settings.subPlanCloudHint')}</p>
+                </div>
+              </div>
+            )}
+
             {/* Gutscheincode */}
             <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
               <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">{t('settings.subVoucher')}</p>

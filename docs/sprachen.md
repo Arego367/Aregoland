@@ -57,6 +57,14 @@ Alle Namespaces sind in allen 24 Sprachen vollstaendig uebersetzt (Stand 2026-04
 | SettingsScreen | settings.subPlanFreeDesc | Kein Server-Speicher... | — | — |
 | SettingsScreen | settings.subPlanActive | Aktiv | — | — |
 | SettingsScreen | settings.subUntil | bis | — | — |
+| SettingsScreen | settings.subAvailablePlans | Verfuegbare Plaene | — | — |
+| SettingsScreen | settings.subPlanCloudName | Arego Cloud | — | — |
+| SettingsScreen | settings.subPlanCloudPrice | 1,00 EUR / Monat | — | — |
+| SettingsScreen | settings.subPlanCloud1 | 5 GB Server-Speicher... | — | — |
+| SettingsScreen | settings.subPlanCloud2 | Daten sicher in Deutschland... | — | — |
+| SettingsScreen | settings.subPlanCloud3 | Jederzeit kuendbar | — | — |
+| SettingsScreen | settings.subPlanCloudBtn | Jetzt freischalten | — | — |
+| SettingsScreen | settings.subPlanCloudHint | Zahlung per Gutscheincode... | — | — |
 | SettingsScreen | settings.subVoucher | Gutscheincode | — | — |
 | SettingsScreen | settings.subVoucherDesc | Du hast einen Gutscheincode... | — | — |
 | SettingsScreen | settings.subVoucherPlaceholder | Code eingeben | — | — |
