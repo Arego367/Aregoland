@@ -43,10 +43,6 @@ Aras arbeitet auf zwei Geraeten:
 - **PC**: Standard-Modus (auch wenn nichts gesagt wird)
   → Normal arbeiten, CC Aufgaben bereitstellen und ausfuehren
 
-## Geraete-IDs
-
-- Chrome = AC-4B0B-2F609E5F
-- Edge = Gruender
 
 ## Kommunikation mit Claude
 

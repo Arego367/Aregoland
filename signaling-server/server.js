@@ -35,6 +35,7 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import initSqlJs from 'sql.js';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
+import { testConnection as testStorage } from './storage.js';
 
 const PORT = process.env.PORT || 3001;
 const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -952,6 +953,7 @@ wss.on('connection', (ws) => {
 
 // ── Server starten ───────────────────────────────────────────────────────────
 await initDb();
+await testStorage();
 server.listen(PORT, () => {
   console.log(`[Arego Signaling v5] Port ${PORT} — Presence + Public Spaces Directory`);
 });
