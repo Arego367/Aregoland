@@ -207,18 +207,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
     window.addEventListener('arego-child-linked', handler);
     return () => window.removeEventListener('arego-child-linked', handler);
   }, []);
-  useEffect(() => {
-    if (activeSubmenu !== 'family' || !identity) return;
-    fetch(`/child-link/${encodeURIComponent(identity.aregoId)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.children) {
-          setLinkedChildren(data.children);
-          sessionStorage.setItem('aregoland_linked_children', JSON.stringify(data.children));
-        }
-      })
-      .catch(() => {});
-  }, [activeSubmenu, identity]);
+  // Familie-Kinder vom Server laden: wird unten nach identity-Deklaration registriert
   const [showAddChild, setShowAddChild] = useState(false);
   const [childFirstName, setChildFirstName] = useState("");
   const [childLastName, setChildLastName] = useState("");
@@ -243,6 +232,20 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   }, []);
   const { t, i18n } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
+
+  // Familie-Kinder vom Server laden wenn Familie-Seite geoeffnet wird
+  useEffect(() => {
+    if (activeSubmenu !== 'family' || !identity) return;
+    fetch(`/child-link/${encodeURIComponent(identity.aregoId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.children) {
+          setLinkedChildren(data.children);
+          sessionStorage.setItem('aregoland_linked_children', JSON.stringify(data.children));
+        }
+      })
+      .catch(() => {});
+  }, [activeSubmenu, identity]);
 
   // Parent-Link Scanner State
   const [parentScanActive, setParentScanActive] = useState(false);
