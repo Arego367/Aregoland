@@ -49,9 +49,18 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
     setChildScanActive(false);
   }, []);
 
+  const childScanProcessed = useRef(false);
+
   const startChildScanner = useCallback(async () => {
     setChildError(null);
     setChildScanActive(true);
+    childScanProcessed.current = false;
+
+    await new Promise(r => setTimeout(r, 100));
+
+    const el = document.getElementById("child-scan-region");
+    if (!el) { setChildError(t('settings.fskParentCameraError')); setChildScanActive(false); return; }
+
     try {
       const cameras = await Promise.race([
         Html5Qrcode.getCameras(),
@@ -63,12 +72,17 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
       childScannerRef.current = scanner;
       await scanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decoded) => {
+          if (childScanProcessed.current) return;
+
           const link = decodeChildLinkPayload(decoded.trim());
-          if (!link) { setChildError(t('welcome.invalidParentKey')); return; }
-          scanner.stop().catch(() => {});
-          scanner.clear();
+          if (!link) return;
+
+          childScanProcessed.current = true;
+
+          try { await scanner.stop(); } catch {}
+          try { scanner.clear(); } catch {}
           childScannerRef.current = null;
           setChildScanActive(false);
           setChildCreating(true);
@@ -83,7 +97,8 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
         },
         () => {}
       );
-    } catch {
+    } catch (e) {
+      console.error("Scanner-Fehler:", e);
       setChildError(t('settings.fskParentCameraError'));
       setChildScanActive(false);
     }

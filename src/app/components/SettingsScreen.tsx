@@ -237,9 +237,19 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
     setParentScanActive(false);
   }, []);
 
+  const parentScanProcessed = useRef(false);
+
   const startParentScanner = useCallback(async () => {
     setParentScanError(null);
     setParentScanActive(true);
+    parentScanProcessed.current = false;
+
+    // Warten bis DOM-Element gerendert ist
+    await new Promise(r => setTimeout(r, 100));
+
+    const el = document.getElementById("parent-scan-region");
+    if (!el) { setParentScanError(t('settings.fskParentCameraError')); setParentScanActive(false); return; }
+
     try {
       const cameras = await Promise.race([
         Html5Qrcode.getCameras(),
@@ -251,14 +261,20 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
       parentScannerRef.current = scanner;
       await scanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
-        (decoded) => {
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        async (decoded) => {
+          // Nur einmal verarbeiten
+          if (parentScanProcessed.current) return;
+
           const link = decodeChildLinkPayload(decoded.trim());
-          if (!link) { setParentScanError(t('settings.fskParentInvalidQR')); return; }
-          scanner.stop().catch(() => {});
-          scanner.clear();
+          if (!link) return; // Stille Wiederholung — kein Error bei partiellem Scan
+
+          parentScanProcessed.current = true;
+
+          // Scanner sofort stoppen
+          try { await scanner.stop(); } catch {}
+          try { scanner.clear(); } catch {}
           parentScannerRef.current = null;
-          setParentScanActive(false);
 
           // Kind-Konto mit Elternteil verknuepfen
           const rawId = localStorage.getItem("aregoland_identity");
@@ -273,14 +289,16 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           }
 
           // FSK 6 setzen — Kind-Konten bekommen immer FSK 6
-          const updated: FskStatus = { level: 6, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
-          saveFsk(updated);
+          const fskUpdate: FskStatus = { level: 6, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
+          saveFsk(fskUpdate);
           onFskUpdated?.();
+          setParentScanActive(false);
           setParentLinked(link.parentName);
         },
-        () => {}
+        () => {} // Kein Fehler bei fehlgeschlagenem Frame
       );
-    } catch {
+    } catch (e) {
+      console.error("Scanner-Fehler:", e);
       setParentScanError(t('settings.fskParentCameraError'));
       setParentScanActive(false);
     }

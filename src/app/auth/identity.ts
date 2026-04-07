@@ -126,12 +126,11 @@ export function removeChild(aregoId: string): void {
 /** Erstellt ein Kind-Konto-Linking-Payload als Base64 (TTL 10 Min, einmalig) */
 export function createChildLinkPayload(parentIdentity: UserIdentity): string {
   const payload = {
-    type: 'child-link' as const,
-    parentId: parentIdentity.aregoId,
-    parentName: parentIdentity.displayName,
-    parentPublicKeyJwk: parentIdentity.publicKeyJwk,
+    t: 'child-link' as const,
+    pid: parentIdentity.aregoId,
+    pn: parentIdentity.displayName,
     exp: Date.now() + 10 * 60 * 1000,
-    n: Array.from(crypto.getRandomValues(new Uint8Array(8)))
+    n: Array.from(crypto.getRandomValues(new Uint8Array(4)))
       .map(b => b.toString(16).padStart(2, '0')).join(''),
   };
   const json = JSON.stringify(payload);
@@ -142,15 +141,20 @@ export function createChildLinkPayload(parentIdentity: UserIdentity): string {
 
 /** Dekodiert ein Kind-Konto-Linking-Payload vom Eltern-QR */
 export function decodeChildLinkPayload(encoded: string): {
-  parentId: string; parentName: string; parentPublicKeyJwk: JsonWebKey; exp: number;
+  parentId: string; parentName: string; exp: number;
 } | null {
   try {
     const binary = atob(encoded.trim());
     const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
     const p = JSON.parse(new TextDecoder().decode(bytes));
-    if (p.type !== 'child-link' || !p.parentId || !p.exp) return null;
-    if (Date.now() > p.exp) return null; // abgelaufen
-    return p;
+    // Kompaktes Format (t/pid/pn) oder Legacy (type/parentId/parentName)
+    const type = p.t ?? p.type;
+    const parentId = p.pid ?? p.parentId;
+    const parentName = p.pn ?? p.parentName ?? '';
+    const exp = p.exp;
+    if (type !== 'child-link' || !parentId || !exp) return null;
+    if (Date.now() > exp) return null;
+    return { parentId, parentName, exp };
   } catch { return null; }
 }
 
