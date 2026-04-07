@@ -297,7 +297,7 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-4 max-w-lg mx-auto">
-            {/* Section: Abo */}
+            {/* Gruppe 1: Abo & Speicher */}
             <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
                <button
                  onClick={() => setActiveSubmenu("subscription")}
@@ -311,13 +311,26 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
                  </div>
                  <ChevronRight size={20} className="text-gray-500" />
                </button>
+
+               <button
+                 onClick={() => setActiveSubmenu("storage")}
+                 className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+               >
+                 <div className="flex items-center gap-3">
+                   <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400">
+                     <HardDrive size={20} />
+                   </div>
+                   <span className="font-medium">{t('settings.storageSection')}</span>
+                 </div>
+                 <ChevronRight size={20} className="text-gray-500" />
+               </button>
             </div>
 
-            {/* Section: General */}
+            {/* Gruppe 2: App & Benachrichtigungen */}
             <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
                <button
                  onClick={() => setActiveSubmenu("app")}
-                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+                 className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
                >
                  <div className="flex items-center gap-3">
                    <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
@@ -343,7 +356,10 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
                  </div>
                  <ChevronRight size={20} className="text-gray-500" />
                </button>
+            </div>
 
+            {/* Gruppe 3: Datenschutz & Familie */}
+            <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
                <button
                  onClick={() => setActiveSubmenu("privacy")}
                  className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
@@ -353,19 +369,6 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
                      <Shield size={20} />
                    </div>
                    <span className="font-medium">{t('settings.privacy')}</span>
-                 </div>
-                 <ChevronRight size={20} className="text-gray-500" />
-               </button>
-
-               <button
-                 onClick={() => setActiveSubmenu("storage")}
-                 className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
-               >
-                 <div className="flex items-center gap-3">
-                   <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400">
-                     <HardDrive size={20} />
-                   </div>
-                   <span className="font-medium">{t('settings.storageSection')}</span>
                  </div>
                  <ChevronRight size={20} className="text-gray-500" />
                </button>
