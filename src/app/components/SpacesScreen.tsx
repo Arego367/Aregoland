@@ -17,7 +17,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, fetchPublicTags, maybeHeartbeat, sendJoinRequest, fetchJoinRequests, respondJoinRequest, loadPendingRequests, savePendingRequest, removePendingRequest, sendSpaceSync, type PublicSpace, type JoinRequest, type PendingJoinRequest, type SpaceSyncPayload } from "@/app/lib/spaces-api";
+import { registerPublicSpace, unregisterPublicSpace, searchPublicSpaces, fetchPublicTags, maybeHeartbeat, sendJoinRequest, fetchJoinRequests, respondJoinRequest, loadPendingRequests, savePendingRequest, removePendingRequest, sendSpaceSync, redeemFskCode, maybeFskHeartbeat, type PublicSpace, type JoinRequest, type PendingJoinRequest, type SpaceSyncPayload } from "@/app/lib/spaces-api";
 import { SeenSet, SpaceVersionStore, MAX_HOP_COUNT, buildDigest, computeBackfill, randomBackfillDelay, type SpaceVersionMeta } from "@/app/lib/gossip";
 import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
@@ -789,6 +789,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       gruender_id: identity.aregoId,
       inaktivitaets_regel: selectedSpace.inaktivitaets_regel ?? 'delete',
     });
+    // FSK-Heartbeat fuer freigeschaltete Spaces
+    if (selectedSpace.fsk < 18) {
+      maybeFskHeartbeat(selectedSpace.id);
+    }
   }, [selectedSpace?.id, selectedSpace?.visibility]);
 
   // Beitrittsanfragen für Gründer laden wenn Mitglieder-Tab geöffnet
@@ -5186,20 +5190,16 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           />
                           <button
                             disabled={!fskFreischaltcode.trim()}
-                            onClick={() => {
-                              // Freischaltcode Format: FSK{stufe}-{spaceId-hash}-{random}
-                              const match = fskFreischaltcode.match(/^FSK(\d+)-/);
-                              if (match) {
-                                const level = parseInt(match[1]) as FskLevel;
-                                if ([6, 12, 16].includes(level)) {
-                                  const updated = { ...selectedSpace, fsk: level };
-                                  updateSpace(updated);
-                                  setFskFreischaltcode("");
-                                  onShowToast?.(t('spaces.fskActivated', { level }));
-                                  return;
-                                }
+                            onClick={async () => {
+                              const result = await redeemFskCode(selectedSpace.id, fskFreischaltcode.trim());
+                              if (result) {
+                                const updated = { ...selectedSpace, fsk: result.fsk_stufe as FskLevel };
+                                updateSpace(updated);
+                                setFskFreischaltcode("");
+                                onShowToast?.(t('spaces.fskActivated', { level: result.fsk_stufe }));
+                              } else {
+                                onShowToast?.(t('spaces.fskInvalidCode'), 'warning');
                               }
-                              onShowToast?.(t('spaces.fskInvalidCode'), 'warning');
                             }}
                             className="bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium px-4 py-2 rounded-xl transition-all text-sm"
                           >

@@ -14,6 +14,11 @@
  *  GET  /join-requests/:id     → Ausstehende Anfragen für Gründer
  *  POST /join-request/respond  → Anfrage genehmigen oder ablehnen
  *
+ *  POST /fsk/generate           → Freischaltcode generieren (intern)
+ *  POST /fsk/redeem             → Freischaltcode einlösen
+ *  POST /fsk/heartbeat          → FSK-Heartbeat (30-Tage-Frist)
+ *  GET  /fsk/status/:id         → FSK-Status eines Spaces prüfen
+ *
  *  POST /support               → Support-Nachricht als GitHub Issue
  *  POST /support/close         → GitHub Issue schließen
  *
@@ -106,6 +111,17 @@ async function initDb() {
       single_use        INTEGER DEFAULT 0
     )
   `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS fsk_approved_spaces (
+      space_id          TEXT PRIMARY KEY,
+      fsk_stufe         INTEGER NOT NULL DEFAULT 6,
+      freischaltcode    TEXT NOT NULL,
+      code_erstellt_am  TEXT NOT NULL,
+      code_gueltig_bis  TEXT NOT NULL,
+      code_eingeloest   INTEGER DEFAULT 0,
+      letzter_heartbeat TEXT NOT NULL
+    )
+  `);
   persistDb();
 }
 
@@ -125,6 +141,11 @@ setInterval(() => {
   db.run(`DELETE FROM invite_registry WHERE last_heartbeat < ?`, [directoryCutoff]);
   const now = new Date().toISOString();
   db.run(`DELETE FROM invite_registry WHERE expires_at IS NOT NULL AND expires_at < ?`, [now]);
+  // FSK: Spaces mit Heartbeat > 30 Tage entziehen
+  const fskCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  db.run(`DELETE FROM fsk_approved_spaces WHERE letzter_heartbeat < ?`, [fskCutoff]);
+  // FSK: abgelaufene, nicht eingelöste Codes entfernen
+  db.run(`DELETE FROM fsk_approved_spaces WHERE code_eingeloest = 0 AND code_gueltig_bis < ?`, [now]);
   persistDb();
 }, 24 * 60 * 60 * 1000).unref(); // einmal täglich
 
@@ -759,6 +780,111 @@ const server = createServer(async (req, res) => {
     } catch {
       res.writeHead(400); res.end();
     }
+    return;
+  }
+
+  // ── POST /fsk/generate — Freischaltcode generieren (intern/CC) ──────────────
+  if (req.method === 'POST' && req.url === '/fsk/generate') {
+    try {
+      const body = await readBody(req);
+      const { space_id, fsk_stufe } = JSON.parse(body);
+      if (!space_id || ![6, 12, 16].includes(fsk_stufe)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'space_id und fsk_stufe (6/12/16) erforderlich' }));
+        return;
+      }
+      const code = `FSK${fsk_stufe}-${Array.from({ length: 4 }, () => CHARSET[Math.floor(Math.random() * CHARSET.length)]).join('')}-${Array.from({ length: 4 }, () => CHARSET[Math.floor(Math.random() * CHARSET.length)]).join('')}`;
+      const now = new Date().toISOString();
+      const gueltigBis = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      db.run(`INSERT OR REPLACE INTO fsk_approved_spaces (space_id, fsk_stufe, freischaltcode, code_erstellt_am, code_gueltig_bis, code_eingeloest, letzter_heartbeat) VALUES (?, ?, ?, ?, ?, 0, ?)`,
+        [space_id, fsk_stufe, code, now, gueltigBis, now]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, code, gueltig_bis: gueltigBis }));
+    } catch {
+      res.writeHead(400, cors); res.end();
+    }
+    return;
+  }
+
+  // ── POST /fsk/redeem — Freischaltcode einlösen ─────────────────────────────
+  if (req.method === 'POST' && req.url === '/fsk/redeem') {
+    try {
+      const body = await readBody(req);
+      const { space_id, code } = JSON.parse(body);
+      if (!space_id || !code) {
+        res.writeHead(400, cors);
+        res.end(JSON.stringify({ error: 'space_id und code erforderlich' }));
+        return;
+      }
+      const rows = db.exec(`SELECT fsk_stufe, code_gueltig_bis, code_eingeloest FROM fsk_approved_spaces WHERE space_id = ? AND freischaltcode = ?`, [space_id, code]);
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_code' }));
+        return;
+      }
+      const [fsk_stufe, gueltig_bis, eingeloest] = rows[0].values[0];
+      if (eingeloest) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'already_redeemed' }));
+        return;
+      }
+      if (new Date(gueltig_bis) < new Date()) {
+        res.writeHead(410, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'expired' }));
+        return;
+      }
+      const now = new Date().toISOString();
+      db.run(`UPDATE fsk_approved_spaces SET code_eingeloest = 1, letzter_heartbeat = ? WHERE space_id = ? AND freischaltcode = ?`, [now, space_id, code]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, fsk_stufe }));
+    } catch {
+      res.writeHead(400, cors); res.end();
+    }
+    return;
+  }
+
+  // ── POST /fsk/heartbeat — FSK-Heartbeat (alle 30 Tage) ────────────────────
+  if (req.method === 'POST' && req.url === '/fsk/heartbeat') {
+    try {
+      const body = await readBody(req);
+      const { space_id } = JSON.parse(body);
+      if (!space_id) {
+        res.writeHead(400); res.end(); return;
+      }
+      const rows = db.exec(`SELECT code_eingeloest FROM fsk_approved_spaces WHERE space_id = ?`, [space_id]);
+      if (!rows.length || !rows[0].values.length || !rows[0].values[0][0]) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not_approved' }));
+        return;
+      }
+      const now = new Date().toISOString();
+      db.run(`UPDATE fsk_approved_spaces SET letzter_heartbeat = ? WHERE space_id = ?`, [now, space_id]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400, cors); res.end();
+    }
+    return;
+  }
+
+  // ── GET /fsk/status/:id — FSK-Status eines Spaces prüfen ──────────────────
+  const fskStatusMatch = req.method === 'GET' && req.url?.match(/^\/fsk\/status\/(.+)$/);
+  if (fskStatusMatch) {
+    const spaceId = decodeURIComponent(fskStatusMatch[1]);
+    const rows = db.exec(`SELECT fsk_stufe, letzter_heartbeat, code_eingeloest FROM fsk_approved_spaces WHERE space_id = ?`, [spaceId]);
+    if (!rows.length || !rows[0].values.length || !rows[0].values[0][2]) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ approved: false, fsk_stufe: 18 }));
+      return;
+    }
+    const [fsk_stufe, letzter_heartbeat] = rows[0].values[0];
+    const heartbeatAge = Date.now() - new Date(letzter_heartbeat).getTime();
+    const expired = heartbeatAge > 30 * 24 * 60 * 60 * 1000;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ approved: !expired, fsk_stufe: expired ? 18 : fsk_stufe, letzter_heartbeat }));
     return;
   }
 

@@ -270,3 +270,51 @@ export async function requestSpaceSync(founderId: string, requesterId: string, s
     return false;
   }
 }
+
+// ── FSK-Freischaltung ───────────────────────────────────────────────────────
+
+/** Freischaltcode einlösen — gibt FSK-Stufe zurück oder null */
+export async function redeemFskCode(spaceId: string, code: string): Promise<{ fsk_stufe: number } | null> {
+  try {
+    const res = await fetch(`${BASE}/fsk/redeem`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ space_id: spaceId, code }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/** FSK-Heartbeat senden (alle 30 Tage) */
+export async function sendFskHeartbeat(spaceId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/fsk/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ space_id: spaceId }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+const FSK_HEARTBEAT_KEY = 'aregoland_fsk_heartbeats';
+const FSK_HEARTBEAT_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // alle 7 Tage prüfen
+
+/** Prüft ob ein FSK-Heartbeat fällig ist und sendet ihn ggf. */
+export async function maybeFskHeartbeat(spaceId: string): Promise<void> {
+  const map: Record<string, string> = (() => {
+    try { return JSON.parse(localStorage.getItem(FSK_HEARTBEAT_KEY) ?? '{}'); } catch { return {}; }
+  })();
+  const last = map[spaceId];
+  if (last && Date.now() - new Date(last).getTime() < FSK_HEARTBEAT_INTERVAL_MS) return;
+  const ok = await sendFskHeartbeat(spaceId);
+  if (ok) {
+    map[spaceId] = new Date().toISOString();
+    localStorage.setItem(FSK_HEARTBEAT_KEY, JSON.stringify(map));
+  }
+}
