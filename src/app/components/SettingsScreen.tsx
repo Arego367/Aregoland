@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, loadChildren, saveChild, removeChild, createChildLinkPayload, type ChildAccount } from "@/app/auth/identity";
@@ -8,6 +8,8 @@ import { deleteContacts, loadBlocked, unblockContact, loadContacts } from "@/app
 import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
 import { loadFsk, saveFsk, type FskStatus } from "@/app/auth/fsk";
+import { Html5Qrcode } from "html5-qrcode";
+import { decodeChildLinkPayload } from "@/app/auth/identity";
 
 const NOTIF_KEY = "aregoland_notifications";
 
@@ -143,6 +145,69 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const langDropdownRef = useRef<HTMLDivElement>(null);
   const langLastKey = useRef("");
   const langLastIndex = useRef(-1);
+
+  // Parent-Link Scanner State
+  const [parentScanActive, setParentScanActive] = useState(false);
+  const [parentScanError, setParentScanError] = useState<string | null>(null);
+  const [parentLinked, setParentLinked] = useState<string | null>(null);
+  const parentScannerRef = useRef<Html5Qrcode | null>(null);
+
+  const stopParentScanner = useCallback(() => {
+    if (parentScannerRef.current) {
+      parentScannerRef.current.stop().catch(() => {});
+      parentScannerRef.current.clear();
+      parentScannerRef.current = null;
+    }
+    setParentScanActive(false);
+  }, []);
+
+  const startParentScanner = useCallback(async () => {
+    setParentScanError(null);
+    setParentScanActive(true);
+    try {
+      const cameras = await Promise.race([
+        Html5Qrcode.getCameras(),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+      ]);
+      if (!cameras.length) { setParentScanError(t('settings.fskParentNoCamera')); setParentScanActive(false); return; }
+
+      const scanner = new Html5Qrcode("parent-scan-region");
+      parentScannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decoded) => {
+          const link = decodeChildLinkPayload(decoded.trim());
+          if (!link) { setParentScanError(t('settings.fskParentInvalidQR')); return; }
+          scanner.stop().catch(() => {});
+          scanner.clear();
+          parentScannerRef.current = null;
+          setParentScanActive(false);
+
+          // Save parent info to identity
+          const rawId = localStorage.getItem("aregoland_identity");
+          if (rawId) {
+            try {
+              const id = JSON.parse(rawId);
+              id.parentId = link.parentId;
+              id.parentName = link.parentName;
+              localStorage.setItem("aregoland_identity", JSON.stringify(id));
+            } catch {}
+          }
+
+          // Set FSK verified with method parent
+          const updated: FskStatus = { level: 18, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
+          saveFsk(updated);
+          onFskUpdated?.();
+          setParentLinked(link.parentName);
+        },
+        () => {}
+      );
+    } catch {
+      setParentScanError(t('settings.fskParentCameraError'));
+      setParentScanActive(false);
+    }
+  }, [t, onFskUpdated]);
 
   // Deep-Link: Toast oeffnet FSK-Sektion
   useEffect(() => {
@@ -1374,7 +1439,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               <p className="text-xs text-gray-500 text-center">{t('settings.fskEudiHint')}</p>
             </div>
 
-            {/* Option 2: Elternteil */}
+            {/* Option 2: Elternteil per QR-Code */}
             <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="bg-pink-500/20 p-2 rounded-lg text-pink-400">
@@ -1385,13 +1450,39 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   <p className="text-xs text-gray-500">{t('settings.fskParentDesc')}</p>
                 </div>
               </div>
-              <button
-                disabled
-                className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {t('settings.fskParentBtn')}
-              </button>
-              <p className="text-xs text-gray-500 text-center">{t('settings.fskParentHint')}</p>
+
+              {parentLinked || (fsk?.verified && fsk.method === "parent") ? (
+                <div className="flex items-center gap-2 justify-center py-2">
+                  <Check size={18} className="text-green-400" />
+                  <p className="text-sm text-green-400">{t('settings.fskParentLinked', { name: parentLinked || t('settings.fskParentDefault') })}</p>
+                </div>
+              ) : parentScanActive ? (
+                <>
+                  <div id="parent-scan-region" className="w-full rounded-xl overflow-hidden" />
+                  <button
+                    onClick={stopParentScanner}
+                    className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <X size={18} />
+                    {t('common.cancel')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={startParentScanner}
+                    className="w-full bg-pink-600 hover:bg-pink-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Camera size={18} />
+                    {t('settings.fskParentBtn')}
+                  </button>
+                  <p className="text-xs text-gray-500 text-center">{t('settings.fskParentScanHint')}</p>
+                </>
+              )}
+
+              {parentScanError && (
+                <p className="text-xs text-red-400 text-center">{parentScanError}</p>
+              )}
             </div>
 
           </div>
