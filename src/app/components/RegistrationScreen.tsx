@@ -281,23 +281,6 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
 
         </AnimatePresence>
       </div>
-
-      {/* Schritt-Indikator */}
-      <div className="absolute bottom-8 z-10 flex gap-2">
-        {(["intro", "name", "backup"] as const).map((s, i) => (
-          <motion.div
-            key={s}
-            animate={{
-              width: step === s || (step === "generating" && s === "name") ? 24 : 8,
-              backgroundColor:
-                step === s || (step === "generating" && s === "name")
-                  ? "#2563eb"
-                  : "#374151",
-            }}
-            className="h-2 rounded-full"
-          />
-        ))}
-      </div>
     </div>
   );
 }
