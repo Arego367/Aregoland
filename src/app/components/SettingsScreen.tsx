@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
-import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, type LinkedChild } from "@/app/auth/identity";
+import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, type LinkedChild } from "@/app/auth/identity";
 import { deleteContacts, loadBlocked, unblockContact, loadContacts } from "@/app/auth/contacts";
 import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
@@ -199,7 +199,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>(() => {
     try { return JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]'); } catch { return []; }
   });
-  // Live-Update wenn Kind verknüpft wird
+  // Live-Update wenn Kind verknüpft wird + beim Öffnen der Familie-Seite vom Server laden
   useEffect(() => {
     const handler = () => {
       try { setLinkedChildren(JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]')); } catch {}
@@ -207,6 +207,18 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
     window.addEventListener('arego-child-linked', handler);
     return () => window.removeEventListener('arego-child-linked', handler);
   }, []);
+  useEffect(() => {
+    if (activeSubmenu !== 'family' || !identity) return;
+    fetch(`/child-link/${encodeURIComponent(identity.aregoId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.children) {
+          setLinkedChildren(data.children);
+          sessionStorage.setItem('aregoland_linked_children', JSON.stringify(data.children));
+        }
+      })
+      .catch(() => {});
+  }, [activeSubmenu, identity]);
   const [showAddChild, setShowAddChild] = useState(false);
   const [childFirstName, setChildFirstName] = useState("");
   const [childLastName, setChildLastName] = useState("");
@@ -286,19 +298,27 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           try { scanner.clear(); } catch {}
           parentScannerRef.current = null;
 
-          // Kind-Konto mit Elternteil verknuepfen: ist_kind + verwalter
+          // Alle Aenderungen in einem Schritt auf die Identity anwenden
           const childId = identity?.aregoId ?? '';
-          setKindStatus(link.parentId);
-
-          // Namen vom Elternteil uebernehmen
           try {
             const id = JSON.parse(localStorage.getItem("aregoland_identity") ?? '{}');
+            // Kind-Status
+            id.ist_kind = true;
+            const verwalter: string[] = Array.isArray(id.verwalter) ? id.verwalter : [];
+            if (!verwalter.includes(link.parentId) && verwalter.length < 2) verwalter.push(link.parentId);
+            id.verwalter = verwalter;
+            id.accountType = 'child';
             id.parentName = link.parentName;
-            if (link.childFirstName) id.firstName = link.childFirstName;
-            if (link.childLastName) id.lastName = link.childLastName;
-            if (link.childNickname) id.nickname = link.childNickname;
-            if (link.childFirstName || link.childNickname) {
-              id.displayName = link.childNickname || `${link.childFirstName} ${link.childLastName ?? ''}`.trim();
+            // Namen: Vorname → firstName, Nachname → lastName, Spitzname → nickname
+            const fn = link.childFirstName ?? '';
+            const ln = link.childLastName ?? '';
+            const nn = link.childNickname ?? '';
+            if (fn) id.firstName = fn;
+            if (ln) id.lastName = ln;
+            if (nn) id.nickname = nn;
+            // displayName ableiten: Spitzname hat Vorrang, sonst Vorname + Nachname
+            if (nn || fn) {
+              id.displayName = nn || `${fn} ${ln}`.trim();
             }
             localStorage.setItem("aregoland_identity", JSON.stringify(id));
           } catch {}
@@ -309,6 +329,9 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           onFskUpdated?.();
 
           // Server benachrichtigen (Kind → Elternteil verknuepfen)
+          const fn = link.childFirstName ?? '';
+          const ln = link.childLastName ?? '';
+          const nn = link.childNickname ?? '';
           if (childId && link.parentId) {
             fetch('/child-link', {
               method: 'POST',
@@ -316,9 +339,9 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               body: JSON.stringify({
                 child_id: childId,
                 parent_id: link.parentId,
-                first_name: link.childFirstName ?? '',
-                last_name: link.childLastName ?? '',
-                nickname: link.childNickname ?? '',
+                first_name: fn,
+                last_name: ln,
+                nickname: nn,
               }),
             }).catch(() => {});
           }
