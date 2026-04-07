@@ -99,6 +99,17 @@ Deshalb gilt fuer Claude AI:
 - Claude AI darf vorher nachfragen um die Aufgabe zu verstehen,
   und eigene Vorschlaege machen. Erst danach Aufgabe fuer CC formulieren.
 
+### Erst planen, dann bauen
+
+- Bei Features die mehrere Systeme beruehren (Server, Client, WebSocket, Datenbank)
+  wird ZUERST der Flow gemeinsam mit Aras besprochen — nicht direkt losgebaut.
+- Claude Code beschreibt den geplanten Flow (wer schickt was an wen, wo werden Daten
+  gespeichert, was passiert bei Fehlern) und wartet auf Aras' OK.
+- Claude AI macht Vorschlaege und zeigt Alternativen — Aras entscheidet.
+- Erst nach Freigabe wird implementiert.
+- Grund: Komplexe Flows die ohne Absprache gebaut werden fuehren zu mehreren
+  Runden Bugfixing und Architektur-Umbauten.
+
 ### Einmal gebaut, nie wieder angefasst
 
 - Jedes Feature wird von Anfang an zukunftssicher und skalierbar gebaut —
