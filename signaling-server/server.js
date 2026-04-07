@@ -34,7 +34,6 @@
  *
  * Datenschutz: kein Logging, kein Disk-Speicher für Chats.
  *              Öffentliche Spaces in SQLite — nur vom Gründer freigegebene Daten.
- *              Arego-IDs werden NIE im Klartext gespeichert — nur SHA-256 Hashes.
  *              Auth-Middleware prüft bei jedem API-Call: ID bekannt, Abo aktiv, FSK-Stufe.
  */
 
@@ -42,14 +41,7 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import initSqlJs from 'sql.js';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { createHash } from 'crypto';
 import { testConnection as testStorage } from './storage.js';
-
-/** SHA-256 Hash — Arego-IDs werden nie im Klartext gespeichert */
-function hashId(id) {
-  if (!id) return '';
-  return createHash('sha256').update(String(id)).digest('hex');
-}
 
 const PORT = process.env.PORT || 3001;
 const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -133,7 +125,7 @@ async function initDb() {
   `);
   db.run(`
     CREATE TABLE IF NOT EXISTS user_auth (
-      id_hash           TEXT PRIMARY KEY,
+      arego_id          TEXT PRIMARY KEY,
       abo_status        TEXT NOT NULL DEFAULT 'trial',
       abo_gueltig_bis   TEXT DEFAULT NULL,
       fsk_stufe         INTEGER NOT NULL DEFAULT 6,
@@ -236,37 +228,36 @@ function readBody(req) {
  * @param {object} req - HTTP Request
  * @param {object} res - HTTP Response
  * @param {object} opts - { minFsk?: number } — minimale FSK-Stufe (default: keine Prüfung)
- * @returns {object|null} — { id_hash, abo_status, fsk_stufe } oder null wenn blockiert
+ * @returns {object|null} — { arego_id, abo_status, fsk_stufe } oder null wenn blockiert
  */
 function checkAuth(req, res, opts = {}) {
-  const authHeader = req.headers['x-arego-auth'];
-  if (!authHeader) {
+  const aregoId = req.headers['x-arego-auth'];
+  if (!aregoId) {
     res.writeHead(401, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'auth_required', message: 'X-Arego-Auth Header fehlt' }));
     return null;
   }
 
-  const rows = db.exec(`SELECT id_hash, abo_status, abo_gueltig_bis, fsk_stufe FROM user_auth WHERE id_hash = ?`, [authHeader]);
+  const rows = db.exec(`SELECT arego_id, abo_status, abo_gueltig_bis, fsk_stufe FROM user_auth WHERE arego_id = ?`, [aregoId]);
   if (!rows.length || !rows[0].values.length) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'unknown_user', message: 'Nutzer nicht registriert' }));
     return null;
   }
 
-  const [id_hash, abo_status, abo_gueltig_bis, fsk_stufe] = rows[0].values[0];
+  const [id, abo_status, abo_gueltig_bis, fsk_stufe] = rows[0].values[0];
 
   // Abo prüfen: aktiv oder Trial noch gültig?
   if (abo_status === 'expired') {
     res.writeHead(403, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'subscription_expired', message: 'Kein aktives Abo — bitte Abo verlängern' }));
+    res.end(JSON.stringify({ error: 'subscription_expired', message: 'Kein aktives Abo \u2014 bitte Abo verl\u00e4ngern' }));
     return null;
   }
   if (abo_gueltig_bis && new Date(abo_gueltig_bis) < new Date()) {
-    // Abo abgelaufen → Status auf expired setzen
-    db.run(`UPDATE user_auth SET abo_status = 'expired' WHERE id_hash = ?`, [id_hash]);
+    db.run(`UPDATE user_auth SET abo_status = 'expired' WHERE arego_id = ?`, [id]);
     persistDb();
     res.writeHead(403, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'subscription_expired', message: 'Abo abgelaufen — bitte verlängern' }));
+    res.end(JSON.stringify({ error: 'subscription_expired', message: 'Abo abgelaufen \u2014 bitte verl\u00e4ngern' }));
     return null;
   }
 
@@ -274,11 +265,11 @@ function checkAuth(req, res, opts = {}) {
   const minFsk = opts.minFsk ?? 0;
   if (fsk_stufe < minFsk) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'fsk_insufficient', message: `FSK ${minFsk} erforderlich — deine Stufe: FSK ${fsk_stufe}`, required: minFsk, current: fsk_stufe }));
+    res.end(JSON.stringify({ error: 'fsk_insufficient', message: `FSK ${minFsk} erforderlich \u2014 deine Stufe: FSK ${fsk_stufe}`, required: minFsk, current: fsk_stufe }));
     return null;
   }
 
-  return { id_hash, abo_status, fsk_stufe };
+  return { arego_id: id, abo_status, fsk_stufe };
 }
 
 // ── HTTP Server ──────────────────────────────────────────────────────────────
@@ -291,10 +282,10 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/auth/register') {
     try {
       const body = await readBody(req);
-      const { id_hash, abo_status, abo_gueltig_bis, fsk_stufe } = JSON.parse(body);
-      if (!id_hash || !abo_status) {
+      const { arego_id, abo_status, abo_gueltig_bis, fsk_stufe } = JSON.parse(body);
+      if (!arego_id || !abo_status) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'id_hash und abo_status erforderlich' }));
+        res.end(JSON.stringify({ error: 'arego_id und abo_status erforderlich' }));
         return;
       }
       const validStatuses = ['trial', 'active', 'expired'];
@@ -302,14 +293,14 @@ const server = createServer(async (req, res) => {
       const fsk = [6, 12, 16, 18].includes(fsk_stufe) ? fsk_stufe : 6;
       const now = new Date().toISOString();
       db.run(`
-        INSERT INTO user_auth (id_hash, abo_status, abo_gueltig_bis, fsk_stufe, letzter_heartbeat)
+        INSERT INTO user_auth (arego_id, abo_status, abo_gueltig_bis, fsk_stufe, letzter_heartbeat)
         VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(id_hash) DO UPDATE SET
+        ON CONFLICT(arego_id) DO UPDATE SET
           abo_status = excluded.abo_status,
           abo_gueltig_bis = excluded.abo_gueltig_bis,
           fsk_stufe = excluded.fsk_stufe,
           letzter_heartbeat = excluded.letzter_heartbeat
-      `, [id_hash, status, abo_gueltig_bis ?? null, fsk, now]);
+      `, [arego_id, status, abo_gueltig_bis ?? null, fsk, now]);
       persistDb();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));

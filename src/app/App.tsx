@@ -437,24 +437,19 @@ export default function App() {
         setCurrentScreen("settings");
         return;
       }
-      // Auth beim Server registrieren (Hashed ID + Abo + FSK)
-      import('@/app/auth/crypto').then(({ hashAregoId }) =>
-        hashAregoId(existing.aregoId).then(hashed => {
-          const effectiveStatus = sub ? getEffectiveStatus(sub) : 'trial';
-          fetch('/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id_hash: hashed,
-              abo_status: effectiveStatus,
-              abo_gueltig_bis: sub?.expiresAt ?? sub?.trialEnd ?? null,
-              fsk_stufe: fsk?.level ?? 6,
-            }),
-          }).catch(() => {});
-          // Hash fuer spaetere API-Calls cachen
-          localStorage.setItem('aregoland_auth_hash', hashed);
-        })
-      ).catch(() => {});
+      // Auth beim Server registrieren (Arego-ID + Abo + FSK)
+      const effectiveStatus = sub ? getEffectiveStatus(sub) : 'trial';
+      localStorage.setItem('aregoland_auth_id', existing.aregoId);
+      fetch('/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          arego_id: existing.aregoId,
+          abo_status: effectiveStatus,
+          abo_gueltig_bis: sub?.expiresAt ?? sub?.trialEnd ?? null,
+          fsk_stufe: fsk?.level ?? 6,
+        }),
+      }).catch(() => {});
       const saved = localStorage.getItem("aregoland_start_screen");
       const screenMap: Record<string, string> = { community: "spaces" };
       const mapped = screenMap[saved ?? ""] ?? saved;
@@ -482,16 +477,13 @@ export default function App() {
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${proto}://${window.location.host}/ws-signal`);
 
-    ws.onopen = async () => {
-      const { hashAregoId } = await import('@/app/auth/crypto');
-      const hashedId = await hashAregoId(identity.aregoId);
-      ws.send(JSON.stringify({ type: 'join', roomId: `inbox:${hashedId}` }));
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'join', roomId: `inbox:${identity.aregoId}` }));
       const contacts = loadContacts();
-      const hashedWatchIds = await Promise.all(contacts.map((c) => hashAregoId(c.aregoId)));
       ws.send(JSON.stringify({
         type: 'presence_subscribe',
-        aregoId: hashedId,
-        watchIds: hashedWatchIds,
+        aregoId: identity.aregoId,
+        watchIds: contacts.map((c) => c.aregoId),
       }));
 
       // Space-Sync passiert jetzt lazy per Gossip Protocol (space-meta: rooms)
@@ -501,15 +493,11 @@ export default function App() {
       try {
         const lastHb = localStorage.getItem('aregoland_invite_heartbeat');
         if (!lastHb || Date.now() - new Date(lastHb).getTime() > 2 * 24 * 60 * 60 * 1000) {
-          import('@/app/auth/crypto').then(({ hashAregoId }) =>
-            hashAregoId(identity.aregoId).then(hashed =>
-              fetch('/invite/heartbeat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_hash') ?? '' },
-                body: JSON.stringify({ founderId: hashed }),
-              }).then(() => localStorage.setItem('aregoland_invite_heartbeat', new Date().toISOString()))
-            )
-          ).catch(() => {});
+          fetch('/invite/heartbeat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': identity.aregoId },
+            body: JSON.stringify({ founderId: identity.aregoId }),
+          }).then(() => localStorage.setItem('aregoland_invite_heartbeat', new Date().toISOString())).catch(() => {});
         }
       } catch { /* ignore */ }
     };

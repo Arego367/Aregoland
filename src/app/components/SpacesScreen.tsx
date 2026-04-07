@@ -706,8 +706,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     try {
       const res = await fetch('/support', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_hash') ?? '' },
-        body: JSON.stringify({ message: text, arego_id: await (await import('@/app/auth/crypto')).hashAregoId(identity.aregoId) }),
+        headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_id') ?? '' },
+        body: JSON.stringify({ message: text, arego_id: identity.aregoId }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -1198,15 +1198,14 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     setInviteShortCode("");
     try {
       const expiresAt = ttlMs >= 365 * 24 * 60 * 60 * 1000 ? null : new Date(Date.now() + ttlMs).toISOString();
-      const hashedFounderId = await (await import('@/app/auth/crypto')).hashAregoId(identity.aregoId);
       const res = await fetch('/invite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_hash') ?? '' },
+        headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_id') ?? '' },
         body: JSON.stringify({
           spaceId: space.id,
           spaceName: space.name,
           role,
-          founderId: hashedFounderId,
+          founderId: identity.aregoId,
           founderName: identity.displayName,
           expiresAt,
           singleUse: false,

@@ -57,15 +57,12 @@ function loadTabs(): { id: string; label: string }[] {
 
 async function directoryRegister(aregoId: string, displayName: string): Promise<boolean> {
   try {
-    const { hashAregoId } = await import("@/app/auth/crypto");
-    const hashedId = await hashAregoId(aregoId);
     const profile = JSON.parse(localStorage.getItem("arego_profile") ?? "{}");
-    const authHash = localStorage.getItem('aregoland_auth_hash') ?? '';
     const res = await fetch("/directory", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Arego-Auth": authHash },
+      headers: { "Content-Type": "application/json", "X-Arego-Auth": aregoId },
       body: JSON.stringify({
-        aregoId: hashedId,
+        aregoId,
         displayName,
         firstName: profile.firstName ?? "",
         lastName: profile.lastName ?? "",
@@ -78,10 +75,7 @@ async function directoryRegister(aregoId: string, displayName: string): Promise<
 }
 async function directoryRemove(aregoId: string): Promise<boolean> {
   try {
-    const { hashAregoId } = await import("@/app/auth/crypto");
-    const hashedId = await hashAregoId(aregoId);
-    const authHash = localStorage.getItem('aregoland_auth_hash') ?? '';
-    const res = await fetch("/directory", { method: "DELETE", headers: { "Content-Type": "application/json", "X-Arego-Auth": authHash }, body: JSON.stringify({ aregoId: hashedId }) });
+    const res = await fetch("/directory", { method: "DELETE", headers: { "Content-Type": "application/json", "X-Arego-Auth": aregoId }, body: JSON.stringify({ aregoId }) });
     if (res.ok) localStorage.removeItem("aregoland_directory_last_heartbeat");
     return res.ok;
   } catch { return false; }
