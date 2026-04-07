@@ -7,6 +7,7 @@ import { deleteIdentity, loadIdentity, loadChildren, saveChild, removeChild, cre
 import { deleteContacts, loadBlocked, unblockContact, loadContacts } from "@/app/auth/contacts";
 import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
+import { loadFsk, type FskStatus } from "@/app/auth/fsk";
 
 const NOTIF_KEY = "aregoland_notifications";
 
@@ -133,7 +134,7 @@ const FSK_LEVELS = [
 ];
 
 export default function SettingsScreen({ onBack, onResetAccount, subscriptionLocked, onSubscriptionUnlocked }: SettingsScreenProps) {
-  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "subscription" | "family" | "notifications">(subscriptionLocked ? "subscription" : "main");
+  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "subscription" | "family" | "notifications" | "fsk">(subscriptionLocked ? "subscription" : "main");
   const [voucherCode, setVoucherCode] = useState("");
   const [subRefresh, setSubRefresh] = useState(0);
   const [selectedLang, setSelectedLang] = useState(() => LANGUAGES.find(l => l.code === localStorage.getItem('aregoland_language')) || LANGUAGES.find(l => l.code === 'de')!);
@@ -141,6 +142,13 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const langDropdownRef = useRef<HTMLDivElement>(null);
   const langLastKey = useRef("");
   const langLastIndex = useRef(-1);
+
+  // Deep-Link: Toast oeffnet FSK-Sektion
+  useEffect(() => {
+    const handler = () => setActiveSubmenu("fsk");
+    window.addEventListener("arego-open-fsk", handler);
+    return () => window.removeEventListener("arego-open-fsk", handler);
+  }, []);
 
   useEffect(() => {
     if (langDropdownOpen) {
@@ -362,8 +370,26 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                </button>
             </div>
 
-            {/* Gruppe 3: Datenschutz & Familie */}
+            {/* Gruppe 3: FSK, Datenschutz & Familie */}
             <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
+               <button
+                 onClick={() => setActiveSubmenu("fsk")}
+                 className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+               >
+                 <div className="flex items-center gap-3">
+                   <div className={`${loadFsk()?.verified ? 'bg-green-500/20' : 'bg-orange-500/20'} p-2 rounded-lg ${loadFsk()?.verified ? 'text-green-400' : 'text-orange-400'}`}>
+                     <Shield size={20} />
+                   </div>
+                   <div>
+                     <span className="font-medium">{t('settings.fskSection')}</span>
+                     {!loadFsk()?.verified && (
+                       <p className="text-xs text-orange-400">{t('settings.fskNotVerified')}</p>
+                     )}
+                   </div>
+                 </div>
+                 <ChevronRight size={20} className="text-gray-500" />
+               </button>
+
                <button
                  onClick={() => setActiveSubmenu("privacy")}
                  className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
@@ -1222,6 +1248,97 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                 <CreditCard size={18} />
                 {t('settings.subPaymentSoon')}
               </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // FSK Submenu — "FSK Verifizierung"
+  if (activeSubmenu === "fsk") {
+    const fsk = loadFsk();
+
+    return (
+      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+        <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
+          <button
+            onClick={() => setActiveSubmenu("main")}
+            className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
+          >
+            <ArrowLeft size={24} />
+          </button>
+          <h1 className="text-xl font-bold">{t('settings.fskSection')}</h1>
+        </header>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-6 max-w-lg mx-auto">
+
+            {/* Aktueller Status */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">{t('settings.fskCurrentStatus')}</p>
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${fsk?.verified ? 'bg-green-400' : 'bg-orange-400'}`} />
+                <div>
+                  <p className={`font-medium ${fsk?.verified ? 'text-green-400' : 'text-orange-400'}`}>
+                    FSK {fsk?.level ?? 6} — {fsk?.verified ? t('settings.fskVerified') : t('settings.fskNotVerified')}
+                  </p>
+                  {!fsk?.verified && (
+                    <p className="text-xs text-gray-500">{t('settings.fskLockedHint')}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Erklaerung */}
+            <div className="bg-orange-500/10 rounded-2xl p-4 border border-orange-500/20">
+              <div className="flex gap-3">
+                <Shield size={20} className="text-orange-400 shrink-0 mt-0.5" />
+                <div className="space-y-2 text-sm text-gray-300">
+                  <p className="text-orange-300 font-semibold">{t('settings.fskWhyTitle')}</p>
+                  <p>{t('settings.fskWhyText')}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Option 1: EUDI Wallet */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
+                  <Lock size={18} />
+                </div>
+                <div>
+                  <p className="font-medium">{t('settings.fskEudiTitle')}</p>
+                  <p className="text-xs text-gray-500">{t('settings.fskEudiDesc')}</p>
+                </div>
+              </div>
+              <button
+                disabled
+                className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {t('settings.fskEudiBtn')}
+              </button>
+              <p className="text-xs text-gray-500 text-center">{t('settings.fskEudiHint')}</p>
+            </div>
+
+            {/* Option 2: Elternteil */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-pink-500/20 p-2 rounded-lg text-pink-400">
+                  <Baby size={18} />
+                </div>
+                <div>
+                  <p className="font-medium">{t('settings.fskParentTitle')}</p>
+                  <p className="text-xs text-gray-500">{t('settings.fskParentDesc')}</p>
+                </div>
+              </div>
+              <button
+                disabled
+                className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {t('settings.fskParentBtn')}
+              </button>
+              <p className="text-xs text-gray-500 text-center">{t('settings.fskParentHint')}</p>
             </div>
 
           </div>

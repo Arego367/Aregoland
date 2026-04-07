@@ -39,6 +39,7 @@ import CalendarScreen from "@/app/components/CalendarScreen";
 import { Tab } from "@/app/types";
 import { loadIdentity, UserIdentity } from "@/app/auth/identity";
 import { loadSubscription, hasAccess, initSubscription } from "@/app/auth/subscription";
+import { loadFsk, initFsk, isFskVerified, isFeatureLocked } from "@/app/auth/fsk";
 import { deriveRoomId, decodePayload } from "@/app/auth/share";
 import { saveContact, isNonceUsed, markNonceUsed, loadContacts, removeContact } from "@/app/auth/contacts";
 import {
@@ -85,6 +86,7 @@ export default function App() {
   const [activeChatData, setActiveChatData] = useState<{ id: string; name: string; avatarUrl: string; isGroup: boolean; roomId: string } | null>(null);
   const [identity, setIdentity] = useState<UserIdentity | null>(null);
   const [subLocked, setSubLocked] = useState(false);
+  const [fskStatus, setFskStatus] = useState(() => loadFsk());
   const [totalUnread, setTotalUnread] = useState(() => getTotalUnread());
   const [onlineContacts, setOnlineContacts] = useState<Set<string>>(new Set());
   const [chatListVersion, setChatListVersion] = useState(0);
@@ -423,6 +425,10 @@ export default function App() {
     const existing = loadIdentity();
     if (existing) {
       setIdentity(existing);
+      // FSK-Status laden — Legacy-Accounts ohne FSK erhalten initFsk
+      let fsk = loadFsk();
+      if (!fsk) fsk = initFsk();
+      setFskStatus(fsk);
       // Abo pruefen — Legacy-Accounts ohne Subscription erhalten ein Trial
       let sub = loadSubscription();
       if (!sub) sub = initSubscription();
@@ -803,8 +809,17 @@ export default function App() {
 
   const handleRegistrationComplete = (newIdentity: UserIdentity) => {
     setIdentity(newIdentity);
+    setFskStatus(loadFsk());
     setCurrentScreen("dashboard");
     setReturnTo("dashboard");
+    // FSK-Toast nach Registrierung
+    setTimeout(() => {
+      setToast({
+        text: 'Verifiziere dein Alter um alle Funktionen freizuschalten.',
+        type: 'warning',
+        onClick: () => { navigateTo("settings"); setTimeout(() => window.dispatchEvent(new CustomEvent('arego-open-fsk')), 100); },
+      });
+    }, 1500);
   };
 
   const navigateTo = (screen: "profile" | "qrcode" | "settings") => {
@@ -987,7 +1002,16 @@ export default function App() {
       {currentScreen === "dashboard" && (
         <DashboardScreen
           chatUnreadCount={totalUnread}
+          fskLocked={!isFskVerified(fskStatus)}
           onNavigate={(target) => {
+            if (isFeatureLocked(fskStatus, target)) {
+              setToast({
+                text: 'Verifiziere dein Alter um diese Funktion zu nutzen.',
+                type: 'warning',
+                onClick: () => { navigateTo("settings"); setTimeout(() => window.dispatchEvent(new CustomEvent('arego-open-fsk')), 100); },
+              });
+              return;
+            }
             if (target === "chatList") setCurrentScreen("chatList");
             else if (target === "calendar") setCurrentScreen("calendar");
             else if (target === "people") setCurrentScreen("people");

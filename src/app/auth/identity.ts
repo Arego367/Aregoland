@@ -5,6 +5,7 @@ import {
   importKeyPairFromJWK,
 } from "./crypto";
 import { initSubscription, loadSubscription } from "./subscription";
+import { initFsk, loadFsk } from "./fsk";
 
 export interface UserIdentity {
   aregoId: string;
@@ -41,6 +42,7 @@ export async function createIdentity(displayName: string): Promise<UserIdentity>
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
   initSubscription();
+  initFsk();
   return identity;
 }
 
@@ -94,6 +96,7 @@ export async function importFromRecoveryPayload(
     await importKeyPairFromJWK(data.publicKeyJwk, data.privateKeyJwk);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     if (!loadSubscription()) initSubscription();
+    if (!loadFsk()) initFsk();
     return data;
   } catch {
     return null;

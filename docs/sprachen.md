@@ -89,6 +89,21 @@ Alle Namespaces sind in allen 24 Sprachen vollstaendig uebersetzt (Stand 2026-04
 | SettingsScreen | settings.storageSyncOptions | Was soll gespeichert werden? | — | — |
 | SettingsScreen | settings.storageSyncDesc | Waehle aus, welche Daten... | — | — |
 | SettingsScreen | settings.storageSyncAvatar | Profilbild | — | — |
+| SettingsScreen | settings.fskSection | FSK Verifizierung | — | — |
+| SettingsScreen | settings.fskCurrentStatus | Aktueller Status | — | — |
+| SettingsScreen | settings.fskVerified | Verifiziert | — | — |
+| SettingsScreen | settings.fskNotVerified | Nicht verifiziert | — | — |
+| SettingsScreen | settings.fskLockedHint | Chats, Kontakte, Spaces... gesperrt | — | — |
+| SettingsScreen | settings.fskWhyTitle | Warum ist eine Verifizierung noetig? | — | — |
+| SettingsScreen | settings.fskWhyText | Aregoland schuetzt alle Nutzer... | — | — |
+| SettingsScreen | settings.fskEudiTitle | Selbst verifizieren | — | — |
+| SettingsScreen | settings.fskEudiDesc | Mit dem EU-Ausweis (EUDI Wallet)... | — | — |
+| SettingsScreen | settings.fskEudiBtn | EUDI Wallet verbinden | — | — |
+| SettingsScreen | settings.fskEudiHint | Verfuegbar ab 2026/2027 | — | — |
+| SettingsScreen | settings.fskParentTitle | Elternteil hinzufuegen | — | — |
+| SettingsScreen | settings.fskParentDesc | Ein verifizierter Elternteil... | — | — |
+| SettingsScreen | settings.fskParentBtn | Elternteil verknuepfen | — | — |
+| SettingsScreen | settings.fskParentHint | Diese Funktion wird bald... | — | — |
 
 ## Anleitung: Uebersetzung nachholen
 
