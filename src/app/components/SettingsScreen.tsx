@@ -60,7 +60,7 @@ async function directoryRegister(aregoId: string, displayName: string): Promise<
     const profile = JSON.parse(localStorage.getItem("arego_profile") ?? "{}");
     const res = await fetch("/directory", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Arego-Auth": aregoId },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         aregoId,
         displayName,
@@ -75,7 +75,7 @@ async function directoryRegister(aregoId: string, displayName: string): Promise<
 }
 async function directoryRemove(aregoId: string): Promise<boolean> {
   try {
-    const res = await fetch("/directory", { method: "DELETE", headers: { "Content-Type": "application/json", "X-Arego-Auth": aregoId }, body: JSON.stringify({ aregoId }) });
+    const res = await fetch("/directory", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aregoId }) });
     if (res.ok) localStorage.removeItem("aregoland_directory_last_heartbeat");
     return res.ok;
   } catch { return false; }

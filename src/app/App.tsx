@@ -437,19 +437,7 @@ export default function App() {
         setCurrentScreen("settings");
         return;
       }
-      // Auth beim Server registrieren (Arego-ID + Abo + FSK)
-      const effectiveStatus = sub ? getEffectiveStatus(sub) : 'trial';
-      localStorage.setItem('aregoland_auth_id', existing.aregoId);
-      fetch('/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          arego_id: existing.aregoId,
-          abo_status: effectiveStatus,
-          abo_gueltig_bis: sub?.expiresAt ?? sub?.trialEnd ?? null,
-          fsk_stufe: fsk?.level ?? 6,
-        }),
-      }).catch(() => {});
+      // Auth passiert jetzt per WebSocket-Handshake, nicht per HTTP
       const saved = localStorage.getItem("aregoland_start_screen");
       const screenMap: Record<string, string> = { community: "spaces" };
       const mapped = screenMap[saved ?? ""] ?? saved;
@@ -478,16 +466,21 @@ export default function App() {
     const ws = new WebSocket(`${proto}://${window.location.host}/ws-signal`);
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'join', roomId: `inbox:${identity.aregoId}` }));
+      // Auth-Handshake: Arego-ID + Abo + FSK + Kontakte in einer Nachricht
+      const sub = loadSubscription();
+      const fskData = loadFsk();
       const contacts = loadContacts();
       ws.send(JSON.stringify({
-        type: 'presence_subscribe',
+        type: 'auth',
         aregoId: identity.aregoId,
+        abo_status: sub ? getEffectiveStatus(sub) : 'trial',
+        abo_gueltig_bis: sub?.expiresAt ?? sub?.trialEnd ?? null,
+        fsk_stufe: fskData?.level ?? 6,
         watchIds: contacts.map((c) => c.aregoId),
       }));
 
-      // Space-Sync passiert jetzt lazy per Gossip Protocol (space-meta: rooms)
-      // wenn der User einen Space öffnet — nicht mehr beim App-Start
+      // Inbox-Room joinen nach Auth
+      ws.send(JSON.stringify({ type: 'join', roomId: `inbox:${identity.aregoId}` }));
 
       // Invite-Registry Heartbeat (alle 2 Tage)
       try {
@@ -495,7 +488,7 @@ export default function App() {
         if (!lastHb || Date.now() - new Date(lastHb).getTime() > 2 * 24 * 60 * 60 * 1000) {
           fetch('/invite/heartbeat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': identity.aregoId },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ founderId: identity.aregoId }),
           }).then(() => localStorage.setItem('aregoland_invite_heartbeat', new Date().toISOString())).catch(() => {});
         }
@@ -505,6 +498,26 @@ export default function App() {
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data as string);
+
+        // Auth-Handshake Antwort
+        if (msg.type === 'auth_ok') {
+          // Initiale Presence-Daten aus Auth-Antwort
+          if (msg.statuses) {
+            setOnlineContacts((prev) => {
+              const next = new Set(prev);
+              for (const [id, online] of Object.entries(msg.statuses)) {
+                if (online) next.add(id); else next.delete(id);
+              }
+              return next;
+            });
+          }
+          return;
+        }
+
+        if (msg.type === 'auth_error') {
+          console.error('Auth fehlgeschlagen:', msg.error, msg.message);
+          return;
+        }
 
         if (msg.type === 'presence_update' && msg.statuses) {
           setOnlineContacts((prev) => {

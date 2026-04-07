@@ -34,7 +34,7 @@
  *
  * Datenschutz: kein Logging, kein Disk-Speicher für Chats.
  *              Öffentliche Spaces in SQLite — nur vom Gründer freigegebene Daten.
- *              Auth-Middleware prüft bei jedem API-Call: ID bekannt, Abo aktiv, FSK-Stufe.
+ *              Auth per WebSocket-Handshake: Session im RAM, keine Header-Prüfung.
  */
 
 import { createServer } from 'http';
@@ -174,6 +174,10 @@ const supportRateLimit = new Map(); // aregoId → [timestamp, timestamp, ...]
 const onlineUsers      = new Map(); // aregoId → Set<WebSocket>
 const presenceWatchers = new Map(); // aregoId → Set<WebSocket>  (wer beobachtet diesen User?)
 
+// Authentifizierte Sessions — WebSocket-basiert, kein HTTP-Header nötig
+const wsSessions       = new Map(); // WebSocket → { arego_id, abo_status, fsk_stufe }
+const sessionsByAregoId = new Map(); // aregoId → { arego_id, abo_status, fsk_stufe }
+
 // Abgelaufene Einträge jede Minute bereinigen
 setInterval(() => {
   const now = Date.now();
@@ -195,7 +199,7 @@ function generateCode() {
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Arego-Auth');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
 function sanitizeId(s) {
@@ -219,96 +223,11 @@ function readBody(req) {
 
 // ── Auth Middleware ───────────────────────────────────────────────────────────
 
-/**
- * Prüft anhand des X-Arego-Auth Headers:
- * 1. Ist die Arego-ID (Hash) bekannt?
- * 2. Ist das Abo aktiv oder Trial noch gültig?
- * 3. Hat der Nutzer die nötige FSK-Stufe?
- *
- * @param {object} req - HTTP Request
- * @param {object} res - HTTP Response
- * @param {object} opts - { minFsk?: number } — minimale FSK-Stufe (default: keine Prüfung)
- * @returns {object|null} — { arego_id, abo_status, fsk_stufe } oder null wenn blockiert
- */
-function checkAuth(req, res, opts = {}) {
-  const aregoId = req.headers['x-arego-auth'];
-  if (!aregoId) {
-    res.writeHead(401, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'auth_required', message: 'X-Arego-Auth Header fehlt' }));
-    return null;
-  }
-
-  const rows = db.exec(`SELECT arego_id, abo_status, abo_gueltig_bis, fsk_stufe FROM user_auth WHERE arego_id = ?`, [aregoId]);
-  if (!rows.length || !rows[0].values.length) {
-    res.writeHead(403, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'unknown_user', message: 'Nutzer nicht registriert' }));
-    return null;
-  }
-
-  const [id, abo_status, abo_gueltig_bis, fsk_stufe] = rows[0].values[0];
-
-  // Abo prüfen: aktiv oder Trial noch gültig?
-  if (abo_status === 'expired') {
-    res.writeHead(403, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'subscription_expired', message: 'Kein aktives Abo \u2014 bitte Abo verl\u00e4ngern' }));
-    return null;
-  }
-  if (abo_gueltig_bis && new Date(abo_gueltig_bis) < new Date()) {
-    db.run(`UPDATE user_auth SET abo_status = 'expired' WHERE arego_id = ?`, [id]);
-    persistDb();
-    res.writeHead(403, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'subscription_expired', message: 'Abo abgelaufen \u2014 bitte verl\u00e4ngern' }));
-    return null;
-  }
-
-  // FSK prüfen
-  const minFsk = opts.minFsk ?? 0;
-  if (fsk_stufe < minFsk) {
-    res.writeHead(403, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'fsk_insufficient', message: `FSK ${minFsk} erforderlich \u2014 deine Stufe: FSK ${fsk_stufe}`, required: minFsk, current: fsk_stufe }));
-    return null;
-  }
-
-  return { arego_id: id, abo_status, fsk_stufe };
-}
-
 // ── HTTP Server ──────────────────────────────────────────────────────────────
 const server = createServer(async (req, res) => {
   cors(res);
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
-
-  // ── POST /auth/register — Nutzer registrieren / Status aktualisieren ──────
-  if (req.method === 'POST' && req.url === '/auth/register') {
-    try {
-      const body = await readBody(req);
-      const { arego_id, abo_status, abo_gueltig_bis, fsk_stufe } = JSON.parse(body);
-      if (!arego_id || !abo_status) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'arego_id und abo_status erforderlich' }));
-        return;
-      }
-      const validStatuses = ['trial', 'active', 'expired'];
-      const status = validStatuses.includes(abo_status) ? abo_status : 'trial';
-      const fsk = [6, 12, 16, 18].includes(fsk_stufe) ? fsk_stufe : 6;
-      const now = new Date().toISOString();
-      db.run(`
-        INSERT INTO user_auth (arego_id, abo_status, abo_gueltig_bis, fsk_stufe, letzter_heartbeat)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(arego_id) DO UPDATE SET
-          abo_status = excluded.abo_status,
-          abo_gueltig_bis = excluded.abo_gueltig_bis,
-          fsk_stufe = excluded.fsk_stufe,
-          letzter_heartbeat = excluded.letzter_heartbeat
-      `, [arego_id, status, abo_gueltig_bis ?? null, fsk, now]);
-      persistDb();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true }));
-    } catch {
-      res.writeHead(400); res.end();
-    }
-    return;
-  }
 
   // POST /code
   if (req.method === 'POST' && req.url === '/code') {
@@ -343,7 +262,6 @@ const server = createServer(async (req, res) => {
 
   // ── POST /spaces — Space registrieren / Heartbeat ──────────────────────��───
   if (req.method === 'POST' && req.url === '/spaces') {
-    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const data = JSON.parse(body);
@@ -459,7 +377,6 @@ const server = createServer(async (req, res) => {
 
   // ── POST /join-request — Beitrittsanfrage stellen ──────────────────────────
   if (req.method === 'POST' && req.url === '/join-request') {
-    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { user_id, user_name, space_id, gruender_id } = JSON.parse(body);
@@ -512,7 +429,6 @@ const server = createServer(async (req, res) => {
 
   // ── POST /join-request/respond — Anfrage genehmigen oder ablehnen ─────────
   if (req.method === 'POST' && req.url === '/join-request/respond') {
-    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { user_id, space_id, gruender_id, action, space_name, space_template, space_description, gruender_name } = JSON.parse(body);
@@ -556,7 +472,6 @@ const server = createServer(async (req, res) => {
 
   // ── POST /space-sync — Space-Daten an einen User senden (WS oder Inbox) ────
   if (req.method === 'POST' && req.url === '/space-sync') {
-    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { target_user_id, payload } = JSON.parse(body);
@@ -592,7 +507,6 @@ const server = createServer(async (req, res) => {
 
   // ── POST /space-sync-request — Sync-Anfrage an Founder weiterleiten ───────
   if (req.method === 'POST' && req.url === '/space-sync-request') {
-    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { founder_id, requester_id, space_id } = JSON.parse(body);
@@ -623,7 +537,6 @@ const server = createServer(async (req, res) => {
 
   // ── POST /directory — Nutzer im Verzeichnis registrieren / Heartbeat ────────
   if (req.method === 'POST' && req.url === '/directory') {
-    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { aregoId, displayName, firstName, lastName, nickname } = JSON.parse(body);
@@ -703,7 +616,6 @@ const server = createServer(async (req, res) => {
 
   // ── POST /invite — Einladungscode in Registry registrieren ──────────────────
   if (req.method === 'POST' && req.url === '/invite') {
-    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { spaceId, spaceName, role, founderId, founderName, expiresAt, singleUse } = JSON.parse(body);
@@ -776,7 +688,6 @@ const server = createServer(async (req, res) => {
 
   // ── POST /invite/heartbeat — Alle Codes eines Founders erneuern ────────────
   if (req.method === 'POST' && req.url === '/invite/heartbeat') {
-    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { founderId } = JSON.parse(body);
@@ -794,7 +705,6 @@ const server = createServer(async (req, res) => {
 
   // ── POST /support — Support-Nachricht als GitHub Issue anlegen ──────────────
   if (req.method === 'POST' && req.url === '/support') {
-    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { message, arego_id } = JSON.parse(body);
@@ -1000,7 +910,6 @@ const server = createServer(async (req, res) => {
   // ── DELETE /spaces/:id — Space aus öffentlicher Liste entfernen ─────────────
   const deleteMatch = req.method === 'DELETE' && req.url?.match(/^\/spaces\/(.+)$/);
   if (deleteMatch) {
-    const auth = checkAuth(req, res); if (!auth) return;
     try {
       const body = await readBody(req);
       const { gruender_id } = JSON.parse(body);
@@ -1080,32 +989,81 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ── Presence Subscribe ───────────────────────────────────────────────────
-    if (msg.type === 'presence_subscribe') {
-      presenceId = sanitizeId(msg.aregoId);
-      if (!presenceId) return;
+    // ── Auth Handshake — zentrale Authentifizierung beim Connect ────────────
+    if (msg.type === 'auth') {
+      const aregoId = String(msg.aregoId ?? '').slice(0, 64);
+      if (!aregoId) {
+        ws.send(JSON.stringify({ type: 'auth_error', error: 'missing_id', message: 'Arego-ID fehlt' }));
+        ws.close(4001, 'Missing aregoId');
+        return;
+      }
 
-      watchIds = Array.isArray(msg.watchIds)
-        ? msg.watchIds.map(sanitizeId).filter(Boolean).slice(0, 200)
-        : [];
+      // Abo + FSK vom Client übernehmen und in DB speichern (UPSERT)
+      const validStatuses = ['trial', 'active', 'expired'];
+      const aboStatus = validStatuses.includes(msg.abo_status) ? msg.abo_status : 'trial';
+      const aboGueltigBis = msg.abo_gueltig_bis ?? null;
+      const fskStufe = [6, 12, 16, 18].includes(msg.fsk_stufe) ? msg.fsk_stufe : 6;
+      const now = new Date().toISOString();
 
-      // Als online markieren
+      db.run(`
+        INSERT INTO user_auth (arego_id, abo_status, abo_gueltig_bis, fsk_stufe, letzter_heartbeat)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(arego_id) DO UPDATE SET
+          abo_status = excluded.abo_status,
+          abo_gueltig_bis = excluded.abo_gueltig_bis,
+          fsk_stufe = excluded.fsk_stufe,
+          letzter_heartbeat = excluded.letzter_heartbeat
+      `, [aregoId, aboStatus, aboGueltigBis, fskStufe, now]);
+      persistDb();
+
+      // Abo-Gültigkeit serverseitig prüfen
+      if (aboStatus === 'expired') {
+        ws.send(JSON.stringify({ type: 'auth_error', error: 'subscription_expired', message: 'Kein aktives Abo' }));
+        ws.close(4002, 'Subscription expired');
+        return;
+      }
+      if (aboGueltigBis && new Date(aboGueltigBis) < new Date()) {
+        db.run(`UPDATE user_auth SET abo_status = 'expired' WHERE arego_id = ?`, [aregoId]);
+        persistDb();
+        ws.send(JSON.stringify({ type: 'auth_error', error: 'subscription_expired', message: 'Abo abgelaufen' }));
+        ws.close(4002, 'Subscription expired');
+        return;
+      }
+
+      // Session speichern
+      const session = { arego_id: aregoId, abo_status: aboStatus, fsk_stufe: fskStufe };
+      wsSessions.set(ws, session);
+      sessionsByAregoId.set(aregoId, session);
+      presenceId = aregoId;
+
+      // Presence: als online markieren
       if (!onlineUsers.has(presenceId)) onlineUsers.set(presenceId, new Set());
       onlineUsers.get(presenceId).add(ws);
 
-      // Abonnements für Kontakt-Präsenz registrieren
+      // Kontakt-Präsenz abonnieren
+      watchIds = Array.isArray(msg.watchIds)
+        ? msg.watchIds.map(id => String(id ?? '').slice(0, 64)).filter(Boolean).slice(0, 200)
+        : [];
       for (const id of watchIds) {
         if (!presenceWatchers.has(id)) presenceWatchers.set(id, new Set());
         presenceWatchers.get(id).add(ws);
       }
 
-      // Initiale Statusmeldung: welche beobachteten Kontakte sind gerade online?
+      // Initiale Statusmeldung
       const statuses = {};
       for (const id of watchIds) {
         const sockets = onlineUsers.get(id);
         statuses[id] = !!(sockets && sockets.size > 0);
       }
-      ws.send(JSON.stringify({ type: 'presence_update', statuses }));
+
+      // Auth bestätigen mit allen Kontodaten
+      ws.send(JSON.stringify({
+        type: 'auth_ok',
+        arego_id: aregoId,
+        abo_status: aboStatus,
+        fsk_stufe: fskStufe,
+        statuses,
+      }));
 
       // Allen die MICH beobachten mitteilen dass ich online bin
       const myWatchers = presenceWatchers.get(presenceId);
@@ -1181,6 +1139,17 @@ wss.on('connection', (ws) => {
         watchers.delete(ws);
         if (watchers.size === 0) presenceWatchers.delete(id);
       }
+    }
+
+    // Session aufräumen
+    const session = wsSessions.get(ws);
+    if (session) {
+      // Nur aus sessionsByAregoId entfernen wenn kein anderer Socket mehr existiert
+      const otherSockets = onlineUsers.get(session.arego_id);
+      if (!otherSockets || otherSockets.size === 0) {
+        sessionsByAregoId.delete(session.arego_id);
+      }
+      wsSessions.delete(ws);
     }
   });
 

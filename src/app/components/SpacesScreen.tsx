@@ -706,7 +706,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     try {
       const res = await fetch('/support', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_id') ?? '' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, arego_id: identity.aregoId }),
       });
       if (res.ok) {
@@ -1200,7 +1200,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       const expiresAt = ttlMs >= 365 * 24 * 60 * 60 * 1000 ? null : new Date(Date.now() + ttlMs).toISOString();
       const res = await fetch('/invite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_id') ?? '' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           spaceId: space.id,
           spaceName: space.name,

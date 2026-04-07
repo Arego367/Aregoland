@@ -7,9 +7,7 @@
 
 const BASE = (import.meta as any).env?.VITE_SIGNALING_HTTP_URL ?? '';
 
-function authHeaders(): Record<string, string> {
-  return { 'Content-Type': 'application/json', 'X-Arego-Auth': localStorage.getItem('aregoland_auth_id') ?? '' };
-}
+const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
 export interface PublicSpace {
   space_id: string;
@@ -39,7 +37,7 @@ export async function registerPublicSpace(data: {
   try {
     const res = await fetch(`${BASE}/spaces`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify(data),
     });
     return res.ok;
@@ -53,7 +51,7 @@ export async function unregisterPublicSpace(spaceId: string, gruenderId: string)
   try {
     const res = await fetch(`${BASE}/spaces/${encodeURIComponent(spaceId)}`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify({ gruender_id: gruenderId }),
     });
     return res.ok;
@@ -156,7 +154,7 @@ export async function sendJoinRequest(data: {
   try {
     const res = await fetch(`${BASE}/join-request`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify(data),
     });
     return res.ok;
@@ -191,7 +189,7 @@ export async function respondJoinRequest(data: {
   try {
     const res = await fetch(`${BASE}/join-request/respond`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify({
         ...data,
         ...data,
@@ -256,7 +254,7 @@ export async function sendSpaceSync(targetUserId: string, payload: SpaceSyncPayl
   try {
     const res = await fetch(`${BASE}/space-sync`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify({ target_user_id: targetUserId, payload }),
     });
     return res.ok;
@@ -269,7 +267,7 @@ export async function requestSpaceSync(founderId: string, requesterId: string, s
   try {
     const res = await fetch(`${BASE}/space-sync-request`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify({
         founder_id: founderId,
         requester_id: requesterId,
@@ -289,7 +287,7 @@ export async function redeemFskCode(spaceId: string, code: string): Promise<{ fs
   try {
     const res = await fetch(`${BASE}/fsk/redeem`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify({ space_id: spaceId, code }),
     });
     if (!res.ok) return null;
@@ -304,7 +302,7 @@ export async function sendFskHeartbeat(spaceId: string): Promise<boolean> {
   try {
     const res = await fetch(`${BASE}/fsk/heartbeat`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: JSON_HEADERS,
       body: JSON.stringify({ space_id: spaceId }),
     });
     return res.ok;
