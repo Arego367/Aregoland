@@ -3,13 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Activity, UserCheck, UserX, Plus } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
-import { deleteIdentity, loadIdentity, loadChildren, saveChild, removeChild, createChildLinkPayload, type ChildAccount } from "@/app/auth/identity";
+import { deleteIdentity, loadIdentity, loadChildren, saveChild, removeChild, createChildLinkPayload, decodeChildLinkPayload, type ChildAccount } from "@/app/auth/identity";
 import { deleteContacts, loadBlocked, unblockContact, loadContacts } from "@/app/auth/contacts";
 import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
 import { loadFsk, saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { Html5Qrcode } from "html5-qrcode";
-import { decodeChildLinkPayload } from "@/app/auth/identity";
 
 const NOTIF_KEY = "aregoland_notifications";
 
@@ -140,69 +139,6 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const langLastKey = useRef("");
   const langLastIndex = useRef(-1);
 
-  // Parent-Link Scanner State
-  const [parentScanActive, setParentScanActive] = useState(false);
-  const [parentScanError, setParentScanError] = useState<string | null>(null);
-  const [parentLinked, setParentLinked] = useState<string | null>(null);
-  const parentScannerRef = useRef<Html5Qrcode | null>(null);
-
-  const stopParentScanner = useCallback(() => {
-    if (parentScannerRef.current) {
-      parentScannerRef.current.stop().catch(() => {});
-      parentScannerRef.current.clear();
-      parentScannerRef.current = null;
-    }
-    setParentScanActive(false);
-  }, []);
-
-  const startParentScanner = useCallback(async () => {
-    setParentScanError(null);
-    setParentScanActive(true);
-    try {
-      const cameras = await Promise.race([
-        Html5Qrcode.getCameras(),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
-      ]);
-      if (!cameras.length) { setParentScanError(t('settings.fskParentNoCamera')); setParentScanActive(false); return; }
-
-      const scanner = new Html5Qrcode("parent-scan-region");
-      parentScannerRef.current = scanner;
-      await scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
-        (decoded) => {
-          const link = decodeChildLinkPayload(decoded.trim());
-          if (!link) { setParentScanError(t('settings.fskParentInvalidQR')); return; }
-          scanner.stop().catch(() => {});
-          scanner.clear();
-          parentScannerRef.current = null;
-          setParentScanActive(false);
-
-          // Save parent info to identity
-          const rawId = localStorage.getItem("aregoland_identity");
-          if (rawId) {
-            try {
-              const id = JSON.parse(rawId);
-              id.parentId = link.parentId;
-              id.parentName = link.parentName;
-              localStorage.setItem("aregoland_identity", JSON.stringify(id));
-            } catch {}
-          }
-
-          // Set FSK verified with method parent
-          const updated: FskStatus = { level: 18, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
-          saveFsk(updated);
-          onFskUpdated?.();
-          setParentLinked(link.parentName);
-        },
-        () => {}
-      );
-    } catch {
-      setParentScanError(t('settings.fskParentCameraError'));
-      setParentScanActive(false);
-    }
-  }, [t, onFskUpdated]);
-
   // Deep-Link: Toast oeffnet FSK-Sektion
   useEffect(() => {
     const handler = () => setActiveSubmenu("fsk");
@@ -283,6 +219,69 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   }, []);
   const { t, i18n } = useTranslation();
   const identity = useMemo(() => loadIdentity(), []);
+
+  // Parent-Link Scanner State
+  const [parentScanActive, setParentScanActive] = useState(false);
+  const [parentScanError, setParentScanError] = useState<string | null>(null);
+  const [parentLinked, setParentLinked] = useState<string | null>(null);
+  const parentScannerRef = useRef<Html5Qrcode | null>(null);
+
+  const stopParentScanner = useCallback(() => {
+    if (parentScannerRef.current) {
+      parentScannerRef.current.stop().catch(() => {});
+      parentScannerRef.current.clear();
+      parentScannerRef.current = null;
+    }
+    setParentScanActive(false);
+  }, []);
+
+  const startParentScanner = useCallback(async () => {
+    setParentScanError(null);
+    setParentScanActive(true);
+    try {
+      const cameras = await Promise.race([
+        Html5Qrcode.getCameras(),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+      ]);
+      if (!cameras.length) { setParentScanError(t('settings.fskParentNoCamera')); setParentScanActive(false); return; }
+
+      const scanner = new Html5Qrcode("parent-scan-region");
+      parentScannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decoded) => {
+          const link = decodeChildLinkPayload(decoded.trim());
+          if (!link) { setParentScanError(t('settings.fskParentInvalidQR')); return; }
+          scanner.stop().catch(() => {});
+          scanner.clear();
+          parentScannerRef.current = null;
+          setParentScanActive(false);
+
+          // Save parent info to identity
+          const rawId = localStorage.getItem("aregoland_identity");
+          if (rawId) {
+            try {
+              const id = JSON.parse(rawId);
+              id.parentId = link.parentId;
+              id.parentName = link.parentName;
+              localStorage.setItem("aregoland_identity", JSON.stringify(id));
+            } catch {}
+          }
+
+          // Set FSK verified with method parent
+          const updated: FskStatus = { level: 18, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
+          saveFsk(updated);
+          onFskUpdated?.();
+          setParentLinked(link.parentName);
+        },
+        () => {}
+      );
+    } catch {
+      setParentScanError(t('settings.fskParentCameraError'));
+      setParentScanActive(false);
+    }
+  }, [t, onFskUpdated]);
 
   // Stiller Heartbeat für Directory (alle 2 Tage)
   useEffect(() => {
