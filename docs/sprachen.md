@@ -68,6 +68,10 @@ Alle Namespaces sind in allen 24 Sprachen vollstaendig uebersetzt (Stand 2026-04
 | SettingsScreen | settings.subPlan6m | 6 Monate | — | — |
 | SettingsScreen | settings.subPlan12m | 12 Monate | — | — |
 | SettingsScreen | settings.subDiscount | guenstiger | — | — |
+| SettingsScreen | settings.subWhyTitle | Warum nur mit Abo? | — | — |
+| SettingsScreen | settings.subWhy1 | Keine Werbung, kein Investor... | — | — |
+| SettingsScreen | settings.subWhy2 | Kein Bot und kein Spam... | — | — |
+| SettingsScreen | settings.subWhy3 | Kinder koennen nicht beliebig... | — | — |
 | SettingsScreen | settings.subAvailablePlans | Verfuegbare Plaene | — | — |
 | SettingsScreen | settings.subPlanCloud1 | 5 GB Server-Speicher... | — | — |
 | SettingsScreen | settings.subPlanCloud2 | Daten sicher in Deutschland... | — | — |

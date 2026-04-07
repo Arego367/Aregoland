@@ -1127,6 +1127,16 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               )}
             </div>
 
+            {/* Warum Abo */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">{t('settings.subWhyTitle')}</p>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li className="flex gap-2"><span className="text-amber-400 shrink-0">1.</span>{t('settings.subWhy1')}</li>
+                <li className="flex gap-2"><span className="text-amber-400 shrink-0">2.</span>{t('settings.subWhy2')}</li>
+                <li className="flex gap-2"><span className="text-amber-400 shrink-0">3.</span>{t('settings.subWhy3')}</li>
+              </ul>
+            </div>
+
             {/* Verfuegbare Plaene — nur wenn kein aktives Abo */}
             {status !== "active" && (
               <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-4">
