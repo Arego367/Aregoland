@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from "motion/react";
 import { MessageCircle, ArrowRight, UserPlus, History, Key, ShieldAlert, ChevronLeft, Camera, ScanLine, Loader2, ChevronDown } from "lucide-react";
 import { ImageWithFallback } from "@/app/components/ImageWithFallback";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { importFromRecoveryPayload, decodeChildLinkPayload, createChildIdentity } from "@/app/auth/identity";
+import { Html5Qrcode } from "html5-qrcode";
 import { useTranslation } from 'react-i18next';
 
 const LANGUAGES = [
@@ -35,9 +36,60 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [recovering, setRecovering] = useState(false);
   const [childName, setChildName] = useState("");
-  const [childLinkKey, setChildLinkKey] = useState("");
   const [childError, setChildError] = useState<string | null>(null);
   const [childCreating, setChildCreating] = useState(false);
+  const [childScanActive, setChildScanActive] = useState(false);
+  const childScannerRef = useRef<Html5Qrcode | null>(null);
+
+  const stopChildScanner = useCallback(() => {
+    if (childScannerRef.current) {
+      childScannerRef.current.stop().catch(() => {});
+      childScannerRef.current.clear();
+      childScannerRef.current = null;
+    }
+    setChildScanActive(false);
+  }, []);
+
+  const startChildScanner = useCallback(async () => {
+    if (!childName.trim()) { setChildError(t('welcome.childNameRequired')); return; }
+    setChildError(null);
+    setChildScanActive(true);
+    try {
+      const cameras = await Promise.race([
+        Html5Qrcode.getCameras(),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+      ]);
+      if (!cameras.length) { setChildError(t('settings.fskParentNoCamera')); setChildScanActive(false); return; }
+
+      const scanner = new Html5Qrcode("child-scan-region");
+      childScannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        async (decoded) => {
+          const link = decodeChildLinkPayload(decoded.trim());
+          if (!link) { setChildError(t('welcome.invalidParentKey')); return; }
+          scanner.stop().catch(() => {});
+          scanner.clear();
+          childScannerRef.current = null;
+          setChildScanActive(false);
+          setChildCreating(true);
+          try {
+            await createChildIdentity(childName.trim(), link.parentId, 6);
+            onGetStarted();
+          } catch {
+            setChildError(t('welcome.childCreateError'));
+          } finally {
+            setChildCreating(false);
+          }
+        },
+        () => {}
+      );
+    } catch {
+      setChildError(t('settings.fskParentCameraError'));
+      setChildScanActive(false);
+    }
+  }, [childName, t, onGetStarted]);
 
   const handleRecoverWithKey = async () => {
     if (!recoveryKey.trim() || recovering) return;
@@ -365,7 +417,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
           >
             <div className="flex items-center gap-4 mb-6">
               <button
-                onClick={() => { setView("welcome"); setChildError(null); setChildLinkKey(""); setChildName(""); }}
+                onClick={() => { setView("welcome"); setChildError(null); setChildName(""); stopChildScanner(); }}
                 className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
               >
                 <ChevronLeft size={28} />
@@ -382,36 +434,6 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                 </p>
               </div>
 
-              {/* Camera Scanner Placeholder */}
-              <div className="relative w-full aspect-[3/4] max-w-[240px] mx-auto bg-black rounded-3xl overflow-hidden shadow-2xl border border-gray-700">
-                <div className="absolute inset-0 bg-gray-800 flex flex-col items-center justify-center text-gray-500 gap-4">
-                  <div className="bg-gray-700/50 p-5 rounded-full">
-                    <Camera size={40} className="text-gray-400" />
-                  </div>
-                  <p className="text-xs px-6 text-center">{t('welcome.cameraRequired')}</p>
-                  <button className="text-blue-400 font-medium text-xs hover:underline">{t('welcome.allowAccess')}</button>
-                </div>
-                <div className="absolute inset-0 border-[24px] border-black/50 z-10 pointer-events-none" />
-                <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                  <div className="w-36 h-36 border-2 border-white/50 rounded-xl relative">
-                    <div className="absolute top-0 left-0 w-5 h-5 border-t-4 border-l-4 border-pink-500 -mt-1 -ml-1 rounded-tl-lg" />
-                    <div className="absolute top-0 right-0 w-5 h-5 border-t-4 border-r-4 border-pink-500 -mt-1 -mr-1 rounded-tr-lg" />
-                    <div className="absolute bottom-0 left-0 w-5 h-5 border-b-4 border-l-4 border-pink-500 -mb-1 -ml-1 rounded-bl-lg" />
-                    <div className="absolute bottom-0 right-0 w-5 h-5 border-b-4 border-r-4 border-pink-500 -mb-1 -mr-1 rounded-br-lg" />
-                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.8)] animate-[scan_2s_ease-in-out_infinite]" />
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-gray-500 text-center text-xs">{t('welcome.scanParentQR')}</p>
-
-              {/* Divider */}
-              <div className="flex items-center gap-3 px-2">
-                <div className="flex-1 h-px bg-gray-700" />
-                <span className="text-xs text-gray-500 uppercase">{t('welcome.orManual')}</span>
-                <div className="flex-1 h-px bg-gray-700" />
-              </div>
-
               {/* Child Name */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-400">{t('welcome.childNameLabel')}</label>
@@ -424,51 +446,41 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                 />
               </div>
 
-              {/* Manual Key Input */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-400">{t('welcome.parentLinkKey')}</label>
-                <textarea
-                  value={childLinkKey}
-                  onChange={(e) => { setChildLinkKey(e.target.value); setChildError(null); }}
-                  placeholder={t('welcome.parentLinkKeyPlaceholder')}
-                  rows={3}
-                  className="w-full bg-gray-800/80 backdrop-blur-md border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 text-xs font-mono focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all resize-none"
-                />
-              </div>
+              {/* QR Scanner */}
+              {childScanActive && (
+                <div className="space-y-3">
+                  <div id="child-scan-region" className="w-full rounded-xl overflow-hidden" />
+                  <button
+                    onClick={stopChildScanner}
+                    className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium py-2.5 rounded-xl transition-colors text-sm"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                </div>
+              )}
+
+              <p className="text-gray-500 text-center text-xs">{t('welcome.scanParentQR')}</p>
 
               {childError && (
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-400 font-medium">
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-400 font-medium text-center">
                   {childError}
                 </motion.p>
               )}
             </div>
 
-            <button
-              onClick={async () => {
-                if (!childName.trim()) { setChildError(t('welcome.childNameRequired')); return; }
-                if (!childLinkKey.trim()) { setChildError(t('welcome.parentKeyRequired')); return; }
-                setChildCreating(true);
-                setChildError(null);
-                try {
-                  const link = decodeChildLinkPayload(childLinkKey.trim());
-                  if (!link) { setChildError(t('welcome.invalidParentKey')); return; }
-                  await createChildIdentity(childName.trim(), link.parentId, 6);
-                  onGetStarted();
-                } catch {
-                  setChildError(t('welcome.childCreateError'));
-                } finally {
-                  setChildCreating(false);
-                }
-              }}
-              disabled={!childName.trim() || !childLinkKey.trim() || childCreating}
-              className="w-full mt-4 bg-pink-600 hover:bg-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-pink-600/25 active:scale-98"
-            >
-              {childCreating ? (
-                <><Loader2 size={20} className="animate-spin" /><span>{t('common.loading')}</span></>
-              ) : (
-                <><UserPlus size={20} /><span>{t('welcome.createChildAccount')}</span></>
-              )}
-            </button>
+            {!childScanActive && (
+              <button
+                onClick={startChildScanner}
+                disabled={!childName.trim() || childCreating}
+                className="w-full mt-4 bg-pink-600 hover:bg-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-pink-600/25 active:scale-98"
+              >
+                {childCreating ? (
+                  <><Loader2 size={20} className="animate-spin" /><span>{t('common.loading')}</span></>
+                ) : (
+                  <><Camera size={20} /><span>{t('welcome.scanQRButton')}</span></>
+                )}
+              </button>
+            )}
           </motion.div>
         )}
 

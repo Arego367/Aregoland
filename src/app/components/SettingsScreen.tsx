@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Activity, UserCheck, UserX, Plus } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, loadChildren, saveChild, removeChild, createChildLinkPayload, type ChildAccount } from "@/app/auth/identity";
@@ -129,12 +129,6 @@ const LANGUAGES = [
   { code: "uk", name: "\u0423\u043A\u0440\u0430\u0457\u043D\u0441\u044C\u043A\u0430", flag: "\uD83C\uDDFA\uD83C\uDDE6" },
 ];
 
-const FSK_LEVELS = [
-  { value: 6 as const, label: "FSK 6", color: "text-green-400", bg: "bg-green-500/20", enabled: true },
-  { value: 12 as const, label: "FSK 12", color: "text-yellow-400", bg: "bg-yellow-500/20", enabled: true },
-  { value: 16 as const, label: "FSK 16", color: "text-gray-500", bg: "bg-gray-700/50", enabled: false },
-  { value: 18 as const, label: "FSK 18", color: "text-gray-500", bg: "bg-gray-700/50", enabled: false },
-];
 
 export default function SettingsScreen({ onBack, onResetAccount, subscriptionLocked, onSubscriptionUnlocked, onFskUpdated }: SettingsScreenProps) {
   const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "subscription" | "family" | "notifications" | "fsk">(subscriptionLocked ? "subscription" : "main");
@@ -269,9 +263,9 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [children, setChildren] = useState<ChildAccount[]>(() => loadChildren());
   const [showAddChild, setShowAddChild] = useState(false);
   const [childName, setChildName] = useState("");
-  const [childFsk, setChildFsk] = useState<6 | 12>(6);
+
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [editingChild, setEditingChild] = useState<string | null>(null);
+  const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [notif, setNotif] = useState<NotifSettings>(loadNotifSettings);
   const [idCopied, setIdCopied] = useState(false);
   const [discoverable, setDiscoverable] = useState(() => localStorage.getItem("aregoland_discoverable") === "true");
@@ -1386,38 +1380,51 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               </div>
             </div>
 
-            {/* Selbst verifizieren — temporaer */}
-            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-400">
-                  <Check size={18} />
+            {/* Selbst verifizieren — temporaer (nicht fuer Kind-Konten) */}
+            {!isChildAccount && (
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-400">
+                    <Check size={18} />
+                  </div>
+                  <p className="font-medium">{t('settings.fskSelfVerifyTitle')}</p>
                 </div>
-                <p className="font-medium">{t('settings.fskSelfVerifyTitle')}</p>
+                {fsk?.verified && fsk.method === "self" ? (
+                  <p className="text-sm text-green-400 text-center py-2">{t('settings.fskSelfVerifyDone')}</p>
+                ) : !fsk?.verified ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        const updated: FskStatus = {
+                          level: 18,
+                          verified: true,
+                          verifiedAt: new Date().toISOString(),
+                          method: "self",
+                        };
+                        saveFsk(updated);
+                        onFskUpdated?.();
+                        setActiveSubmenu("fsk"); // force re-render
+                      }}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                    >
+                      {t('settings.fskSelfVerifyBtn')}
+                    </button>
+                    <p className="text-xs text-gray-500 text-center">{t('settings.fskSelfVerifyHint')}</p>
+                  </>
+                ) : null}
               </div>
-              {fsk?.verified && fsk.method === "self" ? (
-                <p className="text-sm text-green-400 text-center py-2">{t('settings.fskSelfVerifyDone')}</p>
-              ) : !fsk?.verified ? (
-                <>
-                  <button
-                    onClick={() => {
-                      const updated: FskStatus = {
-                        level: 18,
-                        verified: true,
-                        verifiedAt: new Date().toISOString(),
-                        method: "self",
-                      };
-                      saveFsk(updated);
-                      onFskUpdated?.();
-                      setActiveSubmenu("fsk"); // force re-render
-                    }}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    {t('settings.fskSelfVerifyBtn')}
-                  </button>
-                  <p className="text-xs text-gray-500 text-center">{t('settings.fskSelfVerifyHint')}</p>
-                </>
-              ) : null}
-            </div>
+            )}
+
+            {/* Kind-Konto Hinweis */}
+            {isChildAccount && (
+              <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4 flex gap-3">
+                <Lock size={18} className="text-orange-400 shrink-0 mt-0.5" />
+                <div className="text-sm text-orange-300/80">
+                  <p className="font-medium">{t('settings.fskChildLocked')}</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('settings.fskChildLockedHint')}</p>
+                </div>
+              </div>
+            )}
 
             {/* Option 1: EUDI Wallet */}
             <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
@@ -1597,36 +1604,163 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
       setShowAddChild(true);
     };
 
-    const handleAddChild = () => {
-      if (!childName.trim() || !identity) return;
-      const child: ChildAccount = {
-        aregoId: `AC-CHILD-${Date.now().toString(36).toUpperCase()}`,
-        displayName: childName.trim(),
-        parentId: identity.aregoId,
-        fsk: childFsk,
-        createdAt: new Date().toISOString(),
-      };
-      saveChild(child);
-      setChildren(loadChildren());
-      setChildName("");
-      setChildFsk(6);
-      setShowAddChild(false);
-      setQrDataUrl(null);
-    };
-
-    const handleUpdateFsk = (aregoId: string, fsk: 6 | 12) => {
-      const child = children.find(c => c.aregoId === aregoId);
-      if (!child) return;
-      saveChild({ ...child, fsk });
-      setChildren(loadChildren());
-      setEditingChild(null);
-    };
-
     const handleRemoveChild = (aregoId: string) => {
       removeChild(aregoId);
       setChildren(loadChildren());
+      setSelectedChild(null);
     };
 
+    // Eltern-Kontrollzentrale fuer ein einzelnes Kind
+    const activeChild = selectedChild ? children.find(c => c.aregoId === selectedChild) : null;
+    if (activeChild) {
+      // Simulierte Daten (spaeter ueber Signaling-Server)
+      const childActivity = localStorage.getItem(`aregoland_child_activity_${activeChild.aregoId}`);
+      const lastSeen = childActivity ? JSON.parse(childActivity) : null;
+      const childContacts: { name: string; status: "allowed" | "blocked" }[] = JSON.parse(localStorage.getItem(`aregoland_child_contacts_${activeChild.aregoId}`) || "[]");
+      const childSpaces: { name: string; status: "allowed" | "blocked" }[] = JSON.parse(localStorage.getItem(`aregoland_child_spaces_${activeChild.aregoId}`) || "[]");
+
+      const toggleContact = (idx: number) => {
+        const updated = [...childContacts];
+        updated[idx] = { ...updated[idx], status: updated[idx].status === "allowed" ? "blocked" : "allowed" };
+        localStorage.setItem(`aregoland_child_contacts_${activeChild.aregoId}`, JSON.stringify(updated));
+        setSelectedChild(activeChild.aregoId); // force re-render
+      };
+
+      const toggleSpace = (idx: number) => {
+        const updated = [...childSpaces];
+        updated[idx] = { ...updated[idx], status: updated[idx].status === "allowed" ? "blocked" : "allowed" };
+        localStorage.setItem(`aregoland_child_spaces_${activeChild.aregoId}`, JSON.stringify(updated));
+        setSelectedChild(activeChild.aregoId);
+      };
+
+      return (
+        <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+          <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
+            <button
+              onClick={() => setSelectedChild(null)}
+              className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
+            >
+              <ArrowLeft size={24} />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                {activeChild.displayName[0]?.toUpperCase()}
+              </div>
+              <h1 className="text-xl font-bold">{activeChild.displayName}</h1>
+            </div>
+          </header>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-4 max-w-lg mx-auto">
+
+              {/* FSK-Status */}
+              <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
+                <Shield size={20} className="text-green-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-green-400">FSK 6 — {t('settings.childFskProtected')}</p>
+                  <p className="text-xs text-gray-500">{t('settings.childFskUpgradeHint')}</p>
+                </div>
+              </div>
+
+              {/* Aktivitaet */}
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Activity size={18} /></div>
+                  <p className="font-medium">{t('settings.childActivity')}</p>
+                </div>
+                <div className="bg-gray-900/50 rounded-xl p-3">
+                  {lastSeen ? (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between"><span className="text-gray-400">{t('settings.childLastSeen')}</span><span className="text-gray-300">{lastSeen.time}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-400">{t('settings.childCurrentScreen')}</span><span className="text-gray-300">{lastSeen.screen}</span></div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-2">{t('settings.childNoActivity')}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Chats einsehen */}
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple-500/20 p-2 rounded-lg text-purple-400"><MessageSquare size={18} /></div>
+                  <p className="font-medium">{t('settings.childChats')}</p>
+                </div>
+                <div className="bg-gray-900/50 rounded-xl p-3">
+                  <p className="text-sm text-gray-500 text-center py-2">{t('settings.childChatsEmpty')}</p>
+                </div>
+                <p className="text-xs text-gray-600 text-center">{t('settings.childChatsHint')}</p>
+              </div>
+
+              {/* Kontakte verwalten */}
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400"><Users size={18} /></div>
+                    <p className="font-medium">{t('settings.childContacts')}</p>
+                  </div>
+                </div>
+                {childContacts.length === 0 ? (
+                  <div className="bg-gray-900/50 rounded-xl p-3">
+                    <p className="text-sm text-gray-500 text-center py-2">{t('settings.childContactsEmpty')}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-900/50 rounded-xl overflow-hidden">
+                    {childContacts.map((c, i) => (
+                      <div key={i} className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800 last:border-0">
+                        <span className="text-sm text-gray-300">{c.name}</span>
+                        <button onClick={() => toggleContact(i)} className={`p-1.5 rounded-lg transition-colors ${c.status === "allowed" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                          {c.status === "allowed" ? <UserCheck size={16} /> : <UserX size={16} />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-gray-600 text-center">{t('settings.childContactsHint')}</p>
+              </div>
+
+              {/* Spaces verwalten */}
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-orange-500/20 p-2 rounded-lg text-orange-400"><Globe size={18} /></div>
+                    <p className="font-medium">{t('settings.childSpaces')}</p>
+                  </div>
+                </div>
+                {childSpaces.length === 0 ? (
+                  <div className="bg-gray-900/50 rounded-xl p-3">
+                    <p className="text-sm text-gray-500 text-center py-2">{t('settings.childSpacesEmpty')}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-900/50 rounded-xl overflow-hidden">
+                    {childSpaces.map((s, i) => (
+                      <div key={i} className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800 last:border-0">
+                        <span className="text-sm text-gray-300">{s.name}</span>
+                        <button onClick={() => toggleSpace(i)} className={`p-1.5 rounded-lg transition-colors ${s.status === "allowed" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                          {s.status === "allowed" ? <Check size={16} /> : <Ban size={16} />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-gray-600 text-center">{t('settings.childSpacesHint')}</p>
+              </div>
+
+              {/* Kind entfernen */}
+              <button
+                onClick={() => handleRemoveChild(activeChild.aregoId)}
+                className="w-full text-red-400 text-sm font-medium py-3 hover:bg-red-500/10 rounded-xl transition-colors"
+              >
+                {t('settings.removeChild')}
+              </button>
+
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Familie-Hauptansicht: Kinderliste + QR generieren
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
@@ -1644,13 +1778,14 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
 
             {/* Info Banner */}
             <div className="bg-pink-500/10 border border-pink-500/20 p-4 rounded-2xl flex gap-3">
-              <Baby className="text-pink-400 shrink-0" size={22} />
-              <p className="text-sm text-pink-200/80 leading-relaxed">
-                {t('settings.familyInfo')}
-              </p>
+              <Shield className="text-pink-400 shrink-0" size={22} />
+              <div className="text-sm text-pink-200/80 leading-relaxed space-y-1">
+                <p>{t('settings.familyInfo')}</p>
+                <p className="text-xs text-pink-300/50">{t('settings.familyFskAutoHint')}</p>
+              </div>
             </div>
 
-            {/* Linked Children */}
+            {/* Verknuepfte Kinder */}
             <div className="space-y-2">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.linkedChildren')}</h3>
               {children.length === 0 ? (
@@ -1661,83 +1796,34 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               ) : (
                 <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
                   {children.map((child) => (
-                    <div key={child.aregoId} className="p-4 border-b border-gray-700/50 last:border-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                            {child.displayName[0]?.toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-medium">{child.displayName}</div>
-                            <div className="text-xs text-gray-500">{child.aregoId}</div>
-                          </div>
+                    <button
+                      key={child.aregoId}
+                      onClick={() => setSelectedChild(child.aregoId)}
+                      className="w-full p-4 border-b border-gray-700/50 last:border-0 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                          {child.displayName[0]?.toUpperCase()}
                         </div>
-                        <button
-                          onClick={() => setEditingChild(editingChild === child.aregoId ? null : child.aregoId)}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                            child.fsk === 6 ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"
-                          }`}
-                        >
-                          FSK {child.fsk}
-                        </button>
+                        <div>
+                          <div className="font-medium">{child.displayName}</div>
+                          <div className="text-xs text-gray-500">FSK 6 — {t('settings.childFskProtected')}</div>
+                        </div>
                       </div>
-
-                      {/* FSK Edit + Remove */}
-                      <AnimatePresence>
-                        {editingChild === child.aregoId && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="mt-3 pt-3 border-t border-gray-700/50 space-y-3">
-                              <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t('settings.fskLevel')}</p>
-                              <div className="grid grid-cols-2 gap-2">
-                                {FSK_LEVELS.map((level) => (
-                                  <button
-                                    key={level.value}
-                                    disabled={!level.enabled}
-                                    onClick={() => level.enabled && handleUpdateFsk(child.aregoId, level.value as 6 | 12)}
-                                    className={`relative flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                                      !level.enabled
-                                        ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                                        : child.fsk === level.value
-                                          ? `${level.bg} ${level.color} ring-2 ring-current`
-                                          : `bg-gray-800 ${level.color} hover:bg-gray-700`
-                                    }`}
-                                  >
-                                    {!level.enabled && <Lock size={12} />}
-                                    {level.label}
-                                    {!level.enabled && (
-                                      <span className="absolute -bottom-0.5 text-[9px] text-gray-600 font-normal">{t('settings.fskIdRequired')}</span>
-                                    )}
-                                  </button>
-                                ))}
-                              </div>
-                              <button
-                                onClick={() => handleRemoveChild(child.aregoId)}
-                                className="w-full text-red-400 text-sm font-medium py-2 hover:bg-red-500/10 rounded-xl transition-colors"
-                              >
-                                {t('settings.removeChild')}
-                              </button>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
+                      <ChevronRight size={20} className="text-gray-500" />
+                    </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Add Child Button / QR Flow */}
+            {/* Kind hinzufuegen per QR */}
             {!showAddChild ? (
               <button
                 onClick={handleGenerateQR}
                 className="w-full bg-pink-600 hover:bg-pink-500 text-white font-semibold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-pink-600/20 active:scale-98"
               >
-                <UserPlus size={20} />
+                <QrCode size={20} />
                 {t('settings.addChild')}
               </button>
             ) : (
@@ -1748,48 +1834,14 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               >
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-lg">{t('settings.addChild')}</h3>
-                  <button onClick={() => { setShowAddChild(false); setQrDataUrl(null); }} className="p-1 text-gray-500 hover:text-white">
+                  <button onClick={() => { setShowAddChild(false); setQrDataUrl(null); setChildName(""); }} className="p-1 text-gray-500 hover:text-white">
                     <X size={20} />
                   </button>
                 </div>
 
-                {/* Child Name Input */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-400">{t('settings.childName')}</label>
-                  <input
-                    type="text"
-                    value={childName}
-                    onChange={(e) => setChildName(e.target.value)}
-                    placeholder={t('settings.childNamePlaceholder')}
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all"
-                  />
-                </div>
-
-                {/* FSK Selection */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-gray-400">{t('settings.fskLevel')}</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {FSK_LEVELS.map((level) => (
-                      <button
-                        key={level.value}
-                        disabled={!level.enabled}
-                        onClick={() => level.enabled && setChildFsk(level.value as 6 | 12)}
-                        className={`relative flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                          !level.enabled
-                            ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                            : childFsk === level.value
-                              ? `${level.bg} ${level.color} ring-2 ring-current`
-                              : `bg-gray-800 ${level.color} hover:bg-gray-700`
-                        }`}
-                      >
-                        {!level.enabled && <Lock size={12} />}
-                        {level.label}
-                        {!level.enabled && (
-                          <span className="absolute -bottom-0.5 text-[9px] text-gray-600 font-normal">{t('settings.fskIdRequired')}</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 flex gap-2">
+                  <Shield size={16} className="text-green-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-green-300/80">{t('settings.addChildFskHint')}</p>
                 </div>
 
                 {/* QR Code */}
@@ -1805,14 +1857,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   </div>
                 )}
 
-                <button
-                  onClick={handleAddChild}
-                  disabled={!childName.trim()}
-                  className="w-full bg-pink-600 hover:bg-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
-                >
-                  <Check size={18} />
-                  {t('settings.confirmAddChild')}
-                </button>
+                <p className="text-xs text-gray-500 text-center">{t('settings.addChildScanInstruction')}</p>
               </motion.div>
             )}
 
