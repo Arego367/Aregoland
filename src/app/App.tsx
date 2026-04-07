@@ -1165,10 +1165,17 @@ export default function App() {
           onFskUpdated={() => setFskStatus(loadFsk())}
           onResetAccount={() => {
             manager.disconnectAll();
-            deletePersistedChats();
-            deleteAllHistory();
-            deleteAllPending();
-            deleteAllContactStatuses();
+            // Alles komplett leeren — kein einziger Wert darf übrig bleiben
+            localStorage.clear();
+            sessionStorage.clear();
+            // IndexedDB komplett löschen
+            if (indexedDB.databases) {
+              indexedDB.databases().then(dbs => { for (const db of dbs) { if (db.name) indexedDB.deleteDatabase(db.name); } });
+            }
+            // Caches leeren (Service Worker)
+            if (caches) {
+              caches.keys().then(names => { for (const name of names) caches.delete(name); });
+            }
             setContactStatusMap({});
             setTotalUnread(0);
             setIdentity(null);
