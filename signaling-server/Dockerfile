@@ -7,7 +7,7 @@ WORKDIR /home/node/app
 COPY --chown=node:node package.json package-lock.json ./
 RUN npm ci --production
 
-COPY --chown=node:node server.js .
+COPY --chown=node:node server.js storage.js ./
 
 # Persistentes Volume für SQLite
 VOLUME /home/node/app/data
