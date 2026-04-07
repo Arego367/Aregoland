@@ -5129,20 +5129,34 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
                           <button
                             disabled={!fskAntragInstitution.trim() || !fskAntragEmail.trim()}
-                            onClick={() => {
-                              const subject = encodeURIComponent(`FSK-Antrag: ${selectedSpace.name} → FSK ${fskAntragStufe}`);
-                              const body = encodeURIComponent([
-                                `Space: ${selectedSpace.name}`,
-                                `Space-ID: ${selectedSpace.id}`,
-                                `Gr\u00fcnder-ID: ${selectedSpace.founderId}`,
-                                `Institution: ${fskAntragInstitution}`,
-                                `Webseite: ${fskAntragWebsite || '—'}`,
-                                `E-Mail: ${fskAntragEmail}`,
-                                `Gew\u00fcnschte Stufe: FSK ${fskAntragStufe}`,
-                                `Datum: ${new Date().toISOString()}`,
-                              ].join('\n'));
-                              window.open(`mailto:fsk@aregoland.de?subject=${subject}&body=${body}`, '_blank');
+                            onClick={async () => {
+                              const title = `FSK-Antrag: ${selectedSpace.name} \u2192 FSK ${fskAntragStufe}`;
+                              const body = [
+                                `| Feld | Wert |`,
+                                `|------|------|`,
+                                `| **Space** | ${selectedSpace.name} |`,
+                                `| **Space-ID** | \`${selectedSpace.id}\` |`,
+                                `| **Gr\u00fcnder-ID** | \`${selectedSpace.founderId}\` |`,
+                                `| **Institution** | ${fskAntragInstitution} |`,
+                                `| **Webseite** | ${fskAntragWebsite || '\u2014'} |`,
+                                `| **E-Mail** | ${fskAntragEmail} |`,
+                                `| **Gew\u00fcnschte Stufe** | FSK ${fskAntragStufe} |`,
+                                `| **Datum** | ${new Date().toISOString()} |`,
+                              ].join('\n');
+                              try {
+                                const res = await fetch('https://api.github.com/repos/Arego367/Aregoland/issues', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(window as any).__AREGO_GH_TOKEN ?? ''}` },
+                                  body: JSON.stringify({ title, body, labels: ['fsk-antrag'] }),
+                                });
+                                if (!res.ok) throw new Error();
+                              } catch {
+                                // Fallback: Issue via URL oeffnen
+                                const params = new URLSearchParams({ title, body, labels: 'fsk-antrag' });
+                                window.open(`https://github.com/Arego367/Aregoland/issues/new?${params.toString()}`, '_blank');
+                              }
                               setFskAntragSent(true);
+                              onShowToast?.(t('spaces.fskApplicationSentToast'));
                             }}
                             className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
                           >
