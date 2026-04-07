@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
-import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, type LinkedChild } from "@/app/auth/identity";
+import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, type LinkedChild } from "@/app/auth/identity";
 import { deleteContacts, loadBlocked, unblockContact, loadContacts } from "@/app/auth/contacts";
 import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
@@ -209,9 +209,6 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   }, []);
   // Familie-Kinder vom Server laden: wird unten nach identity-Deklaration registriert
   const [showAddChild, setShowAddChild] = useState(false);
-  const [childFirstName, setChildFirstName] = useState("");
-  const [childLastName, setChildLastName] = useState("");
-  const [childNickname, setChildNickname] = useState("");
 
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
@@ -291,8 +288,8 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           // Nur einmal verarbeiten
           if (parentScanProcessed.current) return;
 
-          const link = decodeChildLinkPayload(decoded.trim());
-          if (!link) return; // Stille Wiederholung — kein Error bei partiellem Scan
+          const parentId = decodeChildLinkPayload(decoded.trim());
+          if (!parentId) return;
 
           parentScanProcessed.current = true;
 
@@ -301,56 +298,26 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           try { scanner.clear(); } catch {}
           parentScannerRef.current = null;
 
-          // Alle Aenderungen in einem Schritt auf die Identity anwenden
           const childId = identity?.aregoId ?? '';
-          try {
-            const id = JSON.parse(localStorage.getItem("aregoland_identity") ?? '{}');
-            // Kind-Status
-            id.ist_kind = true;
-            const verwalter: string[] = Array.isArray(id.verwalter) ? id.verwalter : [];
-            if (!verwalter.includes(link.parentId) && verwalter.length < 2) verwalter.push(link.parentId);
-            id.verwalter = verwalter;
-            id.accountType = 'child';
-            id.parentName = link.parentName;
-            // Namen: Vorname → firstName, Nachname → lastName, Spitzname → nickname
-            const fn = link.childFirstName ?? '';
-            const ln = link.childLastName ?? '';
-            const nn = link.childNickname ?? '';
-            if (fn) id.firstName = fn;
-            if (ln) id.lastName = ln;
-            if (nn) id.nickname = nn;
-            // displayName ableiten: Spitzname hat Vorrang, sonst Vorname + Nachname
-            if (nn || fn) {
-              id.displayName = nn || `${fn} ${ln}`.trim();
-            }
-            localStorage.setItem("aregoland_identity", JSON.stringify(id));
-          } catch {}
+          if (!childId || !parentId) { setParentScanActive(false); return; }
+
+          // Kind-Status lokal setzen
+          setKindStatus(parentId);
 
           // FSK 6 setzen — Kind-Konten bekommen immer FSK 6
           const fskUpdate: FskStatus = { level: 6, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
           saveFsk(fskUpdate);
           onFskUpdated?.();
 
-          // Server benachrichtigen (Kind → Elternteil verknuepfen)
-          const fn = link.childFirstName ?? '';
-          const ln = link.childLastName ?? '';
-          const nn = link.childNickname ?? '';
-          if (childId && link.parentId) {
-            fetch('/child-link', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                child_id: childId,
-                parent_id: link.parentId,
-                first_name: fn,
-                last_name: ln,
-                nickname: nn,
-              }),
-            }).catch(() => {});
-          }
+          // Server benachrichtigen — Server informiert beide per WS
+          fetch('/child-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ child_id: childId, parent_id: parentId }),
+          }).catch(() => {});
 
           setParentScanActive(false);
-          setParentLinked(link.parentName);
+          setParentLinked(parentId);
 
           // Toast fuer Kind
           const toastEl = document.createElement('div');
@@ -1636,11 +1603,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   if (activeSubmenu === "family") {
     const handleGenerateQR = async () => {
       if (!identity) return;
-      const payload = createChildLinkPayload(identity, {
-        firstName: childFirstName.trim() || undefined,
-        lastName: childLastName.trim() || undefined,
-        nickname: childNickname.trim() || undefined,
-      });
+      const payload = createChildLinkPayload(identity);
       const url = await QRCode.toDataURL(payload, { width: 280, margin: 2, color: { dark: '#ffffff', light: '#00000000' } });
       setQrDataUrl(url);
       setShowAddChild(true);
@@ -1771,7 +1734,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                     setTimeout(() => el.remove(), 3000);
                     return;
                   }
-                  setShowAddChild(true);
+                  handleGenerateQR();
                 }}
                 className={`w-full font-semibold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-98 ${isFsk18 ? 'bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-600/20' : 'bg-gray-800 text-gray-500 border border-gray-700/50 cursor-not-allowed'}`}
               >
@@ -1786,7 +1749,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               >
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-lg">{t('settings.addChild')}</h3>
-                  <button onClick={() => { setShowAddChild(false); setQrDataUrl(null); setChildFirstName(""); setChildLastName(""); setChildNickname(""); }} className="p-1 text-gray-500 hover:text-white">
+                  <button onClick={() => { setShowAddChild(false); setQrDataUrl(null); }} className="p-1 text-gray-500 hover:text-white">
                     <X size={20} />
                   </button>
                 </div>
@@ -1796,39 +1759,16 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   <p className="text-xs text-green-300/80">{t('settings.addChildFskHint')}</p>
                 </div>
 
-                {/* Namensfelder — werden in QR kodiert */}
-                <div className="space-y-3">
-                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">{t('settings.childNameOptional')}</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input type="text" value={childFirstName} onChange={e => setChildFirstName(e.target.value)} placeholder={t('settings.childFirstName')} className="bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500 transition-all" />
-                    <input type="text" value={childLastName} onChange={e => setChildLastName(e.target.value)} placeholder={t('settings.childLastName')} className="bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500 transition-all" />
-                  </div>
-                  <input type="text" value={childNickname} onChange={e => setChildNickname(e.target.value)} placeholder={t('settings.childNickname')} className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500 transition-all" />
-                  <p className="text-[10px] text-gray-600">{t('settings.childNameEditLater')}</p>
-                </div>
-
-                {/* QR generieren oder anzeigen */}
-                {!qrDataUrl ? (
-                  <button
-                    onClick={handleGenerateQR}
-                    className="w-full bg-pink-600 hover:bg-pink-500 text-white font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <QrCode size={18} />
-                    {t('settings.generateQR')}
-                  </button>
-                ) : (
-                  <>
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="bg-gray-900 p-4 rounded-2xl">
-                        <img src={qrDataUrl} alt="Child Link QR" className="w-56 h-56" />
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <QrCode size={14} />
-                        <span>{t('settings.qrTTL')}</span>
-                      </div>
+                {qrDataUrl && (
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="bg-gray-900 p-4 rounded-2xl">
+                      <img src={qrDataUrl} alt="Child Link QR" className="w-56 h-56" />
                     </div>
-                    <p className="text-xs text-gray-500 text-center">{t('settings.addChildScanInstruction')}</p>
-                  </>
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <QrCode size={14} />
+                      <span>{t('settings.addChildScanInstruction')}</span>
+                    </div>
+                  </div>
                 )}
               </motion.div>
             )}

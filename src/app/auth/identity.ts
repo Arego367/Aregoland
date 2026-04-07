@@ -136,47 +136,17 @@ export function setKindStatus(parentId: string): void {
   } catch {}
 }
 
-/** Erstellt ein Kind-Konto-Linking-Payload als Base64 (TTL 10 Min, einmalig) */
-export function createChildLinkPayload(parentIdentity: UserIdentity, childNames?: { firstName?: string; lastName?: string; nickname?: string }): string {
-  const payload: Record<string, unknown> = {
-    t: 'child-link' as const,
-    pid: parentIdentity.aregoId,
-    pn: parentIdentity.displayName,
-    exp: Date.now() + 10 * 60 * 1000,
-    n: Array.from(crypto.getRandomValues(new Uint8Array(4)))
-      .map(b => b.toString(16).padStart(2, '0')).join(''),
-  };
-  if (childNames?.firstName) payload.cfn = childNames.firstName;
-  if (childNames?.lastName) payload.cln = childNames.lastName;
-  if (childNames?.nickname) payload.cnn = childNames.nickname;
-  const json = JSON.stringify(payload);
-  return btoa(
-    new TextEncoder().encode(json).reduce((s, b) => s + String.fromCharCode(b), '')
-  );
+/** Erstellt QR-Payload fuer Kind-Verknuepfung — enthaelt NUR die Eltern-Arego-ID */
+export function createChildLinkPayload(parentIdentity: UserIdentity): string {
+  return parentIdentity.aregoId;
 }
 
-/** Dekodiert ein Kind-Konto-Linking-Payload vom Eltern-QR */
-export function decodeChildLinkPayload(encoded: string): {
-  parentId: string; parentName: string; exp: number;
-  childFirstName?: string; childLastName?: string; childNickname?: string;
-} | null {
-  try {
-    const binary = atob(encoded.trim());
-    const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-    const p = JSON.parse(new TextDecoder().decode(bytes));
-    const type = p.t ?? p.type;
-    const parentId = p.pid ?? p.parentId;
-    const parentName = p.pn ?? p.parentName ?? '';
-    const exp = p.exp;
-    if (type !== 'child-link' || !parentId || !exp) return null;
-    if (Date.now() > exp) return null;
-    return {
-      parentId, parentName, exp,
-      childFirstName: p.cfn ?? undefined,
-      childLastName: p.cln ?? undefined,
-      childNickname: p.cnn ?? undefined,
-    };
-  } catch { return null; }
+/** Dekodiert QR-Payload — gibt Eltern-Arego-ID zurueck oder null */
+export function decodeChildLinkPayload(scanned: string): string | null {
+  const id = scanned.trim();
+  // Arego-ID Format: AC-XXXX-XXXXXXXX
+  if (id.startsWith('AC-') && id.length >= 7) return id;
+  return null;
 }
 
 /** Erstellt ein Kind-Konto und speichert es lokal (auf dem Kind-Gerät) */

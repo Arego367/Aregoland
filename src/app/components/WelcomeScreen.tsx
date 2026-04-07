@@ -76,8 +76,8 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
         async (decoded) => {
           if (childScanProcessed.current) return;
 
-          const link = decodeChildLinkPayload(decoded.trim());
-          if (!link) return;
+          const parentId = decodeChildLinkPayload(decoded.trim());
+          if (!parentId) return;
 
           childScanProcessed.current = true;
 
@@ -87,7 +87,14 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
           setChildScanActive(false);
           setChildCreating(true);
           try {
-            await createChildIdentity(link.parentName, link.parentId, 6);
+            await createChildIdentity("Kind", parentId, 6);
+            // Server benachrichtigen
+            const childIdentity = JSON.parse(localStorage.getItem('aregoland_identity') ?? '{}');
+            fetch('/child-link', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ child_id: childIdentity.aregoId, parent_id: parentId }),
+            }).catch(() => {});
             onGetStarted();
           } catch {
             setChildError(t('welcome.childCreateError'));

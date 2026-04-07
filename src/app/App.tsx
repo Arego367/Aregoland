@@ -37,7 +37,7 @@ import ChatScreen from "@/app/components/ChatScreen";
 import DocumentsScreen from "@/app/components/DocumentsScreen";
 import CalendarScreen from "@/app/components/CalendarScreen";
 import { Tab } from "@/app/types";
-import { loadIdentity, type LinkedChild, UserIdentity } from "@/app/auth/identity";
+import { loadIdentity, UserIdentity } from "@/app/auth/identity";
 import { loadSubscription, hasAccess, initSubscription, getEffectiveStatus } from "@/app/auth/subscription";
 import { loadFsk, initFsk, isFskVerified, isFeatureLocked } from "@/app/auth/fsk";
 import { deriveRoomId, decodePayload } from "@/app/auth/share";
@@ -534,20 +534,23 @@ export default function App() {
           return;
         }
 
-        // Kind wurde verknüpft — Elternteil benachrichtigen
-        if (msg.type === 'child_linked' && msg.child_id) {
-          const displayName = msg.nickname || `${msg.first_name ?? ''} ${msg.last_name ?? ''}`.trim() || msg.child_id;
-          // Session-Cache aktualisieren
-          try {
-            const cached = JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]');
-            cached.push({ child_id: msg.child_id, first_name: msg.first_name, last_name: msg.last_name, nickname: msg.nickname, fsk_stufe: 6 });
-            sessionStorage.setItem('aregoland_linked_children', JSON.stringify(cached));
-          } catch {}
-          // UI aktualisieren (SettingsScreen lauscht darauf)
-          window.dispatchEvent(new CustomEvent('arego-child-linked'));
+        // Kind-Eltern-Verknuepfung — Toast fuer beide
+        if (msg.type === 'child_linked') {
           const toastEl = document.createElement('div');
           toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
-          toastEl.textContent = `Kind "${displayName}" erfolgreich hinzugef\u00fcgt`;
+          if (msg.role === 'parent') {
+            // Elternteil: Kind wurde verknuepft
+            try {
+              const cached = JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]');
+              cached.push({ child_id: msg.child_id, first_name: '', last_name: '', nickname: '', fsk_stufe: 6 });
+              sessionStorage.setItem('aregoland_linked_children', JSON.stringify(cached));
+            } catch {}
+            window.dispatchEvent(new CustomEvent('arego-child-linked'));
+            toastEl.textContent = 'Kind erfolgreich verkn\u00fcpft';
+          } else {
+            // Kind: wurde mit Elternteil verknuepft
+            toastEl.textContent = 'Du wurdest mit einem Elternteil verkn\u00fcpft';
+          }
           document.body.appendChild(toastEl);
           setTimeout(() => toastEl.remove(), 4000);
           return;

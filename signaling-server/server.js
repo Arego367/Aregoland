@@ -818,7 +818,7 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/child-link') {
     try {
       const body = await readBody(req);
-      const { child_id, parent_id, first_name, last_name, nickname } = JSON.parse(body);
+      const { child_id, parent_id } = JSON.parse(body);
       if (!child_id || !parent_id) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'child_id und parent_id erforderlich' }));
@@ -835,29 +835,32 @@ const server = createServer(async (req, res) => {
       const now = new Date().toISOString();
       db.run(`
         INSERT OR REPLACE INTO child_links (child_id, parent_id, child_first_name, child_last_name, child_nickname, fsk_stufe, created_at)
-        VALUES (?, ?, ?, ?, ?, 6, ?)
-      `, [child_id, parent_id, (first_name ?? '').slice(0, 50), (last_name ?? '').slice(0, 50), (nickname ?? '').slice(0, 50), now]);
+        VALUES (?, ?, '', '', '', 6, ?)
+      `, [child_id, parent_id, now]);
+
+      // Kind als ist_kind markieren in user_auth
+      db.run(`UPDATE user_auth SET fsk_stufe = 6 WHERE arego_id = ?`, [child_id]);
       persistDb();
 
-      // Elternteil per WebSocket benachrichtigen (oder Inbox-Puffer)
-      const notify = JSON.stringify({
-        type: 'child_linked',
-        child_id,
-        first_name: first_name ?? '',
-        last_name: last_name ?? '',
-        nickname: nickname ?? '',
-      });
+      // Beide per WebSocket benachrichtigen
+      const notifyParent = JSON.stringify({ type: 'child_linked', child_id, role: 'parent' });
+      const notifyChild = JSON.stringify({ type: 'child_linked', parent_id, role: 'child' });
+
+      // Elternteil benachrichtigen
       const parentSockets = onlineUsers.get(parent_id);
-      let delivered = false;
+      let parentDelivered = false;
       if (parentSockets) {
-        for (const ws of parentSockets) {
-          if (ws.readyState === 1) { ws.send(notify); delivered = true; }
-        }
+        for (const ws of parentSockets) { if (ws.readyState === 1) { ws.send(notifyParent); parentDelivered = true; } }
       }
-      if (!delivered) {
-        // Elternteil offline → in Inbox zwischenspeichern
-        storePending(`inbox:${parent_id}`, Buffer.from(notify));
+      if (!parentDelivered) storePending(`inbox:${parent_id}`, Buffer.from(notifyParent));
+
+      // Kind benachrichtigen
+      const childSockets = onlineUsers.get(child_id);
+      let childDelivered = false;
+      if (childSockets) {
+        for (const ws of childSockets) { if (ws.readyState === 1) { ws.send(notifyChild); childDelivered = true; } }
       }
+      if (!childDelivered) storePending(`inbox:${child_id}`, Buffer.from(notifyChild));
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
