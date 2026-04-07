@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, HelpCircle, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ExternalLink, Mail, ChevronDown, ChevronUp, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, loadChildren, saveChild, removeChild, createChildLinkPayload, type ChildAccount } from "@/app/auth/identity";
@@ -130,7 +130,7 @@ const FSK_LEVELS = [
 ];
 
 export default function SettingsScreen({ onBack, onResetAccount }: SettingsScreenProps) {
-  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "family" | "notifications" | "help">("main");
+  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "family" | "notifications">("main");
   const [storageActivateOpen, setStorageActivateOpen] = useState(false);
   const [voucherCode, setVoucherCode] = useState("");
   const [selectedLang, setSelectedLang] = useState(() => LANGUAGES.find(l => l.code === localStorage.getItem('aregoland_language')) || LANGUAGES.find(l => l.code === 'de')!);
@@ -205,7 +205,6 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
   const [privacyToastMsg, setPrivacyToastMsg] = useState("");
   const [showOnlineStatus, setShowOnlineStatus] = useState(() => localStorage.getItem("aregoland_hide_online") !== "true");
   const [blockedList, setBlockedList] = useState<string[]>(() => loadBlocked());
-  const [faqOpen, setFaqOpen] = useState<number | null>(null);
   const availableTabs = useMemo(() => loadTabs(), []);
   const isChildAccount = useMemo(() => {
     try { const id = JSON.parse(localStorage.getItem("aregoland_identity") ?? "{}"); return id.accountType === "child"; }
@@ -372,22 +371,6 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
                    )}
                    <ChevronRight size={20} className="text-gray-500" />
                  </div>
-               </button>
-            </div>
-
-            {/* Section: Support */}
-            <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
-               <button
-                 onClick={() => setActiveSubmenu("help")}
-                 className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
-               >
-                 <div className="flex items-center gap-3">
-                   <div className="bg-yellow-500/20 p-2 rounded-lg text-yellow-400">
-                     <HelpCircle size={20} />
-                   </div>
-                   <span className="font-medium">{t('settings.helpSupport')}</span>
-                 </div>
-                 <ChevronRight size={20} className="text-gray-500" />
                </button>
             </div>
 
@@ -1026,83 +1009,6 @@ export default function SettingsScreen({ onBack, onResetAccount }: SettingsScree
                   })}
                 </div>
               )}
-            </div>
-
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Help & Support Submenu
-  if (activeSubmenu === "help") {
-    const faqs = [
-      { q: t('settings.faqAregoId'), a: t('settings.faqAregoIdA') },
-      { q: t('settings.faqAddContact'), a: t('settings.faqAddContactA') },
-      { q: t('settings.faqRecovery'), a: t('settings.faqRecoveryA') },
-      { q: t('settings.faqE2E'), a: t('settings.faqE2EA') },
-      { q: t('settings.faqDelete'), a: t('settings.faqDeleteA') },
-    ];
-    return (
-      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
-        <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
-          <button onClick={() => setActiveSubmenu("main")} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"><ArrowLeft size={24} /></button>
-          <h1 className="text-xl font-bold">{t('settings.helpSupport')}</h1>
-        </header>
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-6 max-w-lg mx-auto">
-
-            {/* FAQ */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.faq')}</h3>
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
-                {faqs.map((faq, i) => (
-                  <div key={i} className="border-b border-gray-700/50 last:border-0">
-                    <button
-                      onClick={() => setFaqOpen(faqOpen === i ? null : i)}
-                      className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors text-left"
-                    >
-                      <span className="text-sm font-medium pr-4">{faq.q}</span>
-                      {faqOpen === i ? <ChevronUp size={16} className="text-gray-500 shrink-0" /> : <ChevronDown size={16} className="text-gray-500 shrink-0" />}
-                    </button>
-                    <AnimatePresence>
-                      {faqOpen === i && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                          <p className="px-4 pb-4 text-sm text-gray-400 leading-relaxed">{faq.a}</p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Links */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.links')}</h3>
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
-                <a href="https://aregoland.de" target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50">
-                  <div className="flex items-center gap-3">
-                    <ExternalLink size={16} className="text-blue-400" />
-                    <span className="text-sm">{t('settings.aboutUs')}</span>
-                  </div>
-                  <span className="text-xs text-gray-500">aregoland.de</span>
-                </a>
-                <a href="mailto:feedback@aregoland.de?subject=Aregoland%20Feedback" className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Mail size={16} className="text-yellow-400" />
-                    <span className="text-sm">{t('settings.sendFeedback')}</span>
-                  </div>
-                  <span className="text-xs text-gray-500">feedback@aregoland.de</span>
-                </a>
-              </div>
-            </div>
-
-            {/* Version */}
-            <div className="text-center space-y-1 pt-4">
-              <p className="text-sm font-medium text-gray-400">Aregoland</p>
-              <p className="text-xs text-gray-600">Version 1.0.0 (Build 2026.03)</p>
-              <p className="text-xs text-gray-700">AGPL-3.0</p>
             </div>
 
           </div>
