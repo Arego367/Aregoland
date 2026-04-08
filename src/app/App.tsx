@@ -75,7 +75,11 @@ function loadTabs(): Tab[] {
 }
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<"welcome" | "registration" | "dashboard" | "chatList" | "profile" | "qrcode" | "settings" | "childProfile" | "people" | "spaces" | "connect" | "chatConversation" | "documents" | "calendar">("welcome");
+  const [currentScreen, setCurrentScreen] = useState<"welcome" | "registration" | "dashboard" | "chatList" | "profile" | "qrcode" | "settings" | "childProfile" | "people" | "spaces" | "connect" | "chatConversation" | "documents" | "calendar">(() => {
+    // Sofort prüfen ob Identity existiert — kein Flash zum WelcomeScreen
+    const hasIdentity = !!localStorage.getItem("aregoland_identity");
+    return hasIdentity ? "dashboard" : "welcome";
+  });
   const [returnTo, setReturnTo] = useState<"dashboard" | "chatList" | "welcome" | "people" | "spaces" | "calendar" | "connect" | "documents">("dashboard");
   const [qrCodeMode, setQrCodeMode] = useState<"display" | "scan">("display");
   const [tabs, setTabsRaw] = useState<Tab[]>(loadTabs);
