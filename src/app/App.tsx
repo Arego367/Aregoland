@@ -493,6 +493,8 @@ export default function App() {
       ws.send(JSON.stringify({
         type: 'auth',
         aregoId: identity.aregoId,
+        displayName: identity.displayName,
+        publicKeyJwk: identity.publicKeyJwk,
         abo_status: sub ? getEffectiveStatus(sub) : 'trial',
         abo_gueltig_bis: sub?.expiresAt ?? sub?.trialEnd ?? null,
         fsk_stufe: fskData?.level ?? 6,
@@ -531,6 +533,51 @@ export default function App() {
               return next;
             });
           }
+
+          // Familien-Kontakte automatisch anlegen (Verwalter <-> Kind)
+          if (Array.isArray(msg.family_contacts) && msg.family_contacts.length > 0 && identity) {
+            const existingContacts = loadContacts();
+            let changed = false;
+            for (const fc of msg.family_contacts) {
+              if (!fc.aregoId || !fc.publicKeyJwk || fc.aregoId === identity.aregoId) continue;
+              const exists = existingContacts.some(c => c.aregoId === fc.aregoId);
+              if (!exists) {
+                // Kontakt speichern
+                saveContact({
+                  aregoId: fc.aregoId,
+                  displayName: fc.displayName || fc.aregoId,
+                  publicKeyJwk: fc.publicKeyJwk,
+                  addedAt: new Date().toISOString(),
+                });
+                // Status: mutual (Familie)
+                setContactStatus(fc.aregoId, 'mutual');
+                // Kategorie: Familie
+                try {
+                  const cats = JSON.parse(localStorage.getItem('arego_contact_categories') ?? '{}');
+                  cats[fc.aregoId] = ['family'];
+                  localStorage.setItem('arego_contact_categories', JSON.stringify(cats));
+                } catch {}
+                // PersistedChat anlegen
+                const rid = deriveRoomId(identity.aregoId, fc.aregoId);
+                const existingChat = loadPersistedChats().find(c => c.id === fc.aregoId);
+                if (!existingChat) {
+                  savePersistedChat({
+                    id: fc.aregoId, name: fc.displayName || fc.aregoId, avatarUrl: '',
+                    isGroup: false, lastMessage: '', roomId: rid,
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    sortKey: Date.now(), unreadCount: 0,
+                  });
+                }
+                manager.connect(rid);
+                changed = true;
+              }
+            }
+            if (changed) {
+              setContactsVersion(v => v + 1);
+              setChatListVersion(v => v + 1);
+            }
+          }
+
           return;
         }
 

@@ -58,6 +58,7 @@ function loadTabs(): { id: string; label: string }[] {
 async function directoryRegister(aregoId: string, displayName: string): Promise<boolean> {
   try {
     const profile = JSON.parse(localStorage.getItem("arego_profile") ?? "{}");
+    const id = JSON.parse(localStorage.getItem("aregoland_identity") ?? "{}");
     const res = await fetch("/directory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -67,6 +68,7 @@ async function directoryRegister(aregoId: string, displayName: string): Promise<
         firstName: profile.firstName ?? "",
         lastName: profile.lastName ?? "",
         nickname: profile.nickname ?? "",
+        publicKeyJwk: id.publicKeyJwk ?? null,
       }),
     });
     if (res.ok) localStorage.setItem("aregoland_directory_last_heartbeat", new Date().toISOString());

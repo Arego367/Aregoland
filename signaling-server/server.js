@@ -95,9 +95,12 @@ async function initDb() {
       first_name        TEXT DEFAULT '',
       last_name         TEXT DEFAULT '',
       nickname          TEXT DEFAULT '',
+      public_key_jwk    TEXT DEFAULT NULL,
       updated_at        TEXT NOT NULL
     )
   `);
+  // Migration: public_key_jwk Spalte
+  try { db.run(`ALTER TABLE user_directory ADD COLUMN public_key_jwk TEXT DEFAULT NULL`); } catch {}
   db.run(`
     CREATE TABLE IF NOT EXISTS invite_registry (
       short_code        TEXT PRIMARY KEY,
@@ -603,22 +606,23 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/directory') {
     try {
       const body = await readBody(req);
-      const { aregoId, displayName, firstName, lastName, nickname } = JSON.parse(body);
+      const { aregoId, displayName, firstName, lastName, nickname, publicKeyJwk } = JSON.parse(body);
       if (!aregoId) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'aregoId erforderlich' }));
         return;
       }
       db.run(
-        `INSERT INTO user_directory (arego_id, display_name, first_name, last_name, nickname, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO user_directory (arego_id, display_name, first_name, last_name, nickname, public_key_jwk, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(arego_id) DO UPDATE SET
            display_name = excluded.display_name,
            first_name = excluded.first_name,
            last_name = excluded.last_name,
            nickname = excluded.nickname,
+           public_key_jwk = COALESCE(excluded.public_key_jwk, user_directory.public_key_jwk),
            updated_at = excluded.updated_at`,
-        [aregoId, displayName ?? '', firstName ?? '', lastName ?? '', nickname ?? '', new Date().toISOString()]
+        [aregoId, displayName ?? '', firstName ?? '', lastName ?? '', nickname ?? '', publicKeyJwk ? JSON.stringify(publicKeyJwk) : null, new Date().toISOString()]
       );
       persistDb();
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1373,6 +1377,18 @@ wss.on('connection', (ws) => {
           fsk_stufe = excluded.fsk_stufe,
           letzter_heartbeat = excluded.letzter_heartbeat
       `, [aregoId, aboStatus, aboGueltigBis, fskStufe, now]);
+
+      // Public Key in user_directory speichern (für Familien-Kontaktaustausch)
+      if (msg.publicKeyJwk) {
+        db.run(
+          `INSERT INTO user_directory (arego_id, display_name, public_key_jwk, updated_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(arego_id) DO UPDATE SET
+             public_key_jwk = COALESCE(excluded.public_key_jwk, user_directory.public_key_jwk),
+             updated_at = excluded.updated_at`,
+          [aregoId, msg.displayName ?? '', JSON.stringify(msg.publicKeyJwk), now]
+        );
+      }
       persistDb();
 
       // Abo-Gültigkeit serverseitig prüfen
@@ -1446,6 +1462,27 @@ wss.on('connection', (ws) => {
         firstName: r[3], lastName: r[4], nickname: r[5], displayName: r[6],
       })) : [];
 
+      // Familien-Kontakte sammeln (Verwalter + Kinder) — mit Public Keys für automatische Kontakt-Verknüpfung
+      const familyIds = [...verwalter, ...linkedChildren.map(c => c.child_id)].filter(Boolean);
+      let familyContacts = [];
+      if (familyIds.length > 0) {
+        const placeholders = familyIds.map(() => '?').join(',');
+        const famRows = db.exec(
+          `SELECT arego_id, display_name, first_name, last_name, public_key_jwk
+           FROM user_directory WHERE arego_id IN (${placeholders})`,
+          familyIds
+        );
+        if (famRows.length && famRows[0].values.length) {
+          familyContacts = famRows[0].values
+            .filter(r => r[4]) // nur mit Public Key
+            .map(r => ({
+              aregoId: r[0],
+              displayName: [r[2], r[3]].filter(Boolean).join(' ') || r[1] || r[0],
+              publicKeyJwk: JSON.parse(r[4]),
+            }));
+        }
+      }
+
       // Session erweitern
       session.ist_kind = istKind;
       session.verwalter = verwalter;
@@ -1461,6 +1498,7 @@ wss.on('connection', (ws) => {
         verwalter,
         nickname_self_edit: nickSelfEdit,
         linked_children: linkedChildren,
+        family_contacts: familyContacts,
         statuses,
       }));
 
