@@ -4,14 +4,23 @@ plugins {
 
 android {
     namespace 'de.aregoland.chat'
-    compileSdk 34
+    compileSdk 35
+
+    signingConfigs {
+        release {
+            storeFile file('../arego-keystore.jks')
+            storePassword 'aregoland2026'
+            keyAlias 'arego-chat'
+            keyPassword 'aregoland2026'
+        }
+    }
 
     defaultConfig {
         applicationId "de.aregoland.chat"
         minSdk 21
-        targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
+        targetSdk 35
+        versionCode 3
+        versionName "1.0.2"
 
         manifestPlaceholders = [
             hostName       : "aregoland.de",
@@ -23,6 +32,7 @@ android {
 
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
         }
