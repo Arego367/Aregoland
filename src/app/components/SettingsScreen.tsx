@@ -351,6 +351,38 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
     if (identity) maybeDirectoryHeartbeat(identity.aregoId, identity.displayName);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Kind-Profildaten laden wenn Kind ausgewählt wird
+  useEffect(() => {
+    if (!selectedChild) return;
+    const child = linkedChildren.find(c => c.child_id === selectedChild);
+    if (!child) return;
+    const childProfiles = JSON.parse(localStorage.getItem('arego_child_profiles') ?? '{}');
+    const cp = childProfiles[child.child_id] ?? {};
+    setChildFirstName(cp.firstName ?? child.firstName ?? '');
+    setChildLastName(cp.lastName ?? child.lastName ?? '');
+    setChildNickname(cp.nickname ?? child.nickname ?? '');
+    setChildStatus(cp.status ?? '');
+    setChildAddresses(cp.addresses ?? []);
+    setChildSocialLinks(cp.socialLinks ?? []);
+    setChildContactEntries(cp.contactEntries ?? []);
+    setChildAvatarBase64(cp.avatarBase64 ?? null);
+    setChildNickSelfEdit(child.nickname_self_edit ?? false);
+  }, [selectedChild]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live-Updates von Kind/anderem Verwalter empfangen
+  useEffect(() => {
+    if (!selectedChild) return;
+    const handler = () => {
+      const childProfiles = JSON.parse(localStorage.getItem('arego_child_profiles') ?? '{}');
+      const cp = childProfiles[selectedChild] ?? {};
+      if (cp.nickname !== undefined) setChildNickname(cp.nickname);
+      if (cp.socialLinks !== undefined) setChildSocialLinks(cp.socialLinks);
+      if (cp.contactEntries !== undefined) setChildContactEntries(cp.contactEntries);
+    };
+    window.addEventListener('arego-child-profile-updated', handler);
+    return () => window.removeEventListener('arego-child-profile-updated', handler);
+  }, [selectedChild]);
+
   const toggleNotif = (key: keyof NotifSettings) => {
     const next = { ...notif, [key]: !notif[key] };
     if (key === "push" && !notif.push && "Notification" in window && Notification.permission === "default") {
@@ -1714,37 +1746,6 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
       const childInitial = (activeChild.firstName?.[0] || activeChild.child_id[0] || '?').toUpperCase();
       const childFsk = activeChild.fsk_stufe ?? 6;
       const isFsk16Plus = childFsk >= 16;
-
-      // Kind-Profildaten aus localStorage laden
-      const loadChildProfileData = () => {
-        const childProfiles = JSON.parse(localStorage.getItem('arego_child_profiles') ?? '{}');
-        const cp = childProfiles[activeChild.child_id] ?? {};
-        setChildFirstName(cp.firstName ?? activeChild.firstName ?? '');
-        setChildLastName(cp.lastName ?? activeChild.lastName ?? '');
-        setChildNickname(cp.nickname ?? activeChild.nickname ?? '');
-        setChildStatus(cp.status ?? '');
-        setChildAddresses(cp.addresses ?? []);
-        setChildSocialLinks(cp.socialLinks ?? []);
-        setChildContactEntries(cp.contactEntries ?? []);
-        setChildAvatarBase64(cp.avatarBase64 ?? null);
-        setChildNickSelfEdit(activeChild.nickname_self_edit ?? false);
-      };
-      if (childFirstName === '' && childLastName === '' && (activeChild.firstName || true)) {
-        loadChildProfileData();
-      }
-
-      // Auf live-Updates von Kind/anderem Verwalter lauschen
-      const handleChildProfileUpdate = () => {
-        const childProfiles = JSON.parse(localStorage.getItem('arego_child_profiles') ?? '{}');
-        const cp = childProfiles[activeChild.child_id] ?? {};
-        if (cp.nickname !== undefined) setChildNickname(cp.nickname);
-        if (cp.socialLinks !== undefined) setChildSocialLinks(cp.socialLinks);
-        if (cp.contactEntries !== undefined) setChildContactEntries(cp.contactEntries);
-      };
-      // eslint-disable-next-line
-      if (typeof window !== 'undefined') {
-        window.addEventListener('arego-child-profile-updated', handleChildProfileUpdate);
-      }
 
       const handleSaveChildProfile = () => {
         if (!identity) return;
