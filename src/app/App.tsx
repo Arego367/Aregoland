@@ -494,6 +494,7 @@ export default function App() {
 
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${proto}://${window.location.host}/ws-signal`);
+    (window as any).__aregoWs = ws;
 
     ws.onopen = () => {
       // Auth-Handshake: Arego-ID + Abo + FSK + Kontakte in einer Nachricht
@@ -708,16 +709,14 @@ export default function App() {
           return;
         }
 
-        // Kind: Verwalter hat Profil aktualisiert
+        // Kind: Verwalter hat Profil aktualisiert (legacy)
         if (msg.type === 'child_profile_updated') {
-          // Profil lokal aktualisieren
           try {
             const profile = JSON.parse(localStorage.getItem('arego_profile') ?? '{}');
             if (msg.firstName !== undefined) profile.firstName = msg.firstName;
             if (msg.lastName !== undefined) profile.lastName = msg.lastName;
             if (msg.nickname !== undefined) profile.nickname = msg.nickname;
             localStorage.setItem('arego_profile', JSON.stringify(profile));
-            // displayName in identity aktualisieren
             const idRaw = localStorage.getItem('aregoland_identity');
             if (idRaw) {
               const id = JSON.parse(idRaw);
@@ -732,6 +731,111 @@ export default function App() {
           toastEl.textContent = 'Dein Verwalter hat deinen Namen ge\u00e4ndert.';
           document.body.appendChild(toastEl);
           setTimeout(() => toastEl.remove(), 4000);
+          return;
+        }
+
+        // Kind/Verwalter: Vollständiges Profil-Sync vom Verwalter
+        if (msg.type === 'child_profile_sync' && msg.child_id && msg.profile) {
+          const isMe = identity && msg.child_id === identity.aregoId;
+          if (isMe) {
+            // Ich bin das Kind — Profil übernehmen
+            try {
+              const current = JSON.parse(localStorage.getItem('arego_profile') ?? '{}');
+              const p = msg.profile;
+              if (p.firstName !== undefined) current.firstName = p.firstName;
+              if (p.lastName !== undefined) current.lastName = p.lastName;
+              if (p.nickname !== undefined) current.nickname = p.nickname;
+              if (p.status !== undefined) current.status = p.status;
+              if (p.addresses !== undefined) current.addresses = p.addresses;
+              if (p.socialLinks !== undefined) current.socialLinks = p.socialLinks;
+              if (p.contactEntries !== undefined) current.contactEntries = p.contactEntries;
+              if (p.avatarBase64 !== undefined) current.avatarBase64 = p.avatarBase64;
+              localStorage.setItem('arego_profile', JSON.stringify(current));
+              const idRaw = localStorage.getItem('aregoland_identity');
+              if (idRaw) {
+                const id = JSON.parse(idRaw);
+                const fullName = [p.firstName, p.lastName].filter(Boolean).join(' ');
+                if (fullName) id.displayName = fullName;
+                localStorage.setItem('aregoland_identity', JSON.stringify(id));
+              }
+              window.dispatchEvent(new Event('arego-profile-updated'));
+            } catch {}
+            const toastEl = document.createElement('div');
+            toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
+            toastEl.textContent = 'Dein Verwalter hat dein Profil aktualisiert.';
+            document.body.appendChild(toastEl);
+            setTimeout(() => toastEl.remove(), 4000);
+          } else {
+            // Ich bin der andere Verwalter — Kind-Profil lokal speichern
+            try {
+              const childProfiles = JSON.parse(localStorage.getItem('arego_child_profiles') ?? '{}');
+              childProfiles[msg.child_id] = { ...childProfiles[msg.child_id], ...msg.profile, updatedAt: new Date().toISOString() };
+              localStorage.setItem('arego_child_profiles', JSON.stringify(childProfiles));
+              window.dispatchEvent(new Event('arego-child-profile-updated'));
+            } catch {}
+          }
+          return;
+        }
+
+        // Verwalter: Kind hat eigene Felder bearbeitet (Nickname, Social Media ab FSK 16)
+        if (msg.type === 'child_profile_self_edit' && msg.child_id && msg.profile) {
+          try {
+            const childProfiles = JSON.parse(localStorage.getItem('arego_child_profiles') ?? '{}');
+            const existing = childProfiles[msg.child_id] ?? {};
+            if (msg.profile.nickname !== undefined) existing.nickname = msg.profile.nickname;
+            if (msg.profile.socialLinks !== undefined) existing.socialLinks = msg.profile.socialLinks;
+            if (msg.profile.contactEntries !== undefined) existing.contactEntries = msg.profile.contactEntries;
+            existing.updatedAt = new Date().toISOString();
+            childProfiles[msg.child_id] = existing;
+            localStorage.setItem('arego_child_profiles', JSON.stringify(childProfiles));
+            window.dispatchEvent(new Event('arego-child-profile-updated'));
+          } catch {}
+          const toastEl = document.createElement('div');
+          toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
+          toastEl.textContent = 'Dein Kind hat sein Profil bearbeitet.';
+          document.body.appendChild(toastEl);
+          setTimeout(() => toastEl.remove(), 4000);
+          return;
+        }
+
+        // Kind: FSK 18 — Loslösung vom Verwalter
+        if (msg.type === 'child_detached') {
+          const isMe = identity && msg.child_id === identity.aregoId;
+          if (isMe) {
+            // Eigenes Konto: Verwalter-Daten entfernen, Abo auf trial setzen
+            try {
+              const idRaw = localStorage.getItem('aregoland_identity');
+              if (idRaw) {
+                const id = JSON.parse(idRaw);
+                delete id.ist_kind;
+                id.verwalter = [];
+                id.accountType = 'adult';
+                localStorage.setItem('aregoland_identity', JSON.stringify(id));
+              }
+              // Abo auf trial setzen
+              const abo = { status: 'trial', gueltigBis: msg.abo_gueltig_bis };
+              localStorage.setItem('aregoland_abo', JSON.stringify(abo));
+              window.dispatchEvent(new Event('arego-profile-updated'));
+            } catch {}
+            const toastEl = document.createElement('div');
+            toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
+            toastEl.textContent = 'Du bist jetzt volljährig — dein Konto ist eigenständig!';
+            document.body.appendChild(toastEl);
+            setTimeout(() => toastEl.remove(), 6000);
+          } else {
+            // Verwalter: Kind aus linkedChildren entfernen
+            try {
+              const childProfiles = JSON.parse(localStorage.getItem('arego_child_profiles') ?? '{}');
+              delete childProfiles[msg.child_id];
+              localStorage.setItem('arego_child_profiles', JSON.stringify(childProfiles));
+              window.dispatchEvent(new Event('arego-child-profile-updated'));
+            } catch {}
+            const toastEl = document.createElement('div');
+            toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
+            toastEl.textContent = `Dein Kind (FSK ${msg.new_fsk}) ist jetzt eigenständig.`;
+            document.body.appendChild(toastEl);
+            setTimeout(() => toastEl.remove(), 5000);
+          }
           return;
         }
 
@@ -1045,7 +1149,7 @@ export default function App() {
     };
 
     ws.onerror = () => {};
-    return () => ws.close();
+    return () => { ws.close(); (window as any).__aregoWs = null; };
   }, [identity?.aregoId]);
 
   // ── Navigation ─────────────────────────────────────────────────────────────

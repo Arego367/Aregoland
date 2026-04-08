@@ -1143,22 +1143,59 @@ const server = createServer(async (req, res) => {
       if (newFsk >= 16) {
         db.run(`UPDATE user_auth SET nickname_self_edit = 1 WHERE arego_id = ?`, [arego_id]);
       }
-      persistDb();
 
-      // Verwalter benachrichtigen
       const verwalter = [v1, v2].filter(Boolean);
-      for (const parentId of verwalter) {
-        const notify = JSON.stringify({ type: 'child_fsk_upgraded', child_id: arego_id, new_fsk: newFsk });
-        const parentSockets = onlineUsers.get(parentId);
-        let delivered = false;
-        if (parentSockets) {
-          for (const ws of parentSockets) { if (ws.readyState === 1) { ws.send(notify); delivered = true; } }
+
+      // ── FSK 18: Loslösung — Verknüpfung lösen + Probe-Abo ──────────────
+      if (newFsk >= 18 && verwalter.length > 0) {
+        // Verwalter-Verknüpfung entfernen
+        db.run(`UPDATE user_auth SET verwalter_1 = NULL, verwalter_2 = NULL, nickname_self_edit = 1 WHERE arego_id = ?`, [arego_id]);
+        // Frisches Probe-Abo (30 Tage)
+        const trialEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        db.run(`UPDATE user_auth SET abo_status = 'trial', abo_gueltig_bis = ? WHERE arego_id = ?`, [trialEnd, arego_id]);
+
+        // Kind benachrichtigen: Loslösung
+        const detachNotify = JSON.stringify({
+          type: 'child_detached',
+          child_id: arego_id,
+          new_fsk: newFsk,
+          abo_status: 'trial',
+          abo_gueltig_bis: trialEnd,
+        });
+        const childSockets = onlineUsers.get(arego_id);
+        if (childSockets) {
+          for (const ws of childSockets) { if (ws.readyState === 1) ws.send(detachNotify); }
+        } else {
+          storePending(`inbox:${arego_id}`, Buffer.from(detachNotify));
         }
-        if (!delivered) storePending(`inbox:${parentId}`, Buffer.from(notify));
+
+        // Verwalter benachrichtigen: Kind hat sich gelöst
+        for (const parentId of verwalter) {
+          const notify = JSON.stringify({ type: 'child_detached', child_id: arego_id, new_fsk: newFsk });
+          const parentSockets = onlineUsers.get(parentId);
+          let delivered = false;
+          if (parentSockets) {
+            for (const ws of parentSockets) { if (ws.readyState === 1) { ws.send(notify); delivered = true; } }
+          }
+          if (!delivered) storePending(`inbox:${parentId}`, Buffer.from(notify));
+        }
+      } else {
+        // Normale FSK-Hochstufung: Verwalter benachrichtigen
+        for (const parentId of verwalter) {
+          const notify = JSON.stringify({ type: 'child_fsk_upgraded', child_id: arego_id, new_fsk: newFsk });
+          const parentSockets = onlineUsers.get(parentId);
+          let delivered = false;
+          if (parentSockets) {
+            for (const ws of parentSockets) { if (ws.readyState === 1) { ws.send(notify); delivered = true; } }
+          }
+          if (!delivered) storePending(`inbox:${parentId}`, Buffer.from(notify));
+        }
       }
 
+      persistDb();
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, changed: true, fsk_stufe: newFsk }));
+      res.end(JSON.stringify({ ok: true, changed: true, fsk_stufe: newFsk, detached: newFsk >= 18 && verwalter.length > 0 }));
     } catch {
       res.writeHead(400); res.end();
     }
@@ -1565,6 +1602,74 @@ wss.on('connection', (ws) => {
         }
       } else {
         storePending(`inbox:${childId}`, Buffer.from(notify));
+      }
+      return;
+    }
+
+    // ── Verwalter sendet Kind-Profil (P2P-Sync) ───────────────────────────────
+    if (msg.type === 'child_profile_sync') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const childId = String(msg.child_id ?? '');
+      if (!childId) return;
+
+      // Prüfen ob Sender tatsächlich Verwalter ist
+      const rows = db.exec(`SELECT verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [childId]);
+      if (!rows.length || !rows[0].values.length) return;
+      const [v1, v2] = rows[0].values[0];
+      if (v1 !== session.arego_id && v2 !== session.arego_id) return;
+
+      // Profildaten weiterleiten an Kind + anderen Verwalter
+      const payload = JSON.stringify({
+        type: 'child_profile_sync',
+        child_id: childId,
+        from: session.arego_id,
+        profile: msg.profile ?? {},
+      });
+
+      const targets = [childId, v1, v2].filter(id => id && id !== session.arego_id);
+      for (const targetId of targets) {
+        const sockets = onlineUsers.get(targetId);
+        let delivered = false;
+        if (sockets) {
+          for (const s of sockets) { if (s.readyState === 1) { s.send(payload); delivered = true; } }
+        }
+        if (!delivered) storePending(`inbox:${targetId}`, Buffer.from(payload));
+      }
+      return;
+    }
+
+    // ── Kind sendet erlaubte Profiländerungen (Self-Edit) ────────────────────
+    if (msg.type === 'child_profile_self_edit') {
+      const session = wsSessions.get(ws);
+      if (!session?.ist_kind || !session.verwalter?.length) return;
+
+      // FSK prüfen für Berechtigungen
+      const fskRows = db.exec(`SELECT fsk_stufe FROM user_auth WHERE arego_id = ?`, [session.arego_id]);
+      const fskLevel = fskRows.length && fskRows[0].values.length ? fskRows[0].values[0][0] : 6;
+
+      // Nur erlaubte Felder durchlassen
+      const allowed = { nickname: msg.profile?.nickname };
+      if (fskLevel >= 16) {
+        allowed.socialLinks = msg.profile?.socialLinks;
+        allowed.contactEntries = msg.profile?.contactEntries;
+      }
+
+      const payload = JSON.stringify({
+        type: 'child_profile_self_edit',
+        child_id: session.arego_id,
+        profile: allowed,
+        fsk_stufe: fskLevel,
+      });
+
+      // An alle Verwalter senden
+      for (const parentId of session.verwalter) {
+        const sockets = onlineUsers.get(parentId);
+        let delivered = false;
+        if (sockets) {
+          for (const s of sockets) { if (s.readyState === 1) { s.send(payload); delivered = true; } }
+        }
+        if (!delivered) storePending(`inbox:${parentId}`, Buffer.from(payload));
       }
       return;
     }

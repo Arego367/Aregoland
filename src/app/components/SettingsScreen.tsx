@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Pencil, Save, ToggleLeft, ToggleRight } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Pencil, Save, ToggleLeft, ToggleRight, Plus } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, type LinkedChild } from "@/app/auth/identity";
@@ -206,9 +206,15 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [childFirstName, setChildFirstName] = useState("");
   const [childLastName, setChildLastName] = useState("");
   const [childNickname, setChildNickname] = useState("");
+  const [childStatus, setChildStatus] = useState("");
+  const [childAddresses, setChildAddresses] = useState<{ label: string; street: string; houseNumber: string; zipCode: string; city: string; country: string }[]>([]);
+  const [childSocialLinks, setChildSocialLinks] = useState<{ platform: string; username: string }[]>([]);
+  const [childContactEntries, setChildContactEntries] = useState<{ type: string; label: string; value: string }[]>([]);
+  const [childAvatarBase64, setChildAvatarBase64] = useState<string | null>(null);
   const [childNickSelfEdit, setChildNickSelfEdit] = useState(false);
   const [childNameSaving, setChildNameSaving] = useState(false);
   const [childNameToast, setChildNameToast] = useState(false);
+  const childAvatarInputRef = useRef<HTMLInputElement>(null);
   const [verwalterNames, setVerwalterNames] = useState<{ id: string; name: string }[]>([]);
   const [notif, setNotif] = useState<NotifSettings>(loadNotifSettings);
   const [idCopied, setIdCopied] = useState(false);
@@ -1700,58 +1706,87 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
       setShowAddChild(true);
     };
 
-    // Eltern-Kontrollzentrale fuer ein einzelnes Kind
+    // Eltern-Kontrollzentrale fuer ein einzelnes Kind — vollständiges Profil
     const activeChild = selectedChild ? linkedChildren.find(c => c.child_id === selectedChild) : null;
     if (activeChild) {
 
       const childDisplayName = [activeChild.firstName, activeChild.lastName].filter(Boolean).join(' ') || activeChild.displayName || activeChild.child_id;
       const childInitial = (activeChild.firstName?.[0] || activeChild.child_id[0] || '?').toUpperCase();
-      const isFsk16Plus = (activeChild.fsk_stufe ?? 6) >= 16;
+      const childFsk = activeChild.fsk_stufe ?? 6;
+      const isFsk16Plus = childFsk >= 16;
 
-      // Kind-Daten laden wenn Kind ausgewählt wird
-      const loadChildData = () => {
-        setChildFirstName(activeChild.firstName ?? '');
-        setChildLastName(activeChild.lastName ?? '');
-        setChildNickname(activeChild.nickname ?? '');
+      // Kind-Profildaten aus localStorage laden
+      const loadChildProfileData = () => {
+        const childProfiles = JSON.parse(localStorage.getItem('arego_child_profiles') ?? '{}');
+        const cp = childProfiles[activeChild.child_id] ?? {};
+        setChildFirstName(cp.firstName ?? activeChild.firstName ?? '');
+        setChildLastName(cp.lastName ?? activeChild.lastName ?? '');
+        setChildNickname(cp.nickname ?? activeChild.nickname ?? '');
+        setChildStatus(cp.status ?? '');
+        setChildAddresses(cp.addresses ?? []);
+        setChildSocialLinks(cp.socialLinks ?? []);
+        setChildContactEntries(cp.contactEntries ?? []);
+        setChildAvatarBase64(cp.avatarBase64 ?? null);
         setChildNickSelfEdit(activeChild.nickname_self_edit ?? false);
       };
-      // Initial laden (beim ersten Render)
-      if (childFirstName === '' && childLastName === '' && activeChild.firstName) {
-        loadChildData();
+      if (childFirstName === '' && childLastName === '' && (activeChild.firstName || true)) {
+        loadChildProfileData();
       }
 
-      const handleSaveChildName = async () => {
+      // Auf live-Updates von Kind/anderem Verwalter lauschen
+      const handleChildProfileUpdate = () => {
+        const childProfiles = JSON.parse(localStorage.getItem('arego_child_profiles') ?? '{}');
+        const cp = childProfiles[activeChild.child_id] ?? {};
+        if (cp.nickname !== undefined) setChildNickname(cp.nickname);
+        if (cp.socialLinks !== undefined) setChildSocialLinks(cp.socialLinks);
+        if (cp.contactEntries !== undefined) setChildContactEntries(cp.contactEntries);
+      };
+      // eslint-disable-next-line
+      if (typeof window !== 'undefined') {
+        window.addEventListener('arego-child-profile-updated', handleChildProfileUpdate);
+      }
+
+      const handleSaveChildProfile = () => {
         if (!identity) return;
         setChildNameSaving(true);
-        try {
-          const resp = await fetch('/child-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              child_id: activeChild.child_id,
-              parent_id: identity.aregoId,
-              firstName: childFirstName.trim(),
-              lastName: childLastName.trim(),
-              nickname: childNickname.trim(),
-            }),
-          });
-          if (resp.ok) {
-            // Lokale Daten aktualisieren
-            setLinkedChildren(prev => prev.map(c =>
-              c.child_id === activeChild.child_id
-                ? { ...c, firstName: childFirstName.trim(), lastName: childLastName.trim(), nickname: childNickname.trim(), displayName: [childFirstName.trim(), childLastName.trim()].filter(Boolean).join(' ') }
-                : c
-            ));
-            setChildNameToast(true);
-            setTimeout(() => setChildNameToast(false), 2500);
-          } else {
-            const errData = await resp.json().catch(() => ({}));
-            console.error('child-profile Server-Fehler:', resp.status, errData);
-          }
-        } catch (err) {
-          console.error('child-profile Netzwerk-Fehler:', err);
+
+        const profile = {
+          firstName: childFirstName.trim(),
+          lastName: childLastName.trim(),
+          nickname: childNickname.trim(),
+          status: childStatus.trim(),
+          addresses: childAddresses,
+          socialLinks: childSocialLinks.filter(l => l.username.trim()),
+          contactEntries: childContactEntries.filter(c => c.value.trim()),
+          avatarBase64: childAvatarBase64,
+        };
+
+        // Lokal speichern
+        const childProfiles = JSON.parse(localStorage.getItem('arego_child_profiles') ?? '{}');
+        childProfiles[activeChild.child_id] = { ...profile, updatedAt: new Date().toISOString() };
+        localStorage.setItem('arego_child_profiles', JSON.stringify(childProfiles));
+
+        // An Kind + anderen Verwalter per WebSocket senden
+        const wsEl = document.querySelector('[data-ws-ref]') as HTMLElement | null;
+        const wsRaw = (window as any).__aregoWs;
+        if (wsRaw && wsRaw.readyState === 1) {
+          wsRaw.send(JSON.stringify({
+            type: 'child_profile_sync',
+            child_id: activeChild.child_id,
+            profile,
+          }));
         }
+
+        // linkedChildren lokal updaten
+        setLinkedChildren(prev => prev.map(c =>
+          c.child_id === activeChild.child_id
+            ? { ...c, firstName: profile.firstName, lastName: profile.lastName, nickname: profile.nickname, displayName: [profile.firstName, profile.lastName].filter(Boolean).join(' ') }
+            : c
+        ));
+
         setChildNameSaving(false);
+        setChildNameToast(true);
+        setTimeout(() => setChildNameToast(false), 2500);
       };
 
       const handleToggleNickSelfEdit = async () => {
@@ -1778,6 +1813,15 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
         }
       };
 
+      const handleChildAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || file.size > 500_000) return;
+        const reader = new FileReader();
+        reader.onload = () => setChildAvatarBase64(reader.result as string);
+        reader.readAsDataURL(file);
+        e.target.value = '';
+      };
+
       return (
         <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
           {/* Save Toast */}
@@ -1796,94 +1840,214 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           </AnimatePresence>
 
           <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
-            <button onClick={() => { setSelectedChild(null); setChildFirstName(''); setChildLastName(''); setChildNickname(''); }} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all">
+            <button onClick={() => { setSelectedChild(null); setChildFirstName(''); setChildLastName(''); setChildNickname(''); setChildStatus(''); setChildAddresses([]); setChildSocialLinks([]); setChildContactEntries([]); setChildAvatarBase64(null); }} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all">
               <ArrowLeft size={24} />
             </button>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                {childInitial}
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm overflow-hidden">
+                {childAvatarBase64 ? <img src={childAvatarBase64} alt="" className="w-full h-full object-cover" /> : childInitial}
               </div>
               <h1 className="text-xl font-bold">{childDisplayName}</h1>
             </div>
           </header>
 
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-4 max-w-lg mx-auto">
+            <div className="space-y-6 max-w-lg mx-auto">
 
               {/* FSK-Status */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
                 <Shield size={20} className="text-green-400 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-green-400">FSK {activeChild.fsk_stufe} — {t('settings.childFskProtected')}</p>
+                  <p className="text-sm font-medium text-green-400">FSK {childFsk} — {t('settings.childFskProtected')}</p>
                   <p className="text-xs text-gray-500">{t('settings.childFskUpgradeHint')}</p>
                 </div>
               </div>
 
-              {/* Name bearbeiten */}
+              {/* Avatar */}
+              <div className="flex justify-center">
+                <div className="relative group cursor-pointer" onClick={() => childAvatarInputRef.current?.click()}>
+                  <div className="w-24 h-24 rounded-full border-4 border-gray-800 shadow-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center overflow-hidden">
+                    {childAvatarBase64 ? (
+                      <img src={childAvatarBase64} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-3xl font-bold text-white select-none">{childInitial}</span>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera size={24} className="text-white" />
+                  </div>
+                  <div className="absolute bottom-0 right-0 bg-pink-600 p-1.5 rounded-full border-3 border-gray-900 text-white">
+                    <Camera size={12} />
+                  </div>
+                  {childAvatarBase64 && (
+                    <button onClick={(e) => { e.stopPropagation(); setChildAvatarBase64(null); }} className="absolute top-0 right-0 bg-red-600 p-1 rounded-full border-2 border-gray-900 text-white hover:bg-red-500">
+                      <X size={10} />
+                    </button>
+                  )}
+                  <input ref={childAvatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleChildAvatarUpload} />
+                </div>
+              </div>
+
+              {/* Persönliche Daten */}
               <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-1">
                   <Pencil size={16} className="text-pink-400" />
-                  <h3 className="font-medium text-sm">{t('settings.childEditName')}</h3>
+                  <h3 className="font-medium text-sm">{t('profile.personalData')}</h3>
                 </div>
-                <p className="text-xs text-gray-500">{t('settings.childEditNameDesc')}</p>
 
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={childFirstName}
-                    onChange={e => setChildFirstName(e.target.value)}
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="text" value={childFirstName} onChange={e => setChildFirstName(e.target.value)}
                     placeholder={t('settings.childFirstName')}
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50"
-                  />
-                  <input
-                    type="text"
-                    value={childLastName}
-                    onChange={e => setChildLastName(e.target.value)}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50" />
+                  <input type="text" value={childLastName} onChange={e => setChildLastName(e.target.value)}
                     placeholder={t('settings.childLastName')}
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50"
-                  />
-                  <input
-                    type="text"
-                    value={childNickname}
-                    onChange={e => setChildNickname(e.target.value)}
-                    placeholder={t('settings.childNickname')}
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50"
-                  />
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50" />
                 </div>
 
-                <button
-                  onClick={handleSaveChildName}
-                  disabled={childNameSaving}
-                  className="w-full bg-pink-600 hover:bg-pink-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  <Save size={16} />
-                  {childNameSaving ? '...' : t('settings.childNameSaved').replace('gespeichert', 'speichern')}
+                <div className="flex items-center gap-2">
+                  <input type="text" value={childNickname} onChange={e => setChildNickname(e.target.value)}
+                    placeholder={t('settings.childNickname')}
+                    readOnly={isFsk16Plus}
+                    className={`flex-1 bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50 ${isFsk16Plus ? 'opacity-60 cursor-not-allowed' : ''}`} />
+                  {isFsk16Plus && <Lock size={14} className="text-orange-400 shrink-0" />}
+                </div>
+                {isFsk16Plus && <p className="text-[10px] text-orange-400/70">Spitzname wird ab FSK 16 vom Kind selbst verwaltet</p>}
+
+                <input type="text" value={childStatus} onChange={e => setChildStatus(e.target.value)}
+                  placeholder={t('profile.statusPlaceholder')}
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50" />
+              </div>
+
+              {/* Adressen */}
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <MapPin size={16} className="text-blue-400" />
+                  <h3 className="font-medium text-sm">{t('profile.address')}</h3>
+                </div>
+
+                {childAddresses.map((addr, idx) => (
+                  <div key={idx} className="bg-gray-900/50 border border-gray-700/50 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-blue-400">{addr.label}</span>
+                      <button onClick={() => setChildAddresses(prev => prev.filter((_, i) => i !== idx))} className="p-1 text-gray-500 hover:text-red-400">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input type="text" value={addr.street} onChange={e => setChildAddresses(prev => prev.map((a, i) => i === idx ? { ...a, street: e.target.value } : a))}
+                        placeholder="Straße" className="col-span-2 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
+                      <input type="text" value={addr.houseNumber} onChange={e => setChildAddresses(prev => prev.map((a, i) => i === idx ? { ...a, houseNumber: e.target.value } : a))}
+                        placeholder="Nr." className="bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input type="text" value={addr.zipCode} onChange={e => setChildAddresses(prev => prev.map((a, i) => i === idx ? { ...a, zipCode: e.target.value } : a))}
+                        placeholder="PLZ" className="bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
+                      <input type="text" value={addr.city} onChange={e => setChildAddresses(prev => prev.map((a, i) => i === idx ? { ...a, city: e.target.value } : a))}
+                        placeholder="Stadt" className="col-span-2 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50" />
+                    </div>
+                  </div>
+                ))}
+
+                <button onClick={() => setChildAddresses(prev => [...prev, { label: 'Zuhause', street: '', houseNumber: '', zipCode: '', city: '', country: 'Deutschland' }])}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-700/50 border-dashed rounded-xl text-gray-400 hover:text-white hover:border-pink-500/50 text-xs font-medium">
+                  <Plus size={14} /> {t('profile.addAddress')}
                 </button>
+              </div>
+
+              {/* Social Media */}
+              <div className={`bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3 ${isFsk16Plus ? 'opacity-60' : ''}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <LinkIcon size={16} className="text-purple-400" />
+                  <h3 className="font-medium text-sm">{t('profile.socialMedia')}</h3>
+                  {isFsk16Plus && <Lock size={12} className="text-orange-400 ml-auto" />}
+                </div>
+                {isFsk16Plus && <p className="text-[10px] text-orange-400/70">Ab FSK 16 wird Social Media vom Kind selbst verwaltet</p>}
+
+                {childSocialLinks.map((link, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input type="text" value={link.platform} readOnly
+                      className="w-20 bg-gray-900/50 border border-gray-700 rounded-lg px-2 py-2 text-xs text-gray-400" />
+                    <input type="text" value={link.username}
+                      onChange={e => { if (!isFsk16Plus) setChildSocialLinks(prev => prev.map((l, i) => i === idx ? { ...l, username: e.target.value } : l)); }}
+                      readOnly={isFsk16Plus}
+                      placeholder="@username"
+                      className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg px-2 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50" />
+                    {!isFsk16Plus && (
+                      <button onClick={() => setChildSocialLinks(prev => prev.filter((_, i) => i !== idx))} className="p-1 text-gray-500 hover:text-red-400">
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {!isFsk16Plus && (
+                  <button onClick={() => setChildSocialLinks(prev => [...prev, { platform: 'instagram', username: '' }])}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-700/50 border-dashed rounded-xl text-gray-400 hover:text-white hover:border-purple-500/50 text-xs font-medium">
+                    <Plus size={14} /> {t('profile.addSocial')}
+                  </button>
+                )}
+              </div>
+
+              {/* Kontaktdaten */}
+              <div className={`bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3 ${isFsk16Plus ? 'opacity-60' : ''}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Phone size={16} className="text-green-400" />
+                  <h3 className="font-medium text-sm">{t('profile.contact')}</h3>
+                  {isFsk16Plus && <Lock size={12} className="text-orange-400 ml-auto" />}
+                </div>
+                {isFsk16Plus && <p className="text-[10px] text-orange-400/70">Ab FSK 16 werden Kontaktdaten vom Kind selbst verwaltet</p>}
+
+                {childContactEntries.map((entry, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <select value={entry.type}
+                      onChange={e => { if (!isFsk16Plus) setChildContactEntries(prev => prev.map((c, i) => i === idx ? { ...c, type: e.target.value } : c)); }}
+                      disabled={isFsk16Plus}
+                      className="w-20 bg-gray-900/50 border border-gray-700 rounded-lg px-1 py-2 text-xs text-gray-400">
+                      <option value="phone">Telefon</option>
+                      <option value="mobile">Handy</option>
+                      <option value="email">E-Mail</option>
+                    </select>
+                    <input type="text" value={entry.value}
+                      onChange={e => { if (!isFsk16Plus) setChildContactEntries(prev => prev.map((c, i) => i === idx ? { ...c, value: e.target.value } : c)); }}
+                      readOnly={isFsk16Plus}
+                      placeholder="Wert"
+                      className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg px-2 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-green-500/50" />
+                    {!isFsk16Plus && (
+                      <button onClick={() => setChildContactEntries(prev => prev.filter((_, i) => i !== idx))} className="p-1 text-gray-500 hover:text-red-400">
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {!isFsk16Plus && (
+                  <button onClick={() => setChildContactEntries(prev => [...prev, { type: 'mobile', label: 'Privat', value: '' }])}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-700/50 border-dashed rounded-xl text-gray-400 hover:text-white hover:border-green-500/50 text-xs font-medium">
+                    <Plus size={14} /> {t('profile.addContact')}
+                  </button>
+                )}
               </div>
 
               {/* Spitzname-Toggle */}
               <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-                <button
-                  onClick={handleToggleNickSelfEdit}
-                  disabled={isFsk16Plus}
-                  className="w-full flex items-center justify-between"
-                >
+                <button onClick={handleToggleNickSelfEdit} disabled={isFsk16Plus} className="w-full flex items-center justify-between">
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium">{t('settings.childNicknameSelfEdit')}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{t('settings.childNicknameSelfEditHint')}</p>
                   </div>
                   <div className="ml-3 shrink-0">
-                    {(childNickSelfEdit || isFsk16Plus) ? (
-                      <ToggleRight size={28} className="text-pink-400" />
-                    ) : (
-                      <ToggleLeft size={28} className="text-gray-600" />
-                    )}
+                    {(childNickSelfEdit || isFsk16Plus) ? <ToggleRight size={28} className="text-pink-400" /> : <ToggleLeft size={28} className="text-gray-600" />}
                   </div>
                 </button>
-                {isFsk16Plus && (
-                  <p className="text-xs text-pink-400/70">{t('settings.childNicknameFsk16Auto')}</p>
-                )}
+                {isFsk16Plus && <p className="text-xs text-pink-400/70">{t('settings.childNicknameFsk16Auto')}</p>}
               </div>
+
+              {/* Speichern */}
+              <button onClick={handleSaveChildProfile} disabled={childNameSaving}
+                className="w-full bg-pink-600 hover:bg-pink-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold py-3.5 rounded-2xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-pink-600/20">
+                <Save size={18} />
+                {childNameSaving ? '...' : 'Profil speichern'}
+              </button>
 
               {/* Info: Anfragen kommen als Toast */}
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 flex gap-3">
