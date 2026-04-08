@@ -196,32 +196,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
     }
   }, [startDropdownOpen]);
   const [profileVisibility, setProfileVisibility] = useState<"public" | "contacts" | "family" | "private">("contacts");
-  const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>(() => {
-    try { return JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]'); } catch { return []; }
-  });
-  // Live-Update wenn Kind verknüpft wird — sofort sessionStorage lesen + vom Server nachladen
-  useEffect(() => {
-    const handler = () => {
-      // Sofort aus sessionStorage aktualisieren (schnelle Anzeige)
-      try { setLinkedChildren(JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]')); } catch {}
-      // Dann vom Server nachladen (vollstaendige Daten mit Namen)
-      const id = loadIdentity();
-      if (id) {
-        fetch(`/child-link/${encodeURIComponent(id.aregoId)}`)
-          .then(r => r.ok ? r.json() : null)
-          .then(data => {
-            if (data?.children) {
-              setLinkedChildren(data.children);
-              sessionStorage.setItem('aregoland_linked_children', JSON.stringify(data.children));
-            }
-          })
-          .catch(() => {});
-      }
-    };
-    window.addEventListener('arego-child-linked', handler);
-    return () => window.removeEventListener('arego-child-linked', handler);
-  }, []);
-  // Familie-Kinder vom Server laden: wird unten nach identity-Deklaration registriert
+  const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>([]);
   const [showAddChild, setShowAddChild] = useState(false);
 
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -247,12 +222,11 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   // Familie-Kinder vom Server laden wenn Familie-Seite geoeffnet wird
   useEffect(() => {
     if (activeSubmenu !== 'family' || !identity) return;
-    fetch(`/child-link/${encodeURIComponent(identity.aregoId)}`)
+    fetch(`/whoami/${encodeURIComponent(identity.aregoId)}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data?.children) {
-          setLinkedChildren(data.children);
-          sessionStorage.setItem('aregoland_linked_children', JSON.stringify(data.children));
+        if (data?.linked_children) {
+          setLinkedChildren(data.linked_children);
         }
       })
       .catch(() => {});
@@ -323,16 +297,20 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           saveFsk(fskUpdate);
           onFskUpdated?.();
 
-          // Server benachrichtigen — Server informiert beide per WS
-          fetch('/child-link', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ child_id: childId, parent_id: parentId }),
-          }).catch(() => {});
+          // Server benachrichtigen — Server schreibt verwalter in user_auth
+          try {
+            const resp = await fetch('/child-link', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ child_id: childId, parent_id: parentId }),
+            });
+            if (!resp.ok) console.error('child-link fehlgeschlagen:', resp.status);
+          } catch (err) {
+            console.error('child-link Netzwerkfehler:', err);
+          }
 
           setParentScanActive(false);
           setParentLinked(parentId);
-          // Toast kommt automatisch per WebSocket child_linked + BroadcastChannel
         },
         () => {} // Kein Fehler bei fehlgeschlagenem Frame
       );
@@ -1621,7 +1599,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
     const activeChild = selectedChild ? linkedChildren.find(c => c.child_id === selectedChild) : null;
     if (activeChild) {
 
-      const childName = activeChild.nickname || `${activeChild.first_name} ${activeChild.last_name}`.trim() || activeChild.child_id;
+      const childName = activeChild.child_id;
 
       return (
         <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
@@ -1706,7 +1684,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               ) : (
                 <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
                   {linkedChildren.map((child) => {
-                    const name = child.nickname || `${child.first_name} ${child.last_name}`.trim() || child.child_id;
+                    const name = child.child_id;
                     return (
                       <button
                         key={child.child_id}

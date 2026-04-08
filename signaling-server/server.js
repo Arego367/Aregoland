@@ -123,27 +123,38 @@ async function initDb() {
       letzter_heartbeat TEXT NOT NULL
     )
   `);
-  db.run(`
-    CREATE TABLE IF NOT EXISTS child_links (
-      child_id          TEXT NOT NULL,
-      parent_id         TEXT NOT NULL,
-      child_first_name  TEXT DEFAULT '',
-      child_last_name   TEXT DEFAULT '',
-      child_nickname    TEXT DEFAULT '',
-      fsk_stufe         INTEGER NOT NULL DEFAULT 6,
-      created_at        TEXT NOT NULL,
-      PRIMARY KEY (child_id, parent_id)
-    )
-  `);
+  // child_links Tabelle entfernt — Verwalter-Info jetzt direkt in user_auth
   db.run(`
     CREATE TABLE IF NOT EXISTS user_auth (
       arego_id          TEXT PRIMARY KEY,
       abo_status        TEXT NOT NULL DEFAULT 'trial',
       abo_gueltig_bis   TEXT DEFAULT NULL,
       fsk_stufe         INTEGER NOT NULL DEFAULT 6,
+      verwalter_1       TEXT DEFAULT NULL,
+      verwalter_2       TEXT DEFAULT NULL,
       letzter_heartbeat TEXT NOT NULL
     )
   `);
+  // Migration: verwalter-Spalten hinzufügen falls Tabelle schon existiert
+  try { db.run(`ALTER TABLE user_auth ADD COLUMN verwalter_1 TEXT DEFAULT NULL`); } catch {}
+  try { db.run(`ALTER TABLE user_auth ADD COLUMN verwalter_2 TEXT DEFAULT NULL`); } catch {}
+  // Migration: child_links Daten in user_auth übernehmen, dann Tabelle löschen
+  try {
+    const links = db.exec(`SELECT child_id, parent_id FROM child_links ORDER BY created_at`);
+    if (links.length) {
+      for (const row of links[0].values) {
+        const [childId, parentId] = row;
+        const existing = db.exec(`SELECT verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [childId]);
+        if (existing.length) {
+          const v1 = existing[0].values[0][0];
+          const v2 = existing[0].values[0][1];
+          if (!v1) db.run(`UPDATE user_auth SET verwalter_1 = ? WHERE arego_id = ?`, [parentId, childId]);
+          else if (!v2 && v1 !== parentId) db.run(`UPDATE user_auth SET verwalter_2 = ? WHERE arego_id = ?`, [parentId, childId]);
+        }
+      }
+    }
+    db.run(`DROP TABLE IF EXISTS child_links`);
+  } catch {}
   persistDb();
 }
 
@@ -814,7 +825,35 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // ── POST /child-link — Kind mit Elternteil verknüpfen ───────────────────────
+  // ── GET /whoami/:arego_id — Server als einzige Wahrheitsquelle ──────────────
+  const whoamiMatch = req.method === 'GET' && req.url?.match(/^\/whoami\/(.+)$/);
+  if (whoamiMatch) {
+    try {
+      const aregoId = decodeURIComponent(whoamiMatch[1]);
+      const rows = db.exec(`SELECT abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [aregoId]);
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not_found' }));
+        return;
+      }
+      const [abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2] = rows[0].values[0];
+      const ist_kind = !!(verwalter_1 || verwalter_2);
+
+      // Verknüpfte Kinder dieses Nutzers (als Elternteil)
+      const childRows = db.exec(`SELECT arego_id, fsk_stufe FROM user_auth WHERE verwalter_1 = ? OR verwalter_2 = ?`, [aregoId, aregoId]);
+      const linked_children = childRows.length ? childRows[0].values.map(r => ({
+        child_id: r[0], fsk_stufe: r[1],
+      })) : [];
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ arego_id: aregoId, abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, ist_kind, linked_children }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── POST /child-link — Kind mit Elternteil verknüpfen (in user_auth) ──────
   if (req.method === 'POST' && req.url === '/child-link') {
     try {
       const body = await readBody(req);
@@ -824,29 +863,37 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'child_id und parent_id erforderlich' }));
         return;
       }
-      // Max 2 Elternteile pro Kind
-      const existing = db.exec(`SELECT COUNT(*) FROM child_links WHERE child_id = ?`, [child_id]);
-      const count = existing.length ? existing[0].values[0][0] : 0;
-      if (count >= 2) {
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'max_parents', message: 'Maximal 2 Elternteile pro Kind' }));
-        return;
+      // Aktuellen Verwalter-Status prüfen
+      const existing = db.exec(`SELECT verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [child_id]);
+      if (!existing.length || !existing[0].values.length) {
+        // Kind hat noch keinen user_auth Eintrag — anlegen
+        const now = new Date().toISOString();
+        db.run(`INSERT INTO user_auth (arego_id, verwalter_1, fsk_stufe, letzter_heartbeat) VALUES (?, ?, 6, ?)`, [child_id, parent_id, now]);
+      } else {
+        const [v1, v2] = existing[0].values[0];
+        if (v1 === parent_id || v2 === parent_id) {
+          // Bereits verknüpft
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, already_linked: true }));
+          return;
+        }
+        if (v1 && v2) {
+          res.writeHead(409, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'max_parents', message: 'Maximal 2 Elternteile pro Kind' }));
+          return;
+        }
+        if (!v1) {
+          db.run(`UPDATE user_auth SET verwalter_1 = ?, fsk_stufe = 6 WHERE arego_id = ?`, [parent_id, child_id]);
+        } else {
+          db.run(`UPDATE user_auth SET verwalter_2 = ?, fsk_stufe = 6 WHERE arego_id = ?`, [parent_id, child_id]);
+        }
       }
-      const now = new Date().toISOString();
-      db.run(`
-        INSERT OR REPLACE INTO child_links (child_id, parent_id, child_first_name, child_last_name, child_nickname, fsk_stufe, created_at)
-        VALUES (?, ?, '', '', '', 6, ?)
-      `, [child_id, parent_id, now]);
-
-      // Kind als ist_kind markieren in user_auth
-      db.run(`UPDATE user_auth SET fsk_stufe = 6 WHERE arego_id = ?`, [child_id]);
       persistDb();
 
       // Beide per WebSocket benachrichtigen
       const notifyParent = JSON.stringify({ type: 'child_linked', child_id, role: 'parent' });
       const notifyChild = JSON.stringify({ type: 'child_linked', parent_id, role: 'child' });
 
-      // Elternteil benachrichtigen
       const parentSockets = onlineUsers.get(parent_id);
       let parentDelivered = false;
       if (parentSockets) {
@@ -854,7 +901,6 @@ const server = createServer(async (req, res) => {
       }
       if (!parentDelivered) storePending(`inbox:${parent_id}`, Buffer.from(notifyParent));
 
-      // Kind benachrichtigen
       const childSockets = onlineUsers.get(child_id);
       let childDelivered = false;
       if (childSockets) {
@@ -866,23 +912,6 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: true }));
     } catch {
       res.writeHead(400); res.end();
-    }
-    return;
-  }
-
-  // ── GET /child-link/:parent_id — Verknüpfte Kinder eines Elternteils ──────
-  const childLinkMatch = req.method === 'GET' && req.url?.match(/^\/child-link\/(.+)$/);
-  if (childLinkMatch) {
-    try {
-      const parentId = decodeURIComponent(childLinkMatch[1]);
-      const rows = db.exec(`SELECT child_id, child_first_name, child_last_name, child_nickname, fsk_stufe, created_at FROM child_links WHERE parent_id = ?`, [parentId]);
-      const children = rows.length ? rows[0].values.map(r => ({
-        child_id: r[0], first_name: r[1], last_name: r[2], nickname: r[3], fsk_stufe: r[4], created_at: r[5],
-      })) : [];
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ children }));
-    } catch {
-      res.writeHead(500); res.end();
     }
     return;
   }
@@ -1141,15 +1170,17 @@ wss.on('connection', (ws) => {
         statuses[id] = !!(sockets && sockets.size > 0);
       }
 
-      // Kind-Status aus child_links ermitteln
-      const childRows = db.exec(`SELECT parent_id FROM child_links WHERE child_id = ?`, [aregoId]);
-      const verwalter = childRows.length ? childRows[0].values.map(r => r[0]) : [];
+      // Kind-Status aus user_auth ermitteln (verwalter_1/verwalter_2)
+      const authRows = db.exec(`SELECT verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [aregoId]);
+      const v1 = authRows.length ? authRows[0].values[0][0] : null;
+      const v2 = authRows.length ? authRows[0].values[0][1] : null;
+      const verwalter = [v1, v2].filter(Boolean);
       const istKind = verwalter.length > 0;
 
       // Verknüpfte Kinder dieses Nutzers (als Elternteil)
-      const linkedRows = db.exec(`SELECT child_id, child_first_name, child_last_name, child_nickname, fsk_stufe FROM child_links WHERE parent_id = ?`, [aregoId]);
+      const linkedRows = db.exec(`SELECT arego_id, fsk_stufe FROM user_auth WHERE verwalter_1 = ? OR verwalter_2 = ?`, [aregoId, aregoId]);
       const linkedChildren = linkedRows.length ? linkedRows[0].values.map(r => ({
-        child_id: r[0], first_name: r[1], last_name: r[2], nickname: r[3], fsk_stufe: r[4],
+        child_id: r[0], fsk_stufe: r[1],
       })) : [];
 
       // Session erweitern

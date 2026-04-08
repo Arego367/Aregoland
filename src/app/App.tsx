@@ -37,9 +37,9 @@ import ChatScreen from "@/app/components/ChatScreen";
 import DocumentsScreen from "@/app/components/DocumentsScreen";
 import CalendarScreen from "@/app/components/CalendarScreen";
 import { Tab } from "@/app/types";
-import { loadIdentity, UserIdentity } from "@/app/auth/identity";
+import { loadIdentity, UserIdentity, setKindStatus } from "@/app/auth/identity";
 import { loadSubscription, hasAccess, initSubscription, getEffectiveStatus } from "@/app/auth/subscription";
-import { loadFsk, initFsk, isFskVerified, isFeatureLocked } from "@/app/auth/fsk";
+import { loadFsk, initFsk, saveFsk, isFskVerified, isFeatureLocked, type FskLevel } from "@/app/auth/fsk";
 import { deriveRoomId, decodePayload } from "@/app/auth/share";
 import { saveContact, isNonceUsed, markNonceUsed, loadContacts, removeContact } from "@/app/auth/contacts";
 import {
@@ -421,6 +421,7 @@ export default function App() {
   }, []);
 
   // Beim Start prüfen ob bereits eine Identität existiert → direkt zum Startscreen
+  // Server ist die einzige Wahrheitsquelle — /whoami überschreibt lokale Daten
   useEffect(() => {
     const existing = loadIdentity();
     if (existing) {
@@ -429,6 +430,25 @@ export default function App() {
       let fsk = loadFsk();
       if (!fsk) fsk = initFsk();
       setFskStatus(fsk);
+
+      // Server als Wahrheitsquelle: /whoami überschreibt lokale FSK, Abo, Kind-Status
+      fetch(`/whoami/${encodeURIComponent(existing.aregoId)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) {
+            // FSK vom Server übernehmen
+            const serverFsk: FskLevel = [6, 12, 16, 18].includes(data.fsk_stufe) ? data.fsk_stufe : 6;
+            const updatedFsk = { level: serverFsk, verified: serverFsk > 6, verifiedAt: fsk?.verifiedAt ?? null, method: fsk?.method ?? null };
+            saveFsk(updatedFsk);
+            setFskStatus(updatedFsk);
+
+            // Kind-Status vom Server übernehmen
+            if (data.verwalter_1) setKindStatus(data.verwalter_1);
+            if (data.verwalter_2) setKindStatus(data.verwalter_2);
+          }
+        })
+        .catch(() => {}); // Offline: lokale Daten als Fallback
+
       // Abo pruefen — Legacy-Accounts ohne Subscription erhalten ein Trial
       let sub = loadSubscription();
       if (!sub) sub = initSubscription();
@@ -511,10 +531,6 @@ export default function App() {
               return next;
             });
           }
-          // Verknüpfte Kinder vom Server im SessionStorage cachen
-          if (msg.linked_children) {
-            sessionStorage.setItem('aregoland_linked_children', JSON.stringify(msg.linked_children));
-          }
           return;
         }
 
@@ -534,18 +550,11 @@ export default function App() {
           return;
         }
 
-        // Kind-Eltern-Verknuepfung — Toast fuer beide + Cross-Tab-Broadcast
+        // Kind-Eltern-Verknuepfung — Toast anzeigen
         if (msg.type === 'child_linked') {
-          if (msg.role === 'parent') {
-            // Elternteil: Kind wurde verknuepft
-            try {
-              const cached = JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]');
-              if (!cached.some((c: { child_id: string }) => c.child_id === msg.child_id)) {
-                cached.push({ child_id: msg.child_id, first_name: '', last_name: '', nickname: '', fsk_stufe: 6 });
-                sessionStorage.setItem('aregoland_linked_children', JSON.stringify(cached));
-              }
-            } catch {}
-            window.dispatchEvent(new CustomEvent('arego-child-linked'));
+          if (msg.role === 'child' && msg.parent_id) {
+            // Kind: Verwalter lokal speichern
+            setKindStatus(msg.parent_id);
           }
           // Toast anzeigen
           const toastEl = document.createElement('div');
@@ -555,12 +564,6 @@ export default function App() {
             : 'Du wurdest mit einem Elternteil verkn\u00fcpft';
           document.body.appendChild(toastEl);
           setTimeout(() => toastEl.remove(), 4000);
-          // Cross-Tab-Broadcast (PWA: andere Tabs/Fenster aktualisieren)
-          try {
-            const bc = new BroadcastChannel('arego-child-link');
-            bc.postMessage({ type: 'child_linked', role: msg.role, child_id: msg.child_id, parent_id: msg.parent_id });
-            bc.close();
-          } catch {}
           return;
         }
 
@@ -878,35 +881,6 @@ export default function App() {
     ws.onerror = () => {};
     return () => ws.close();
   }, [identity?.aregoId]);
-
-  // Cross-Tab-Sync: BroadcastChannel fuer Kind-Eltern-Verknuepfung (PWA-kompatibel)
-  useEffect(() => {
-    let bc: BroadcastChannel;
-    try { bc = new BroadcastChannel('arego-child-link'); } catch { return; }
-    bc.onmessage = (ev) => {
-      const msg = ev.data;
-      if (msg?.type !== 'child_linked') return;
-      if (msg.role === 'parent') {
-        try {
-          const cached = JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]');
-          if (!cached.some((c: { child_id: string }) => c.child_id === msg.child_id)) {
-            cached.push({ child_id: msg.child_id, first_name: '', last_name: '', nickname: '', fsk_stufe: 6 });
-            sessionStorage.setItem('aregoland_linked_children', JSON.stringify(cached));
-          }
-        } catch {}
-        window.dispatchEvent(new CustomEvent('arego-child-linked'));
-      }
-      // Toast in diesem Tab anzeigen
-      const toastEl = document.createElement('div');
-      toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
-      toastEl.textContent = msg.role === 'parent'
-        ? 'Kind erfolgreich verkn\u00fcpft'
-        : 'Du wurdest mit einem Elternteil verkn\u00fcpft';
-      document.body.appendChild(toastEl);
-      setTimeout(() => toastEl.remove(), 4000);
-    };
-    return () => bc.close();
-  }, []);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 

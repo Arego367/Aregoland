@@ -15,14 +15,10 @@ export interface UserIdentity {
   createdAt: string;
 }
 
-/** Server-seitige Kind-Daten (von GET /child-link/:parent_id) */
+/** Server-seitige Kind-Daten (von GET /whoami) */
 export interface LinkedChild {
   child_id: string;
-  first_name: string;
-  last_name: string;
-  nickname: string;
   fsk_stufe: number;
-  created_at: string;
 }
 
 const STORAGE_KEY = "aregoland_identity";
