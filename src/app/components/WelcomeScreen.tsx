@@ -3,6 +3,7 @@ import { MessageCircle, ArrowRight, UserPlus, History, Key, ShieldAlert, Chevron
 import { ImageWithFallback } from "@/app/components/ImageWithFallback";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { importFromRecoveryPayload, decodeChildLinkPayload, createChildIdentity } from "@/app/auth/identity";
+import { saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { Html5Qrcode } from "html5-qrcode";
 import { useTranslation } from 'react-i18next';
 
@@ -88,6 +89,9 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
           setChildCreating(true);
           try {
             await createChildIdentity("Kind", parentId, 6);
+            // FSK 6 verifiziert setzen — Kind ist durch Verwalter geschützt
+            const fskUpdate: FskStatus = { level: 6, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
+            saveFsk(fskUpdate);
             // Server benachrichtigen
             const childIdentity = JSON.parse(localStorage.getItem('aregoland_identity') ?? '{}');
             fetch('/child-link', {
