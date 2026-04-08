@@ -40,7 +40,7 @@ import { Tab } from "@/app/types";
 import { loadIdentity, UserIdentity, setKindStatus } from "@/app/auth/identity";
 import { loadSubscription, hasAccess, initSubscription, getEffectiveStatus } from "@/app/auth/subscription";
 import { loadFsk, initFsk, saveFsk, isFskVerified, isFeatureLocked, type FskLevel } from "@/app/auth/fsk";
-import { deriveRoomId, decodePayload } from "@/app/auth/share";
+import { deriveRoomId, decodePayload, createSharePayload, encodePayload } from "@/app/auth/share";
 import { saveContact, isNonceUsed, markNonceUsed, loadContacts, removeContact } from "@/app/auth/contacts";
 import {
   savePersistedChat, loadPersistedChats, updateChatLastMessage, deletePersistedChats,
@@ -556,6 +556,24 @@ export default function App() {
             // Kind: Verwalter lokal speichern
             setKindStatus(msg.parent_id);
           }
+
+          // Automatisch als Kontakte verknüpfen — eigene Identität an Gegenseite senden
+          const currentId = identity ?? loadIdentity();
+          if (currentId) {
+            const targetId = msg.role === 'parent' ? msg.child_id : msg.parent_id;
+            if (targetId) {
+              const myPayload = createSharePayload(currentId, 24 * 60 * 60 * 1000);
+              const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+              const reverseWs = new WebSocket(`${proto}://${location.host}/ws-signal`);
+              reverseWs.onopen = () => {
+                reverseWs.send(JSON.stringify({ type: 'join', roomId: `inbox:${targetId}` }));
+                reverseWs.send(JSON.stringify({ type: 'contact_reverse', payload: encodePayload(myPayload), family: true }));
+                setTimeout(() => reverseWs.close(), 3000);
+              };
+              reverseWs.onerror = () => reverseWs.close();
+            }
+          }
+
           // Toast anzeigen
           const toastEl = document.createElement('div');
           toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
@@ -850,6 +868,7 @@ export default function App() {
         if (isNonceUsed(p.n)) return;
         markNonceUsed(p.n);
 
+        const isFamily = !!msg.family; // Familie-Verknüpfung → direkt mutual
         const prevStatus = getContactStatus(p.aregoId);
         const rid = identity ? deriveRoomId(identity.aregoId, p.aregoId) : null;
 
@@ -861,7 +880,32 @@ export default function App() {
           addedAt: new Date().toISOString(),
         });
 
-        if (prevStatus === 'removed') {
+        if (isFamily) {
+          // Familie-Verknüpfung: direkt als mutual setzen + Chat anlegen
+          updateContactStatus(p.aregoId, 'mutual');
+
+          // In Kategorie "Familie" einsortieren
+          try {
+            const cats = JSON.parse(localStorage.getItem('arego_contact_categories') ?? '{}');
+            if (!cats[p.aregoId] || !cats[p.aregoId].includes('family')) {
+              cats[p.aregoId] = ['family'];
+              localStorage.setItem('arego_contact_categories', JSON.stringify(cats));
+            }
+          } catch {}
+
+          if (rid) {
+            const existing = loadPersistedChats().find((c) => c.id === p.aregoId);
+            if (!existing) {
+              savePersistedChat({
+                id: p.aregoId, name: p.displayName, avatarUrl: '',
+                isGroup: false, lastMessage: '', roomId: rid,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                sortKey: Date.now(), unreadCount: 0,
+              });
+            }
+            manager.connect(rid);
+          }
+        } else if (prevStatus === 'removed') {
           // War entfernt → jetzt 'pending' (sie haben mich re-added, ich muss noch zurück-adden)
           updateContactStatus(p.aregoId, 'pending');
 
@@ -904,7 +948,10 @@ export default function App() {
         setChatListVersion((v) => v + 1);
 
         // In-App Toast + Browser-Notification
-        setToast({ text: `${p.displayName} hat dich als Kontakt hinzugefügt`, type: 'info' });
+        const toastText = isFamily
+          ? `${p.displayName} wurde als Familienkontakt hinzugef\u00fcgt`
+          : `${p.displayName} hat dich als Kontakt hinzugef\u00fcgt`;
+        setToast({ text: toastText, type: 'info' });
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('Neuer Kontakt', {
             body: `${p.displayName} hat dich als Kontakt hinzugefügt`,
