@@ -490,7 +490,10 @@
     "childFskUpgradeSuccess": "FSK auf {{level}} hochgestuft!",
     "childFskUpgradeAlready": "Du bist bereits auf dieser oder einer h\u00f6heren FSK-Stufe.",
     "childFskUpgradeNotify": "Dein Kind hat sich auf FSK {{level}} hochgestuft.",
-    "childProfileUpdatedToast": "Dein Verwalter hat deinen Namen ge\u00e4ndert."
+    "childProfileUpdatedToast": "Dein Verwalter hat deinen Namen ge\u00e4ndert.",
+    "myVerwalter": "Meine Verwalter",
+    "verwalterRole": "Verwalter",
+    "familyContactAdded": "{{name}} wurde als Familienkontakt hinzugef\u00fcgt"
   },
   "calendar": {
     "title": "Kalender",

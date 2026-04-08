@@ -209,6 +209,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [childNickSelfEdit, setChildNickSelfEdit] = useState(false);
   const [childNameSaving, setChildNameSaving] = useState(false);
   const [childNameToast, setChildNameToast] = useState(false);
+  const [verwalterNames, setVerwalterNames] = useState<{ id: string; name: string }[]>([]);
   const [notif, setNotif] = useState<NotifSettings>(loadNotifSettings);
   const [idCopied, setIdCopied] = useState(false);
   const [discoverable, setDiscoverable] = useState(() => localStorage.getItem("aregoland_discoverable") === "true");
@@ -235,6 +236,16 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
       .then(data => {
         if (data?.linked_children) {
           setLinkedChildren(data.linked_children);
+        }
+        // Verwalter-Namen laden (für Kind-Konten)
+        const verwalterIds = [data?.verwalter_1, data?.verwalter_2].filter(Boolean) as string[];
+        if (verwalterIds.length > 0) {
+          Promise.all(verwalterIds.map(vid =>
+            fetch(`/child-settings/${encodeURIComponent(vid)}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(d => d ? { id: vid, name: [d.firstName, d.lastName].filter(Boolean).join(' ') || d.displayName || vid } : { id: vid, name: vid })
+              .catch(() => ({ id: vid, name: vid }))
+          )).then(names => setVerwalterNames(names));
         }
       })
       .catch(() => {});
@@ -1898,53 +1909,77 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-6 max-w-lg mx-auto">
 
-            {/* Info Banner */}
-            <div className="bg-pink-500/10 border border-pink-500/20 p-4 rounded-2xl flex gap-3">
-              <Shield className="text-pink-400 shrink-0" size={22} />
-              <div className="text-sm text-pink-200/80 leading-relaxed space-y-1">
-                <p>{t('settings.familyInfo')}</p>
-                <p className="text-xs text-pink-300/50">{t('settings.familyFskAutoHint')}</p>
+            {/* Info Banner — nur für Eltern */}
+            {!isChildAccount && (
+              <div className="bg-pink-500/10 border border-pink-500/20 p-4 rounded-2xl flex gap-3">
+                <Shield className="text-pink-400 shrink-0" size={22} />
+                <div className="text-sm text-pink-200/80 leading-relaxed space-y-1">
+                  <p>{t('settings.familyInfo')}</p>
+                  <p className="text-xs text-pink-300/50">{t('settings.familyFskAutoHint')}</p>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Verknuepfte Kinder */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.linkedChildren')}</h3>
-              {linkedChildren.length === 0 ? (
-                <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-6 text-center">
-                  <Baby size={40} className="text-gray-600 mx-auto mb-3" />
-                  <p className="text-sm text-gray-500">{t('settings.noChildren')}</p>
-                </div>
-              ) : (
+            {/* Verknuepfte Kinder — nur für Eltern */}
+            {!isChildAccount && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.linkedChildren')}</h3>
+                {linkedChildren.length === 0 ? (
+                  <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-6 text-center">
+                    <Baby size={40} className="text-gray-600 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500">{t('settings.noChildren')}</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
+                    {linkedChildren.map((child) => {
+                      const name = [child.firstName, child.lastName].filter(Boolean).join(' ') || child.displayName || child.child_id;
+                      const initial = (child.firstName?.[0] || child.child_id[0] || '?').toUpperCase();
+                      return (
+                        <button
+                          key={child.child_id}
+                          onClick={() => setSelectedChild(child.child_id)}
+                          className="w-full p-4 border-b border-gray-700/50 last:border-0 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                              {initial}
+                            </div>
+                            <div>
+                              <div className="font-medium">{name}</div>
+                              <div className="text-xs text-gray-500">FSK {child.fsk_stufe} — {t('settings.childFskProtected')}</div>
+                            </div>
+                          </div>
+                          <ChevronRight size={20} className="text-gray-500" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Meine Verwalter — nur für Kind-Konten */}
+            {isChildAccount && verwalterNames.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.myVerwalter')}</h3>
                 <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
-                  {linkedChildren.map((child) => {
-                    const name = [child.firstName, child.lastName].filter(Boolean).join(' ') || child.displayName || child.child_id;
-                    const initial = (child.firstName?.[0] || child.child_id[0] || '?').toUpperCase();
-                    return (
-                      <button
-                        key={child.child_id}
-                        onClick={() => setSelectedChild(child.child_id)}
-                        className="w-full p-4 border-b border-gray-700/50 last:border-0 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                            {initial}
-                          </div>
-                          <div>
-                            <div className="font-medium">{name}</div>
-                            <div className="text-xs text-gray-500">FSK {child.fsk_stufe} — {t('settings.childFskProtected')}</div>
-                          </div>
-                        </div>
-                        <ChevronRight size={20} className="text-gray-500" />
-                      </button>
-                    );
-                  })}
+                  {verwalterNames.map(v => (
+                    <div key={v.id} className="p-4 border-b border-gray-700/50 last:border-0 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">
+                        {(v.name[0] || '?').toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-medium">{v.name}</div>
+                        <div className="text-xs text-gray-500">{t('settings.verwalterRole')}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Kind hinzufuegen — nur FSK 18 */}
-            {!showAddChild ? (
+            {/* Kind hinzufuegen — nur FSK 18, nicht für Kind-Konten */}
+            {!isChildAccount && (!showAddChild ? (
               <button
                 onClick={() => {
                   if (!isFsk18) {
@@ -1992,7 +2027,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   </div>
                 )}
               </motion.div>
-            )}
+            ))}
 
             {/* Elternteil verknuepfen */}
             {(isChildAccount || !loadFsk()?.verified) && (
