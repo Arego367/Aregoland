@@ -1133,7 +1133,7 @@ const server = createServer(async (req, res) => {
       const [currentFsk, v1, v2] = rows[0].values[0];
       if (newFsk <= currentFsk) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, fsk_stufe: currentFsk, message: 'Bereits auf dieser oder höherer Stufe' }));
+        res.end(JSON.stringify({ ok: true, changed: false, fsk_stufe: currentFsk, message: 'Bereits auf dieser oder höherer Stufe' }));
         return;
       }
 
@@ -1158,7 +1158,7 @@ const server = createServer(async (req, res) => {
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, fsk_stufe: newFsk }));
+      res.end(JSON.stringify({ ok: true, changed: true, fsk_stufe: newFsk }));
     } catch {
       res.writeHead(400); res.end();
     }

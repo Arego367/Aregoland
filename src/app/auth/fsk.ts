@@ -50,12 +50,13 @@ export function saveFsk(fsk: FskStatus): void {
 
 /** Gibt true zurueck wenn der Nutzer verifiziert ist. */
 export function isFskVerified(fsk: FskStatus | null): boolean {
-  if (!fsk) return true; // Legacy-Account ohne FSK = Zugang erlauben
+  if (!fsk) return false; // Kein FSK-Status = nicht verifiziert → initFsk() aufrufen
   return fsk.verified;
 }
 
 /** Prueft ob ein bestimmtes Feature durch FSK gesperrt ist. */
 export function isFeatureLocked(fsk: FskStatus | null, featureId: string): boolean {
-  if (!fsk || fsk.verified) return false;
+  if (!fsk) return true; // Kein FSK-Status = alles gesperrt
+  if (fsk.verified) return false;
   return (FSK_LOCKED_FEATURES as readonly string[]).includes(featureId);
 }

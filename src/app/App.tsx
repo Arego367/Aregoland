@@ -39,7 +39,7 @@ import CalendarScreen from "@/app/components/CalendarScreen";
 import { Tab } from "@/app/types";
 import { loadIdentity, UserIdentity, setKindStatus } from "@/app/auth/identity";
 import { loadSubscription, hasAccess, initSubscription, getEffectiveStatus } from "@/app/auth/subscription";
-import { loadFsk, initFsk, saveFsk, isFskVerified, isFeatureLocked, type FskLevel } from "@/app/auth/fsk";
+import { loadFsk, initFsk, saveFsk, isFskVerified, isFeatureLocked, type FskLevel, type FskStatus } from "@/app/auth/fsk";
 import { deriveRoomId, decodePayload, createSharePayload, encodePayload } from "@/app/auth/share";
 import { saveContact, isNonceUsed, markNonceUsed, loadContacts, removeContact } from "@/app/auth/contacts";
 import {
@@ -436,9 +436,15 @@ export default function App() {
         .then(r => r.ok ? r.json() : null)
         .then(data => {
           if (data) {
-            // FSK vom Server übernehmen
+            // FSK-Level vom Server übernehmen, verified/method lokal beibehalten
             const serverFsk: FskLevel = [6, 12, 16, 18].includes(data.fsk_stufe) ? data.fsk_stufe : 6;
-            const updatedFsk = { level: serverFsk, verified: serverFsk > 6, verifiedAt: fsk?.verifiedAt ?? null, method: fsk?.method ?? null };
+            const localVerified = fsk?.verified ?? false;
+            const updatedFsk: FskStatus = {
+              level: serverFsk,
+              verified: localVerified || (serverFsk > 6 && !!fsk?.method),
+              verifiedAt: fsk?.verifiedAt ?? null,
+              method: fsk?.method ?? null,
+            };
             saveFsk(updatedFsk);
             setFskStatus(updatedFsk);
 
