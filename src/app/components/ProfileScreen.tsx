@@ -1,8 +1,9 @@
-import { useState, useMemo, useRef } from "react";
-import { ArrowLeft, Camera, Copy, Check, User, Info, Phone, Mail, MapPin, Link as LinkIcon, AlertTriangle, X, Plus, Trash2, Pencil, Home, Briefcase, Package, FileText, Smartphone, Printer } from "lucide-react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { ArrowLeft, Camera, Copy, Check, User, Info, Phone, Mail, MapPin, Link as LinkIcon, AlertTriangle, X, Plus, Trash2, Pencil, Home, Briefcase, Package, FileText, Smartphone, Printer, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from 'react-i18next';
-import { loadIdentity } from "@/app/auth/identity";
+import { loadIdentity, isChildAccount } from "@/app/auth/identity";
+import { loadFsk } from "@/app/auth/fsk";
 
 const PROFILE_KEY = "arego_profile";
 
@@ -166,6 +167,19 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<ProfileData>(() => loadProfile(identity));
+  const isChild = useMemo(() => isChildAccount(), []);
+  const fskLevel = useMemo(() => loadFsk()?.level ?? 6, []);
+  const [nickSelfEdit, setNickSelfEdit] = useState(false);
+  // Kind: nickname_self_edit vom Server laden
+  useEffect(() => {
+    if (!isChild || !identity) return;
+    fetch(`/whoami/${encodeURIComponent(identity.aregoId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setNickSelfEdit(!!data.nickname_self_edit); })
+      .catch(() => {});
+  }, [isChild, identity]);
+  // Kind: darf Nickname ändern?
+  const canEditNickname = !isChild || fskLevel >= 16 || nickSelfEdit;
   const [showPlatformPicker, setShowPlatformPicker] = useState(false);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddressIdx, setEditingAddressIdx] = useState<number | null>(null);
@@ -410,6 +424,13 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
             <div className="space-y-4">
                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-800 pb-1">{t('profile.personalData')}</h3>
 
+               {isChild && (
+                 <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3 flex items-start gap-2">
+                   <Lock size={14} className="text-orange-400 shrink-0 mt-0.5" />
+                   <p className="text-xs text-orange-300/80">{t('settings.childNameOnlyVerwalter')}</p>
+                 </div>
+               )}
+
                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-gray-400">{t('profile.firstName')}</label>
@@ -418,7 +439,8 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
                       value={profile.firstName}
                       onChange={(e) => update({ firstName: e.target.value })}
                       placeholder="Max"
-                      className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                      readOnly={isChild}
+                      className={`w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none transition-all ${isChild ? 'opacity-60 cursor-not-allowed' : 'focus:border-blue-500 focus:ring-1 focus:ring-blue-500'}`}
                     />
                   </div>
                   <div className="space-y-1">
@@ -428,20 +450,28 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
                       value={profile.lastName}
                       onChange={(e) => update({ lastName: e.target.value })}
                       placeholder="Mustermann"
-                      className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                      readOnly={isChild}
+                      className={`w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none transition-all ${isChild ? 'opacity-60 cursor-not-allowed' : 'focus:border-blue-500 focus:ring-1 focus:ring-blue-500'}`}
                     />
                   </div>
                </div>
 
                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-400 flex items-center gap-1"><User size={12}/> {t('profile.nickname')}</label>
+                  <label className="text-xs font-medium text-gray-400 flex items-center gap-1">
+                    <User size={12}/> {t('profile.nickname')}
+                    {isChild && !canEditNickname && <Lock size={10} className="text-orange-400 ml-1" />}
+                  </label>
                   <input
                     type="text"
                     value={profile.nickname}
                     onChange={(e) => update({ nickname: e.target.value })}
                     placeholder={t('profile.nicknamePlaceholder')}
-                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                    readOnly={!canEditNickname}
+                    className={`w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none transition-all ${!canEditNickname ? 'opacity-60 cursor-not-allowed' : 'focus:border-blue-500 focus:ring-1 focus:ring-blue-500'}`}
                   />
+                  {isChild && !canEditNickname && (
+                    <p className="text-[10px] text-orange-400/70 mt-1">{t('settings.childNicknameLockedByVerwalter')}</p>
+                  )}
                </div>
 
                <div className="space-y-1">

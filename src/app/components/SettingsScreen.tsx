@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Pencil, Save, ToggleLeft, ToggleRight } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, type LinkedChild } from "@/app/auth/identity";
@@ -201,6 +201,12 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
 
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
+  const [childFirstName, setChildFirstName] = useState("");
+  const [childLastName, setChildLastName] = useState("");
+  const [childNickname, setChildNickname] = useState("");
+  const [childNickSelfEdit, setChildNickSelfEdit] = useState(false);
+  const [childNameSaving, setChildNameSaving] = useState(false);
+  const [childNameToast, setChildNameToast] = useState(false);
   const [notif, setNotif] = useState<NotifSettings>(loadNotifSettings);
   const [idCopied, setIdCopied] = useState(false);
   const [discoverable, setDiscoverable] = useState(() => localStorage.getItem("aregoland_discoverable") === "true");
@@ -1452,6 +1458,80 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               </div>
             )}
 
+            {/* Kind-Konto: EUDI-Hochstufung */}
+            {isChildAccount && (
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
+                    <Shield size={18} />
+                  </div>
+                  <div>
+                    <p className="font-medium">{t('settings.childFskUpgradeTitle')}</p>
+                    <p className="text-xs text-gray-500">{t('settings.childFskUpgradeDesc')}</p>
+                  </div>
+                </div>
+
+                {/* EUDI Simulation */}
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 space-y-2">
+                  <p className="text-xs text-blue-300/80 font-medium">{t('settings.childFskUpgradeSimTitle')}</p>
+                  <p className="text-[10px] text-gray-500">{t('settings.childFskUpgradeSimDesc')}</p>
+                  <div className="flex gap-2">
+                    <input
+                      id="eudi-age-input"
+                      type="number"
+                      min={6}
+                      max={99}
+                      placeholder={t('settings.childFskUpgradeSimAge')}
+                      className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                    />
+                    <button
+                      onClick={async () => {
+                        const input = document.getElementById('eudi-age-input') as HTMLInputElement;
+                        const age = parseInt(input?.value ?? '0', 10);
+                        if (!age || age < 6 || !identity) return;
+                        try {
+                          const resp = await fetch('/fsk/eudi-upgrade', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ arego_id: identity.aregoId, verified_age: age }),
+                          });
+                          const data = await resp.json();
+                          if (data.ok && data.fsk_stufe) {
+                            const updated: FskStatus = {
+                              level: data.fsk_stufe,
+                              verified: true,
+                              verifiedAt: new Date().toISOString(),
+                              method: 'eudi',
+                            };
+                            saveFsk(updated);
+                            onFskUpdated?.();
+                            // Toast
+                            const el = document.createElement('div');
+                            el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium';
+                            el.textContent = t('settings.childFskUpgradeSuccess', { level: data.fsk_stufe });
+                            document.body.appendChild(el);
+                            setTimeout(() => el.remove(), 3000);
+                            setActiveSubmenu('fsk'); // re-render
+                          } else if (data.message) {
+                            const el = document.createElement('div');
+                            el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium';
+                            el.textContent = t('settings.childFskUpgradeAlready');
+                            document.body.appendChild(el);
+                            setTimeout(() => el.remove(), 3000);
+                          }
+                        } catch (err) {
+                          console.error('EUDI upgrade Fehler:', err);
+                        }
+                      }}
+                      className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm"
+                    >
+                      {t('settings.childFskUpgradeSimConfirm')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Kind-Konto Hinweis */}
             {isChildAccount && (
               <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4 flex gap-3">
@@ -1463,25 +1543,27 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               </div>
             )}
 
-            {/* Option 1: EUDI Wallet */}
-            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
-                  <Lock size={18} />
+            {/* Option 1: EUDI Wallet — für Erwachsene (nicht Kind-Konten) */}
+            {!isChildAccount && (
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
+                    <Lock size={18} />
+                  </div>
+                  <div>
+                    <p className="font-medium">{t('settings.fskEudiTitle')}</p>
+                    <p className="text-xs text-gray-500">{t('settings.fskEudiDesc')}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium">{t('settings.fskEudiTitle')}</p>
-                  <p className="text-xs text-gray-500">{t('settings.fskEudiDesc')}</p>
-                </div>
+                <button
+                  disabled
+                  className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {t('settings.fskEudiBtn')}
+                </button>
+                <p className="text-xs text-gray-500 text-center">{t('settings.fskEudiHint')}</p>
               </div>
-              <button
-                disabled
-                className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {t('settings.fskEudiBtn')}
-              </button>
-              <p className="text-xs text-gray-500 text-center">{t('settings.fskEudiHint')}</p>
-            </div>
+            )}
 
           </div>
         </div>
@@ -1599,19 +1681,103 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
     const activeChild = selectedChild ? linkedChildren.find(c => c.child_id === selectedChild) : null;
     if (activeChild) {
 
-      const childName = activeChild.child_id;
+      const childDisplayName = [activeChild.firstName, activeChild.lastName].filter(Boolean).join(' ') || activeChild.displayName || activeChild.child_id;
+      const childInitial = (activeChild.firstName?.[0] || activeChild.child_id[0] || '?').toUpperCase();
+      const isFsk16Plus = (activeChild.fsk_stufe ?? 6) >= 16;
+
+      // Kind-Daten laden wenn Kind ausgewählt wird
+      const loadChildData = () => {
+        setChildFirstName(activeChild.firstName ?? '');
+        setChildLastName(activeChild.lastName ?? '');
+        setChildNickname(activeChild.nickname ?? '');
+        setChildNickSelfEdit(activeChild.nickname_self_edit ?? false);
+      };
+      // Initial laden (beim ersten Render)
+      if (childFirstName === '' && childLastName === '' && activeChild.firstName) {
+        loadChildData();
+      }
+
+      const handleSaveChildName = async () => {
+        if (!identity) return;
+        setChildNameSaving(true);
+        try {
+          const resp = await fetch('/child-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              child_id: activeChild.child_id,
+              parent_id: identity.aregoId,
+              firstName: childFirstName.trim(),
+              lastName: childLastName.trim(),
+              nickname: childNickname.trim(),
+            }),
+          });
+          if (resp.ok) {
+            // Lokale Daten aktualisieren
+            setLinkedChildren(prev => prev.map(c =>
+              c.child_id === activeChild.child_id
+                ? { ...c, firstName: childFirstName.trim(), lastName: childLastName.trim(), nickname: childNickname.trim(), displayName: [childFirstName.trim(), childLastName.trim()].filter(Boolean).join(' ') }
+                : c
+            ));
+            setChildNameToast(true);
+            setTimeout(() => setChildNameToast(false), 2500);
+          }
+        } catch (err) {
+          console.error('child-profile Fehler:', err);
+        }
+        setChildNameSaving(false);
+      };
+
+      const handleToggleNickSelfEdit = async () => {
+        if (!identity || isFsk16Plus) return;
+        const newVal = !childNickSelfEdit;
+        try {
+          const resp = await fetch('/child-settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              child_id: activeChild.child_id,
+              parent_id: identity.aregoId,
+              nickname_self_edit: newVal,
+            }),
+          });
+          if (resp.ok) {
+            setChildNickSelfEdit(newVal);
+            setLinkedChildren(prev => prev.map(c =>
+              c.child_id === activeChild.child_id ? { ...c, nickname_self_edit: newVal } : c
+            ));
+          }
+        } catch (err) {
+          console.error('child-settings Fehler:', err);
+        }
+      };
 
       return (
         <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+          {/* Save Toast */}
+          <AnimatePresence>
+            {childNameToast && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 text-sm font-medium"
+              >
+                <Check size={16} />
+                {t('settings.childNameSaved')}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
-            <button onClick={() => setSelectedChild(null)} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all">
+            <button onClick={() => { setSelectedChild(null); setChildFirstName(''); setChildLastName(''); setChildNickname(''); }} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all">
               <ArrowLeft size={24} />
             </button>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                {childName[0]?.toUpperCase()}
+                {childInitial}
               </div>
-              <h1 className="text-xl font-bold">{childName}</h1>
+              <h1 className="text-xl font-bold">{childDisplayName}</h1>
             </div>
           </header>
 
@@ -1625,6 +1791,72 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   <p className="text-sm font-medium text-green-400">FSK {activeChild.fsk_stufe} — {t('settings.childFskProtected')}</p>
                   <p className="text-xs text-gray-500">{t('settings.childFskUpgradeHint')}</p>
                 </div>
+              </div>
+
+              {/* Name bearbeiten */}
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Pencil size={16} className="text-pink-400" />
+                  <h3 className="font-medium text-sm">{t('settings.childEditName')}</h3>
+                </div>
+                <p className="text-xs text-gray-500">{t('settings.childEditNameDesc')}</p>
+
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={childFirstName}
+                    onChange={e => setChildFirstName(e.target.value)}
+                    placeholder={t('settings.childFirstName')}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50"
+                  />
+                  <input
+                    type="text"
+                    value={childLastName}
+                    onChange={e => setChildLastName(e.target.value)}
+                    placeholder={t('settings.childLastName')}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50"
+                  />
+                  <input
+                    type="text"
+                    value={childNickname}
+                    onChange={e => setChildNickname(e.target.value)}
+                    placeholder={t('settings.childNickname')}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500/50"
+                  />
+                </div>
+
+                <button
+                  onClick={handleSaveChildName}
+                  disabled={childNameSaving}
+                  className="w-full bg-pink-600 hover:bg-pink-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <Save size={16} />
+                  {childNameSaving ? '...' : t('settings.childNameSaved').replace('gespeichert', 'speichern')}
+                </button>
+              </div>
+
+              {/* Spitzname-Toggle */}
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <button
+                  onClick={handleToggleNickSelfEdit}
+                  disabled={isFsk16Plus}
+                  className="w-full flex items-center justify-between"
+                >
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium">{t('settings.childNicknameSelfEdit')}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{t('settings.childNicknameSelfEditHint')}</p>
+                  </div>
+                  <div className="ml-3 shrink-0">
+                    {(childNickSelfEdit || isFsk16Plus) ? (
+                      <ToggleRight size={28} className="text-pink-400" />
+                    ) : (
+                      <ToggleLeft size={28} className="text-gray-600" />
+                    )}
+                  </div>
+                </button>
+                {isFsk16Plus && (
+                  <p className="text-xs text-pink-400/70">{t('settings.childNicknameFsk16Auto')}</p>
+                )}
               </div>
 
               {/* Info: Anfragen kommen als Toast */}
@@ -1684,7 +1916,8 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               ) : (
                 <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
                   {linkedChildren.map((child) => {
-                    const name = child.child_id;
+                    const name = [child.firstName, child.lastName].filter(Boolean).join(' ') || child.displayName || child.child_id;
+                    const initial = (child.firstName?.[0] || child.child_id[0] || '?').toUpperCase();
                     return (
                       <button
                         key={child.child_id}
@@ -1693,7 +1926,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                            {name[0]?.toUpperCase()}
+                            {initial}
                           </div>
                           <div>
                             <div className="font-medium">{name}</div>

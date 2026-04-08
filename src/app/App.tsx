@@ -598,6 +598,43 @@ export default function App() {
           return;
         }
 
+        // Verwalter: Kind hat FSK hochgestuft
+        if (msg.type === 'child_fsk_upgraded' && msg.child_id) {
+          const toastEl = document.createElement('div');
+          toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
+          toastEl.textContent = `Dein Kind hat sich auf FSK ${msg.new_fsk} hochgestuft.`;
+          document.body.appendChild(toastEl);
+          setTimeout(() => toastEl.remove(), 5000);
+          return;
+        }
+
+        // Kind: Verwalter hat Profil aktualisiert
+        if (msg.type === 'child_profile_updated') {
+          // Profil lokal aktualisieren
+          try {
+            const profile = JSON.parse(localStorage.getItem('arego_profile') ?? '{}');
+            if (msg.firstName !== undefined) profile.firstName = msg.firstName;
+            if (msg.lastName !== undefined) profile.lastName = msg.lastName;
+            if (msg.nickname !== undefined) profile.nickname = msg.nickname;
+            localStorage.setItem('arego_profile', JSON.stringify(profile));
+            // displayName in identity aktualisieren
+            const idRaw = localStorage.getItem('aregoland_identity');
+            if (idRaw) {
+              const id = JSON.parse(idRaw);
+              const fullName = [msg.firstName, msg.lastName].filter(Boolean).join(' ');
+              if (fullName) id.displayName = fullName;
+              localStorage.setItem('aregoland_identity', JSON.stringify(id));
+            }
+            window.dispatchEvent(new Event('arego-profile-updated'));
+          } catch {}
+          const toastEl = document.createElement('div');
+          toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
+          toastEl.textContent = 'Dein Verwalter hat deinen Namen ge\u00e4ndert.';
+          document.body.appendChild(toastEl);
+          setTimeout(() => toastEl.remove(), 4000);
+          return;
+        }
+
         // Kontakt-Entfernung über Inbox empfangen
         if (msg.type === 'contact_removed' && typeof msg.aregoId === 'string') {
           const removedId = msg.aregoId;

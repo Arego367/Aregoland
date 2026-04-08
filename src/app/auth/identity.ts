@@ -19,6 +19,11 @@ export interface UserIdentity {
 export interface LinkedChild {
   child_id: string;
   fsk_stufe: number;
+  nickname_self_edit?: boolean;
+  firstName?: string;
+  lastName?: string;
+  nickname?: string;
+  displayName?: string;
 }
 
 const STORAGE_KEY = "aregoland_identity";

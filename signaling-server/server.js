@@ -132,12 +132,15 @@ async function initDb() {
       fsk_stufe         INTEGER NOT NULL DEFAULT 6,
       verwalter_1       TEXT DEFAULT NULL,
       verwalter_2       TEXT DEFAULT NULL,
+      nickname_self_edit INTEGER NOT NULL DEFAULT 0,
       letzter_heartbeat TEXT NOT NULL
     )
   `);
   // Migration: verwalter-Spalten hinzufügen falls Tabelle schon existiert
   try { db.run(`ALTER TABLE user_auth ADD COLUMN verwalter_1 TEXT DEFAULT NULL`); } catch {}
   try { db.run(`ALTER TABLE user_auth ADD COLUMN verwalter_2 TEXT DEFAULT NULL`); } catch {}
+  // Migration: nickname_self_edit Spalte
+  try { db.run(`ALTER TABLE user_auth ADD COLUMN nickname_self_edit INTEGER NOT NULL DEFAULT 0`); } catch {}
   // Migration: child_links Daten in user_auth übernehmen, dann Tabelle löschen
   try {
     const links = db.exec(`SELECT child_id, parent_id FROM child_links ORDER BY created_at`);
@@ -868,13 +871,13 @@ const server = createServer(async (req, res) => {
   if (whoamiMatch) {
     try {
       const aregoId = decodeURIComponent(whoamiMatch[1]);
-      const rows = db.exec(`SELECT abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [aregoId]);
+      const rows = db.exec(`SELECT abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit FROM user_auth WHERE arego_id = ?`, [aregoId]);
       if (!rows.length || !rows[0].values.length) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'not_found' }));
         return;
       }
-      let [abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2] = rows[0].values[0];
+      let [abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit] = rows[0].values[0];
       const ist_kind = !!(verwalter_1 || verwalter_2);
 
       // Kind-Abo-Übernahme: wenn abgelaufen, Verwalter-Abo prüfen
@@ -887,14 +890,25 @@ const server = createServer(async (req, res) => {
         }
       }
 
-      // Verknüpfte Kinder dieses Nutzers (als Elternteil)
-      const childRows = db.exec(`SELECT arego_id, fsk_stufe FROM user_auth WHERE verwalter_1 = ? OR verwalter_2 = ?`, [aregoId, aregoId]);
+      // Verknüpfte Kinder dieses Nutzers (als Elternteil) — inkl. Namen aus user_directory
+      const childRows = db.exec(
+        `SELECT ua.arego_id, ua.fsk_stufe, ua.nickname_self_edit,
+                COALESCE(ud.first_name, '') AS first_name,
+                COALESCE(ud.last_name, '') AS last_name,
+                COALESCE(ud.nickname, '') AS nickname,
+                COALESCE(ud.display_name, '') AS display_name
+         FROM user_auth ua
+         LEFT JOIN user_directory ud ON ud.arego_id = ua.arego_id
+         WHERE ua.verwalter_1 = ? OR ua.verwalter_2 = ?`,
+        [aregoId, aregoId]
+      );
       const linked_children = childRows.length ? childRows[0].values.map(r => ({
-        child_id: r[0], fsk_stufe: r[1],
+        child_id: r[0], fsk_stufe: r[1], nickname_self_edit: !!r[2],
+        firstName: r[3], lastName: r[4], nickname: r[5], displayName: r[6],
       })) : [];
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ arego_id: aregoId, abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, ist_kind, linked_children }));
+      res.end(JSON.stringify({ arego_id: aregoId, abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit: !!nickname_self_edit, ist_kind, linked_children }));
     } catch {
       res.writeHead(500); res.end();
     }
@@ -958,6 +972,189 @@ const server = createServer(async (req, res) => {
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /child-profile — Verwalter ändert Name des Kindes ──────────────────
+  if (req.method === 'POST' && req.url === '/child-profile') {
+    try {
+      const body = await readBody(req);
+      const { child_id, parent_id, firstName, lastName, nickname } = JSON.parse(body);
+      if (!child_id || !parent_id) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'child_id und parent_id erforderlich' }));
+        return;
+      }
+      // Prüfen ob parent_id tatsächlich Verwalter ist
+      const rows = db.exec(`SELECT verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [child_id]);
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'child_not_found' }));
+        return;
+      }
+      const [v1, v2] = rows[0].values[0];
+      if (v1 !== parent_id && v2 !== parent_id) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not_verwalter', message: 'Du bist kein Verwalter dieses Kindes' }));
+        return;
+      }
+      // Display-Name aus Vor-/Nachname
+      const displayName = [firstName, lastName].filter(Boolean).join(' ') || '';
+      // In user_directory speichern
+      db.run(
+        `INSERT INTO user_directory (arego_id, display_name, first_name, last_name, nickname, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(arego_id) DO UPDATE SET
+           display_name = excluded.display_name,
+           first_name = excluded.first_name,
+           last_name = excluded.last_name,
+           nickname = excluded.nickname,
+           updated_at = excluded.updated_at`,
+        [child_id, displayName, firstName ?? '', lastName ?? '', nickname ?? '', new Date().toISOString()]
+      );
+      persistDb();
+
+      // Kind per WebSocket benachrichtigen
+      const notify = JSON.stringify({ type: 'child_profile_updated', firstName, lastName, nickname });
+      const childSockets = onlineUsers.get(child_id);
+      let delivered = false;
+      if (childSockets) {
+        for (const ws of childSockets) { if (ws.readyState === 1) { ws.send(notify); delivered = true; } }
+      }
+      if (!delivered) storePending(`inbox:${child_id}`, Buffer.from(notify));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── GET /child-settings/:child_id — Kind-Einstellungen abrufen ─────────────
+  const childSettingsGet = req.method === 'GET' && req.url?.match(/^\/child-settings\/(.+)$/);
+  if (childSettingsGet) {
+    try {
+      const childId = decodeURIComponent(childSettingsGet[1]);
+      const rows = db.exec(`SELECT fsk_stufe, nickname_self_edit, verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [childId]);
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not_found' }));
+        return;
+      }
+      const [fsk_stufe, nickname_self_edit, v1, v2] = rows[0].values[0];
+      // Profil-Daten aus user_directory laden
+      const dirRows = db.exec(`SELECT first_name, last_name, nickname, display_name FROM user_directory WHERE arego_id = ?`, [childId]);
+      const dir = dirRows.length && dirRows[0].values.length ? dirRows[0].values[0] : ['', '', '', ''];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        fsk_stufe,
+        nickname_self_edit: !!nickname_self_edit,
+        verwalter_1: v1, verwalter_2: v2,
+        firstName: dir[0] ?? '', lastName: dir[1] ?? '', nickname: dir[2] ?? '', displayName: dir[3] ?? '',
+      }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── POST /child-settings — Verwalter setzt Kind-Einstellungen ──────────────
+  if (req.method === 'POST' && req.url === '/child-settings') {
+    try {
+      const body = await readBody(req);
+      const { child_id, parent_id, nickname_self_edit } = JSON.parse(body);
+      if (!child_id || !parent_id) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'child_id und parent_id erforderlich' }));
+        return;
+      }
+      // Verwalter-Check
+      const rows = db.exec(`SELECT verwalter_1, verwalter_2, fsk_stufe FROM user_auth WHERE arego_id = ?`, [child_id]);
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'child_not_found' }));
+        return;
+      }
+      const [v1, v2, fsk] = rows[0].values[0];
+      if (v1 !== parent_id && v2 !== parent_id) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not_verwalter' }));
+        return;
+      }
+      // Ab FSK 16 kann der Toggle nicht mehr gesetzt werden
+      if (fsk >= 16) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'fsk_16_plus', message: 'Ab FSK 16 darf das Kind den Spitznamen immer selbst ändern' }));
+        return;
+      }
+      if (nickname_self_edit !== undefined) {
+        db.run(`UPDATE user_auth SET nickname_self_edit = ? WHERE arego_id = ?`, [nickname_self_edit ? 1 : 0, child_id]);
+        persistDb();
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /fsk/eudi-upgrade — Kind verifiziert Alter via EUDI Wallet ────────
+  if (req.method === 'POST' && req.url === '/fsk/eudi-upgrade') {
+    try {
+      const body = await readBody(req);
+      const { arego_id, verified_age } = JSON.parse(body);
+      if (!arego_id || !verified_age || typeof verified_age !== 'number') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'arego_id und verified_age (Zahl) erforderlich' }));
+        return;
+      }
+      // FSK-Stufe aus Alter berechnen
+      let newFsk = 6;
+      if (verified_age >= 18) newFsk = 18;
+      else if (verified_age >= 16) newFsk = 16;
+      else if (verified_age >= 12) newFsk = 12;
+
+      // Nur hochstufen, nicht runterstufen
+      const rows = db.exec(`SELECT fsk_stufe, verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [arego_id]);
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not_found' }));
+        return;
+      }
+      const [currentFsk, v1, v2] = rows[0].values[0];
+      if (newFsk <= currentFsk) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, fsk_stufe: currentFsk, message: 'Bereits auf dieser oder höherer Stufe' }));
+        return;
+      }
+
+      // FSK hochstufen
+      db.run(`UPDATE user_auth SET fsk_stufe = ? WHERE arego_id = ?`, [newFsk, arego_id]);
+      // Ab FSK 16: nickname_self_edit wird irrelevant, aber setzen wir auf 1
+      if (newFsk >= 16) {
+        db.run(`UPDATE user_auth SET nickname_self_edit = 1 WHERE arego_id = ?`, [arego_id]);
+      }
+      persistDb();
+
+      // Verwalter benachrichtigen
+      const verwalter = [v1, v2].filter(Boolean);
+      for (const parentId of verwalter) {
+        const notify = JSON.stringify({ type: 'child_fsk_upgraded', child_id: arego_id, new_fsk: newFsk });
+        const parentSockets = onlineUsers.get(parentId);
+        let delivered = false;
+        if (parentSockets) {
+          for (const ws of parentSockets) { if (ws.readyState === 1) { ws.send(notify); delivered = true; } }
+        }
+        if (!delivered) storePending(`inbox:${parentId}`, Buffer.from(notify));
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, fsk_stufe: newFsk }));
     } catch {
       res.writeHead(400); res.end();
     }
@@ -1224,17 +1421,29 @@ wss.on('connection', (ws) => {
         statuses[id] = !!(sockets && sockets.size > 0);
       }
 
-      // Kind-Status aus user_auth ermitteln (verwalter_1/verwalter_2)
-      const authRows = db.exec(`SELECT verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [aregoId]);
+      // Kind-Status aus user_auth ermitteln (verwalter_1/verwalter_2 + nickname_self_edit)
+      const authRows = db.exec(`SELECT verwalter_1, verwalter_2, nickname_self_edit FROM user_auth WHERE arego_id = ?`, [aregoId]);
       const v1 = authRows.length ? authRows[0].values[0][0] : null;
       const v2 = authRows.length ? authRows[0].values[0][1] : null;
+      const nickSelfEdit = authRows.length ? !!authRows[0].values[0][2] : false;
       const verwalter = [v1, v2].filter(Boolean);
       const istKind = verwalter.length > 0;
 
-      // Verknüpfte Kinder dieses Nutzers (als Elternteil)
-      const linkedRows = db.exec(`SELECT arego_id, fsk_stufe FROM user_auth WHERE verwalter_1 = ? OR verwalter_2 = ?`, [aregoId, aregoId]);
+      // Verknüpfte Kinder dieses Nutzers (als Elternteil) — inkl. Namen
+      const linkedRows = db.exec(
+        `SELECT ua.arego_id, ua.fsk_stufe, ua.nickname_self_edit,
+                COALESCE(ud.first_name, '') AS first_name,
+                COALESCE(ud.last_name, '') AS last_name,
+                COALESCE(ud.nickname, '') AS nickname,
+                COALESCE(ud.display_name, '') AS display_name
+         FROM user_auth ua
+         LEFT JOIN user_directory ud ON ud.arego_id = ua.arego_id
+         WHERE ua.verwalter_1 = ? OR ua.verwalter_2 = ?`,
+        [aregoId, aregoId]
+      );
       const linkedChildren = linkedRows.length ? linkedRows[0].values.map(r => ({
-        child_id: r[0], fsk_stufe: r[1],
+        child_id: r[0], fsk_stufe: r[1], nickname_self_edit: !!r[2],
+        firstName: r[3], lastName: r[4], nickname: r[5], displayName: r[6],
       })) : [];
 
       // Session erweitern
@@ -1250,6 +1459,7 @@ wss.on('connection', (ws) => {
         fsk_stufe: fskStufe,
         ist_kind: istKind,
         verwalter,
+        nickname_self_edit: nickSelfEdit,
         linked_children: linkedChildren,
         statuses,
       }));

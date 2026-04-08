@@ -1,6 +1,6 @@
 # CLAUDE.md — Aregoland
 
-> Einzige Wahrheitsquelle fuer Claude. Stand: 2026-04-05
+> Einzige Wahrheitsquelle fuer Claude. Stand: 2026-04-08
 
 ## Projekt
 
@@ -42,6 +42,8 @@
 - Storage-UI: Einstellungen > "Meine Daten & Speicher" — Sync-Optionen
 - Abo-System: subscription.ts (Trial 7 Tage, 4 Plaene, App-Lock bei Ablauf)
 - FSK-System: fsk.ts (FSK 6 Standard, Sperre fuer Chats/Spaces/Kontakte/World ohne Verifizierung)
+- Kind-Namensaenderung: Verwalter aendert Vor-/Nachname via POST /child-profile, Spitzname-Toggle (nickname_self_edit) via POST /child-settings, ab FSK 16 immer selbst aenderbar
+- FSK-Hochstufung: Kind verifiziert Alter via EUDI Wallet (POST /fsk/eudi-upgrade), Server stuft FSK hoch, Verwalter bekommt WS-Benachrichtigung (child_fsk_upgraded)
 - TURN: coturn, Port 3478/5349
 - Repo ist public — Claude AI liest direkt von GitHub
 
@@ -52,6 +54,8 @@
 - Identitaet liegt beim Nutzer, nicht beim Server
 - FSK-System geplant: Inhalte werden altersgerecht gefiltert
 - Kinder-Features: maximaler Schutz, minimale Daten
+- Kind-Profil: Vorname/Nachname nur vom Verwalter aenderbar, Spitzname per Toggle steuerbar (ab FSK 16 automatisch freigegeben)
+- FSK-Hochstufung: nur durch Kind selbst via EUDI Wallet, Verwalter wird benachrichtigt, ohne Verifizierung bleibt FSK 6
 
 ### Missbrauchsschutz & Anonymitaet
 
