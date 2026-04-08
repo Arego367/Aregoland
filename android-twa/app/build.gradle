@@ -16,7 +16,7 @@ android {
         manifestPlaceholders = [
             hostName       : "aregoland.de",
             defaultUrl     : "https://aregoland.de/",
-            launcherName   : "Arego Chat",
+            launcherName   : "Aregoland",
             assetStatements: '[{ "relation": ["delegate_permission/common.handle_all_urls"], "target": { "namespace": "web", "site": "https://aregoland.de" } }]'
         ]
     }

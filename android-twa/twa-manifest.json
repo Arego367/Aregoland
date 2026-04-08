@@ -1,8 +1,8 @@
 {
   "packageId": "de.aregoland.chat",
   "host": "aregoland.de",
-  "name": "Arego Chat",
-  "launcherName": "Arego Chat",
+  "name": "Aregoland",
+  "launcherName": "Aregoland",
   "display": "standalone",
   "themeColor": "#1D4ED8",
   "themeColorDark": "#0f172a",
