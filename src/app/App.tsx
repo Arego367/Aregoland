@@ -523,6 +523,25 @@ export default function App() {
 
         // Auth-Handshake Antwort
         if (msg.type === 'auth_ok') {
+          // Kind-Status vom Server synchronisieren (Server = Wahrheitsquelle)
+          try {
+            const idRaw = localStorage.getItem('aregoland_identity');
+            if (idRaw) {
+              const id = JSON.parse(idRaw);
+              const serverIstKind = !!msg.ist_kind;
+              if (id.ist_kind !== serverIstKind) {
+                id.ist_kind = serverIstKind;
+                if (!serverIstKind) {
+                  delete id.accountType;
+                  id.verwalter = [];
+                } else {
+                  id.verwalter = msg.verwalter ?? [];
+                }
+                localStorage.setItem('aregoland_identity', JSON.stringify(id));
+              }
+            }
+          } catch {}
+
           // Initiale Presence-Daten aus Auth-Antwort
           if (msg.statuses) {
             setOnlineContacts((prev) => {
@@ -535,10 +554,12 @@ export default function App() {
           }
 
           // Familien-Kontakte automatisch anlegen (Verwalter <-> Kind)
+          console.log('[App] auth_ok family_contacts:', msg.family_contacts?.length ?? 0, msg.family_contacts);
           if (Array.isArray(msg.family_contacts) && msg.family_contacts.length > 0 && identity) {
             const existingContacts = loadContacts();
             let changed = false;
             for (const fc of msg.family_contacts) {
+              console.log('[App] family_contact prüfe:', fc.aregoId, 'key?', !!fc.publicKeyJwk);
               if (!fc.aregoId || !fc.publicKeyJwk || fc.aregoId === identity.aregoId) continue;
               const exists = existingContacts.some(c => c.aregoId === fc.aregoId);
               if (!exists) {
