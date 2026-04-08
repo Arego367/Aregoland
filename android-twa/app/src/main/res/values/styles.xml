@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AregoChat" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">#1D4ED8</item>
+        <item name="android:navigationBarColor">#0f172a</item>
+    </style>
+
+    <style name="Theme.AregoChat.Splash" parent="Theme.AregoChat">
+        <item name="android:windowBackground">#0f172a</item>
+    </style>
+</resources>

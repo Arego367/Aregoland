@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "de.aregoland.chat",
+      "sha256_cert_fingerprints": [
+        "60:17:D3:D4:60:D5:09:C6:12:D9:25:C7:38:C2:E6:D4:FA:33:13:B4:CA:07:63:B8:1C:EB:17:60:76:5F:EE:AE"
+      ]
+    }
+  }
+]

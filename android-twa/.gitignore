@@ -1,0 +1,13 @@
+# Build-Ausgaben
+build/
+app/build/
+.gradle/
+local.properties
+
+# Signing Keys — NIEMALS committen!
+*.jks
+*.keystore
+
+# AAB Builds
+*.aab
+*.apk
