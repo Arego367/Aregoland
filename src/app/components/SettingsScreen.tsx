@@ -1744,9 +1744,12 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
             ));
             setChildNameToast(true);
             setTimeout(() => setChildNameToast(false), 2500);
+          } else {
+            const errData = await resp.json().catch(() => ({}));
+            console.error('child-profile Server-Fehler:', resp.status, errData);
           }
         } catch (err) {
-          console.error('child-profile Fehler:', err);
+          console.error('child-profile Netzwerk-Fehler:', err);
         }
         setChildNameSaving(false);
       };

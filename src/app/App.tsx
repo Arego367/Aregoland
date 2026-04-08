@@ -628,8 +628,12 @@ export default function App() {
           return;
         }
 
-        // Kind-Eltern-Verknuepfung — Toast anzeigen
+        // Kind-Eltern-Verknuepfung — Toast anzeigen (Dedup: nur einmal pro child_id/parent_id)
         if (msg.type === 'child_linked') {
+          const dedupKey = `child_linked_${msg.child_id ?? ''}_${msg.parent_id ?? ''}`;
+          if (sessionStorage.getItem(dedupKey)) return; // Bereits verarbeitet
+          sessionStorage.setItem(dedupKey, '1');
+
           if (msg.role === 'child' && msg.parent_id) {
             // Kind: Verwalter lokal speichern
             setKindStatus(msg.parent_id);
