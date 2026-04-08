@@ -490,29 +490,22 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
                </div>
 
                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-400 flex items-center gap-1">
-                    <Info size={12}/> {t('profile.status')}
-                    {isChild && <Lock size={10} className="text-orange-400 ml-1" />}
-                  </label>
+                  <label className="text-xs font-medium text-gray-400 flex items-center gap-1"><Info size={12}/> {t('profile.status')}</label>
                   <input
                     type="text"
                     value={profile.status}
                     onChange={(e) => update({ status: e.target.value })}
                     placeholder={t('profile.statusPlaceholder')}
-                    readOnly={isChild}
-                    className={`w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none transition-all ${isChild ? 'opacity-60 cursor-not-allowed' : 'focus:border-blue-500 focus:ring-1 focus:ring-blue-500'}`}
+                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                   />
-                  {isChild && <p className="text-[10px] text-orange-400/70 mt-1">Wird von deinem Verwalter verwaltet</p>}
                </div>
             </div>
 
             {/* Addresses — dynamic */}
-            <div className={`space-y-4 ${isChild ? 'opacity-60' : ''}`}>
+            <div className="space-y-4">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-800 pb-1 flex items-center gap-2">
                 <MapPin size={14} /> {t('profile.address')}
-                {isChild && <Lock size={10} className="text-orange-400 ml-1" />}
               </h3>
-              {isChild && <p className="text-[10px] text-orange-400/70">Wird von deinem Verwalter verwaltet</p>}
 
               {/* Address cards */}
               {profile.addresses.map((addr, idx) => {
@@ -525,16 +518,14 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
                         <MapPin size={14} className="text-blue-400 shrink-0" />
                         <span className="text-sm font-semibold text-blue-400">{addr.label}</span>
                       </div>
-                      {!isChild && (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => openEditAddress(idx)} className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-                            <Pencil size={14} />
-                          </button>
-                          <button onClick={() => removeAddress(idx)} className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => openEditAddress(idx)} className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                          <Pencil size={14} />
+                        </button>
+                        <button onClick={() => removeAddress(idx)} className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                     <div className="text-sm text-gray-300 pl-[22px]">
                       {line1 && <div>{line1}</div>}
@@ -546,7 +537,7 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
               })}
 
               {/* Add address button */}
-              {!showAddressForm && !isChild && (
+              {!showAddressForm && (
                 <button
                   onClick={() => openAddAddress()}
                   className="w-full flex items-center justify-center gap-2 py-3 bg-gray-800/50 border border-gray-700/50 border-dashed rounded-xl text-gray-400 hover:text-white hover:border-blue-500/50 hover:bg-blue-500/5 transition-all text-sm font-medium"
@@ -650,17 +641,14 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
             </div>
 
             {/* Social Media — dynamic */}
-            <div className={`space-y-4 ${isChild && fskLevel < 16 ? 'opacity-60' : ''}`}>
+            <div className="space-y-4">
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-800 pb-1 flex items-center gap-2">
                 <LinkIcon size={14} /> {t('profile.socialMedia')}
-                {isChild && fskLevel < 16 && <Lock size={10} className="text-orange-400 ml-1" />}
               </h3>
-              {isChild && fskLevel < 16 && <p className="text-[10px] text-orange-400/70">Wird von deinem Verwalter verwaltet — ab FSK 16 kannst du es selbst ändern</p>}
 
               {/* Added links */}
               {profile.socialLinks.map((link, idx) => {
                 const p = getPlatform(link.platform);
-                const socialLocked = isChild && fskLevel < 16;
                 return (
                   <div key={idx} className="flex items-center gap-2">
                     <div className="shrink-0 w-9 h-9 rounded-lg bg-gray-800 flex items-center justify-center text-gray-400">
@@ -675,32 +663,27 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
                         value={link.username}
                         onChange={(e) => updateSocialLink(idx, e.target.value)}
                         placeholder={p.label}
-                        readOnly={socialLocked}
-                        className={`w-full bg-gray-800/50 border border-gray-700 rounded-xl ${p.prefix ? "pl-7" : "pl-3"} pr-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none transition-all ${socialLocked ? 'cursor-not-allowed' : 'focus:border-blue-500 focus:ring-1 focus:ring-blue-500'}`}
+                        className={`w-full bg-gray-800/50 border border-gray-700 rounded-xl ${p.prefix ? "pl-7" : "pl-3"} pr-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all`}
                       />
                     </div>
-                    {!socialLocked && (
-                      <button
-                        onClick={() => removeSocialLink(idx)}
-                        className="shrink-0 p-2 text-gray-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => removeSocialLink(idx)}
+                      className="shrink-0 p-2 text-gray-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 );
               })}
 
               {/* Add button */}
-              {!(isChild && fskLevel < 16) && (
-                <button
-                  onClick={() => setShowPlatformPicker(true)}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-gray-800/50 border border-gray-700/50 border-dashed rounded-xl text-gray-400 hover:text-white hover:border-blue-500/50 hover:bg-blue-500/5 transition-all text-sm font-medium"
-                >
-                  <Plus size={16} />
-                  {t('profile.addSocial')}
-                </button>
-              )}
+              <button
+                onClick={() => setShowPlatformPicker(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-gray-800/50 border border-gray-700/50 border-dashed rounded-xl text-gray-400 hover:text-white hover:border-blue-500/50 hover:bg-blue-500/5 transition-all text-sm font-medium"
+              >
+                <Plus size={16} />
+                {t('profile.addSocial')}
+              </button>
 
               {/* Platform Picker Modal */}
               <AnimatePresence>
@@ -744,18 +727,13 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
             </div>
 
             {/* Contact — dynamic */}
-            <div className={`space-y-4 ${isChild && fskLevel < 16 ? 'opacity-60' : ''}`}>
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-800 pb-1 flex items-center gap-2">
-                {t('profile.contact')}
-                {isChild && fskLevel < 16 && <Lock size={10} className="text-orange-400 ml-1" />}
-              </h3>
-              {isChild && fskLevel < 16 && <p className="text-[10px] text-orange-400/70">Wird von deinem Verwalter verwaltet — ab FSK 16 kannst du es selbst ändern</p>}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-gray-800 pb-1">{t('profile.contact')}</h3>
 
               {/* Contact cards */}
               {profile.contactEntries.map((entry, idx) => {
                 const ct = getContactType(entry.type);
                 const Icon = ct.icon;
-                const contactLocked = isChild && fskLevel < 16;
                 return (
                   <div key={idx} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 flex items-center gap-3">
                     <div className="shrink-0 w-9 h-9 rounded-lg bg-gray-700/50 flex items-center justify-center text-gray-400">
@@ -765,22 +743,20 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
                       <div className="text-sm text-white truncate">{entry.value}</div>
                       <div className="text-xs text-gray-500">{ct.label} · {entry.label}</div>
                     </div>
-                    {!contactLocked && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => openEditContact(idx)} className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-                          <Pencil size={14} />
-                        </button>
-                        <button onClick={() => removeContact(idx)} className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => openEditContact(idx)} className="p-1.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => removeContact(idx)} className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
 
               {/* Add contact button */}
-              {!showContactForm && !(isChild && fskLevel < 16) && (
+              {!showContactForm && (
                 <button
                   onClick={openAddContact}
                   className="w-full flex items-center justify-center gap-2 py-3 bg-gray-800/50 border border-gray-700/50 border-dashed rounded-xl text-gray-400 hover:text-white hover:border-blue-500/50 hover:bg-blue-500/5 transition-all text-sm font-medium"

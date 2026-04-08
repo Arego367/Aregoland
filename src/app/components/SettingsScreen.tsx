@@ -1768,7 +1768,6 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
         localStorage.setItem('arego_child_profiles', JSON.stringify(childProfiles));
 
         // An Kind + anderen Verwalter per WebSocket senden
-        const wsEl = document.querySelector('[data-ws-ref]') as HTMLElement | null;
         const wsRaw = (window as any).__aregoWs;
         if (wsRaw && wsRaw.readyState === 1) {
           wsRaw.send(JSON.stringify({
@@ -1777,6 +1776,19 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
             profile,
           }));
         }
+
+        // HTTP-Fallback: Name immer auch über den Server senden (für Offline-Kind)
+        fetch('/child-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            child_id: activeChild.child_id,
+            parent_id: identity.aregoId,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            nickname: profile.nickname,
+          }),
+        }).catch(() => {});
 
         // linkedChildren lokal updaten
         setLinkedChildren(prev => prev.map(c =>
