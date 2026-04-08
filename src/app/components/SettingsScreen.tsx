@@ -199,10 +199,24 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>(() => {
     try { return JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]'); } catch { return []; }
   });
-  // Live-Update wenn Kind verknüpft wird + beim Öffnen der Familie-Seite vom Server laden
+  // Live-Update wenn Kind verknüpft wird — sofort sessionStorage lesen + vom Server nachladen
   useEffect(() => {
     const handler = () => {
+      // Sofort aus sessionStorage aktualisieren (schnelle Anzeige)
       try { setLinkedChildren(JSON.parse(sessionStorage.getItem('aregoland_linked_children') ?? '[]')); } catch {}
+      // Dann vom Server nachladen (vollstaendige Daten mit Namen)
+      const id = loadIdentity();
+      if (id) {
+        fetch(`/child-link/${encodeURIComponent(id.aregoId)}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data?.children) {
+              setLinkedChildren(data.children);
+              sessionStorage.setItem('aregoland_linked_children', JSON.stringify(data.children));
+            }
+          })
+          .catch(() => {});
+      }
     };
     window.addEventListener('arego-child-linked', handler);
     return () => window.removeEventListener('arego-child-linked', handler);

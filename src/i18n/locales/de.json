@@ -416,7 +416,7 @@
     "fskParentDesc": "Dein Elternteil zeigt dir einen QR-Code \u2014 du scannst ihn hier.",
     "fskParentBtn": "QR-Code scannen",
     "fskParentScanHint": "Bitte deinen Elternteil, den QR-Code auf seinem Ger\u00e4t zu \u00f6ffnen (Einstellungen \u2192 Familie & Kinder).",
-    "fskParentLinked": "Verkn\u00fcpft mit {{name}} \u2014 FSK 18 freigeschaltet.",
+    "fskParentLinked": "Verkn\u00fcpft mit {{name}} \u2014 FSK 6 (Kinderschutz aktiv).",
     "fskParentDefault": "Elternteil",
     "fskParentNoCamera": "Keine Kamera verf\u00fcgbar.",
     "fskParentCameraError": "Kamera konnte nicht gestartet werden.",
