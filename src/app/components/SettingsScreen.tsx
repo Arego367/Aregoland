@@ -1445,29 +1445,39 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   </div>
                   <p className="font-medium">{t('settings.fskSelfVerifyTitle')}</p>
                 </div>
-                {fsk?.verified && fsk.method === "self" ? (
-                  <p className="text-sm text-green-400 text-center py-2">{t('settings.fskSelfVerifyDone')}</p>
-                ) : !fsk?.verified ? (
-                  <>
-                    <button
-                      onClick={() => {
-                        const updated: FskStatus = {
-                          level: 18,
-                          verified: true,
-                          verifiedAt: new Date().toISOString(),
-                          method: "self",
-                        };
-                        saveFsk(updated);
-                        onFskUpdated?.();
-                        setActiveSubmenu("fsk"); // force re-render
-                      }}
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-                    >
-                      {t('settings.fskSelfVerifyBtn')}
-                    </button>
-                    <p className="text-xs text-gray-500 text-center">{t('settings.fskSelfVerifyHint')}</p>
-                  </>
-                ) : null}
+                <p className="text-xs text-gray-400">Test-Modus: FSK-Stufe frei wählbar (wird durch EUDI ersetzt)</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {([6, 12, 16, 18] as const).map((stufe) => {
+                    const isActive = fsk?.verified && fsk.method === "self" && fsk.level === stufe;
+                    return (
+                      <button
+                        key={stufe}
+                        onClick={() => {
+                          const updated: FskStatus = {
+                            level: stufe,
+                            verified: true,
+                            verifiedAt: new Date().toISOString(),
+                            method: "self",
+                          };
+                          saveFsk(updated);
+                          onFskUpdated?.();
+                          setActiveSubmenu("fsk"); // force re-render
+                        }}
+                        className={`py-3 rounded-xl font-medium text-sm transition-colors ${
+                          isActive
+                            ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                            : 'bg-gray-700/60 text-gray-300 hover:bg-gray-600/60'
+                        }`}
+                      >
+                        FSK {stufe}
+                      </button>
+                    );
+                  })}
+                </div>
+                {fsk?.verified && fsk.method === "self" && (
+                  <p className="text-xs text-emerald-400 text-center">Aktiv: FSK {fsk.level}</p>
+                )}
+                <p className="text-xs text-gray-500 text-center">{t('settings.fskSelfVerifyHint')}</p>
               </div>
             )}
 
