@@ -163,6 +163,44 @@ function persistDb() {
   writeFileSync(DB_PATH, Buffer.from(data));
 }
 
+// ── Abo-Übernahme: Kind erbt Abo vom Verwalter wenn eigenes abgelaufen ──────
+function resolveKindAbo(aregoId) {
+  const rows = db.exec(
+    `SELECT abo_status, abo_gueltig_bis, verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`,
+    [aregoId]
+  );
+  if (!rows.length || !rows[0].values.length) return null;
+  const [aboStatus, aboGueltigBis, v1, v2] = rows[0].values[0];
+
+  // Nur prüfen wenn Kind (hat Verwalter) UND Abo abgelaufen/null
+  const istKind = !!(v1 || v2);
+  if (!istKind) return null;
+
+  const now = new Date();
+  const nochGueltig = aboGueltigBis && new Date(aboGueltigBis) > now;
+  if (aboStatus === 'active' && nochGueltig) return null;
+
+  // Verwalter der Reihe nach prüfen
+  for (const verwalterId of [v1, v2].filter(Boolean)) {
+    const vRows = db.exec(
+      `SELECT abo_status, abo_gueltig_bis FROM user_auth WHERE arego_id = ?`,
+      [verwalterId]
+    );
+    if (!vRows.length || !vRows[0].values.length) continue;
+    const [vAbo, vBis] = vRows[0].values[0];
+    if ((vAbo === 'active' || vAbo === 'trial') && vBis && new Date(vBis) > now) {
+      // Verwalter-Abo auf Kind übertragen
+      db.run(
+        `UPDATE user_auth SET abo_status = ?, abo_gueltig_bis = ? WHERE arego_id = ?`,
+        [vAbo, vBis, aregoId]
+      );
+      persistDb();
+      return { abo_status: vAbo, abo_gueltig_bis: vBis };
+    }
+  }
+  return null;
+}
+
 // Cronjob: täglich inaktive Spaces löschen (älter als 30 Tage) + abgelaufene Directory-Einträge (3 Tage)
 setInterval(() => {
   if (!db) return;
@@ -836,8 +874,18 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'not_found' }));
         return;
       }
-      const [abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2] = rows[0].values[0];
+      let [abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2] = rows[0].values[0];
       const ist_kind = !!(verwalter_1 || verwalter_2);
+
+      // Kind-Abo-Übernahme: wenn abgelaufen, Verwalter-Abo prüfen
+      const aboAbgelaufen = abo_status === 'expired' || (abo_gueltig_bis && new Date(abo_gueltig_bis) < new Date());
+      if (aboAbgelaufen) {
+        const kindAbo = resolveKindAbo(aregoId);
+        if (kindAbo) {
+          abo_status = kindAbo.abo_status;
+          abo_gueltig_bis = kindAbo.abo_gueltig_bis;
+        }
+      }
 
       // Verknüpfte Kinder dieses Nutzers (als Elternteil)
       const childRows = db.exec(`SELECT arego_id, fsk_stufe FROM user_auth WHERE verwalter_1 = ? OR verwalter_2 = ?`, [aregoId, aregoId]);
@@ -1131,21 +1179,27 @@ wss.on('connection', (ws) => {
       persistDb();
 
       // Abo-Gültigkeit serverseitig prüfen
-      if (aboStatus === 'expired') {
-        ws.send(JSON.stringify({ type: 'auth_error', error: 'subscription_expired', message: 'Kein aktives Abo' }));
-        ws.close(4002, 'Subscription expired');
-        return;
-      }
-      if (aboGueltigBis && new Date(aboGueltigBis) < new Date()) {
-        db.run(`UPDATE user_auth SET abo_status = 'expired' WHERE arego_id = ?`, [aregoId]);
-        persistDb();
-        ws.send(JSON.stringify({ type: 'auth_error', error: 'subscription_expired', message: 'Abo abgelaufen' }));
-        ws.close(4002, 'Subscription expired');
-        return;
+      let effectiveAbo = aboStatus;
+      let effectiveBis = aboGueltigBis;
+      const aboAbgelaufen = aboStatus === 'expired' || (aboGueltigBis && new Date(aboGueltigBis) < new Date());
+
+      if (aboAbgelaufen) {
+        // Kind-Abo-Übernahme: Verwalter-Abo prüfen bevor expired
+        const kindAbo = resolveKindAbo(aregoId);
+        if (kindAbo) {
+          effectiveAbo = kindAbo.abo_status;
+          effectiveBis = kindAbo.abo_gueltig_bis;
+        } else {
+          db.run(`UPDATE user_auth SET abo_status = 'expired' WHERE arego_id = ?`, [aregoId]);
+          persistDb();
+          ws.send(JSON.stringify({ type: 'auth_error', error: 'subscription_expired', message: 'Abo abgelaufen' }));
+          ws.close(4002, 'Subscription expired');
+          return;
+        }
       }
 
       // Session speichern
-      const session = { arego_id: aregoId, abo_status: aboStatus, fsk_stufe: fskStufe };
+      const session = { arego_id: aregoId, abo_status: effectiveAbo, fsk_stufe: fskStufe };
       wsSessions.set(ws, session);
       sessionsByAregoId.set(aregoId, session);
       presenceId = aregoId;
@@ -1191,7 +1245,8 @@ wss.on('connection', (ws) => {
       ws.send(JSON.stringify({
         type: 'auth_ok',
         arego_id: aregoId,
-        abo_status: aboStatus,
+        abo_status: effectiveAbo,
+        abo_gueltig_bis: effectiveBis,
         fsk_stufe: fskStufe,
         ist_kind: istKind,
         verwalter,
