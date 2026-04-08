@@ -36,7 +36,7 @@ export async function createIdentity(displayName: string): Promise<UserIdentity>
 
   const identity: UserIdentity = {
     aregoId,
-    displayName: displayName.trim() || "Anonym",
+    displayName: displayName.trim() || aregoId,
     publicKeyJwk,
     privateKeyJwk,
     createdAt: new Date().toISOString(),
@@ -162,7 +162,7 @@ export async function createChildIdentity(
 
   const identity = {
     aregoId,
-    displayName: displayName.trim() || "Kind",
+    displayName: displayName.trim() || aregoId,
     publicKeyJwk,
     privateKeyJwk,
     createdAt: new Date().toISOString(),

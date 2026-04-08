@@ -88,7 +88,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
           setChildScanActive(false);
           setChildCreating(true);
           try {
-            await createChildIdentity("Kind", parentId, 6);
+            await createChildIdentity("", parentId, 6);
             // FSK 6 verifiziert setzen — Kind ist durch Verwalter geschützt
             const fskUpdate: FskStatus = { level: 6, verified: true, verifiedAt: new Date().toISOString(), method: "parent" };
             saveFsk(fskUpdate);
