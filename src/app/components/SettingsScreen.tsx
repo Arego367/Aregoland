@@ -318,13 +318,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
 
           setParentScanActive(false);
           setParentLinked(parentId);
-
-          // Toast fuer Kind
-          const toastEl = document.createElement('div');
-          toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
-          toastEl.textContent = t('settings.childLinkedToast');
-          document.body.appendChild(toastEl);
-          setTimeout(() => toastEl.remove(), 4000);
+          // Toast kommt automatisch per WebSocket child_linked + BroadcastChannel
         },
         () => {} // Kein Fehler bei fehlgeschlagenem Frame
       );
