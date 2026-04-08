@@ -30,7 +30,7 @@
   "isChromeOSOnly": false,
   "isMetaQuest": false,
   "fullScopeUrl": "https://aregoland.de/",
-  "minSdkVersion": 19,
+  "minSdkVersion": 21,
   "orientation": "portrait",
   "fingerprints": []
 }
