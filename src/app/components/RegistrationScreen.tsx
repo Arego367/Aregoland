@@ -85,8 +85,11 @@ export default function RegistrationScreen({ onComplete }: RegistrationScreenPro
                 {t('registration.createAccount')}
               </h1>
               <p className="text-gray-400 text-base mb-3 leading-relaxed" dangerouslySetInnerHTML={{ __html: t('registration.identityLocal') }} />
-              <p className="text-gray-500 text-sm mb-10 leading-relaxed">
+              <p className="text-gray-500 text-sm mb-3 leading-relaxed">
                 {t('registration.noPassword')}
+              </p>
+              <p className="text-gray-400 text-sm mb-10 leading-relaxed">
+                {t('registration.verificationHint')}
               </p>
 
               <div className="w-full space-y-3">

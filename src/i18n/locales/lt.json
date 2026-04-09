@@ -72,6 +72,7 @@
     "createAccount": "Sukurti paskyrą",
     "identityLocal": "Jūsų tapatybė sukuriama <strong>vietinai jūsų įrenginyje</strong> naudojant kriptografinių raktų porą.",
     "noPassword": "Jokio slaptažodžio. Jokio vartotojo vardo. Joks serveris nesaugo jūsų prisijungimo duomenų.",
+    "verificationHint": "",
     "whatIsYourName": "Koks jūsų vardas?",
     "displayNameHint": "Jūsų rodomas vardas — galima pakeisti vėliau.",
     "namePlaceholder": "pvz. Aras",

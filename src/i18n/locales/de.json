@@ -73,6 +73,7 @@
     "createAccount": "Konto erstellen",
     "identityLocal": "Deine Identit\u00e4t wird <strong>lokal auf deinem Ger\u00e4t</strong> mit einem kryptografischen Schl\u00fcsselpaar erstellt.",
     "noPassword": "Kein Passwort. Kein Benutzername. Kein Server speichert deine Zugangsdaten.",
+    "verificationHint": "Um die Sicherheit von Kindern zu gew\u00e4hrleisten, setzt die Nutzung von Aregoland eine Identit\u00e4tsverifizierung voraus. So kann dein FSK-Alter bestimmt werden.",
     "whatIsYourName": "Wie hei\u00dft du?",
     "displayNameHint": "Dein Anzeigename \u2014 kann sp\u00e4ter ge\u00e4ndert werden.",
     "namePlaceholder": "z.B. Aras",

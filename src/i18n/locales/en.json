@@ -72,6 +72,7 @@
     "createAccount": "Create Account",
     "identityLocal": "Your identity is created <strong>locally on your device</strong> with a cryptographic key pair.",
     "noPassword": "No password. No username. No server stores your credentials.",
+    "verificationHint": "",
     "whatIsYourName": "What is your name?",
     "displayNameHint": "Your display name — can be changed later.",
     "namePlaceholder": "e.g. Aras",
