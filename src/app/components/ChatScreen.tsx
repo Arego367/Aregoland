@@ -187,6 +187,27 @@ function isVoiceMessage(msg: { type: string; fileName?: string; fileMime?: strin
   return false;
 }
 
+const URL_REGEX = /(https?:\/\/[^\s<>"']+)/g;
+
+function truncateUrl(url: string, max = 50): string {
+  try {
+    const u = new URL(url);
+    const display = u.hostname + u.pathname;
+    return display.length > max ? display.slice(0, max) + '…' : display;
+  } catch {
+    return url.length > max ? url.slice(0, max) + '…' : url;
+  }
+}
+
+function linkifyText(text: string): (string | JSX.Element)[] {
+  const parts = text.split(URL_REGEX);
+  return parts.map((part, i) =>
+    /^https?:\/\//.test(part) ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline break-all hover:opacity-80">{truncateUrl(part)}</a>
+    ) : part
+  );
+}
+
 const isRealP2PRoom = (roomId: string) => roomId.includes(':');
 
 
@@ -941,14 +962,14 @@ export default function ChatScreen({
                     </a>
                   )}
                   {msg.type !== 'image' && !isVoiceMessage(msg) && (
-                    <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
+                    <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
                       {searchQuery && msg.text.toLowerCase().includes(searchQuery.toLowerCase())
                         ? msg.text.split(new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')).map((part, i) =>
                             part.toLowerCase() === searchQuery.toLowerCase()
                               ? <mark key={i} className="bg-yellow-500/40 text-white rounded px-0.5">{part}</mark>
-                              : part
+                              : linkifyText(part)
                           )
-                        : msg.text}
+                        : linkifyText(msg.text)}
                     </p>
                   )}
                   <div className={`flex items-center justify-end gap-1 mt-1 ${msg.sender === "me" ? "text-blue-200" : "text-gray-400"}`}>
