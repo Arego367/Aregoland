@@ -1448,9 +1448,6 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   <p className={`font-medium ${fsk?.verified ? 'text-green-400' : 'text-orange-400'}`}>
                     FSK {fsk?.level ?? 6} — {fsk?.verified ? t('settings.fskVerified') : t('settings.fskNotVerified')}
                   </p>
-                  {!fsk?.verified && (
-                    <p className="text-xs text-gray-500">{t('settings.fskLockedHint')}</p>
-                  )}
                 </div>
               </div>
             </div>

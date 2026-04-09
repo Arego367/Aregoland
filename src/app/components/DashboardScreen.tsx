@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { MessageCircle, Calendar, CreditCard, Users, LayoutGrid, CircleDashed, User, Settings, QrCode, LogOut, HeartHandshake, FileText, Globe, ShieldAlert } from "lucide-react";
+import { MessageCircle, Calendar, CreditCard, Users, LayoutGrid, CircleDashed, User, Settings, QrCode, LogOut, HeartHandshake, FileText, Globe } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useTranslation } from 'react-i18next';
 
@@ -11,7 +11,6 @@ interface DashboardScreenProps {
   onOpenSettings: () => void;
   onOpenSupport?: () => void;
   chatUnreadCount?: number;
-  fskLocked?: boolean;
 }
 
 function loadAvatar(): { avatarBase64: string | null; initials: string } {
@@ -26,8 +25,7 @@ function loadAvatar(): { avatarBase64: string | null; initials: string } {
   } catch { return { avatarBase64: null, initials: "" }; }
 }
 
-export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, chatUnreadCount = 0, fskLocked = false }: DashboardScreenProps) {
-  const FSK_LOCKED_IDS = ["chatList", "people", "community", "world"];
+export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, chatUnreadCount = 0 }: DashboardScreenProps) {
   const [avatar, setAvatar] = useState(loadAvatar);
   const [worldToast, setWorldToast] = useState(false);
 
@@ -186,8 +184,7 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
         <div className="flex flex-col max-w-lg mx-auto pb-8">
           <div className="grid grid-cols-2 gap-4 content-start">
             {TILES.map((tile, index) => {
-              const isFskBlock = fskLocked && FSK_LOCKED_IDS.includes(tile.id);
-              const isDisabled = tile.disabled || isFskBlock;
+              const isDisabled = tile.disabled;
               return (
               <motion.button
                 key={tile.id}
@@ -204,14 +201,14 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
                   }
                   onNavigate(tile.id as any);
                 }}
-                className={`flex flex-col items-center justify-center p-6 rounded-3xl bg-gray-800 border transition-colors shadow-lg group aspect-[4/5] relative overflow-hidden ${isFskBlock ? "opacity-60 border-orange-500/30" : tile.disabled ? "opacity-50 cursor-default border-gray-700" : "border-gray-700 hover:bg-gray-750"}`}
+                className={`flex flex-col items-center justify-center p-6 rounded-3xl bg-gray-800 border transition-colors shadow-lg group aspect-[4/5] relative overflow-hidden ${tile.disabled ? "opacity-50 cursor-default border-gray-700" : "border-gray-700 hover:bg-gray-750"}`}
               >
                 {/* Background Glow */}
                 <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 bg-gradient-to-br from-white to-transparent`} />
 
                 <div className={`relative p-5 rounded-2xl mb-4 ${tile.color} shadow-lg shadow-black/20 text-white`}>
                   <tile.icon size={32} />
-                  {tile.id === 'chatList' && chatUnreadCount > 0 && !isFskBlock && (
+                  {tile.id === 'chatList' && chatUnreadCount > 0 && (
                     <span className="absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full shadow-lg">
                       {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
                     </span>
@@ -222,9 +219,7 @@ export default function DashboardScreen({ onNavigate, onOpenProfile, onOpenQRCod
                 {tile.disabled && (
                   <span className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-gray-700 text-[9px] font-bold text-gray-400">{t('dashboard.comingSoon')}</span>
                 )}
-                {isFskBlock && (
-                  <span className="absolute top-3 right-3 p-1 rounded-md bg-orange-500/20 text-orange-400"><ShieldAlert size={14} /></span>
-                )}
+
               </motion.button>
               );
             })}

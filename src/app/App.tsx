@@ -40,7 +40,7 @@ import { Tab } from "@/app/types";
 import { loadIdentity, UserIdentity, setKindStatus } from "@/app/auth/identity";
 import { signData } from "@/app/auth/crypto";
 import { loadSubscription, hasAccess, initSubscription, getEffectiveStatus } from "@/app/auth/subscription";
-import { loadFsk, initFsk, saveFsk, isFskVerified, isFeatureLocked, type FskLevel, type FskStatus } from "@/app/auth/fsk";
+import { loadFsk, initFsk, saveFsk, type FskLevel, type FskStatus } from "@/app/auth/fsk";
 import { deriveRoomId, decodePayload, createSharePayload, encodePayload } from "@/app/auth/share";
 import { saveContact, isNonceUsed, markNonceUsed, loadContacts, removeContact } from "@/app/auth/contacts";
 import {
@@ -1414,16 +1414,7 @@ export default function App() {
       {currentScreen === "dashboard" && (
         <DashboardScreen
           chatUnreadCount={totalUnread}
-          fskLocked={!isFskVerified(fskStatus)}
           onNavigate={(target) => {
-            if (isFeatureLocked(fskStatus, target)) {
-              setToast({
-                text: 'Verifiziere dein Alter um diese Funktion zu nutzen.',
-                type: 'warning',
-                onClick: () => { navigateTo("settings"); setTimeout(() => window.dispatchEvent(new CustomEvent('arego-open-fsk')), 100); },
-              });
-              return;
-            }
             if (target === "chatList") setCurrentScreen("chatList");
             else if (target === "calendar") setCurrentScreen("calendar");
             else if (target === "people") setCurrentScreen("people");
