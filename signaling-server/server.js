@@ -22,6 +22,13 @@
  *  POST /support               → Support-Nachricht als GitHub Issue
  *  POST /support/close         → GitHub Issue schließen
  *
+ *  POST /child-settings/update          → Verwalter ändert Kind-Einstellung (ECDSA-signiert)
+ *  GET  /child-settings/audit/:kind_id  → Audit-Log abrufen (Verwalter + Kind ab FSK 12)
+ *  POST /child-settings/self-determination → Kind ab FSK 16 deaktiviert Verwalter-Zugriff
+ *  GET  /child-settings/pending/:kind_id → Ausstehende Sync-Einträge abholen + löschen
+ *  GET  /child-settings/export/:kind_id  → DSGVO Art. 20 Datenexport
+ *  DELETE /child-settings/data/:kind_id  → DSGVO Art. 17 Löschung ohne Vorbehalt
+ *
  * WebSocket:
  *  Räume vom Typ "chat:…" / normale IDs → max 2 Peers (P2P Chat)
  *  Räume vom Typ "inbox:<aregoId>"      → bis zu 50 Peers, Offline-Pufferung
@@ -144,6 +151,35 @@ async function initDb() {
   try { db.run(`ALTER TABLE user_auth ADD COLUMN verwalter_2 TEXT DEFAULT NULL`); } catch {}
   // Migration: nickname_self_edit Spalte
   try { db.run(`ALTER TABLE user_auth ADD COLUMN nickname_self_edit INTEGER NOT NULL DEFAULT 0`); } catch {}
+  // Migration: verwalter_einstellungen_erlaubt Spalte (Selbstbestimmung ab FSK 16)
+  try { db.run(`ALTER TABLE user_auth ADD COLUMN verwalter_einstellungen_erlaubt INTEGER DEFAULT 1`); } catch {}
+
+  // Verwalter-Audit-Log (nur Metadaten, keine Hashes — CR-1)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS verwalter_audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      verwalter_id TEXT NOT NULL,
+      kind_id TEXT NOT NULL,
+      aktion TEXT NOT NULL,
+      kategorie TEXT NOT NULL,
+      zeitstempel TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (verwalter_id) REFERENCES user_auth(arego_id),
+      FOREIGN KEY (kind_id) REFERENCES user_auth(arego_id)
+    )
+  `);
+
+  // Verwalter-Settings-Sync (Offline-Queue, sofort nach Abholung löschen — VG-1)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS verwalter_settings_sync (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind_id TEXT NOT NULL,
+      verwalter_id TEXT NOT NULL,
+      settings_kategorie TEXT NOT NULL,
+      payload_encrypted TEXT NOT NULL,
+      erstellt_am TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (kind_id) REFERENCES user_auth(arego_id)
+    )
+  `);
   // Migration: child_links Daten in user_auth übernehmen, dann Tabelle löschen
   try {
     const links = db.exec(`SELECT child_id, parent_id FROM child_links ORDER BY created_at`);
@@ -223,9 +259,19 @@ setInterval(() => {
   db.run(`DELETE FROM fsk_approved_spaces WHERE letzter_heartbeat < ?`, [fskCutoff]);
   // FSK: abgelaufene, nicht eingelöste Codes entfernen
   db.run(`DELETE FROM fsk_approved_spaces WHERE code_eingeloest = 0 AND code_gueltig_bis < ?`, [now]);
-  // Auth: Nutzer ohne Heartbeat > 90 Tage entfernen
+  // Auth: Nutzer ohne Heartbeat > 90 Tage entfernen (+ Art. 17 Kaskade)
   const authCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  // Vor dem Löschen: Kaskade für Verwalter-Daten (Art. 17 ohne Vorbehalt)
+  db.run(`DELETE FROM verwalter_audit_log WHERE kind_id IN (SELECT arego_id FROM user_auth WHERE letzter_heartbeat < ?)`, [authCutoff]);
+  db.run(`DELETE FROM verwalter_audit_log WHERE verwalter_id IN (SELECT arego_id FROM user_auth WHERE letzter_heartbeat < ?)`, [authCutoff]);
+  db.run(`DELETE FROM verwalter_settings_sync WHERE kind_id IN (SELECT arego_id FROM user_auth WHERE letzter_heartbeat < ?)`, [authCutoff]);
   db.run(`DELETE FROM user_auth WHERE letzter_heartbeat < ?`, [authCutoff]);
+  // Audit-Log: Einträge älter als 90 Tage automatisch löschen
+  const auditCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  db.run(`DELETE FROM verwalter_audit_log WHERE zeitstempel < ?`, [auditCutoff]);
+  // Settings-Sync: Einträge älter als 30 Tage löschen (TTL)
+  const syncCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  db.run(`DELETE FROM verwalter_settings_sync WHERE erstellt_am < ?`, [syncCutoff]);
   persistDb();
 }, 24 * 60 * 60 * 1000).unref(); // einmal täglich
 
@@ -236,6 +282,9 @@ const inboxPending = new Map(); // 'inbox:<aregoId>' → [{ text, expires }]
 
 // Rate-Limiting für Support-Chat: max 5 Nachrichten pro 10 Sekunden pro Arego-ID
 const supportRateLimit = new Map(); // aregoId → [timestamp, timestamp, ...]
+
+// Rate-Limiting für Verwalter-Einstellungen: 20/h pro Verwalter, 5/h pro Kategorie
+const verwalterRateLimit = new Map(); // verwalterId → { total: [ts], categories: { cat: [ts] } }
 
 // Presence — nur RAM, kein Disk, kein Verlauf
 const onlineUsers      = new Map(); // aregoId → Set<WebSocket>
@@ -286,6 +335,43 @@ function readBody(req) {
     req.on('end', () => resolve(body));
     req.on('error', reject);
   });
+}
+
+// ── ECDSA-Signaturverifikation ────────────────────────────────────────────────
+async function verifyEcdsaSignature(aregoId, signatureBase64, dataToVerify) {
+  const rows = db.exec(`SELECT public_key_jwk FROM user_directory WHERE arego_id = ?`, [aregoId]);
+  if (!rows.length || !rows[0].values.length || !rows[0].values[0][0]) return false;
+  try {
+    const jwk = JSON.parse(rows[0].values[0][0]);
+    const key = await globalThis.crypto.subtle.importKey(
+      'jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']
+    );
+    const sig = Buffer.from(signatureBase64, 'base64');
+    const data = new TextEncoder().encode(dataToVerify);
+    return await globalThis.crypto.subtle.verify(
+      { name: 'ECDSA', hash: 'SHA-256' }, key, sig, data
+    );
+  } catch {
+    return false;
+  }
+}
+
+// ── Verwalter Rate Limiting ──────────────────────────────────────────────────
+function checkVerwalterRateLimit(verwalterId, kategorie) {
+  const now = Date.now();
+  const hourAgo = now - 3_600_000;
+  if (!verwalterRateLimit.has(verwalterId)) {
+    verwalterRateLimit.set(verwalterId, { total: [], categories: {} });
+  }
+  const entry = verwalterRateLimit.get(verwalterId);
+  entry.total = entry.total.filter(t => t > hourAgo);
+  if (entry.total.length >= 20) return { allowed: false, reason: 'rate_limit_total' };
+  if (!entry.categories[kategorie]) entry.categories[kategorie] = [];
+  entry.categories[kategorie] = entry.categories[kategorie].filter(t => t > hourAgo);
+  if (entry.categories[kategorie].length >= 5) return { allowed: false, reason: 'rate_limit_category' };
+  entry.total.push(now);
+  entry.categories[kategorie].push(now);
+  return { allowed: true };
 }
 
 // ── Auth Middleware ───────────────────────────────────────────────────────────
@@ -1038,18 +1124,437 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ── POST /child-settings/update — Verwalter ändert Kind-Einstellung (ECDSA) ─
+  if (req.method === 'POST' && req.url === '/child-settings/update') {
+    try {
+      const body = await readBody(req);
+      const { verwalter_id, kind_id, kategorie, aktion, payload_encrypted, signature, timestamp } = JSON.parse(body);
+      if (!verwalter_id || !kind_id || !kategorie || !aktion || !signature || !timestamp) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'verwalter_id, kind_id, kategorie, aktion, signature, timestamp erforderlich' }));
+        return;
+      }
+      // Timestamp-Validierung (max 5 Minuten alt)
+      const tsAge = Math.abs(Date.now() - new Date(timestamp).getTime());
+      if (tsAge > 5 * 60 * 1000) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'timestamp_expired' }));
+        return;
+      }
+      // ECDSA-Signaturverifikation
+      const dataToVerify = kind_id + kategorie + timestamp;
+      const valid = await verifyEcdsaSignature(verwalter_id, signature, dataToVerify);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      // Verwalter-Berechtigung prüfen
+      const rows = db.exec(
+        `SELECT verwalter_1, verwalter_2, fsk_stufe, verwalter_einstellungen_erlaubt FROM user_auth WHERE arego_id = ?`,
+        [kind_id]
+      );
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'kind_not_found' }));
+        return;
+      }
+      const [v1, v2, kindFsk, einstellungenErlaubt] = rows[0].values[0];
+      if (v1 !== verwalter_id && v2 !== verwalter_id) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'not_verwalter' }));
+        return;
+      }
+      if (!einstellungenErlaubt) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'verwalter_einstellungen_deaktiviert', message: 'Kind hat Verwalter-Einstellungen deaktiviert' }));
+        return;
+      }
+      // FSK-Validierung bei Kategorie 'fsk'
+      if (kategorie === 'fsk') {
+        // Verwalter-FSK prüfen
+        const vRows = db.exec(`SELECT fsk_stufe FROM user_auth WHERE arego_id = ?`, [verwalter_id]);
+        const verwalterFsk = vRows.length && vRows[0].values.length ? vRows[0].values[0][0] : 6;
+        // payload_encrypted enthält bei FSK die gewünschte Stufe nicht im Klartext,
+        // aber aktion enthält die Stufe als 'fsk_upgrade_XX'
+        const targetFskMatch = aktion.match(/fsk_upgrade_(\d+)/);
+        if (targetFskMatch) {
+          const targetFsk = parseInt(targetFskMatch[1], 10);
+          if (targetFsk <= kindFsk) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'fsk_no_downgrade', message: 'FSK kann nicht gesenkt werden' }));
+            return;
+          }
+          if (targetFsk > verwalterFsk) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'fsk_exceeds_verwalter', message: 'FSK darf Verwalter-Stufe nicht überschreiten' }));
+            return;
+          }
+        }
+      }
+      // Rate Limiting
+      const rateCheck = checkVerwalterRateLimit(verwalter_id, kategorie);
+      if (!rateCheck.allowed) {
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: rateCheck.reason }));
+        return;
+      }
+      // Audit-Log schreiben (nur Metadaten — CR-1)
+      const now = new Date().toISOString();
+      db.run(
+        `INSERT INTO verwalter_audit_log (verwalter_id, kind_id, aktion, kategorie, zeitstempel) VALUES (?, ?, ?, ?, ?)`,
+        [verwalter_id, kind_id, aktion.slice(0, 100), kategorie.slice(0, 50), now]
+      );
+      const auditId = db.exec(`SELECT last_insert_rowid()`)[0].values[0][0];
+      // Zustellung: WebSocket oder Sync-Queue
+      let delivered = false;
+      const notify = JSON.stringify({
+        type: 'child_settings_update',
+        verwalter_id,
+        kind_id,
+        kategorie,
+        aktion,
+        payload_encrypted: payload_encrypted ?? '',
+      });
+      const kindSockets = onlineUsers.get(kind_id);
+      if (kindSockets) {
+        for (const ws of kindSockets) {
+          if (ws.readyState === 1) { ws.send(notify); delivered = true; }
+        }
+      }
+      if (!delivered && payload_encrypted) {
+        // Offline → in Sync-Queue (max 50 Einträge, FIFO)
+        db.run(
+          `INSERT INTO verwalter_settings_sync (kind_id, verwalter_id, settings_kategorie, payload_encrypted, erstellt_am) VALUES (?, ?, ?, ?, ?)`,
+          [kind_id, verwalter_id, kategorie, payload_encrypted, now]
+        );
+        // FIFO: älteste löschen wenn > 50
+        db.run(
+          `DELETE FROM verwalter_settings_sync WHERE kind_id = ? AND id NOT IN (SELECT id FROM verwalter_settings_sync WHERE kind_id = ? ORDER BY id DESC LIMIT 50)`,
+          [kind_id, kind_id]
+        );
+      }
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, audit_id: auditId, delivered }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── GET /child-settings/audit/:kind_id — Audit-Log abrufen ─────────────────
+  const auditMatch = req.method === 'GET' && req.url?.match(/^\/child-settings\/audit\/([^?]+)/);
+  if (auditMatch) {
+    try {
+      const kindId = decodeURIComponent(auditMatch[1]);
+      const url = new URL(req.url, `http://localhost:${PORT}`);
+      const requesterId = url.searchParams.get('requester_id');
+      const sig = url.searchParams.get('signature');
+      const ts = url.searchParams.get('timestamp');
+      if (!requesterId || !sig || !ts) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'requester_id, signature, timestamp erforderlich' }));
+        return;
+      }
+      // ECDSA-Signaturverifikation
+      const valid = await verifyEcdsaSignature(requesterId, sig, kindId + 'audit' + ts);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      // Zugriffsprüfung: Verwalter des Kindes ODER Kind selbst (ab FSK 12)
+      const rows = db.exec(
+        `SELECT verwalter_1, verwalter_2, fsk_stufe FROM user_auth WHERE arego_id = ?`,
+        [kindId]
+      );
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'kind_not_found' }));
+        return;
+      }
+      const [v1, v2, fsk] = rows[0].values[0];
+      const isVerwalter = v1 === requesterId || v2 === requesterId;
+      const isSelf = requesterId === kindId && fsk >= 12;
+      if (!isVerwalter && !isSelf) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'access_denied' }));
+        return;
+      }
+      // Audit-Log abfragen
+      const auditRows = db.exec(
+        `SELECT id, verwalter_id, aktion, kategorie, zeitstempel FROM verwalter_audit_log WHERE kind_id = ? ORDER BY zeitstempel DESC LIMIT 200`,
+        [kindId]
+      );
+      const audits = auditRows.length ? auditRows[0].values.map(r => ({
+        id: r[0], verwalter_id: r[1], aktion: r[2], kategorie: r[3], zeitstempel: r[4],
+      })) : [];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ audits }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── POST /child-settings/self-determination — Kind deaktiviert Verwalter-Zugriff (ab FSK 16) ──
+  if (req.method === 'POST' && req.url === '/child-settings/self-determination') {
+    try {
+      const body = await readBody(req);
+      const { kind_id, verwalter_einstellungen_erlaubt, signature, timestamp } = JSON.parse(body);
+      if (!kind_id || verwalter_einstellungen_erlaubt === undefined || !signature || !timestamp) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'kind_id, verwalter_einstellungen_erlaubt, signature, timestamp erforderlich' }));
+        return;
+      }
+      // ECDSA-Signaturverifikation des Kindes
+      const valid = await verifyEcdsaSignature(kind_id, signature, kind_id + 'self_determination' + timestamp);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      // FSK prüfen: >= 16
+      const rows = db.exec(`SELECT fsk_stufe, verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [kind_id]);
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'kind_not_found' }));
+        return;
+      }
+      const [fsk, v1, v2] = rows[0].values[0];
+      if (fsk < 16) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'fsk_zu_niedrig', message: 'Selbstbestimmung erst ab FSK 16' }));
+        return;
+      }
+      const erlaubt = verwalter_einstellungen_erlaubt ? 1 : 0;
+      db.run(`UPDATE user_auth SET verwalter_einstellungen_erlaubt = ? WHERE arego_id = ?`, [erlaubt, kind_id]);
+      // Audit-Log
+      const now = new Date().toISOString();
+      const auditAktion = erlaubt ? 'activated' : 'deactivated';
+      db.run(
+        `INSERT INTO verwalter_audit_log (verwalter_id, kind_id, aktion, kategorie, zeitstempel) VALUES (?, ?, ?, ?, ?)`,
+        [kind_id, kind_id, auditAktion, 'verwalter_access', now]
+      );
+      persistDb();
+      // Verwalter benachrichtigen
+      const notify = JSON.stringify({
+        type: 'verwalter_access_changed',
+        kind_id,
+        verwalter_einstellungen_erlaubt: !!erlaubt,
+      });
+      for (const parentId of [v1, v2].filter(Boolean)) {
+        const parentSockets = onlineUsers.get(parentId);
+        let delivered = false;
+        if (parentSockets) {
+          for (const ws of parentSockets) { if (ws.readyState === 1) { ws.send(notify); delivered = true; } }
+        }
+        if (!delivered) storePending(`inbox:${parentId}`, Buffer.from(notify));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── GET /child-settings/pending/:kind_id — Ausstehende Sync-Einträge abrufen + löschen ──
+  const pendingMatch = req.method === 'GET' && req.url?.match(/^\/child-settings\/pending\/([^?]+)/);
+  if (pendingMatch) {
+    try {
+      const kindId = decodeURIComponent(pendingMatch[1]);
+      const url = new URL(req.url, `http://localhost:${PORT}`);
+      const requesterId = url.searchParams.get('requester_id');
+      const sig = url.searchParams.get('signature');
+      const ts = url.searchParams.get('timestamp');
+      if (!requesterId || !sig || !ts) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'requester_id, signature, timestamp erforderlich' }));
+        return;
+      }
+      // Nur das Kind selbst darf ausstehende Einträge abholen
+      if (requesterId !== kindId) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'access_denied', message: 'Nur das Kind selbst kann ausstehende Einträge abholen' }));
+        return;
+      }
+      // ECDSA-Signaturverifikation
+      const valid = await verifyEcdsaSignature(requesterId, sig, kindId + 'pending' + ts);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      // Ausstehende Einträge abrufen
+      const syncRows = db.exec(
+        `SELECT id, verwalter_id, settings_kategorie, payload_encrypted, erstellt_am FROM verwalter_settings_sync WHERE kind_id = ? ORDER BY erstellt_am ASC`,
+        [kindId]
+      );
+      const pending = syncRows.length ? syncRows[0].values.map(r => ({
+        id: r[0], verwalter_id: r[1], kategorie: r[2], payload_encrypted: r[3], erstellt_am: r[4],
+      })) : [];
+      // Sofort nach Abholung löschen (VG-1: DELETE, kein Soft-Delete)
+      if (pending.length > 0) {
+        const ids = pending.map(p => p.id);
+        db.run(`DELETE FROM verwalter_settings_sync WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+        persistDb();
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ pending }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── GET /child-settings/export/:kind_id — DSGVO Art. 20 Export ─────────────
+  const exportMatch = req.method === 'GET' && req.url?.match(/^\/child-settings\/export\/([^?]+)/);
+  if (exportMatch) {
+    try {
+      const kindId = decodeURIComponent(exportMatch[1]);
+      const url = new URL(req.url, `http://localhost:${PORT}`);
+      const requesterId = url.searchParams.get('requester_id');
+      const sig = url.searchParams.get('signature');
+      const ts = url.searchParams.get('timestamp');
+      if (!requesterId || !sig || !ts) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'requester_id, signature, timestamp erforderlich' }));
+        return;
+      }
+      // ECDSA-Signaturverifikation
+      const valid = await verifyEcdsaSignature(requesterId, sig, kindId + 'export' + ts);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      // Zugriffsprüfung: Verwalter des Kindes ODER Kind selbst (ab FSK 12)
+      const rows = db.exec(
+        `SELECT fsk_stufe, verwalter_1, verwalter_2, verwalter_einstellungen_erlaubt FROM user_auth WHERE arego_id = ?`,
+        [kindId]
+      );
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'kind_not_found' }));
+        return;
+      }
+      const [fsk, v1, v2, einstellungenErlaubt] = rows[0].values[0];
+      const isVerwalter = v1 === requesterId || v2 === requesterId;
+      const isSelf = requesterId === kindId && fsk >= 12;
+      if (!isVerwalter && !isSelf) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'access_denied' }));
+        return;
+      }
+      // Audit-Log für Export loggen
+      const now = new Date().toISOString();
+      db.run(
+        `INSERT INTO verwalter_audit_log (verwalter_id, kind_id, aktion, kategorie, zeitstempel) VALUES (?, ?, ?, ?, ?)`,
+        [requesterId, kindId, 'art20_export', 'export', now]
+      );
+      persistDb();
+      // Export-Daten zusammenstellen
+      const verwalterBeziehungen = [];
+      if (v1) verwalterBeziehungen.push({ verwalter_id: v1, rolle: 'verwalter_1' });
+      if (v2) verwalterBeziehungen.push({ verwalter_id: v2, rolle: 'verwalter_2' });
+      // Audit-Log
+      const auditRows = db.exec(
+        `SELECT id, verwalter_id, aktion, kategorie, zeitstempel FROM verwalter_audit_log WHERE kind_id = ? ORDER BY zeitstempel DESC`,
+        [kindId]
+      );
+      const auditLog = auditRows.length ? auditRows[0].values.map(r => ({
+        id: r[0], verwalter_id: r[1], aktion: r[2], kategorie: r[3], zeitstempel: r[4],
+      })) : [];
+      // Pending sync (verschlüsselt)
+      const syncRows = db.exec(
+        `SELECT id, verwalter_id, settings_kategorie, payload_encrypted, erstellt_am FROM verwalter_settings_sync WHERE kind_id = ?`,
+        [kindId]
+      );
+      const pendingSync = syncRows.length ? syncRows[0].values.map(r => ({
+        id: r[0], verwalter_id: r[1], kategorie: r[2], payload_encrypted: r[3], erstellt_am: r[4],
+      })) : [];
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        export: {
+          kind_id: kindId,
+          export_zeitstempel: now,
+          verwalter_beziehungen: verwalterBeziehungen,
+          einstellungen_erlaubt: !!einstellungenErlaubt,
+          fsk_stufe: fsk,
+          audit_log: auditLog,
+          pending_sync: pendingSync,
+        },
+      }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── DELETE /child-settings/data/:kind_id — DSGVO Art. 17 Löschung ohne Vorbehalt ──
+  const deleteDataMatch = req.method === 'DELETE' && req.url?.match(/^\/child-settings\/data\/([^?]+)/);
+  if (deleteDataMatch) {
+    try {
+      const kindId = decodeURIComponent(deleteDataMatch[1]);
+      const body = await readBody(req);
+      const { requester_id, signature, timestamp } = JSON.parse(body);
+      if (!requester_id || !signature || !timestamp) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'requester_id, signature, timestamp erforderlich' }));
+        return;
+      }
+      // ECDSA-Signaturverifikation
+      const valid = await verifyEcdsaSignature(requester_id, signature, kindId + 'delete' + timestamp);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      // Zugriffsprüfung: Verwalter des Kindes ODER Kind selbst (ab FSK 12)
+      const rows = db.exec(
+        `SELECT fsk_stufe, verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`,
+        [kindId]
+      );
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'kind_not_found' }));
+        return;
+      }
+      const [fsk, v1, v2] = rows[0].values[0];
+      const isVerwalter = v1 === requester_id || v2 === requester_id;
+      const isSelf = requester_id === kindId && fsk >= 12;
+      if (!isVerwalter && !isSelf) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'access_denied' }));
+        return;
+      }
+      // Art. 17: Ohne Vorbehalt löschen — keine Aufbewahrungspflicht
+      db.run(`DELETE FROM verwalter_audit_log WHERE kind_id = ?`, [kindId]);
+      db.run(`DELETE FROM verwalter_settings_sync WHERE kind_id = ?`, [kindId]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, deleted: { audit_log: true, settings_sync: true } }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
   // ── GET /child-settings/:child_id — Kind-Einstellungen abrufen ─────────────
   const childSettingsGet = req.method === 'GET' && req.url?.match(/^\/child-settings\/(.+)$/);
   if (childSettingsGet) {
     try {
       const childId = decodeURIComponent(childSettingsGet[1]);
-      const rows = db.exec(`SELECT fsk_stufe, nickname_self_edit, verwalter_1, verwalter_2 FROM user_auth WHERE arego_id = ?`, [childId]);
+      const rows = db.exec(`SELECT fsk_stufe, nickname_self_edit, verwalter_1, verwalter_2, verwalter_einstellungen_erlaubt FROM user_auth WHERE arego_id = ?`, [childId]);
       if (!rows.length || !rows[0].values.length) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'not_found' }));
         return;
       }
-      const [fsk_stufe, nickname_self_edit, v1, v2] = rows[0].values[0];
+      const [fsk_stufe, nickname_self_edit, v1, v2, einstellungen_erlaubt] = rows[0].values[0];
       // Profil-Daten aus user_directory laden
       const dirRows = db.exec(`SELECT first_name, last_name, nickname, display_name FROM user_directory WHERE arego_id = ?`, [childId]);
       const dir = dirRows.length && dirRows[0].values.length ? dirRows[0].values[0] : ['', '', '', ''];
@@ -1057,6 +1562,7 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({
         fsk_stufe,
         nickname_self_edit: !!nickname_self_edit,
+        verwalter_einstellungen_erlaubt: einstellungen_erlaubt === null ? true : !!einstellungen_erlaubt,
         verwalter_1: v1, verwalter_2: v2,
         firstName: dir[0] ?? '', lastName: dir[1] ?? '', nickname: dir[2] ?? '', displayName: dir[3] ?? '',
       }));
