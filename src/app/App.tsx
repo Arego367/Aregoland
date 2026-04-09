@@ -1615,11 +1615,9 @@ export default function App() {
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
           >
             <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-xl">
-              <h3 className="text-base font-bold text-white mb-2">Willkommen in der Beta</h3>
+              <h3 className="text-base font-bold text-white mb-2">Willkommen bei Aregoland!</h3>
               <p className="text-sm text-gray-300 leading-relaxed mb-4">
-                Arego ist noch in der Entwicklung — und du kannst mitgestalten.
-                Schreib uns dein Feedback direkt im <span className="text-amber-400 font-medium">Chat unter Support</span> oder
-                besuche den <span className="text-amber-400 font-medium">Aregoland Official Space</span>.
+                Die App ist noch in Entwicklung. Feedback kannst du direkt im <span className="text-amber-400 font-medium">Support-Chat</span> schreiben.
               </p>
               <button
                 onClick={dismissBetaWelcome}
