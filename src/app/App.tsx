@@ -756,6 +756,10 @@ export default function App() {
 
         // Kind/Verwalter: Vollständiges Profil-Sync vom Verwalter
         if (msg.type === 'child_profile_sync' && msg.child_id && msg.profile) {
+          // ACK sofort senden damit Server die Nachricht als zugestellt markiert
+          if (ws.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'child_profile_sync_ack', child_id: msg.child_id }));
+          }
           const isMe = identity && msg.child_id === identity.aregoId;
           if (isMe) {
             // Ich bin das Kind — Profil übernehmen

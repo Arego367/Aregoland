@@ -180,6 +180,18 @@ async function initDb() {
       FOREIGN KEY (kind_id) REFERENCES user_auth(arego_id)
     )
   `);
+  // Pending child_profile_sync — SQLite-Buffer bis ACK (max 48h TTL)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pending_child_sync (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      target_id TEXT NOT NULL,
+      child_id TEXT NOT NULL,
+      from_id TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
   // Migration: child_links Daten in user_auth übernehmen, dann Tabelle löschen
   try {
     const links = db.exec(`SELECT child_id, parent_id FROM child_links ORDER BY created_at`);
@@ -272,6 +284,9 @@ setInterval(() => {
   // Settings-Sync: Einträge älter als 30 Tage löschen (TTL)
   const syncCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   db.run(`DELETE FROM verwalter_settings_sync WHERE erstellt_am < ?`, [syncCutoff]);
+  // Pending child_profile_sync: Einträge älter als 48h löschen (TTL)
+  const childSyncCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  db.run(`DELETE FROM pending_child_sync WHERE created_at < ?`, [childSyncCutoff]);
   persistDb();
 }, 24 * 60 * 60 * 1000).unref(); // einmal täglich
 
@@ -1891,6 +1906,16 @@ wss.on('connection', (ws) => {
           }
           inboxPending.delete(roomId);
         }
+        // Persistierte child_profile_sync Messages aus SQLite ausliefern
+        if (isInbox) {
+          const targetId = roomId.replace('inbox:', '');
+          const rows = db.exec(`SELECT id, payload FROM pending_child_sync WHERE target_id = ? ORDER BY id ASC`, [targetId]);
+          if (rows.length && rows[0].values.length) {
+            for (const [id, payload] of rows[0].values) {
+              if (ws.readyState === 1) ws.send(payload);
+            }
+          }
+        }
       }
       return;
     }
@@ -2135,13 +2160,31 @@ wss.on('connection', (ws) => {
 
       const targets = [childId, v1, v2].filter(id => id && id !== session.arego_id);
       for (const targetId of targets) {
+        // Persist to SQLite for reliable delivery
+        db.run(
+          `INSERT INTO pending_child_sync (target_id, child_id, from_id, payload, created_at) VALUES (?, ?, ?, ?, datetime('now'))`,
+          [targetId, childId, session.arego_id, payload]
+        );
+        // Try immediate delivery
         const sockets = onlineUsers.get(targetId);
-        let delivered = false;
         if (sockets) {
-          for (const s of sockets) { if (s.readyState === 1) { s.send(payload); delivered = true; } }
+          for (const s of sockets) {
+            if (s.readyState === 1) s.send(payload);
+          }
         }
-        if (!delivered) storePending(`inbox:${targetId}`, Buffer.from(payload));
       }
+      persistDb();
+      return;
+    }
+
+    // ── ACK für child_profile_sync — erst nach ACK aus SQLite löschen ────────
+    if (msg.type === 'child_profile_sync_ack') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const childId = String(msg.child_id ?? '');
+      if (!childId) return;
+      db.run(`DELETE FROM pending_child_sync WHERE target_id = ? AND child_id = ?`, [session.arego_id, childId]);
+      persistDb();
       return;
     }
 

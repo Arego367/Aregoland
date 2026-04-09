@@ -1827,15 +1827,21 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
         childProfiles[activeChild.child_id] = { ...profile, updatedAt: new Date().toISOString() };
         localStorage.setItem('arego_child_profiles', JSON.stringify(childProfiles));
 
-        // An Kind + anderen Verwalter per WebSocket senden
-        const wsRaw = (window as any).__aregoWs;
-        if (wsRaw && wsRaw.readyState === 1) {
-          wsRaw.send(JSON.stringify({
-            type: 'child_profile_sync',
-            child_id: activeChild.child_id,
-            profile,
-          }));
-        }
+        // An Kind + anderen Verwalter per WebSocket senden (mit Retry)
+        const syncMsg = JSON.stringify({
+          type: 'child_profile_sync',
+          child_id: activeChild.child_id,
+          profile,
+        });
+        const sendSync = (attempt: number) => {
+          const wsRaw = (window as any).__aregoWs;
+          if (wsRaw && wsRaw.readyState === 1) {
+            wsRaw.send(syncMsg);
+          } else if (attempt < 3) {
+            setTimeout(() => sendSync(attempt + 1), 1000 * Math.pow(2, attempt));
+          }
+        };
+        sendSync(0);
 
         // HTTP-Fallback: Name immer auch über den Server senden (für Offline-Kind)
         fetch('/child-profile', {
