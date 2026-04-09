@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Pencil, Save, ToggleLeft, ToggleRight, Plus } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Pencil, Save, ToggleLeft, ToggleRight, Plus, Settings, History, ShieldCheck, Download, AlertTriangle } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, type LinkedChild } from "@/app/auth/identity";
@@ -8,6 +8,7 @@ import { deleteContacts, loadBlocked, unblockContact, loadContacts } from "@/app
 import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
 import { loadFsk, saveFsk, type FskStatus } from "@/app/auth/fsk";
+import { signData } from "@/app/auth/crypto";
 import { Html5Qrcode } from "html5-qrcode";
 
 const NOTIF_KEY = "aregoland_notifications";
@@ -216,6 +217,12 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [childNameToast, setChildNameToast] = useState(false);
   const childAvatarInputRef = useRef<HTMLInputElement>(null);
   const [verwalterNames, setVerwalterNames] = useState<{ id: string; name: string }[]>([]);
+  const [childSettingsView, setChildSettingsView] = useState<'profile' | 'settings' | 'audit'>('profile');
+  const [childAuditLog, setChildAuditLog] = useState<{ id: number; verwalter_id: string; aktion: string; kategorie: string; zeitstempel: string }[]>([]);
+  const [childAuditLoading, setChildAuditLoading] = useState(false);
+  const [childSettingSaving, setChildSettingSaving] = useState(false);
+  const [childVerwalterEinstellungenErlaubt, setChildVerwalterEinstellungenErlaubt] = useState(true);
+  const [selfDeterminationSaving, setSelfDeterminationSaving] = useState(false);
   const [notif, setNotif] = useState<NotifSettings>(loadNotifSettings);
   const [idCopied, setIdCopied] = useState(false);
   const [discoverable, setDiscoverable] = useState(() => localStorage.getItem("aregoland_discoverable") === "true");
@@ -242,6 +249,10 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
       .then(data => {
         if (data?.linked_children) {
           setLinkedChildren(data.linked_children);
+        }
+        // verwalter_einstellungen_erlaubt synchronisieren (Kind-Konto)
+        if (data?.verwalter_einstellungen_erlaubt !== undefined) {
+          setChildVerwalterEinstellungenErlaubt(!!data.verwalter_einstellungen_erlaubt);
         }
         // Verwalter-Namen laden (für Kind-Konten)
         const verwalterIds = [data?.verwalter_1, data?.verwalter_2].filter(Boolean) as string[];
@@ -1747,6 +1758,55 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
       const childFsk = activeChild.fsk_stufe ?? 6;
       const isFsk16Plus = childFsk >= 16;
 
+      // ECDSA-signierter Verwalter-Einstellungs-Update
+      const handleVerwalterSettingUpdate = async (kategorie: string, aktion: string, payloadEncrypted?: string) => {
+        if (!identity) return;
+        setChildSettingSaving(true);
+        try {
+          const ts = new Date().toISOString();
+          const sig = await signData(identity.privateKeyJwk, activeChild.child_id + kategorie + ts);
+          const resp = await fetch('/child-settings/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              verwalter_id: identity.aregoId,
+              kind_id: activeChild.child_id,
+              kategorie,
+              aktion,
+              payload_encrypted: payloadEncrypted ?? '',
+              signature: sig,
+              timestamp: ts,
+            }),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            console.error('child-settings/update Fehler:', err);
+          }
+        } catch (err) {
+          console.error('child-settings/update Netzwerkfehler:', err);
+        }
+        setChildSettingSaving(false);
+      };
+
+      // Audit-Log laden
+      const loadAuditLog = async () => {
+        if (!identity) return;
+        setChildAuditLoading(true);
+        try {
+          const ts = new Date().toISOString();
+          const sig = await signData(identity.privateKeyJwk, activeChild.child_id + 'audit' + ts);
+          const params = new URLSearchParams({ requester_id: identity.aregoId, signature: sig, timestamp: ts });
+          const resp = await fetch(`/child-settings/audit/${encodeURIComponent(activeChild.child_id)}?${params}`);
+          if (resp.ok) {
+            const data = await resp.json();
+            setChildAuditLog(data.audits ?? []);
+          }
+        } catch (err) {
+          console.error('audit-log Fehler:', err);
+        }
+        setChildAuditLoading(false);
+      };
+
       const handleSaveChildProfile = () => {
         if (!identity) return;
         setChildNameSaving(true);
@@ -1853,7 +1913,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
           </AnimatePresence>
 
           <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
-            <button onClick={() => { setSelectedChild(null); setChildFirstName(''); setChildLastName(''); setChildNickname(''); setChildStatus(''); setChildAddresses([]); setChildSocialLinks([]); setChildContactEntries([]); setChildAvatarBase64(null); }} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all">
+            <button onClick={() => { setSelectedChild(null); setChildFirstName(''); setChildLastName(''); setChildNickname(''); setChildStatus(''); setChildAddresses([]); setChildSocialLinks([]); setChildContactEntries([]); setChildAvatarBase64(null); setChildSettingsView('profile'); }} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all">
               <ArrowLeft size={24} />
             </button>
             <div className="flex items-center gap-3">
@@ -1864,10 +1924,25 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
             </div>
           </header>
 
+          {/* Tabs: Profil / Einstellungen / Aktivitaet */}
+          <div className="flex border-b border-gray-800 bg-gray-900 sticky top-[72px] z-10">
+            {[
+              { id: 'profile' as const, label: 'Profil', icon: Pencil },
+              { id: 'settings' as const, label: 'Einstellungen', icon: Settings },
+              { id: 'audit' as const, label: 'Aktivit\u00e4t', icon: History },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => { setChildSettingsView(tab.id); if (tab.id === 'audit') loadAuditLog(); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium transition-colors border-b-2 ${childSettingsView === tab.id ? 'text-pink-400 border-pink-400' : 'text-gray-500 border-transparent hover:text-gray-300'}`}>
+                <tab.icon size={14} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex-1 overflow-y-auto p-4">
             <div className="space-y-6 max-w-lg mx-auto">
 
-              {/* FSK-Status */}
+              {/* FSK-Status — immer sichtbar */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
                 <Shield size={20} className="text-green-400 shrink-0" />
                 <div>
@@ -1875,6 +1950,9 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   <p className="text-xs text-gray-500">{t('settings.childFskUpgradeHint')}</p>
                 </div>
               </div>
+
+              {/* ── PROFIL TAB ── */}
+              {childSettingsView === 'profile' && <>
 
               {/* Avatar */}
               <div className="flex justify-center">
@@ -2074,6 +2152,157 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                 <p className="text-sm text-gray-400 font-mono">{activeChild.child_id}</p>
               </div>
 
+              </>}
+
+              {/* ── EINSTELLUNGEN TAB ── */}
+              {childSettingsView === 'settings' && <>
+
+                {/* Verwalter-Einstellungskategorien */}
+                <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
+                  <div className="p-4 border-b border-gray-700/50">
+                    <div className="flex items-center gap-2">
+                      <Settings size={16} className="text-pink-400" />
+                      <h3 className="font-medium text-sm">Verwalter-Einstellungen</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Einstellungen fuer das Kinderkonto aendern</p>
+                  </div>
+
+                  {/* Benachrichtigungen */}
+                  <button onClick={() => handleVerwalterSettingUpdate('notifications', 'update')} disabled={childSettingSaving}
+                    className="w-full p-4 border-b border-gray-700/50 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-500/20 p-2 rounded-lg"><Bell size={16} className="text-blue-400" /></div>
+                      <div>
+                        <p className="text-sm font-medium">Benachrichtigungen</p>
+                        <p className="text-xs text-gray-500">Push, Sound, Nachrichten-Alerts</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-600" />
+                  </button>
+
+                  {/* Sichtbarkeit */}
+                  <button onClick={() => handleVerwalterSettingUpdate('visibility', 'update')} disabled={childSettingSaving}
+                    className="w-full p-4 border-b border-gray-700/50 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-purple-500/20 p-2 rounded-lg"><Eye size={16} className="text-purple-400" /></div>
+                      <div>
+                        <p className="text-sm font-medium">Sichtbarkeit</p>
+                        <p className="text-xs text-gray-500">Privacy-Levels, Auffindbarkeit</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-600" />
+                  </button>
+
+                  {/* Sprache */}
+                  <button onClick={() => handleVerwalterSettingUpdate('language', 'update')} disabled={childSettingSaving}
+                    className="w-full p-4 border-b border-gray-700/50 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-green-500/20 p-2 rounded-lg"><Globe size={16} className="text-green-400" /></div>
+                      <div>
+                        <p className="text-sm font-medium">Sprache</p>
+                        <p className="text-xs text-gray-500">App-Sprache aendern</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-600" />
+                  </button>
+
+                  {/* Start-Bildschirm */}
+                  <button onClick={() => handleVerwalterSettingUpdate('start_screen', 'update')} disabled={childSettingSaving}
+                    className="w-full p-4 border-b border-gray-700/50 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-cyan-500/20 p-2 rounded-lg"><LayoutGrid size={16} className="text-cyan-400" /></div>
+                      <div>
+                        <p className="text-sm font-medium">Start-Bildschirm</p>
+                        <p className="text-xs text-gray-500">Standard-Ansicht beim Oeffnen</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-600" />
+                  </button>
+
+                  {/* Kontakt-Sperre */}
+                  <button onClick={() => handleVerwalterSettingUpdate('contact_block', 'update')} disabled={childSettingSaving}
+                    className="w-full p-4 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-red-500/20 p-2 rounded-lg"><Ban size={16} className="text-red-400" /></div>
+                      <div>
+                        <p className="text-sm font-medium">Kontakt-Sperre</p>
+                        <p className="text-xs text-gray-500">Kontakte sperren/entsperren</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-600" />
+                  </button>
+                </div>
+
+                {/* Kinderschutz-Info */}
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4 flex gap-3">
+                  <ShieldCheck size={18} className="text-orange-400 shrink-0 mt-0.5" />
+                  <div className="text-xs text-orange-300/80 space-y-1">
+                    <p className="font-medium">Kinderschutz aktiv</p>
+                    <p>FSK-Feature-Locks koennen nicht umgangen werden. E2E-Verschluesselung bleibt aktiv. Kein Zugriff auf Chat-Inhalte.</p>
+                  </div>
+                </div>
+
+              </>}
+
+              {/* ── AKTIVITAET TAB (Audit-Log) ── */}
+              {childSettingsView === 'audit' && <>
+
+                <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
+                  <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <History size={16} className="text-pink-400" />
+                      <h3 className="font-medium text-sm">Aenderungsverlauf</h3>
+                    </div>
+                    <button onClick={loadAuditLog} className="text-xs text-pink-400 hover:text-pink-300">Aktualisieren</button>
+                  </div>
+
+                  {childAuditLoading ? (
+                    <div className="p-8 text-center text-gray-500 text-sm">Lade...</div>
+                  ) : childAuditLog.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 text-sm">
+                      <History size={32} className="mx-auto mb-2 opacity-30" />
+                      Noch keine Aenderungen protokolliert.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-700/50 max-h-96 overflow-y-auto">
+                      {childAuditLog.map(entry => (
+                        <div key={entry.id} className="p-3 hover:bg-gray-800/50">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded">{entry.kategorie}</span>
+                            <span className="text-[10px] text-gray-600">{new Date(entry.zeitstempel).toLocaleString('de-DE')}</span>
+                          </div>
+                          <p className="text-xs text-gray-400">{entry.aktion}</p>
+                          <p className="text-[10px] text-gray-600 mt-0.5">von {entry.verwalter_id === identity?.aregoId ? 'dir' : entry.verwalter_id}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* DSGVO-Export */}
+                <button onClick={async () => {
+                  if (!identity) return;
+                  try {
+                    const ts = new Date().toISOString();
+                    const sig = await signData(identity.privateKeyJwk, activeChild.child_id + 'export' + ts);
+                    const params = new URLSearchParams({ requester_id: identity.aregoId, signature: sig, timestamp: ts });
+                    const resp = await fetch(`/child-settings/export/${encodeURIComponent(activeChild.child_id)}?${params}`);
+                    if (resp.ok) {
+                      const data = await resp.json();
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = `datenexport-${activeChild.child_id}.json`; a.click();
+                      URL.revokeObjectURL(url);
+                    }
+                  } catch (err) { console.error('DSGVO-Export Fehler:', err); }
+                }} className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-3 rounded-2xl transition-colors flex items-center justify-center gap-2 text-sm">
+                  <Download size={16} />
+                  DSGVO-Datenexport (Art. 20)
+                </button>
+
+              </>}
+
             </div>
           </div>
         </div>
@@ -2164,6 +2393,85 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Selbstbestimmungs-Toggle — Kind ab FSK 16 kann Verwalter-Einstellungen deaktivieren */}
+            {isChildAccount && (loadFsk()?.level ?? 6) >= 16 && identity && (
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <button onClick={async () => {
+                  if (!identity || selfDeterminationSaving) return;
+                  setSelfDeterminationSaving(true);
+                  const newVal = !childVerwalterEinstellungenErlaubt;
+                  try {
+                    const ts = new Date().toISOString();
+                    const sig = await signData(identity.privateKeyJwk, identity.aregoId + 'self_determination' + ts);
+                    const resp = await fetch('/child-settings/self-determination', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        kind_id: identity.aregoId,
+                        verwalter_einstellungen_erlaubt: newVal,
+                        signature: sig,
+                        timestamp: ts,
+                      }),
+                    });
+                    if (resp.ok) setChildVerwalterEinstellungenErlaubt(newVal);
+                  } catch (err) { console.error('self-determination Fehler:', err); }
+                  setSelfDeterminationSaving(false);
+                }} disabled={selfDeterminationSaving} className="w-full flex items-center justify-between">
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium">Verwalter-Einstellungen erlauben</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Dein Verwalter kann Einstellungen an deinem Konto aendern</p>
+                  </div>
+                  <div className="ml-3 shrink-0">
+                    {childVerwalterEinstellungenErlaubt ? <ToggleRight size={28} className="text-green-400" /> : <ToggleLeft size={28} className="text-gray-600" />}
+                  </div>
+                </button>
+                <p className="text-xs text-orange-400/70 flex items-center gap-1">
+                  <AlertTriangle size={12} />
+                  Ab FSK 16 kannst du selbst entscheiden ob dein Verwalter Einstellungen aendern darf.
+                </p>
+              </div>
+            )}
+
+            {/* Eigenes Audit-Log — Kind ab FSK 12 */}
+            {isChildAccount && (loadFsk()?.level ?? 6) >= 12 && identity && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">Aenderungsverlauf</h3>
+                <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">
+                  <button onClick={async () => {
+                    if (!identity) return;
+                    setChildAuditLoading(true);
+                    try {
+                      const ts = new Date().toISOString();
+                      const sig = await signData(identity.privateKeyJwk, identity.aregoId + 'audit' + ts);
+                      const params = new URLSearchParams({ requester_id: identity.aregoId, signature: sig, timestamp: ts });
+                      const resp = await fetch(`/child-settings/audit/${encodeURIComponent(identity.aregoId)}?${params}`);
+                      if (resp.ok) {
+                        const data = await resp.json();
+                        setChildAuditLog(data.audits ?? []);
+                      }
+                    } catch (err) { console.error('audit-log Fehler:', err); }
+                    setChildAuditLoading(false);
+                  }} className="w-full flex items-center justify-center gap-2 py-2 text-sm text-pink-400 hover:text-pink-300">
+                    <History size={16} />
+                    Aenderungsverlauf anzeigen
+                  </button>
+                  {childAuditLog.length > 0 && (
+                    <div className="mt-3 divide-y divide-gray-700/50 max-h-64 overflow-y-auto">
+                      {childAuditLog.map(entry => (
+                        <div key={entry.id} className="py-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-pink-400">{entry.kategorie}</span>
+                            <span className="text-[10px] text-gray-600">{new Date(entry.zeitstempel).toLocaleString('de-DE')}</span>
+                          </div>
+                          <p className="text-xs text-gray-400">{entry.aktion}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

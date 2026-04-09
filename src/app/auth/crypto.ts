@@ -43,3 +43,11 @@ export async function importKeyPairFromJWK(
   ]);
   return { publicKey, privateKey };
 }
+
+/** Signiert einen String mit dem privaten ECDSA-Schluessel und gibt Base64 zurueck */
+export async function signData(privateKeyJwk: JsonWebKey, data: string): Promise<string> {
+  const privateKey = await crypto.subtle.importKey("jwk", privateKeyJwk, KEY_ALGO, false, ["sign"]);
+  const encoded = new TextEncoder().encode(data);
+  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, privateKey, encoded);
+  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+}

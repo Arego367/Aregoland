@@ -961,13 +961,13 @@ const server = createServer(async (req, res) => {
   if (whoamiMatch) {
     try {
       const aregoId = decodeURIComponent(whoamiMatch[1]);
-      const rows = db.exec(`SELECT abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit FROM user_auth WHERE arego_id = ?`, [aregoId]);
+      const rows = db.exec(`SELECT abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit, verwalter_einstellungen_erlaubt FROM user_auth WHERE arego_id = ?`, [aregoId]);
       if (!rows.length || !rows[0].values.length) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'not_found' }));
         return;
       }
-      let [abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit] = rows[0].values[0];
+      let [abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit, verwalter_einstellungen_erlaubt] = rows[0].values[0];
       const ist_kind = !!(verwalter_1 || verwalter_2);
 
       // Kind-Abo-Übernahme: wenn abgelaufen, Verwalter-Abo prüfen
@@ -998,7 +998,7 @@ const server = createServer(async (req, res) => {
       })) : [];
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ arego_id: aregoId, abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit: !!nickname_self_edit, ist_kind, linked_children }));
+      res.end(JSON.stringify({ arego_id: aregoId, abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit: !!nickname_self_edit, verwalter_einstellungen_erlaubt: verwalter_einstellungen_erlaubt === null ? true : !!verwalter_einstellungen_erlaubt, ist_kind, linked_children }));
     } catch {
       res.writeHead(500); res.end();
     }

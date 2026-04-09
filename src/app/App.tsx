@@ -38,6 +38,7 @@ import DocumentsScreen from "@/app/components/DocumentsScreen";
 import CalendarScreen from "@/app/components/CalendarScreen";
 import { Tab } from "@/app/types";
 import { loadIdentity, UserIdentity, setKindStatus } from "@/app/auth/identity";
+import { signData } from "@/app/auth/crypto";
 import { loadSubscription, hasAccess, initSubscription, getEffectiveStatus } from "@/app/auth/subscription";
 import { loadFsk, initFsk, saveFsk, isFskVerified, isFeatureLocked, type FskLevel, type FskStatus } from "@/app/auth/fsk";
 import { deriveRoomId, decodePayload, createSharePayload, encodePayload } from "@/app/auth/share";
@@ -610,6 +611,25 @@ export default function App() {
             }
           }
 
+          // Offline-Queue: Ausstehende Verwalter-Einstellungen abholen (Kind-Konten)
+          if (identity && msg.ist_kind) {
+            const ts = new Date().toISOString();
+            signData(identity.privateKeyJwk, identity.aregoId + 'pending' + ts).then(sig => {
+              const params = new URLSearchParams({ requester_id: identity.aregoId, signature: sig, timestamp: ts });
+              fetch(`/child-settings/pending/${encodeURIComponent(identity.aregoId)}?${params}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                  if (data?.pending?.length) {
+                    for (const entry of data.pending) {
+                      window.dispatchEvent(new CustomEvent('arego-child-settings-update', {
+                        detail: { type: 'child_settings_update', kind_id: identity.aregoId, kategorie: entry.kategorie, verwalter_id: entry.verwalter_id, payload_encrypted: entry.payload_encrypted },
+                      }));
+                    }
+                  }
+                }).catch(() => {});
+            }).catch(() => {});
+          }
+
           return;
         }
 
@@ -836,6 +856,30 @@ export default function App() {
             document.body.appendChild(toastEl);
             setTimeout(() => toastEl.remove(), 5000);
           }
+          return;
+        }
+
+        // Kind: Verwalter hat Einstellung geaendert (child_settings_update)
+        if (msg.type === 'child_settings_update' && msg.kind_id && msg.kategorie) {
+          window.dispatchEvent(new CustomEvent('arego-child-settings-update', { detail: msg }));
+          const toastEl = document.createElement('div');
+          toastEl.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center';
+          toastEl.textContent = `Dein Verwalter hat eine Einstellung ge\u00e4ndert (${msg.kategorie}).`;
+          document.body.appendChild(toastEl);
+          setTimeout(() => toastEl.remove(), 4000);
+          return;
+        }
+
+        // Verwalter: Kind hat Verwalter-Zugriff geaendert (Selbstbestimmung ab FSK 16)
+        if (msg.type === 'verwalter_access_changed' && msg.kind_id !== undefined) {
+          window.dispatchEvent(new CustomEvent('arego-verwalter-access-changed', { detail: msg }));
+          const toastEl = document.createElement('div');
+          toastEl.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 ${msg.verwalter_einstellungen_erlaubt ? 'bg-green-600' : 'bg-orange-600'} text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs text-center`;
+          toastEl.textContent = msg.verwalter_einstellungen_erlaubt
+            ? 'Dein Kind hat Verwalter-Einstellungen wieder aktiviert.'
+            : 'Dein Kind hat Verwalter-Einstellungen deaktiviert.';
+          document.body.appendChild(toastEl);
+          setTimeout(() => toastEl.remove(), 5000);
           return;
         }
 
