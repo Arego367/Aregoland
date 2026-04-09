@@ -942,7 +942,16 @@ export default function ChatScreen({
                       src={msg.fileData.startsWith('data:') ? msg.fileData : `data:${msg.fileMime ?? 'image/png'};base64,${msg.fileData}`}
                       alt={msg.fileName ?? 'Bild'}
                       className="rounded-lg max-w-full max-h-64 object-contain mb-1 cursor-pointer"
-                      onClick={() => window.open(msg.fileData!.startsWith('data:') ? msg.fileData! : `data:${msg.fileMime};base64,${msg.fileData}`, '_blank')}
+                      onClick={() => {
+                        const dataUri = msg.fileData!.startsWith('data:') ? msg.fileData! : `data:${msg.fileMime ?? 'image/png'};base64,${msg.fileData}`;
+                        const byteString = atob(dataUri.split(',')[1]);
+                        const mimeType = msg.fileMime ?? 'image/png';
+                        const ab = new Uint8Array(byteString.length);
+                        for (let i = 0; i < byteString.length; i++) ab[i] = byteString.charCodeAt(i);
+                        const blob = new Blob([ab], { type: mimeType });
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                      }}
                     />
                   )}
                   {isVoiceMessage(msg) && msg.fileData && (
