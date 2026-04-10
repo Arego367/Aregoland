@@ -16,8 +16,8 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # ── 1. Signaling-Server Docker-Image bauen ────────────────────────────────────
-echo "→ Docker-Image bauen: arego-signaling ..."
-docker build -t arego-signaling "$SCRIPT_DIR/signaling-server" --quiet
+echo "→ Docker-Image bauen: arego-signaling (--no-cache) ..."
+docker build --no-cache -t arego-signaling "$SCRIPT_DIR/signaling-server" --quiet
 echo "  ✓ Image bereit"
 
 # ── 2. systemd Service-Files installieren (nur wenn geändert) ─────────────────
@@ -49,6 +49,18 @@ else
   journalctl -u "$SIGNALING_SERVICE" -n 20 --no-pager >&2
   exit 1
 fi
+
+# ── 4. Code-Verifikation ─────────────────────────────────────────────────────
+echo "→ Code-Verifikation: Container vs. lokaler Code ..."
+CONTAINER_HASH=$(docker exec arego-signaling md5sum /home/node/app/server.js | cut -d" " -f1)
+LOCAL_HASH=$(md5sum "$SCRIPT_DIR/signaling-server/server.js" | cut -d" " -f1)
+if [ "$CONTAINER_HASH" != "$LOCAL_HASH" ]; then
+  echo "  ✗ FEHLER: Code im Container stimmt nicht mit lokalem Code überein!" >&2
+  echo "    Container: $CONTAINER_HASH" >&2
+  echo "    Lokal:     $LOCAL_HASH" >&2
+  exit 1
+fi
+echo "  ✓ Code-Verifikation erfolgreich (Hash: $LOCAL_HASH)"
 
 echo "→ Vite Dev-Server starten (HTTP Port 5173, hinter Nginx) ..."
 systemctl restart "$VITE_SERVICE"
