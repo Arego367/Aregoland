@@ -583,7 +583,7 @@ export default function App() {
                   addedAt: new Date().toISOString(),
                 });
                 // Status: mutual (Familie)
-                setContactStatus(fc.aregoId, 'mutual');
+                updateContactStatus(fc.aregoId, 'mutual');
                 // Kategorie: Familie
                 try {
                   const cats = JSON.parse(localStorage.getItem('arego_contact_categories') ?? '{}');
