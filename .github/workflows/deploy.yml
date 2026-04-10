@@ -16,7 +16,8 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /root/Aregoland
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             ./start.sh
 
       - name: Health Check
