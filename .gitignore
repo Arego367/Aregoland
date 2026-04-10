@@ -5,3 +5,4 @@ test-results
 .env.*
 signaling-server/data/
 signaling-server/.env
+tests/accounts/data/

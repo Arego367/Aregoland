@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "test:seed": "tsx tests/accounts/seed.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
