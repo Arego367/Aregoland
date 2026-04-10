@@ -243,6 +243,7 @@ export default function ChatScreen({
   const [chatBg, setChatBg] = useState<string>(() => localStorage.getItem(`arego_chatbg_${roomId}`) ?? '');
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [showContactDetail, setShowContactDetail] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // ── Sprachnachricht ─────────────────────────────────────────────────────────
   const [isRecording, setIsRecording] = useState(false);
@@ -930,7 +931,7 @@ export default function ChatScreen({
           <div key={msg.id} className={`flex ${msg.sender === "me" ? "justify-end" : "justify-start"}`}>
             <ContextMenu.Root>
               <ContextMenu.Trigger asChild>
-                <div className={`max-w-[75%] rounded-2xl px-4 py-2 shadow-sm relative group cursor-pointer ${msg.sender === "me" ? "bg-blue-600 text-white rounded-tr-none" : "bg-gray-800 text-gray-100 rounded-tl-none border border-gray-700"}`}>
+                <div className={`max-w-[75%] min-w-0 rounded-2xl px-4 py-2 shadow-sm relative group cursor-pointer overflow-hidden ${msg.sender === "me" ? "bg-blue-600 text-white rounded-tr-none" : "bg-gray-800 text-gray-100 rounded-tl-none border border-gray-700"}`}>
                   {msg.replyTo && (
                     <div className={`mb-2 rounded-lg p-2 text-xs border-l-4 ${msg.sender === "me" ? "bg-blue-700/50 border-blue-300" : "bg-gray-700/50 border-gray-500"}`}>
                       <p className="font-bold opacity-80 mb-0.5">{msg.replyTo.sender}</p>
@@ -943,14 +944,8 @@ export default function ChatScreen({
                       alt={msg.fileName ?? 'Bild'}
                       className="rounded-lg max-w-full max-h-64 object-contain mb-1 cursor-pointer"
                       onClick={() => {
-                        const dataUri = msg.fileData!.startsWith('data:') ? msg.fileData! : `data:${msg.fileMime ?? 'image/png'};base64,${msg.fileData}`;
-                        const byteString = atob(dataUri.split(',')[1]);
-                        const mimeType = msg.fileMime ?? 'image/png';
-                        const ab = new Uint8Array(byteString.length);
-                        for (let i = 0; i < byteString.length; i++) ab[i] = byteString.charCodeAt(i);
-                        const blob = new Blob([ab], { type: mimeType });
-                        const url = URL.createObjectURL(blob);
-                        window.open(url, '_blank');
+                        const src = msg.fileData!.startsWith('data:') ? msg.fileData! : `data:${msg.fileMime ?? 'image/png'};base64,${msg.fileData}`;
+                        setPreviewImage(src);
                       }}
                     />
                   )}
@@ -1209,6 +1204,40 @@ export default function ChatScreen({
           onStartCall={(_contact, type) => { setShowContactDetail(false); startCall(type); }}
         />
       )}
+
+      {/* Image Preview Lightbox */}
+      <AnimatePresence>
+        {previewImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+            onClick={() => setPreviewImage(null)}
+          >
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-4 right-4 p-2 bg-gray-800/80 rounded-full text-white hover:bg-gray-700 transition-colors z-10"
+            >
+              <X size={24} />
+            </button>
+            <a
+              href={previewImage}
+              download="bild.png"
+              onClick={(e) => e.stopPropagation()}
+              className="absolute top-4 right-16 p-2 bg-gray-800/80 rounded-full text-white hover:bg-gray-700 transition-colors z-10"
+            >
+              <Download size={24} />
+            </a>
+            <img
+              src={previewImage}
+              alt="Vorschau"
+              className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
