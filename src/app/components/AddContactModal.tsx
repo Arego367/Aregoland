@@ -10,6 +10,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { Html5Qrcode } from 'html5-qrcode';
 import { UserIdentity } from '@/app/auth/identity';
 import { StoredContact, saveContact, isNonceUsed, markNonceUsed } from '@/app/auth/contacts';
+import { setContactStatus } from '@/app/lib/chats';
 import {
   createSharePayload, encodePayload, decodePayload,
   registerShortCode, redeemShortCode, ContactSharePayload,
@@ -318,6 +319,7 @@ function AddView({ identity, onContactAdded }: { identity: UserIdentity | null; 
       addedAt: new Date().toISOString(),
     };
     saveContact(contact);
+    setContactStatus(payload.aregoId, "mutual");
     sendReverseIdentity(payload.aregoId);
     setSuccess(contact);
     onContactAdded(contact);
