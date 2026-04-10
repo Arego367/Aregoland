@@ -397,6 +397,14 @@ const server = createServer(async (req, res) => {
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
+  // GET /api/health
+  if (req.method === 'GET' && req.url === '/api/health') {
+    const body = JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(body);
+    return;
+  }
+
   // POST /code
   if (req.method === 'POST' && req.url === '/code') {
     let body = '';
