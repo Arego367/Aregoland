@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Pencil, Save, ToggleLeft, ToggleRight, Plus, Settings, History, ShieldCheck, Download, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, PhoneOff, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Pencil, Save, ToggleLeft, ToggleRight, Plus, Settings, History, ShieldCheck, Download, AlertTriangle } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, type LinkedChild } from "@/app/auth/identity";
@@ -213,6 +213,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [childContactEntries, setChildContactEntries] = useState<{ type: string; label: string; value: string }[]>([]);
   const [childAvatarBase64, setChildAvatarBase64] = useState<string | null>(null);
   const [childNickSelfEdit, setChildNickSelfEdit] = useState(false);
+  const [childCallsEnabled, setChildCallsEnabled] = useState(true);
   const [childNameSaving, setChildNameSaving] = useState(false);
   const [childNameToast, setChildNameToast] = useState(false);
   const childAvatarInputRef = useRef<HTMLInputElement>(null);
@@ -378,6 +379,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
     setChildContactEntries(cp.contactEntries ?? []);
     setChildAvatarBase64(cp.avatarBase64 ?? null);
     setChildNickSelfEdit(child.nickname_self_edit ?? false);
+    setChildCallsEnabled(child.calls_enabled ?? true);
   }, [selectedChild]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live-Updates von Kind/anderem Verwalter empfangen
@@ -1889,6 +1891,30 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
         }
       };
 
+      const handleToggleCallsEnabled = async () => {
+        if (!identity) return;
+        const newVal = !childCallsEnabled;
+        try {
+          const resp = await fetch('/child-settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              child_id: activeChild.child_id,
+              parent_id: identity.aregoId,
+              calls_enabled: newVal,
+            }),
+          });
+          if (resp.ok) {
+            setChildCallsEnabled(newVal);
+            setLinkedChildren(prev => prev.map(c =>
+              c.child_id === activeChild.child_id ? { ...c, calls_enabled: newVal } : c
+            ));
+          }
+        } catch (err) {
+          console.error('child-settings calls_enabled Fehler:', err);
+        }
+      };
+
       const handleChildAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || file.size > 500_000) return;
@@ -2224,7 +2250,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
 
                   {/* Kontakt-Sperre */}
                   <button onClick={() => handleVerwalterSettingUpdate('contact_block', 'update')} disabled={childSettingSaving}
-                    className="w-full p-4 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left">
+                    className="w-full p-4 border-b border-gray-700/50 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left">
                     <div className="flex items-center gap-3">
                       <div className="bg-red-500/20 p-2 rounded-lg"><Ban size={16} className="text-red-400" /></div>
                       <div>
@@ -2233,6 +2259,21 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                       </div>
                     </div>
                     <ChevronRight size={18} className="text-gray-600" />
+                  </button>
+
+                  {/* Anrufe */}
+                  <button onClick={handleToggleCallsEnabled} disabled={childSettingSaving}
+                    className="w-full p-4 flex items-center justify-between hover:bg-gray-800/80 transition-colors text-left">
+                    <div className="flex items-center gap-3">
+                      <div className={`${childCallsEnabled ? 'bg-green-500/20' : 'bg-gray-500/20'} p-2 rounded-lg`}>
+                        {childCallsEnabled ? <Phone size={16} className="text-green-400" /> : <PhoneOff size={16} className="text-gray-400" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Anrufe</p>
+                        <p className="text-xs text-gray-500">{childCallsEnabled ? 'Anrufe erlaubt' : 'Anrufe deaktiviert'}</p>
+                      </div>
+                    </div>
+                    {childCallsEnabled ? <ToggleRight size={24} className="text-green-400" /> : <ToggleLeft size={24} className="text-gray-500" />}
                   </button>
                 </div>
 

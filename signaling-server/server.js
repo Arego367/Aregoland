@@ -153,6 +153,9 @@ async function initDb() {
   try { db.run(`ALTER TABLE user_auth ADD COLUMN nickname_self_edit INTEGER NOT NULL DEFAULT 0`); } catch {}
   // Migration: verwalter_einstellungen_erlaubt Spalte (Selbstbestimmung ab FSK 16)
   try { db.run(`ALTER TABLE user_auth ADD COLUMN verwalter_einstellungen_erlaubt INTEGER DEFAULT 1`); } catch {}
+  // Migration: Kinderschutz Phase 1 — Anruf-Einstellungen
+  try { db.run(`ALTER TABLE user_auth ADD COLUMN calls_enabled INTEGER NOT NULL DEFAULT 1`); } catch {}
+  try { db.run(`ALTER TABLE user_auth ADD COLUMN max_call_participants INTEGER NOT NULL DEFAULT 2`); } catch {}
 
   // Verwalter-Audit-Log (nur Metadaten, keine Hashes — CR-1)
   db.run(`
@@ -984,13 +987,13 @@ const server = createServer(async (req, res) => {
   if (whoamiMatch) {
     try {
       const aregoId = decodeURIComponent(whoamiMatch[1]);
-      const rows = db.exec(`SELECT abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit, verwalter_einstellungen_erlaubt FROM user_auth WHERE arego_id = ?`, [aregoId]);
+      const rows = db.exec(`SELECT abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit, verwalter_einstellungen_erlaubt, calls_enabled, max_call_participants FROM user_auth WHERE arego_id = ?`, [aregoId]);
       if (!rows.length || !rows[0].values.length) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'not_found' }));
         return;
       }
-      let [abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit, verwalter_einstellungen_erlaubt] = rows[0].values[0];
+      let [abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit, verwalter_einstellungen_erlaubt, calls_enabled, max_call_participants] = rows[0].values[0];
       const ist_kind = !!(verwalter_1 || verwalter_2);
 
       // Kind-Abo-Übernahme: wenn abgelaufen, Verwalter-Abo prüfen
@@ -1009,7 +1012,8 @@ const server = createServer(async (req, res) => {
                 COALESCE(ud.first_name, '') AS first_name,
                 COALESCE(ud.last_name, '') AS last_name,
                 COALESCE(ud.nickname, '') AS nickname,
-                COALESCE(ud.display_name, '') AS display_name
+                COALESCE(ud.display_name, '') AS display_name,
+                ua.calls_enabled, ua.max_call_participants
          FROM user_auth ua
          LEFT JOIN user_directory ud ON ud.arego_id = ua.arego_id
          WHERE ua.verwalter_1 = ? OR ua.verwalter_2 = ?`,
@@ -1018,10 +1022,11 @@ const server = createServer(async (req, res) => {
       const linked_children = childRows.length ? childRows[0].values.map(r => ({
         child_id: r[0], fsk_stufe: r[1], nickname_self_edit: !!r[2],
         firstName: r[3], lastName: r[4], nickname: r[5], displayName: r[6],
+        calls_enabled: !!r[7], max_call_participants: r[8] ?? 2,
       })) : [];
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ arego_id: aregoId, abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit: !!nickname_self_edit, verwalter_einstellungen_erlaubt: verwalter_einstellungen_erlaubt === null ? true : !!verwalter_einstellungen_erlaubt, ist_kind, linked_children }));
+      res.end(JSON.stringify({ arego_id: aregoId, abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2, nickname_self_edit: !!nickname_self_edit, verwalter_einstellungen_erlaubt: verwalter_einstellungen_erlaubt === null ? true : !!verwalter_einstellungen_erlaubt, calls_enabled: !!calls_enabled, max_call_participants: max_call_participants ?? 2, ist_kind, linked_children }));
     } catch {
       res.writeHead(500); res.end();
     }
@@ -1571,13 +1576,13 @@ const server = createServer(async (req, res) => {
   if (childSettingsGet) {
     try {
       const childId = decodeURIComponent(childSettingsGet[1]);
-      const rows = db.exec(`SELECT fsk_stufe, nickname_self_edit, verwalter_1, verwalter_2, verwalter_einstellungen_erlaubt FROM user_auth WHERE arego_id = ?`, [childId]);
+      const rows = db.exec(`SELECT fsk_stufe, nickname_self_edit, verwalter_1, verwalter_2, verwalter_einstellungen_erlaubt, calls_enabled, max_call_participants FROM user_auth WHERE arego_id = ?`, [childId]);
       if (!rows.length || !rows[0].values.length) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'not_found' }));
         return;
       }
-      const [fsk_stufe, nickname_self_edit, v1, v2, einstellungen_erlaubt] = rows[0].values[0];
+      const [fsk_stufe, nickname_self_edit, v1, v2, einstellungen_erlaubt, calls_enabled, max_call_participants] = rows[0].values[0];
       // Profil-Daten aus user_directory laden
       const dirRows = db.exec(`SELECT first_name, last_name, nickname, display_name FROM user_directory WHERE arego_id = ?`, [childId]);
       const dir = dirRows.length && dirRows[0].values.length ? dirRows[0].values[0] : ['', '', '', ''];
@@ -1587,6 +1592,8 @@ const server = createServer(async (req, res) => {
         nickname_self_edit: !!nickname_self_edit,
         verwalter_einstellungen_erlaubt: einstellungen_erlaubt === null ? true : !!einstellungen_erlaubt,
         verwalter_1: v1, verwalter_2: v2,
+        calls_enabled: !!calls_enabled,
+        max_call_participants: max_call_participants ?? 2,
         firstName: dir[0] ?? '', lastName: dir[1] ?? '', nickname: dir[2] ?? '', displayName: dir[3] ?? '',
       }));
     } catch {
@@ -1599,7 +1606,7 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/child-settings') {
     try {
       const body = await readBody(req);
-      const { child_id, parent_id, nickname_self_edit } = JSON.parse(body);
+      const { child_id, parent_id, nickname_self_edit, calls_enabled, max_call_participants } = JSON.parse(body);
       if (!child_id || !parent_id) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'child_id und parent_id erforderlich' }));
@@ -1626,6 +1633,15 @@ const server = createServer(async (req, res) => {
       }
       if (nickname_self_edit !== undefined) {
         db.run(`UPDATE user_auth SET nickname_self_edit = ? WHERE arego_id = ?`, [nickname_self_edit ? 1 : 0, child_id]);
+        persistDb();
+      }
+      if (calls_enabled !== undefined) {
+        db.run(`UPDATE user_auth SET calls_enabled = ? WHERE arego_id = ?`, [calls_enabled ? 1 : 0, child_id]);
+        persistDb();
+      }
+      if (max_call_participants !== undefined) {
+        const val = Math.max(2, Math.min(10, parseInt(max_call_participants) || 2));
+        db.run(`UPDATE user_auth SET max_call_participants = ? WHERE arego_id = ?`, [val, child_id]);
         persistDb();
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });

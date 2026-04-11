@@ -20,6 +20,8 @@ export interface LinkedChild {
   child_id: string;
   fsk_stufe: number;
   nickname_self_edit?: boolean;
+  calls_enabled?: boolean;
+  max_call_participants?: number;
   firstName?: string;
   lastName?: string;
   nickname?: string;
