@@ -1,0 +1,32 @@
+# LiveKit Self-Hosted SFU Node — Docker Compose Template
+# Fuer Aregoland Community-Betreiber
+#
+# Anleitung: docs/nodes/livekit-self-hosting.md
+#
+# Schnellstart:
+#   1. livekit.yaml anpassen (API-Key generieren!)
+#   2. docker compose up -d
+#   3. Node bei Aregoland registrieren:
+#      curl -X POST https://aregoland.de/api-signal/node \
+#        -H "Content-Type: application/json" \
+#        -d '{"url": "wss://deine-domain.de", "name": "Mein Node"}'
+
+version: "3.9"
+
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    ports:
+      - "7880:7880"      # HTTP API
+      - "7881:7881/tcp"   # WebRTC RTC (TCP)
+      - "7881:7881/udp"   # WebRTC RTC (UDP)
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    command: ["--config", "/etc/livekit.yaml"]
+    # Ressourcen-Limits (optional, fuer kleine Server)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "2.0"
+    #       memory: 1G

@@ -1,0 +1,20 @@
+# LiveKit Server Konfiguration — Aregoland Community Node
+#
+# WICHTIG: Ersetze DEIN_GEHEIMER_API_SECRET_HIER durch einen generierten Key:
+#   openssl rand -base64 32
+
+port: 7880
+
+rtc:
+  port_range_start: 7881
+  port_range_end: 7881
+  use_external_ip: true
+  # Falls hinter NAT: externe IP hier eintragen
+  # node_ip: 203.0.113.50
+
+keys:
+  aregoland: DEIN_GEHEIMER_API_SECRET_HIER
+
+logging:
+  level: warn
+  # Datenschutz: Kein Logging von Teilnehmer-Daten, IPs oder Room-Inhalten
