@@ -1984,7 +1984,7 @@ wss.on('connection', (ws) => {
 
     // ── Join Room ────────────────────────────────────────────────────────────
     if (msg.type === 'join') {
-      roomId = String(msg.roomId ?? '')
+      roomId = String(msg.roomId ?? msg.room ?? '')
         .slice(0, 128)
         .replace(/[^a-zA-Z0-9\-:_]/g, '');
       if (!roomId) return;

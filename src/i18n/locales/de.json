@@ -571,7 +571,13 @@
     "accept": "Annehmen",
     "modeP2P": "P2P",
     "modeSFU": "SFU-Node",
-    "modeTURN": "TURN-Relay"
+    "modeTURN": "TURN-Relay",
+    "screenShare": "Bildschirm teilen",
+    "screenShareStop": "Teilen beenden",
+    "screenShareActive": "Bildschirm wird geteilt",
+    "screenShareRemote": "{{name}} teilt den Bildschirm",
+    "screenShareNotSupported": "Bildschirm teilen wird von diesem Browser nicht unterst\u00fctzt",
+    "screenShareFskRequired": "Bildschirm teilen ab FSK 16"
   },
   "qrScreen": {
     "title": "QR-Code",

@@ -1,21 +1,24 @@
 /**
- * SpaceCallOverlay — Multi-Party Space-Call UI
+ * SpaceCallOverlay — Multi-Party Space-Call UI mit Screen Sharing
  *
  * Grid-View (bis 4 Teilnehmer) / Speaker-View (5+)
  * Teilnehmer-Liste mit Name/Avatar
  * Moderator-Controls (Mute/Kick)
  * Aktiver-Sprecher-Highlight (Audio-Level Detection)
  * Join/Leave Animationen
+ * Screen Sharing: FSK >= 16 Gate, prominente Anzeige, Auto-Stop bei Tab-Wechsel
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Phone, PhoneOff, Video, VideoOff, Mic, MicOff,
   CameraOff, Users, Crown, X, Volume2, Wifi, Radio,
-  RotateCcw,
+  RotateCcw, Monitor, MonitorOff,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
+import { loadFsk } from '@/app/auth/fsk';
+import { SpaceCallManager } from '@/app/lib/space-call-manager';
 import type {
   SpaceCallState, SpaceCallMode, SpaceCallParticipant, CallMediaType,
 } from '@/app/lib/space-call-manager';
@@ -29,14 +32,17 @@ interface SpaceCallOverlayProps {
   spaceName: string;
   participants: SpaceCallParticipant[];
   localStream: MediaStream | null;
+  localScreenStream: MediaStream | null;
   moderatorId: string | null;
   myAregoId: string;
+  isScreenSharing: boolean;
   /** Callback: Teilnehmer-Anzeigename ermitteln */
   getDisplayName: (aregoId: string) => string;
   onLeave: () => void;
   onToggleMic: () => boolean;
   onToggleCamera: () => boolean;
   onSwitchCamera: () => void;
+  onToggleScreenShare: () => void;
   onMuteRemote: (targetId: string) => void;
   onKick: (targetId: string) => void;
 }
@@ -246,13 +252,49 @@ function ModeIndicator({ mode }: { mode: SpaceCallMode }) {
   );
 }
 
+// ── Screen-Share Prominente Anzeige ─────────────────────────────────────────
+
+function ScreenShareView({
+  stream,
+  sharerName,
+}: {
+  stream: MediaStream;
+  sharerName: string;
+}) {
+  const { t } = useTranslation();
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  return (
+    <div className="relative w-full flex-1 min-h-0 bg-gray-950 rounded-xl overflow-hidden border-2 border-blue-500/30">
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        className="w-full h-full object-contain"
+      />
+      <div className="absolute top-3 left-3 bg-blue-600/80 backdrop-blur-sm rounded-lg px-3 py-1 flex items-center gap-2">
+        <Monitor size={14} className="text-white" />
+        <span className="text-xs text-white font-medium">
+          {t('call.screenShareRemote', { name: sharerName })}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ── Haupt-Overlay ───────────────────────────────────────────────────────────
 
 export default function SpaceCallOverlay({
   callState, callMode, mediaType, spaceName,
-  participants, localStream, moderatorId, myAregoId,
+  participants, localStream, localScreenStream, moderatorId, myAregoId, isScreenSharing,
   getDisplayName, onLeave, onToggleMic, onToggleCamera,
-  onSwitchCamera, onMuteRemote, onKick,
+  onSwitchCamera, onToggleScreenShare, onMuteRemote, onKick,
 }: SpaceCallOverlayProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -265,6 +307,24 @@ export default function SpaceCallOverlay({
   const isMod = myAregoId === moderatorId;
   const isVideoCall = mediaType === 'video';
   const totalParticipants = participants.length + 1; // +1 fuer mich
+
+  // FSK >= 16 Gate fuer Screen Sharing
+  const fsk = loadFsk();
+  const canScreenShare = (fsk?.level ?? 0) >= 16;
+  const screenShareSupported = SpaceCallManager.isScreenShareSupported();
+
+  // Aktiver Screen-Share finden (lokal oder remote)
+  const activeScreenShare = useMemo(() => {
+    if (isScreenSharing && localScreenStream) {
+      return { stream: localScreenStream, sharerName: t('call.screenShareActive'), isLocal: true };
+    }
+    for (const p of participants) {
+      if (p.screenStream) {
+        return { stream: p.screenStream, sharerName: getDisplayName(p.aregoId), isLocal: false };
+      }
+    }
+    return null;
+  }, [isScreenSharing, localScreenStream, participants, getDisplayName, t]);
   const useSpeakerView = totalParticipants > 4;
 
   // ── Audio-Level Detection fuer aktiven Sprecher ─────────────────────────
@@ -402,9 +462,21 @@ export default function SpaceCallOverlay({
         )}
       </AnimatePresence>
 
+      {/* Screen Share: prominente Position (grosses Fenster) */}
+      {activeScreenShare && (
+        <div className="pt-24 px-2 flex-1 min-h-0 max-h-[60vh]">
+          <ScreenShareView
+            stream={activeScreenShare.stream}
+            sharerName={activeScreenShare.sharerName}
+          />
+        </div>
+      )}
+
       {/* Participant Grid / Speaker View */}
-      <div className={`flex-1 pt-24 pb-28 px-2 ${
-        useSpeakerView
+      <div className={`${activeScreenShare ? 'h-28 shrink-0 px-2 pb-28' : 'flex-1 pt-24 pb-28 px-2'} ${
+        activeScreenShare
+          ? 'flex gap-2 overflow-x-auto'
+          : useSpeakerView
           ? 'grid grid-cols-3 grid-rows-[2fr_1fr] gap-2'
           : `grid gap-2 ${
               totalParticipants <= 2 ? 'grid-cols-1' :
@@ -419,8 +491,8 @@ export default function SpaceCallOverlay({
               displayName={getDisplayName(p.aregoId)}
               isModerator={p.aregoId === moderatorId}
               isActiveSpeaker={p.aregoId === activeSpeakerId}
-              isSpeakerView={useSpeakerView}
-              isPrimarySpeaker={useSpeakerView && p.aregoId === activeSpeakerId}
+              isSpeakerView={!activeScreenShare && useSpeakerView}
+              isPrimarySpeaker={!activeScreenShare && useSpeakerView && p.aregoId === activeSpeakerId}
               showModControls={isMod && p.aregoId !== myAregoId}
               onMute={() => onMuteRemote(p.aregoId)}
               onKick={() => onKick(p.aregoId)}
@@ -486,6 +558,30 @@ export default function SpaceCallOverlay({
                 </button>
               )}
 
+              {/* Screen Share — FSK >= 16 Gate + Browser-Detection */}
+              <button
+                onClick={onToggleScreenShare}
+                disabled={!screenShareSupported || !canScreenShare}
+                className={`p-4 rounded-full transition-colors ${
+                  !screenShareSupported || !canScreenShare
+                    ? 'bg-gray-800/40 text-gray-600 cursor-not-allowed'
+                    : isScreenSharing
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800/90 text-gray-300 hover:bg-gray-700'
+                }`}
+                aria-label={
+                  !screenShareSupported ? t('call.screenShareNotSupported') :
+                  !canScreenShare ? t('call.screenShareFskRequired') :
+                  isScreenSharing ? t('call.screenShareStop') : t('call.screenShare')
+                }
+                title={
+                  !screenShareSupported ? t('call.screenShareNotSupported') :
+                  !canScreenShare ? t('call.screenShareFskRequired') : undefined
+                }
+              >
+                {isScreenSharing ? <MonitorOff size={24} /> : <Monitor size={24} />}
+              </button>
+
               {/* Auflegen */}
               <button
                 onClick={onLeave}
@@ -495,6 +591,13 @@ export default function SpaceCallOverlay({
                 <PhoneOff size={24} />
               </button>
             </div>
+            {/* Hinweis wenn Screen Share nicht verfuegbar */}
+            {!screenShareSupported && (
+              <p className="text-center text-xs text-yellow-400 mt-2">{t('call.screenShareNotSupported')}</p>
+            )}
+            {screenShareSupported && !canScreenShare && (
+              <p className="text-center text-xs text-yellow-400 mt-2">{t('call.screenShareFskRequired')}</p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

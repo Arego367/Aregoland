@@ -31,6 +31,7 @@ export type CallMediaType = 'audio' | 'video';
 export interface SpaceCallParticipant {
   aregoId: string;
   stream: MediaStream | null;
+  screenStream: MediaStream | null;
 }
 
 export interface SpaceCallCallbacks {
@@ -42,6 +43,7 @@ export interface SpaceCallCallbacks {
   onModeratorChange: (moderatorId: string) => void;
   onKicked: () => void;
   onMutedByModerator: (track: 'audio' | 'video') => void;
+  onScreenShareChange: (sharing: boolean, aregoId: string) => void;
 }
 
 // ── Konstanten ──────────────────────────────────────────────────────────────
@@ -84,6 +86,12 @@ export class SpaceCallManager {
   // E2EE: gemeinsamer Schluessel fuer Mesh (Insertable Streams)
   private e2eeKey: CryptoKey | null = null;
 
+  // Screen Sharing
+  private screenStream: MediaStream | null = null;
+  private screenSharing = false;
+  private remoteScreenStreams = new Map<string, MediaStream>();
+  private visibilityHandler: (() => void) | null = null;
+
   constructor(callbacks: SpaceCallCallbacks) {
     this.callbacks = callbacks;
   }
@@ -95,18 +103,29 @@ export class SpaceCallManager {
   getModeratorId(): string | null { return this.moderatorId; }
   isModerator(): boolean { return this.myAregoId != null && this.myAregoId === this.moderatorId; }
   getLocalStream(): MediaStream | null { return this.media.getStream(); }
+  isScreenSharing(): boolean { return this.screenSharing; }
+  getScreenStream(): MediaStream | null { return this.screenStream; }
+
+  /** Prueft ob der Browser getDisplayMedia unterstuetzt. */
+  static isScreenShareSupported(): boolean {
+    return typeof navigator !== 'undefined'
+      && !!navigator.mediaDevices
+      && typeof navigator.mediaDevices.getDisplayMedia === 'function';
+  }
 
   getParticipants(): SpaceCallParticipant[] {
     if (this.mode === 'mesh') {
       return Array.from(this.meshPeers.values()).map(p => ({
         aregoId: p.aregoId,
         stream: p.remoteStream.getTracks().length > 0 ? p.remoteStream : null,
+        screenStream: this.remoteScreenStreams.get(p.aregoId) ?? null,
       }));
     }
     // SFU-Modus
     return Array.from(this.sfuRemoteStreams.entries()).map(([aregoId, stream]) => ({
       aregoId,
       stream,
+      screenStream: this.remoteScreenStreams.get(aregoId) ?? null,
     }));
   }
 
@@ -222,6 +241,9 @@ export class SpaceCallManager {
         break;
       case 'space_call_muted_by_moderator':
         this.handleMutedByModerator(msg);
+        break;
+      case 'space_call_screen_share':
+        this.handleRemoteScreenShare(msg);
         break;
       case 'space_call_error':
         console.error('[SpaceCallManager] Server-Fehler:', msg.error, msg.message);
@@ -424,7 +446,21 @@ export class SpaceCallManager {
     const { pc, remoteStream, aregoId } = meshPeer;
 
     pc.ontrack = ({ track }) => {
-      console.log(`[SpaceCallManager] Mesh ontrack von ${aregoId}:`, track.kind);
+      console.log(`[SpaceCallManager] Mesh ontrack von ${aregoId}:`, track.kind, track.label);
+
+      // Screen-Share-Track erkennen: zweiter Video-Track
+      const existingVideoTracks = remoteStream.getVideoTracks();
+      if (track.kind === 'video' && existingVideoTracks.length > 0) {
+        const screenStream = new MediaStream([track]);
+        this.remoteScreenStreams.set(aregoId, screenStream);
+        track.onended = () => {
+          this.remoteScreenStreams.delete(aregoId);
+          this.emitParticipants();
+        };
+        this.emitParticipants();
+        return;
+      }
+
       remoteStream.addTrack(track);
       // Neuen Stream erzeugen damit React re-rendert
       meshPeer.remoteStream = new MediaStream(remoteStream.getTracks());
@@ -549,10 +585,19 @@ export class SpaceCallManager {
 
       room.on(
         LKRoomEvent.TrackSubscribed,
-        (track: any, _pub: any, participant: any) => {
+        (track: any, pub: any, participant: any) => {
           const mediaTrack = track.mediaStreamTrack;
           if (!mediaTrack) return;
           const participantId = participant.identity;
+
+          // Screen-Share-Track separat behandeln
+          if (pub.source === LKTrack.Source.ScreenShare) {
+            const screenStream = new MediaStream([mediaTrack]);
+            this.remoteScreenStreams.set(participantId, screenStream);
+            this.callbacks.onScreenShareChange(true, participantId);
+            this.emitParticipants();
+            return;
+          }
 
           let stream = this.sfuRemoteStreams.get(participantId);
           if (!stream) {
@@ -568,10 +613,18 @@ export class SpaceCallManager {
 
       room.on(
         LKRoomEvent.TrackUnsubscribed,
-        (track: any, _pub: any, participant: any) => {
+        (track: any, pub: any, participant: any) => {
           const mediaTrack = track.mediaStreamTrack;
           if (!mediaTrack) return;
           const participantId = participant.identity;
+
+          // Screen-Share-Track entfernt
+          if (pub.source === LKTrack.Source.ScreenShare) {
+            this.remoteScreenStreams.delete(participantId);
+            this.callbacks.onScreenShareChange(false, participantId);
+            this.emitParticipants();
+            return;
+          }
 
           const stream = this.sfuRemoteStreams.get(participantId);
           if (stream) {
@@ -772,6 +825,164 @@ export class SpaceCallManager {
     this.callbacks.onLocalStream(this.media.getStream());
   }
 
+  // ── Screen Sharing ────────────────────────────────────────────────────
+
+  /**
+   * Screen Sharing starten. Nur ab FSK >= 16, nur im aktiven Call.
+   * Screen-Share ist ein separater Video-Track (ersetzt nicht die Kamera).
+   */
+  async startScreenShare(): Promise<void> {
+    if (this.state !== 'active') {
+      console.warn('[SpaceCallManager] startScreenShare — Call nicht aktiv');
+      return;
+    }
+    if (this.screenSharing) {
+      console.warn('[SpaceCallManager] startScreenShare — bereits aktiv');
+      return;
+    }
+    if (!SpaceCallManager.isScreenShareSupported()) {
+      this.callbacks.onError('Screen Sharing wird von diesem Browser nicht unterstuetzt');
+      return;
+    }
+
+    try {
+      this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      });
+
+      const screenTrack = this.screenStream.getVideoTracks()[0];
+      if (!screenTrack) {
+        this.callbacks.onError('Kein Screen-Track erhalten');
+        return;
+      }
+
+      // Track-Ende erkennen (User klickt "Sharing beenden" im Browser-Dialog)
+      screenTrack.onended = () => {
+        this.stopScreenShare();
+      };
+
+      // Tab-Wechsel: automatisch stoppen
+      this.visibilityHandler = () => {
+        if (document.hidden && this.screenSharing) {
+          console.log('[SpaceCallManager] Tab versteckt — Screen Sharing gestoppt');
+          this.stopScreenShare();
+        }
+      };
+      document.addEventListener('visibilitychange', this.visibilityHandler);
+
+      // Track an Peers senden
+      if (this.mode === 'mesh') {
+        await this.addScreenTrackToMesh(screenTrack);
+      } else if (this.mode === 'sfu' && this.livekitRoom) {
+        const lk = await Function('return import("livekit-client")')().catch(() => null);
+        if (lk) {
+          await this.livekitRoom.localParticipant.publishTrack(screenTrack, {
+            source: lk.Track.Source.ScreenShare,
+          });
+        }
+      }
+
+      // Allen Peers mitteilen dass Screen geteilt wird
+      this.wsSend({
+        type: 'space_call_screen_share',
+        spaceId: this.spaceId,
+        fromId: this.myAregoId,
+        sharing: true,
+      });
+
+      this.screenSharing = true;
+      this.callbacks.onScreenShareChange(true, this.myAregoId!);
+      console.log('[SpaceCallManager] Screen Sharing gestartet');
+    } catch (err) {
+      // User hat Dialog abgebrochen — kein Fehler
+      if (err instanceof DOMException && err.name === 'NotAllowedError') {
+        console.log('[SpaceCallManager] Screen-Share vom User abgebrochen');
+        return;
+      }
+      console.error('[SpaceCallManager] Screen Sharing Fehler:', err);
+      this.callbacks.onError('Screen Sharing fehlgeschlagen');
+    }
+  }
+
+  /** Screen Sharing beenden. */
+  stopScreenShare(): void {
+    if (!this.screenSharing) return;
+
+    // Visibility-Listener entfernen
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+
+    // Screen-Track stoppen
+    if (this.screenStream) {
+      this.screenStream.getTracks().forEach(t => t.stop());
+    }
+
+    // Track von Mesh-Peers entfernen
+    if (this.mode === 'mesh') {
+      this.removeScreenTrackFromMesh();
+    } else if (this.mode === 'sfu' && this.livekitRoom) {
+      const publications = this.livekitRoom.localParticipant.trackPublications;
+      for (const [, pub] of publications) {
+        if (pub.source === 'screen_share') {
+          this.livekitRoom.localParticipant.unpublishTrack(pub.track!.mediaStreamTrack);
+        }
+      }
+    }
+
+    // Allen Peers mitteilen
+    this.wsSend({
+      type: 'space_call_screen_share',
+      spaceId: this.spaceId,
+      fromId: this.myAregoId,
+      sharing: false,
+    });
+
+    this.screenStream = null;
+    this.screenSharing = false;
+    this.callbacks.onScreenShareChange(false, this.myAregoId!);
+    console.log('[SpaceCallManager] Screen Sharing gestoppt');
+  }
+
+  private async addScreenTrackToMesh(screenTrack: MediaStreamTrack): Promise<void> {
+    for (const [, peer] of this.meshPeers) {
+      peer.pc.addTrack(screenTrack, this.screenStream!);
+      // Renegotiation noetig — neuen Offer erstellen
+      const offer = await peer.pc.createOffer();
+      await peer.pc.setLocalDescription(offer);
+      this.wsSend({
+        type: 'space_call_sdp',
+        spaceId: this.spaceId,
+        targetId: peer.aregoId,
+        sdp: offer.sdp,
+        sdpType: 'offer',
+      });
+    }
+  }
+
+  private removeScreenTrackFromMesh(): void {
+    const screenTrack = this.screenStream?.getVideoTracks()[0];
+    if (!screenTrack) return;
+    for (const [, peer] of this.meshPeers) {
+      const sender = peer.pc.getSenders().find(s => s.track === screenTrack);
+      if (sender) {
+        peer.pc.removeTrack(sender);
+      }
+    }
+  }
+
+  private handleRemoteScreenShare(msg: any): void {
+    const fromId = msg.fromId as string;
+    const sharing = msg.sharing as boolean;
+    if (!sharing) {
+      this.remoteScreenStreams.delete(fromId);
+    }
+    this.callbacks.onScreenShareChange(sharing, fromId);
+    this.emitParticipants();
+  }
+
   // ── WebSocket-Hilfe ───────────────────────────────────────────────────
 
   private wsSend(msg: object) {
@@ -783,6 +994,12 @@ export class SpaceCallManager {
   // ── Cleanup ───────────────────────────────────────────────────────────
 
   private cleanup() {
+    // Screen Sharing aufraeumen
+    if (this.screenSharing) {
+      this.stopScreenShare();
+    }
+    this.remoteScreenStreams.clear();
+
     // Mesh aufraeumen
     this.closeMeshPeers();
 
