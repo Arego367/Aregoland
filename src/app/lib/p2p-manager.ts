@@ -49,12 +49,13 @@ export interface P2PIncomingMessage {
 // ── TURN Credential-Generierung (HMAC-SHA1, time-limited) ────────────────────
 
 const TURN_SECRET = (import.meta as any).env?.VITE_TURN_SECRET as string | undefined;
-const TURN_TTL = 24 * 60 * 60; // 24h gültig
+const TURN_TTL = 60 * 60; // 1h gültig (DSGVO Auflage 3)
 
 async function generateTurnCredentials(): Promise<{ username: string; credential: string }> {
   const timestamp = Math.floor(Date.now() / 1000) + TURN_TTL;
-  // coturn erwartet "timestamp:beliebiger-string" — ohne Doppelpunkt schlägt HMAC-Validierung fehl
-  const username = `${timestamp}:aregoland`;
+  // coturn erwartet "timestamp:beliebiger-string" — Nonce statt fester ID (DSGVO: nicht rückverfolgbar)
+  const nonce = crypto.getRandomValues(new Uint8Array(8)).reduce((s, b) => s + b.toString(16).padStart(2, '0'), '');
+  const username = `${timestamp}:${nonce}`;
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw', enc.encode(TURN_SECRET!), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign'],
