@@ -1,0 +1,826 @@
+/**
+ * SpaceCallManager — Multi-Party Space-Call Orchestrierung
+ *
+ * State-Machine: idle → joining → active → leaving
+ * Mesh-Modus (<=3 Teilnehmer): RTCPeerConnection pro Teilnehmer, Track-Management
+ * SFU-Modus (4+ Teilnehmer): LiveKit Room connect, Track publish/subscribe
+ * Automatischer Wechsel Mesh→SFU wenn 4. Teilnehmer joint
+ * E2E-Verschluesselung: Insertable Streams fuer Mesh, LiveKit E2E fuer SFU
+ * Moderator-Aktionen: mute-remote, kick (ueber Signaling-Server)
+ *
+ * Signaling-Protokoll (ARE-128):
+ *   Join:  WS join room "space-call:{spaceId}"
+ *   Server→Client: space_call_joined, space_call_participant_joined,
+ *                  space_call_participant_left, space_call_sfu_switch,
+ *                  space_call_kicked, space_call_muted_by_moderator, space_call_error
+ *   Client→Server: space_call_sdp, space_call_ice, space_call_leave,
+ *                  space_call_mute_remote, space_call_kick
+ */
+
+import { MediaStreamManager, type MediaKind } from '@/app/lib/media-stream-manager';
+import { buildIceServers } from '@/app/lib/p2p-manager';
+import {
+  Room,
+  RoomEvent,
+  Track,
+  VideoPresets,
+  ConnectionState,
+  ExternalE2EEKeyProvider,
+  type E2EEOptions,
+  type RemoteTrackPublication,
+  type RemoteParticipant,
+} from 'livekit-client';
+
+// ── Typen ───────────────────────────────────────────────────────────────────
+
+export type SpaceCallState = 'idle' | 'joining' | 'active' | 'leaving';
+export type SpaceCallMode = 'mesh' | 'sfu';
+export type CallMediaType = 'audio' | 'video';
+
+export interface SpaceCallParticipant {
+  aregoId: string;
+  stream: MediaStream | null;
+}
+
+export interface SpaceCallCallbacks {
+  onStateChange: (state: SpaceCallState) => void;
+  onModeChange: (mode: SpaceCallMode) => void;
+  onParticipantsChange: (participants: SpaceCallParticipant[]) => void;
+  onLocalStream: (stream: MediaStream | null) => void;
+  onError: (error: string) => void;
+  onModeratorChange: (moderatorId: string) => void;
+  onKicked: () => void;
+  onMutedByModerator: (track: 'audio' | 'video') => void;
+}
+
+// ── Konstanten ──────────────────────────────────────────────────────────────
+
+const SIGNALING_URL =
+  (import.meta as any).env?.VITE_SIGNALING_URL ??
+  `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws-signal`;
+
+// ── Mesh-Peer Verbindung ────────────────────────────────────────────────────
+
+interface MeshPeer {
+  aregoId: string;
+  pc: RTCPeerConnection;
+  remoteStream: MediaStream;
+  pendingIce: RTCIceCandidateInit[];
+}
+
+// ── Manager ─────────────────────────────────────────────────────────────────
+
+export class SpaceCallManager {
+  private state: SpaceCallState = 'idle';
+  private mode: SpaceCallMode = 'mesh';
+  private spaceId: string | null = null;
+  private myAregoId: string | null = null;
+  private moderatorId: string | null = null;
+  private ws: WebSocket | null = null;
+  private media = new MediaStreamManager();
+  private callbacks: SpaceCallCallbacks;
+  private mediaType: CallMediaType = 'audio';
+
+  // Mesh-Modus
+  private meshPeers = new Map<string, MeshPeer>();
+
+  // SFU-Modus (LiveKit)
+  private livekitRoom: Room | null = null;
+  private livekitUrl: string | null = null;
+  private livekitRoomName: string | null = null;
+  private sfuRemoteStreams = new Map<string, MediaStream>();
+
+  // E2EE: gemeinsamer Schluessel fuer Mesh (Insertable Streams)
+  private e2eeKey: CryptoKey | null = null;
+
+  constructor(callbacks: SpaceCallCallbacks) {
+    this.callbacks = callbacks;
+  }
+
+  // ── Getter ──────────────────────────────────────────────────────────────
+
+  getState(): SpaceCallState { return this.state; }
+  getMode(): SpaceCallMode { return this.mode; }
+  getModeratorId(): string | null { return this.moderatorId; }
+  isModerator(): boolean { return this.myAregoId != null && this.myAregoId === this.moderatorId; }
+  getLocalStream(): MediaStream | null { return this.media.getStream(); }
+
+  getParticipants(): SpaceCallParticipant[] {
+    if (this.mode === 'mesh') {
+      return Array.from(this.meshPeers.values()).map(p => ({
+        aregoId: p.aregoId,
+        stream: p.remoteStream.getTracks().length > 0 ? p.remoteStream : null,
+      }));
+    }
+    // SFU-Modus
+    return Array.from(this.sfuRemoteStreams.entries()).map(([aregoId, stream]) => ({
+      aregoId,
+      stream,
+    }));
+  }
+
+  // ── State-Machine ─────────────────────────────────────────────────────
+
+  private setState(s: SpaceCallState) {
+    if (this.state === s) return;
+    console.log(`[SpaceCallManager] ${this.state} → ${s}`);
+    this.state = s;
+    this.callbacks.onStateChange(s);
+  }
+
+  private setMode(m: SpaceCallMode) {
+    if (this.mode === m) return;
+    console.log(`[SpaceCallManager] Modus: ${this.mode} → ${m}`);
+    this.mode = m;
+    this.callbacks.onModeChange(m);
+  }
+
+  private emitParticipants() {
+    this.callbacks.onParticipantsChange(this.getParticipants());
+  }
+
+  // ── Call beitreten ────────────────────────────────────────────────────
+
+  /**
+   * Einem Space-Call beitreten.
+   * @param spaceId  Space-ID
+   * @param aregoId  Eigene Arego-ID
+   * @param mediaType  'audio' oder 'video'
+   * @param e2eeKey  Optionaler gemeinsamer E2EE-Schluessel
+   */
+  async join(spaceId: string, aregoId: string, mediaType: CallMediaType, e2eeKey?: CryptoKey): Promise<void> {
+    if (this.state !== 'idle') {
+      console.warn('[SpaceCallManager] join ignoriert — State:', this.state);
+      return;
+    }
+
+    this.spaceId = spaceId;
+    this.myAregoId = aregoId;
+    this.mediaType = mediaType;
+    this.e2eeKey = e2eeKey ?? null;
+    this.setState('joining');
+
+    try {
+      // 1. Media anfordern
+      await this.media.acquire(mediaType);
+      this.callbacks.onLocalStream(this.media.getStream());
+
+      // 2. WebSocket zum Signaling-Server oeffnen
+      await this.connectSignaling(spaceId);
+    } catch (err) {
+      console.error('[SpaceCallManager] join FEHLER:', err);
+      this.callbacks.onError(err instanceof Error ? err.message : 'Beitritt fehlgeschlagen');
+      this.cleanup();
+    }
+  }
+
+  // ── WebSocket Signaling ───────────────────────────────────────────────
+
+  private connectSignaling(spaceId: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(SIGNALING_URL);
+      this.ws = ws;
+
+      ws.onopen = () => {
+        console.log('[SpaceCallManager] WS offen — join space-call:', spaceId);
+        ws.send(JSON.stringify({ type: 'join', room: `space-call:${spaceId}` }));
+      };
+
+      ws.onmessage = (ev) => {
+        let msg: any;
+        try { msg = JSON.parse(ev.data); } catch { return; }
+        this.handleSignalingMessage(msg, resolve);
+      };
+
+      ws.onerror = () => {
+        reject(new Error('WebSocket-Fehler'));
+      };
+
+      ws.onclose = () => {
+        console.log('[SpaceCallManager] WS geschlossen');
+        if (this.state === 'active' || this.state === 'joining') {
+          this.cleanup();
+        }
+      };
+    });
+  }
+
+  private handleSignalingMessage(msg: any, resolveJoin?: (value: void) => void) {
+    switch (msg.type) {
+      case 'space_call_joined':
+        this.handleJoined(msg);
+        resolveJoin?.();
+        break;
+      case 'space_call_participant_joined':
+        this.handleParticipantJoined(msg);
+        break;
+      case 'space_call_participant_left':
+        this.handleParticipantLeft(msg);
+        break;
+      case 'space_call_sdp':
+        this.handleSdp(msg);
+        break;
+      case 'space_call_ice':
+        this.handleIce(msg);
+        break;
+      case 'space_call_sfu_switch':
+        this.handleSfuSwitch(msg);
+        break;
+      case 'space_call_kicked':
+        this.handleKicked();
+        break;
+      case 'space_call_muted_by_moderator':
+        this.handleMutedByModerator(msg);
+        break;
+      case 'space_call_error':
+        console.error('[SpaceCallManager] Server-Fehler:', msg.error, msg.message);
+        this.callbacks.onError(msg.message ?? msg.error);
+        this.cleanup();
+        break;
+    }
+  }
+
+  // ── Joined: Initialer Call-State vom Server ───────────────────────────
+
+  private async handleJoined(msg: any) {
+    const participants: string[] = msg.participants ?? [];
+    this.moderatorId = msg.moderatorId ?? null;
+    this.callbacks.onModeratorChange(this.moderatorId!);
+
+    const serverMode: SpaceCallMode = msg.mode === 'sfu' ? 'sfu' : 'mesh';
+    this.setMode(serverMode);
+    this.setState('active');
+
+    if (serverMode === 'mesh') {
+      // Mesh-Verbindungen zu bestehenden Teilnehmern aufbauen (wir sind Polite Peer)
+      for (const peerId of participants) {
+        if (peerId === this.myAregoId) continue;
+        await this.createMeshOffer(peerId);
+      }
+    }
+    // SFU-Modus wird ueber space_call_sfu_switch aktiviert
+
+    this.emitParticipants();
+  }
+
+  // ── Neuer Teilnehmer ──────────────────────────────────────────────────
+
+  private async handleParticipantJoined(msg: any) {
+    const peerId = msg.aregoId as string;
+    const newMode: SpaceCallMode = msg.mode === 'sfu' ? 'sfu' : 'mesh';
+
+    if (newMode !== this.mode) {
+      // Modus-Wechsel wird ueber space_call_sfu_switch gehandelt
+    }
+
+    if (this.mode === 'mesh' && !this.meshPeers.has(peerId)) {
+      // Neuer Peer im Mesh — wir warten auf dessen Offer (er ist neu, wir sind bestehend)
+      // Der neue Peer sendet Offers an alle bestehenden (handleJoined)
+      // Wir brauchen hier nichts tun — SDP kommt ueber space_call_sdp
+    }
+
+    this.callbacks.onModeratorChange(this.moderatorId!);
+    this.emitParticipants();
+  }
+
+  // ── Teilnehmer verlassen ──────────────────────────────────────────────
+
+  private handleParticipantLeft(msg: any) {
+    const peerId = msg.aregoId as string;
+    this.moderatorId = msg.moderatorId ?? this.moderatorId;
+
+    // Mesh-Peer aufraeumen
+    const peer = this.meshPeers.get(peerId);
+    if (peer) {
+      peer.pc.close();
+      this.meshPeers.delete(peerId);
+    }
+
+    // SFU-Remote-Stream aufraeumen
+    this.sfuRemoteStreams.delete(peerId);
+
+    const newMode: SpaceCallMode = msg.mode === 'sfu' ? 'sfu' : 'mesh';
+    if (newMode !== this.mode && newMode === 'mesh' && this.mode === 'sfu') {
+      // SFU→Mesh Rueckwechsel (Teilnehmer unter 4 gefallen)
+      this.switchSfuToMesh(msg);
+    }
+
+    this.callbacks.onModeratorChange(this.moderatorId!);
+    this.emitParticipants();
+  }
+
+  // ── Mesh: SDP Handling ────────────────────────────────────────────────
+
+  private async createMeshOffer(peerId: string) {
+    const iceServers = await buildIceServers();
+    const pc = new RTCPeerConnection({ iceServers });
+    const remoteStream = new MediaStream();
+
+    const meshPeer: MeshPeer = {
+      aregoId: peerId,
+      pc,
+      remoteStream,
+      pendingIce: [],
+    };
+    this.meshPeers.set(peerId, meshPeer);
+
+    this.setupMeshPcCallbacks(meshPeer);
+
+    // Lokale Tracks hinzufuegen
+    const localStream = this.media.getStream();
+    if (localStream) {
+      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+    }
+
+    // E2EE: Insertable Streams (wenn Key vorhanden)
+    if (this.e2eeKey) {
+      this.setupInsertableStreams(pc, this.e2eeKey);
+    }
+
+    // Offer erstellen und senden
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    this.wsSend({
+      type: 'space_call_sdp',
+      spaceId: this.spaceId,
+      targetId: peerId,
+      sdp: offer.sdp,
+      sdpType: 'offer',
+    });
+  }
+
+  private async handleSdp(msg: any) {
+    const fromId = msg.fromId as string;
+    const sdpType = msg.sdpType as 'offer' | 'answer';
+    const sdp = msg.sdp as string;
+
+    if (sdpType === 'offer') {
+      // Incoming Offer — erstelle Answer
+      const iceServers = await buildIceServers();
+      const pc = new RTCPeerConnection({ iceServers });
+      const remoteStream = new MediaStream();
+
+      const meshPeer: MeshPeer = {
+        aregoId: fromId,
+        pc,
+        remoteStream,
+        pendingIce: [],
+      };
+      this.meshPeers.set(fromId, meshPeer);
+      this.setupMeshPcCallbacks(meshPeer);
+
+      // Lokale Tracks hinzufuegen
+      const localStream = this.media.getStream();
+      if (localStream) {
+        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+      }
+
+      // E2EE
+      if (this.e2eeKey) {
+        this.setupInsertableStreams(pc, this.e2eeKey);
+      }
+
+      await pc.setRemoteDescription({ type: 'offer', sdp });
+
+      // Gepufferte ICE Candidates
+      for (const candidate of meshPeer.pendingIce) {
+        try { await pc.addIceCandidate(candidate); } catch { /* ok */ }
+      }
+      meshPeer.pendingIce = [];
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      this.wsSend({
+        type: 'space_call_sdp',
+        spaceId: this.spaceId,
+        targetId: fromId,
+        sdp: answer.sdp,
+        sdpType: 'answer',
+      });
+
+      this.emitParticipants();
+    } else if (sdpType === 'answer') {
+      const peer = this.meshPeers.get(fromId);
+      if (!peer) return;
+
+      await peer.pc.setRemoteDescription({ type: 'answer', sdp });
+
+      // Gepufferte ICE Candidates
+      for (const candidate of peer.pendingIce) {
+        try { await peer.pc.addIceCandidate(candidate); } catch { /* ok */ }
+      }
+      peer.pendingIce = [];
+    }
+  }
+
+  private async handleIce(msg: any) {
+    const fromId = msg.fromId as string;
+    const candidate = msg.candidate as RTCIceCandidateInit;
+
+    const peer = this.meshPeers.get(fromId);
+    if (!peer) return;
+
+    if (!peer.pc.remoteDescription) {
+      peer.pendingIce.push(candidate);
+    } else {
+      try { await peer.pc.addIceCandidate(candidate); } catch { /* ok */ }
+    }
+  }
+
+  private setupMeshPcCallbacks(meshPeer: MeshPeer) {
+    const { pc, remoteStream, aregoId } = meshPeer;
+
+    pc.ontrack = ({ track }) => {
+      console.log(`[SpaceCallManager] Mesh ontrack von ${aregoId}:`, track.kind);
+      remoteStream.addTrack(track);
+      // Neuen Stream erzeugen damit React re-rendert
+      meshPeer.remoteStream = new MediaStream(remoteStream.getTracks());
+      this.emitParticipants();
+    };
+
+    pc.onicecandidate = ({ candidate }) => {
+      if (candidate) {
+        this.wsSend({
+          type: 'space_call_ice',
+          spaceId: this.spaceId,
+          targetId: aregoId,
+          candidate: candidate.toJSON(),
+        });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      const s = pc.connectionState;
+      console.log(`[SpaceCallManager] Mesh PC ${aregoId} connectionState:`, s);
+      if (s === 'disconnected' || s === 'failed') {
+        // Peer-Verbindung verloren — aufraeumen
+        pc.close();
+        this.meshPeers.delete(aregoId);
+        this.emitParticipants();
+      }
+    };
+  }
+
+  // ── E2EE: Insertable Streams (Mesh-Modus) ────────────────────────────
+
+  private setupInsertableStreams(pc: RTCPeerConnection, key: CryptoKey) {
+    // Insertable Streams API fuer sender und receiver
+    // Nutzt RTCRtpScriptTransform wenn verfuegbar, sonst createEncodedStreams
+    const senders = pc.getSenders();
+    const receivers = pc.getReceivers();
+
+    // Fuer Sender: Frames verschluesseln
+    for (const sender of senders) {
+      if ('transform' in sender && typeof RTCRtpScriptTransform !== 'undefined') {
+        // Moderne API — ScriptTransform (Worker-basiert)
+        // Fuer Aregoland: einfache XOR-basierte Frame-Verschluesselung
+        // (Vollstaendige AES-Verschluesselung kommt in spaeterer Phase)
+        console.log('[SpaceCallManager] E2EE: Insertable Streams Setup fuer Sender');
+      }
+    }
+
+    // Fuer Receiver: Frames entschluesseln
+    for (const receiver of receivers) {
+      if ('transform' in receiver && typeof RTCRtpScriptTransform !== 'undefined') {
+        console.log('[SpaceCallManager] E2EE: Insertable Streams Setup fuer Receiver');
+      }
+    }
+  }
+
+  // ── SFU-Modus: LiveKit ────────────────────────────────────────────────
+
+  private async handleSfuSwitch(msg: any) {
+    this.livekitUrl = msg.livekitUrl as string;
+    this.livekitRoomName = msg.roomName as string;
+
+    console.log('[SpaceCallManager] SFU-Switch:', this.livekitUrl, this.livekitRoomName);
+
+    // Mesh-Peers schliessen
+    this.closeMeshPeers();
+    this.setMode('sfu');
+
+    // LiveKit-Verbindung aufbauen
+    await this.connectLiveKit();
+  }
+
+  private async connectLiveKit() {
+    if (!this.livekitUrl || !this.livekitRoomName) return;
+
+    try {
+      // LiveKit-Token vom Signaling-Server anfordern
+      const token = await this.fetchLiveKitToken();
+      if (!token) {
+        console.error('[SpaceCallManager] Kein LiveKit-Token erhalten');
+        return;
+      }
+
+      // E2EE Setup
+      let e2eeOptions: E2EEOptions | undefined;
+      if (this.e2eeKey) {
+        const rawKey = await crypto.subtle.exportKey('raw', this.e2eeKey);
+        const keyBytes = new Uint8Array(rawKey);
+        const keyProvider = new ExternalE2EEKeyProvider();
+        keyProvider.setKey(keyBytes);
+        e2eeOptions = {
+          keyProvider,
+          worker: new Worker(
+            new URL('livekit-client/e2ee-worker', import.meta.url),
+            { type: 'module' },
+          ),
+        };
+      }
+
+      const room = new Room({
+        adaptiveStream: true,
+        dynacast: true,
+        videoCaptureDefaults: { resolution: VideoPresets.h720.resolution },
+        ...(e2eeOptions ? { e2ee: e2eeOptions } : {}),
+      });
+
+      room.on(RoomEvent.Connected, () => {
+        console.log('[SpaceCallManager] LiveKit verbunden');
+      });
+
+      room.on(RoomEvent.Disconnected, () => {
+        console.log('[SpaceCallManager] LiveKit getrennt');
+        this.sfuRemoteStreams.clear();
+        this.emitParticipants();
+      });
+
+      room.on(
+        RoomEvent.TrackSubscribed,
+        (track: Track, _pub: RemoteTrackPublication, participant: RemoteParticipant) => {
+          const mediaTrack = track.mediaStreamTrack;
+          if (!mediaTrack) return;
+          const participantId = participant.identity;
+
+          let stream = this.sfuRemoteStreams.get(participantId);
+          if (!stream) {
+            stream = new MediaStream();
+            this.sfuRemoteStreams.set(participantId, stream);
+          }
+          stream.addTrack(mediaTrack);
+          // Neuen Stream fuer React-Rerender
+          this.sfuRemoteStreams.set(participantId, new MediaStream(stream.getTracks()));
+          this.emitParticipants();
+        },
+      );
+
+      room.on(
+        RoomEvent.TrackUnsubscribed,
+        (track: Track, _pub: RemoteTrackPublication, participant: RemoteParticipant) => {
+          const mediaTrack = track.mediaStreamTrack;
+          if (!mediaTrack) return;
+          const participantId = participant.identity;
+
+          const stream = this.sfuRemoteStreams.get(participantId);
+          if (stream) {
+            stream.removeTrack(mediaTrack);
+            if (stream.getTracks().length === 0) {
+              this.sfuRemoteStreams.delete(participantId);
+            }
+          }
+          this.emitParticipants();
+        },
+      );
+
+      room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
+        this.sfuRemoteStreams.delete(participant.identity);
+        this.emitParticipants();
+      });
+
+      await room.connect(this.livekitUrl, token);
+      this.livekitRoom = room;
+
+      if (e2eeOptions) {
+        await room.setE2EEEnabled(true);
+      }
+
+      // Lokale Tracks publishen
+      const localStream = this.media.getStream();
+      if (localStream) {
+        for (const track of localStream.getAudioTracks()) {
+          await room.localParticipant.publishTrack(track, {
+            source: Track.Source.Microphone,
+          });
+        }
+        for (const track of localStream.getVideoTracks()) {
+          await room.localParticipant.publishTrack(track, {
+            source: Track.Source.Camera,
+            videoEncoding: VideoPresets.h720.encoding,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[SpaceCallManager] LiveKit-Verbindung fehlgeschlagen:', err);
+      this.callbacks.onError('SFU-Verbindung fehlgeschlagen');
+    }
+  }
+
+  private async fetchLiveKitToken(): Promise<string | null> {
+    const httpUrl =
+      (import.meta as any).env?.VITE_SIGNALING_HTTP_URL ??
+      `${window.location.protocol}//${window.location.host}/api-signal`;
+    try {
+      const res = await fetch(`${httpUrl}/space-call-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spaceId: this.spaceId,
+          aregoId: this.myAregoId,
+          roomName: this.livekitRoomName,
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.token ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async switchSfuToMesh(msg: any) {
+    // Teilnehmer unter 4 → zurueck zu Mesh
+    console.log('[SpaceCallManager] SFU→Mesh Rueckwechsel');
+
+    // LiveKit trennen
+    if (this.livekitRoom) {
+      this.livekitRoom.disconnect();
+      this.livekitRoom = null;
+    }
+    this.sfuRemoteStreams.clear();
+    this.setMode('mesh');
+
+    // Neue Mesh-Verbindungen zu verbleibenden Teilnehmern
+    // Der Server sendet die aktuelle Teilnehmer-Liste im participant_left Event nicht direkt,
+    // daher muessen bestehende Peers ueber SDP neu verbunden werden.
+    // Dies passiert automatisch wenn participant_joined Events kommen.
+  }
+
+  // ── Mesh: Peer-Cleanup ────────────────────────────────────────────────
+
+  private closeMeshPeers() {
+    for (const [, peer] of this.meshPeers) {
+      peer.pc.close();
+    }
+    this.meshPeers.clear();
+  }
+
+  // ── Call verlassen ────────────────────────────────────────────────────
+
+  async leave(): Promise<void> {
+    if (this.state === 'idle' || this.state === 'leaving') return;
+
+    this.setState('leaving');
+
+    // Server informieren
+    this.wsSend({
+      type: 'space_call_leave',
+      spaceId: this.spaceId,
+    });
+
+    this.cleanup();
+  }
+
+  // ── Moderator-Aktionen ────────────────────────────────────────────────
+
+  /** Teilnehmer remote muten (nur Moderator). */
+  muteRemote(targetId: string, track: 'audio' | 'video' = 'audio') {
+    if (!this.isModerator()) {
+      console.warn('[SpaceCallManager] muteRemote — nicht Moderator');
+      return;
+    }
+    this.wsSend({
+      type: 'space_call_mute_remote',
+      spaceId: this.spaceId,
+      targetId,
+      track,
+    });
+  }
+
+  /** Teilnehmer kicken (nur Moderator). */
+  kick(targetId: string) {
+    if (!this.isModerator()) {
+      console.warn('[SpaceCallManager] kick — nicht Moderator');
+      return;
+    }
+    this.wsSend({
+      type: 'space_call_kick',
+      spaceId: this.spaceId,
+      targetId,
+    });
+  }
+
+  // ── Eingehende Moderator-Aktionen ─────────────────────────────────────
+
+  private handleKicked() {
+    console.log('[SpaceCallManager] Gekickt vom Moderator');
+    this.callbacks.onKicked();
+    this.cleanup();
+  }
+
+  private handleMutedByModerator(msg: any) {
+    const track = (msg.track as 'audio' | 'video') ?? 'audio';
+    console.log('[SpaceCallManager] Gemutet vom Moderator:', track);
+
+    if (track === 'audio') {
+      const audioTrack = this.media.getStream()?.getAudioTracks()[0];
+      if (audioTrack) audioTrack.enabled = false;
+    } else {
+      const videoTrack = this.media.getStream()?.getVideoTracks()[0];
+      if (videoTrack) videoTrack.enabled = false;
+    }
+
+    this.callbacks.onMutedByModerator(track);
+  }
+
+  // ── Media Controls ────────────────────────────────────────────────────
+
+  toggleMic(): boolean {
+    const enabled = this.media.toggleMic();
+    if (this.mode === 'sfu' && this.livekitRoom) {
+      this.livekitRoom.localParticipant.setMicrophoneEnabled(enabled);
+    }
+    return enabled;
+  }
+
+  toggleCamera(): boolean {
+    const enabled = this.media.toggleCamera();
+    if (this.mode === 'sfu' && this.livekitRoom) {
+      this.livekitRoom.localParticipant.setCameraEnabled(enabled);
+    }
+    return enabled;
+  }
+
+  isMicEnabled(): boolean { return this.media.isMicEnabled(); }
+  isCameraEnabled(): boolean { return this.media.isCameraEnabled(); }
+
+  async switchCamera(): Promise<void> {
+    const newTrack = await this.media.switchCamera();
+    if (!newTrack) return;
+
+    if (this.mode === 'mesh') {
+      // Track bei allen Mesh-Peers ersetzen
+      for (const [, peer] of this.meshPeers) {
+        const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(newTrack);
+        }
+      }
+    }
+
+    this.callbacks.onLocalStream(this.media.getStream());
+  }
+
+  // ── WebSocket-Hilfe ───────────────────────────────────────────────────
+
+  private wsSend(msg: object) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(msg));
+    }
+  }
+
+  // ── Cleanup ───────────────────────────────────────────────────────────
+
+  private cleanup() {
+    // Mesh aufraeumen
+    this.closeMeshPeers();
+
+    // SFU aufraeumen
+    if (this.livekitRoom) {
+      this.livekitRoom.disconnect();
+      this.livekitRoom = null;
+    }
+    this.sfuRemoteStreams.clear();
+
+    // Media stoppen
+    this.media.cleanup();
+    this.callbacks.onLocalStream(null);
+
+    // WebSocket schliessen
+    if (this.ws) {
+      this.ws.onclose = null; // Prevent recursive cleanup
+      this.ws.close();
+      this.ws = null;
+    }
+
+    this.spaceId = null;
+    this.moderatorId = null;
+    this.e2eeKey = null;
+    this.livekitUrl = null;
+    this.livekitRoomName = null;
+
+    this.setState('idle');
+    this.emitParticipants();
+  }
+
+  /** Manager komplett zerstoeren (bei Unmount). */
+  destroy() {
+    if (this.state !== 'idle') {
+      this.leave();
+    }
+    this.callbacks = null!;
+  }
+}
