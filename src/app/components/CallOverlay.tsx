@@ -248,6 +248,7 @@ export default function CallOverlay({
                 playsInline
                 muted
                 className="w-full h-full object-cover pointer-events-none"
+                style={{ transform: 'scaleX(-1)' }}
               />
             ) : (
               <div className="w-full h-full bg-gray-800 flex flex-col items-center justify-center gap-2">

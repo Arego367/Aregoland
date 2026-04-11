@@ -8,8 +8,8 @@ import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { loadHistory, saveHistory, clearHistory, type StoredMessage } from "@/app/lib/chats";
 import type { P2PStatus, CallSignal } from "@/app/lib/p2p-manager";
-import { buildIceServers } from "@/app/lib/p2p-manager";
-import CallOverlay, { type CallState, type CallType } from './CallOverlay';
+import CallOverlay from './CallOverlay';
+import { CallManager, type CallState, type CallType } from '@/app/lib/call-manager';
 import { ContactDetailModal } from './ContactDetailModal';
 import { blockContact, isBlocked } from "@/app/auth/contacts";
 import data from '@emoji-mart/data';
@@ -253,214 +253,60 @@ export default function ChatScreen({
   const recordingTimerRef = useRef<ReturnType<typeof setInterval>>();
   const recordingStreamRef = useRef<MediaStream | null>(null);
 
-  // ── Anruf-State ────────────────────────────────────────────────────────────
+  // ── Anruf-State (via CallManager) ──────────────────────────────────────────
   const [callState, setCallState] = useState<CallState>('idle');
   const [callType, setCallType] = useState<CallType>('audio');
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [cameraUnavailable, setCameraUnavailable] = useState(false);
-  const callPcRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const callTypeRef = useRef<CallType>('audio');
 
-  // ICE-Server werden pro Verbindung frisch generiert (TURN credentials sind time-limited)
-
-  // Refs synchron halten
-  useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
-  useEffect(() => { callTypeRef.current = callType; }, [callType]);
+  const callManagerRef = useRef<CallManager | null>(null);
+  if (!callManagerRef.current) callManagerRef.current = new CallManager();
+  const cm = callManagerRef.current;
 
   // Stable ref für sendCallSignal
   const sendCallSignalRef = useRef(sendCallSignal);
   useEffect(() => { sendCallSignalRef.current = sendCallSignal; }, [sendCallSignal]);
 
-  const cleanupCall = useCallback(() => {
-    console.log('[Call] cleanupCall — Tracks stoppen, PC schließen');
-    localStreamRef.current?.getTracks().forEach((t) => { t.stop(); console.log('[Call] Track gestoppt:', t.kind); });
-    callPcRef.current?.close();
-    callPcRef.current = null;
-    setLocalStream(null);
-    setRemoteStream(null);
-    setCallState('idle');
-  }, []); // keine Deps — nutzt nur Refs
-
-  const setupPcCallbacks = useCallback((pc: RTCPeerConnection, cType: CallType) => {
-    const rs = new MediaStream();
-    setRemoteStream(rs);
-    pc.ontrack = ({ track }) => {
-      console.log('[Call] ontrack — Remote Track empfangen:', track.kind, 'enabled:', track.enabled, 'readyState:', track.readyState);
-      rs.addTrack(track);
-      const updated = new MediaStream(rs.getTracks());
-      console.log('[Call] remoteStream aktualisiert — Tracks:', updated.getTracks().map(t => `${t.kind}:${t.readyState}`).join(', '));
-      setRemoteStream(updated);
-    };
-    pc.onicecandidate = ({ candidate }) => {
-      if (candidate) {
-        console.log('[Call] ICE Candidate senden:', candidate.type, candidate.protocol);
-        sendCallSignalRef.current({ _t: 'call', action: 'ice', callType: cType, candidate: candidate.toJSON() });
-      } else {
-        console.log('[Call] ICE Gathering abgeschlossen');
-      }
-    };
-    pc.onconnectionstatechange = () => {
-      console.log('[Call] PC connectionState:', pc.connectionState);
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-        cleanupCall();
-      }
-    };
-    pc.oniceconnectionstatechange = () => {
-      console.log('[Call] PC iceConnectionState:', pc.iceConnectionState);
-    };
-    pc.onsignalingstatechange = () => {
-      console.log('[Call] PC signalingState:', pc.signalingState);
-    };
-  }, [cleanupCall]);
+  // CallManager Callbacks registrieren
+  useEffect(() => {
+    cm.onStateChange((state, type) => {
+      setCallState(state === 'ended' ? 'idle' : state);
+      setCallType(type);
+    });
+    cm.onStreamsChange((local, remote, camUnavail) => {
+      setLocalStream(local);
+      setRemoteStream(remote);
+      setCameraUnavailable(camUnavail);
+    });
+    return () => { cm.destroy(); };
+  }, [cm]);
 
   const startCall = useCallback(async (type: CallType) => {
     if (p2pStatus !== 'connected') return;
-    console.log('[Call] startCall — Typ:', type);
-    setCallType(type);
-    setCallState('ringing');
-    setCameraUnavailable(false);
-
-    try {
-      let stream: MediaStream;
-      if (type === 'video') {
-        try {
-          console.log('[Call] getUserMedia anfordern — audio + video');
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        } catch (videoErr) {
-          console.warn('[Call] Kamera nicht verfügbar, Fallback auf Audio:', videoErr);
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          setCameraUnavailable(true);
-        }
-      } else {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
-      console.log('[Call] getUserMedia OK — Tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`).join(', '));
-      localStreamRef.current = stream;
-      setLocalStream(stream);
-
-      const iceServers = await buildIceServers();
-      const pc = new RTCPeerConnection({ iceServers });
-      callPcRef.current = pc;
-      setupPcCallbacks(pc, type);
-
-      stream.getTracks().forEach((t) => {
-        pc.addTrack(t, stream);
-        console.log('[Call] addTrack (Caller):', t.kind, t.label);
-      });
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      console.log('[Call] Offer gesendet — SDP Länge:', offer.sdp?.length);
-      await sendCallSignalRef.current({ _t: 'call', action: 'offer', callType: type, sdp: offer.sdp });
-    } catch (err) {
-      console.error('[Call] startCall FEHLER:', err);
-      cleanupCall();
-    }
-  }, [p2pStatus, setupPcCallbacks, cleanupCall]);
+    await cm.startCall(type, (signal) => sendCallSignalRef.current(signal));
+  }, [p2pStatus, cm]);
 
   const acceptCall = useCallback(async () => {
-    const pc = callPcRef.current;
-    if (!pc) { console.error('[Call] acceptCall — kein PC vorhanden!'); return; }
-    console.log('[Call] acceptCall — signalingState:', pc.signalingState);
-    setCallState('connecting');
-    setCameraUnavailable(false);
-
-    try {
-      const cType = callTypeRef.current;
-      let stream: MediaStream;
-      if (cType === 'video') {
-        try {
-          console.log('[Call] getUserMedia anfordern (Accept) — audio + video');
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        } catch (videoErr) {
-          console.warn('[Call] Kamera nicht verfügbar (Accept), Fallback auf Audio:', videoErr);
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          setCameraUnavailable(true);
-        }
-      } else {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
-      console.log('[Call] getUserMedia OK (Accept) — Tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`).join(', '));
-      localStreamRef.current = stream;
-      setLocalStream(stream);
-
-      stream.getTracks().forEach((t) => {
-        pc.addTrack(t, stream);
-        console.log('[Call] addTrack (Callee):', t.kind, t.label);
-      });
-
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      console.log('[Call] Answer erstellt — SDP Länge:', answer.sdp?.length);
-      const sent = await sendCallSignalRef.current({ _t: 'call', action: 'answer', callType: cType, sdp: answer.sdp });
-      console.log('[Call] Answer gesendet:', sent);
-      setCallState('active');
-    } catch (err) {
-      console.error('[Call] acceptCall FEHLER:', err);
-      cleanupCall();
-    }
-  }, [cleanupCall]);
+    await cm.acceptCall();
+  }, [cm]);
 
   const hangup = useCallback(() => {
-    console.log('[Call] hangup');
-    sendCallSignalRef.current({ _t: 'call', action: 'hangup', callType: callTypeRef.current });
-    cleanupCall();
-  }, [cleanupCall]);
+    cm.hangup();
+  }, [cm]);
+
+  const rejectCall = useCallback(() => {
+    cm.reject();
+  }, [cm]);
 
   // Call-Signal Handler registrieren
   useEffect(() => {
-    const handler = async (signal: CallSignal) => {
-      console.log('[Call] Signal empfangen:', signal.action, 'callType:', signal.callType);
-
-      if (signal.action === 'offer') {
-        try {
-          setCallType(signal.callType);
-          setCallState('incoming');
-          const iceServers = await buildIceServers();
-          const pc = new RTCPeerConnection({ iceServers });
-          callPcRef.current = pc;
-          setupPcCallbacks(pc, signal.callType);
-          await pc.setRemoteDescription({ type: 'offer', sdp: signal.sdp! });
-          console.log('[Call] Offer verarbeitet — signalingState:', pc.signalingState);
-        } catch (err) {
-          console.error('[Call] Offer verarbeiten FEHLER:', err);
-          cleanupCall();
-        }
-      }
-
-      if (signal.action === 'answer' && callPcRef.current) {
-        try {
-          console.log('[Call] Answer empfangen — SDP Länge:', signal.sdp?.length, 'PC signalingState:', callPcRef.current.signalingState);
-          await callPcRef.current.setRemoteDescription({ type: 'answer', sdp: signal.sdp! });
-          console.log('[Call] setRemoteDescription(answer) OK — setCallState active');
-          setCallState('active');
-        } catch (err) {
-          console.error('[Call] Answer verarbeiten FEHLER:', err);
-        }
-      }
-
-      if (signal.action === 'ice' && callPcRef.current) {
-        try {
-          await callPcRef.current.addIceCandidate(signal.candidate!);
-          console.log('[Call] ICE Candidate hinzugefügt');
-        } catch (err) {
-          console.warn('[Call] ICE Candidate Fehler:', err);
-        }
-      }
-
-      if (signal.action === 'hangup') {
-        console.log('[Call] Hangup empfangen');
-        cleanupCall();
-      }
+    const handler = (signal: CallSignal) => {
+      cm.handleSignal(signal, (s) => sendCallSignalRef.current(s));
     };
     registerCallSignalHandler(handler);
     return () => unregisterCallSignalHandler();
-  }, [roomId, registerCallSignalHandler, unregisterCallSignalHandler, setupPcCallbacks, cleanupCall]);
-
-  // Cleanup nur bei echtem Unmount
-  useEffect(() => () => { cleanupCall(); }, [cleanupCall]);
+  }, [roomId, registerCallSignalHandler, unregisterCallSignalHandler, cm]);
 
   // Auto-Start Anruf (aus Kontakt-Detail oder PeopleScreen)
   useEffect(() => {
@@ -1156,7 +1002,7 @@ export default function ChatScreen({
             contactName={chatName}
             contactAvatar={chatAvatar}
             onAccept={acceptCall}
-            onReject={hangup}
+            onReject={rejectCall}
             onHangup={hangup}
             localStream={localStream}
             remoteStream={remoteStream}
