@@ -148,7 +148,7 @@
     "noContactsDesc": "F\u00fcge Kontakte per QR-Code oder Kurzcode hinzu",
     "p2pContact": "P2P Kontakt",
     "removeConfirmTitle": "{{name}} entfernen?",
-    "removeConfirmDesc": "Dieser Kontakt wird von deinem Ger\u00e4t und vom Ger\u00e4t des Kontakts entfernt. Wenn ihr wieder chatten wollt, m\u00fcsst ihr euch erneut als Kontakte hinzuf\u00fcgen. Chat- und Anrufhistorie wird nicht gel\u00f6scht.",
+    "removeConfirmDesc": "Dieser Kontakt wird von deinem Ger\u00e4t und vom Ger\u00e4t des Kontakts entfernt. Wenn ihr wieder chatten wollt, m\u00fcsst ihr euch erneut als Kontakte hinzuf\u00fcgen. Chathistorie wird nicht gel\u00f6scht.",
     "setupChildProtection": "Kinderschutz einrichten",
     "chooseAgeLevel": "W\u00e4hle eine Altersstufe f\u00fcr das neue Profil.",
     "searchProfiles": "Nutzer suchen (Name, Spitzname, Arego-ID)...",
