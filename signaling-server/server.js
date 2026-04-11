@@ -22,6 +22,10 @@
  *  POST /support               → Support-Nachricht als GitHub Issue
  *  POST /support/close         → GitHub Issue schließen
  *
+ *  POST /node                  → LiveKit-Node registrieren
+ *  GET  /nodes                 → Alle registrierten LiveKit-Nodes abrufen
+ *  DELETE /node/:id            → LiveKit-Node entfernen
+ *
  *  POST /child-settings/update          → Verwalter ändert Kind-Einstellung (ECDSA-signiert)
  *  GET  /child-settings/audit/:kind_id  → Audit-Log abrufen (Verwalter + Kind ab FSK 12)
  *  POST /child-settings/self-determination → Kind ab FSK 16 deaktiviert Verwalter-Zugriff
@@ -212,6 +216,15 @@ async function initDb() {
     }
     db.run(`DROP TABLE IF EXISTS child_links`);
   } catch {}
+  // LiveKit Node-Registry
+  db.run(`
+    CREATE TABLE IF NOT EXISTS livekit_nodes (
+      id                TEXT PRIMARY KEY,
+      url               TEXT NOT NULL,
+      name              TEXT DEFAULT '',
+      registered_at     TEXT NOT NULL
+    )
+  `);
   persistDb();
 }
 
@@ -1878,6 +1891,65 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: true }));
     } catch {
       res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /node — LiveKit-Node registrieren ──────────────────────────────────
+  if (req.method === 'POST' && req.url === '/node') {
+    try {
+      const body = await readBody(req);
+      const { url, name } = JSON.parse(body);
+      if (!url) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'url erforderlich' }));
+        return;
+      }
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      const now = new Date().toISOString();
+      db.run(`
+        INSERT INTO livekit_nodes (id, url, name, registered_at)
+        VALUES (?, ?, ?, ?)
+      `, [id, url, (name ?? '').slice(0, 100), now]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, id, url, name: name ?? '', registeredAt: now }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── GET /nodes — Alle registrierten LiveKit-Nodes ──────────────────────────
+  if (req.method === 'GET' && req.url === '/nodes') {
+    try {
+      const rows = db.exec(`SELECT id, url, name, registered_at FROM livekit_nodes ORDER BY registered_at DESC`);
+      const nodes = rows.length ? rows[0].values.map(([id, url, name, registered_at]) => ({
+        id, url, name, registeredAt: registered_at,
+      })) : [];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(nodes));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── DELETE /node/:id — LiveKit-Node entfernen ──────────────────────────────
+  const nodeDeleteMatch = req.method === 'DELETE' && req.url?.match(/^\/node\/([a-z0-9]+)$/);
+  if (nodeDeleteMatch) {
+    try {
+      const nodeId = nodeDeleteMatch[1];
+      const existing = db.exec(`SELECT id FROM livekit_nodes WHERE id = ?`, [nodeId]);
+      if (!existing.length || !existing[0].values.length) {
+        res.writeHead(404); res.end(); return;
+      }
+      db.run(`DELETE FROM livekit_nodes WHERE id = ?`, [nodeId]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(500); res.end();
     }
     return;
   }

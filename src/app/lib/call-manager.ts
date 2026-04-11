@@ -409,3 +409,73 @@ export class CallManager {
     this.streamsChangeCb = null;
   }
 }
+
+// ── LiveKit SFU Fallback Utilities ──────────────────────────────────────────
+
+export type ConnectionMode = 'p2p' | 'sfu' | 'turn';
+
+export interface NodeInfo {
+  id: string;
+  url: string;
+  name?: string;
+  registeredAt: string;
+}
+
+const SIGNALING_HTTP_URL =
+  (import.meta as any).env?.VITE_SIGNALING_HTTP_URL ??
+  `${window.location.protocol}//${window.location.host}/api-signal`;
+
+/**
+ * Liest die konfigurierte LiveKit-Node-URL aus localStorage.
+ * Kann von SettingsScreen gesetzt werden.
+ */
+export function getLiveKitNodeUrl(): string | null {
+  return localStorage.getItem('aregoland_livekit_node_url');
+}
+
+export function setLiveKitNodeUrl(url: string | null): void {
+  if (url) {
+    localStorage.setItem('aregoland_livekit_node_url', url);
+  } else {
+    localStorage.removeItem('aregoland_livekit_node_url');
+  }
+}
+
+/**
+ * Verfuegbare Nodes vom Signaling-Server abrufen.
+ */
+export async function fetchAvailableNodes(): Promise<NodeInfo[]> {
+  try {
+    const res = await fetch(`${SIGNALING_HTTP_URL}/nodes`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Bestimmt den Verbindungsmodus basierend auf P2P-Status und Konfiguration.
+ */
+export function determineConnectionMode(
+  p2pConnected: boolean,
+  p2pTimedOut: boolean,
+): ConnectionMode {
+  if (p2pConnected) return 'p2p';
+  const nodeUrl = getLiveKitNodeUrl();
+  if (p2pTimedOut && nodeUrl) return 'sfu';
+  if (p2pTimedOut) return 'turn';
+  return 'p2p';
+}
+
+/** P2P-Timeout in Millisekunden */
+export const P2P_TIMEOUT_MS = 10_000;
+
+/**
+ * Erzeugt einen E2EE-Schluessel fuer LiveKit aus dem bestehenden ECDH-SessionKey.
+ */
+export async function deriveE2EEKey(sessionKey: CryptoKey): Promise<Uint8Array> {
+  const raw = await crypto.subtle.exportKey('raw', sessionKey);
+  return new Uint8Array(raw);
+}
+

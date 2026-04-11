@@ -10,6 +10,7 @@ import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setA
 import { loadFsk, saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { signData } from "@/app/auth/crypto";
 import { Html5Qrcode } from "html5-qrcode";
+import { getLiveKitNodeUrl, setLiveKitNodeUrl } from "@/app/lib/call-manager";
 
 const NOTIF_KEY = "aregoland_notifications";
 
@@ -185,6 +186,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   }, []);
 
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('aregoland_dark_mode') !== 'false');
+  const [livekitNodeUrl, setLivekitNodeUrlState] = useState(() => getLiveKitNodeUrl() ?? '');
   const [startScreen, setStartScreen] = useState("dashboard");
   const [startDropdownOpen, setStartDropdownOpen] = useState(false);
   const startDropdownRef = useRef<HTMLDivElement>(null);
@@ -770,6 +772,30 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                 >
                   <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${showOnlineStatus ? "translate-x-6" : "translate-x-0"}`}></div>
                 </button>
+              </div>
+            </div>
+
+            {/* LiveKit Node-URL */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.livekitNode')}</h3>
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple-500/20 p-2 rounded-lg text-purple-400">
+                    <Globe size={20} />
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-medium">{t('settings.livekitNodeUrl')}</span>
+                    <div className="text-xs text-gray-500">{t('settings.livekitNodeDesc')}</div>
+                  </div>
+                </div>
+                <input
+                  type="url"
+                  value={livekitNodeUrl}
+                  onChange={(e) => setLivekitNodeUrlState(e.target.value)}
+                  onBlur={() => setLiveKitNodeUrl(livekitNodeUrl.trim() || null)}
+                  placeholder="wss://livekit.example.com"
+                  className="w-full px-3 py-2 bg-gray-900/50 border border-gray-700/50 rounded-xl text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50"
+                />
               </div>
             </div>
 

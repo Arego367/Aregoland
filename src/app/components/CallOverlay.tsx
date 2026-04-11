@@ -7,10 +7,11 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, CameraOff } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, CameraOff, Wifi, Radio } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { ImageWithFallback } from '@/app/components/ImageWithFallback';
+import type { ConnectionMode } from '@/app/lib/call-manager';
 
 export type CallState = 'idle' | 'ringing' | 'incoming' | 'connecting' | 'active';
 export type CallType = 'audio' | 'video';
@@ -26,6 +27,8 @@ interface CallOverlayProps {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   cameraUnavailable?: boolean;
+  /** Aktueller Verbindungsmodus: P2P, SFU oder TURN */
+  connectionMode?: ConnectionMode;
 }
 
 // ── Control-Button ──────────────────────────────────────────────────────────
@@ -108,10 +111,26 @@ function CallControls({
 
 // ── Haupt-Overlay ───────────────────────────────────────────────────────────
 
+// ── Verbindungsmodus-Indikator ─────────────────────────────────────────────
+
+function ConnectionModeIndicator({ mode, t }: { mode?: ConnectionMode; t: (key: string) => string }) {
+  if (!mode) return null;
+  const config = {
+    p2p: { icon: <Wifi size={12} />, label: t('call.modeP2P'), color: 'text-green-400' },
+    sfu: { icon: <Radio size={12} />, label: t('call.modeSFU'), color: 'text-blue-400' },
+    turn: { icon: <Wifi size={12} />, label: t('call.modeTURN'), color: 'text-yellow-400' },
+  }[mode];
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs ${config.color} bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-sm`}>
+      {config.icon} {config.label}
+    </span>
+  );
+}
+
 export default function CallOverlay({
   callState, callType, contactName, contactAvatar,
   onAccept, onReject, onHangup, localStream, remoteStream,
-  cameraUnavailable,
+  cameraUnavailable, connectionMode,
 }: CallOverlayProps) {
   const { t } = useTranslation();
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -222,11 +241,12 @@ export default function CallOverlay({
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="absolute top-0 inset-x-0 z-20 pt-12 pb-4 flex justify-center bg-gradient-to-b from-gray-950/70 to-transparent"
+                className="absolute top-0 inset-x-0 z-20 pt-12 pb-4 flex justify-center gap-2 bg-gradient-to-b from-gray-950/70 to-transparent"
               >
                 <span className="text-white/80 text-sm font-medium bg-black/30 px-4 py-1 rounded-full backdrop-blur-sm">
                   {formatTime(elapsed)}
                 </span>
+                <ConnectionModeIndicator mode={connectionMode} t={t} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -288,6 +308,7 @@ export default function CallOverlay({
             {callState === 'connecting' && t('call.connecting')}
             {callState === 'active' && formatTime(elapsed)}
           </p>
+          {callState === 'active' && <ConnectionModeIndicator mode={connectionMode} t={t} />}
           {callType === 'audio' && callState === 'active' && <audio ref={remoteVideoRef as any} autoPlay />}
         </div>
       )}
