@@ -43,6 +43,15 @@
  *  DSGVO: nur aktueller Status im RAM, kein Verlauf, kein Timestamp.
  *         Bei Disconnect sofort gelöscht.
  *
+ * Space-Calls (Multi-Party):
+ *  join room "space-call:{spaceId}" → Call beitreten (Mesh ≤3, SFU ≥4)
+ *  space_call_sdp        → SDP Offer/Answer an Ziel-Teilnehmer (Mesh)
+ *  space_call_ice        → ICE Candidate an Ziel-Teilnehmer (Mesh)
+ *  space_call_leave      → Call verlassen
+ *  space_call_mute_remote → Moderator mutet Teilnehmer
+ *  space_call_kick       → Moderator kickt Teilnehmer
+ *  DSGVO: nur RAM, keine Persistenz, keine Logs. Bei Disconnect sofort gelöscht.
+ *
  * Datenschutz: kein Logging, kein Disk-Speicher für Chats.
  *              Öffentliche Spaces in SQLite — nur vom Gründer freigegebene Daten.
  *              Auth per WebSocket-Handshake: Session im RAM, keine Header-Prüfung.
@@ -324,6 +333,10 @@ const presenceWatchers = new Map(); // aregoId → Set<WebSocket>  (wer beobacht
 // Authentifizierte Sessions — WebSocket-basiert, kein HTTP-Header nötig
 const wsSessions       = new Map(); // WebSocket → { arego_id, abo_status, fsk_stufe }
 const sessionsByAregoId = new Map(); // aregoId → { arego_id, abo_status, fsk_stufe }
+
+// Space-Calls — nur RAM, keine Persistenz, keine Logs (DSGVO)
+// spaceId → { participants: Map<aregoId, WebSocket>, moderatorId, startTime }
+const spaceCalls = new Map();
 
 // Abgelaufene Einträge jede Minute bereinigen
 setInterval(() => {
@@ -1982,6 +1995,99 @@ wss.on('connection', (ws) => {
       const isInbox = roomId.startsWith('inbox:');
       const isSpaceChat = roomId.startsWith('space-chat:');
       const isSpaceMeta = roomId.startsWith('space-meta:');
+      const isSpaceCall = roomId.startsWith('space-call:');
+
+      // ── Space-Call Join (eigene Logik) ─────────────────────────────────────
+      if (isSpaceCall) {
+        const session = wsSessions.get(ws);
+        if (!session) { ws.close(4001, 'Not authenticated'); return; }
+
+        const spaceId = roomId.replace('space-call:', '');
+        if (!spaceId) return;
+
+        // Kinderschutz: calls_enabled prüfen
+        const authRows = db.exec(
+          `SELECT calls_enabled, max_call_participants FROM user_auth WHERE arego_id = ?`,
+          [session.arego_id]
+        );
+        if (authRows.length && authRows[0].values.length) {
+          const [callsEnabled, maxParticipants] = authRows[0].values[0];
+          if (!callsEnabled) {
+            ws.send(JSON.stringify({ type: 'space_call_error', error: 'calls_disabled', message: 'Anrufe sind deaktiviert' }));
+            return;
+          }
+          // Max-Teilnehmer aus Kinderschutz-Settings
+          const call = spaceCalls.get(spaceId);
+          if (call && call.participants.size >= maxParticipants) {
+            ws.send(JSON.stringify({ type: 'space_call_error', error: 'call_full', message: 'Maximale Teilnehmerzahl erreicht' }));
+            return;
+          }
+        }
+
+        // Call-State initialisieren oder beitreten
+        if (!spaceCalls.has(spaceId)) {
+          spaceCalls.set(spaceId, {
+            participants: new Map(), // aregoId → WebSocket
+            moderatorId: session.arego_id,
+            startTime: Date.now(),
+          });
+        }
+        const call = spaceCalls.get(spaceId);
+
+        // Doppelter Join verhindern
+        if (call.participants.has(session.arego_id)) {
+          ws.send(JSON.stringify({ type: 'space_call_error', error: 'already_joined', message: 'Bereits im Call' }));
+          return;
+        }
+
+        // Auch in normales Room-System eintragen (für Relay)
+        room.add(ws);
+        call.participants.set(session.arego_id, ws);
+
+        // Aktuelle Teilnehmer-Liste erstellen
+        const participantList = Array.from(call.participants.keys());
+
+        // Dem neuen Teilnehmer den Call-State senden
+        ws.send(JSON.stringify({
+          type: 'space_call_joined',
+          spaceId,
+          participants: participantList,
+          moderatorId: call.moderatorId,
+          startTime: call.startTime,
+          mode: call.participants.size <= 3 ? 'mesh' : 'sfu',
+        }));
+
+        // Allen bestehenden Teilnehmern den neuen Peer melden
+        const joinMsg = JSON.stringify({
+          type: 'space_call_participant_joined',
+          aregoId: session.arego_id,
+          participantCount: call.participants.size,
+          mode: call.participants.size <= 3 ? 'mesh' : 'sfu',
+        });
+        for (const [id, peer] of call.participants) {
+          if (id !== session.arego_id && peer.readyState === 1) peer.send(joinMsg);
+        }
+
+        // LiveKit-Token ausgeben wenn SFU-Modus (>=4 Teilnehmer)
+        if (call.participants.size >= 4) {
+          const nodes = db.exec(`SELECT url FROM livekit_nodes LIMIT 1`);
+          if (nodes.length && nodes[0].values.length) {
+            const livekitUrl = nodes[0].values[0][0];
+            // SFU-Switch an ALLE Teilnehmer senden
+            const sfuMsg = JSON.stringify({
+              type: 'space_call_sfu_switch',
+              spaceId,
+              livekitUrl,
+              roomName: `space-call-${spaceId}`,
+            });
+            for (const [, peer] of call.participants) {
+              if (peer.readyState === 1) peer.send(sfuMsg);
+            }
+          }
+        }
+        return;
+      }
+
       const limit   = isInbox ? 50 : (isSpaceChat || isSpaceMeta) ? 500 : 2;
       if (room.size >= limit) { ws.close(1008, 'Room full'); return; }
 
@@ -2319,6 +2425,149 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // ── Space-Call: SDP-Relay (gezielt an einen Teilnehmer) ─────────────────
+    if (msg.type === 'space_call_sdp') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const spaceId = String(msg.spaceId ?? '');
+      const targetId = String(msg.targetId ?? '');
+      const call = spaceCalls.get(spaceId);
+      if (!call || !call.participants.has(session.arego_id)) return;
+      const targetWs = call.participants.get(targetId);
+      if (targetWs?.readyState === 1) {
+        targetWs.send(JSON.stringify({
+          type: 'space_call_sdp',
+          fromId: session.arego_id,
+          sdp: msg.sdp,
+          sdpType: msg.sdpType, // 'offer' | 'answer'
+        }));
+      }
+      return;
+    }
+
+    // ── Space-Call: ICE Candidate Relay ───────────────────────────────────────
+    if (msg.type === 'space_call_ice') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const spaceId = String(msg.spaceId ?? '');
+      const targetId = String(msg.targetId ?? '');
+      const call = spaceCalls.get(spaceId);
+      if (!call || !call.participants.has(session.arego_id)) return;
+      const targetWs = call.participants.get(targetId);
+      if (targetWs?.readyState === 1) {
+        targetWs.send(JSON.stringify({
+          type: 'space_call_ice',
+          fromId: session.arego_id,
+          candidate: msg.candidate,
+        }));
+      }
+      return;
+    }
+
+    // ── Space-Call: Leave ─────────────────────────────────────────────────────
+    if (msg.type === 'space_call_leave') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const spaceId = String(msg.spaceId ?? '');
+      const call = spaceCalls.get(spaceId);
+      if (!call || !call.participants.has(session.arego_id)) return;
+
+      call.participants.delete(session.arego_id);
+
+      // Moderator-Übergabe wenn Moderator verlässt
+      if (call.moderatorId === session.arego_id && call.participants.size > 0) {
+        call.moderatorId = call.participants.keys().next().value;
+      }
+
+      if (call.participants.size === 0) {
+        spaceCalls.delete(spaceId);
+      } else {
+        const leaveMsg = JSON.stringify({
+          type: 'space_call_participant_left',
+          aregoId: session.arego_id,
+          participantCount: call.participants.size,
+          moderatorId: call.moderatorId,
+          mode: call.participants.size <= 3 ? 'mesh' : 'sfu',
+        });
+        for (const [, peer] of call.participants) {
+          if (peer.readyState === 1) peer.send(leaveMsg);
+        }
+      }
+
+      // Auch aus Room-System entfernen
+      if (roomId?.startsWith('space-call:')) {
+        const room = rooms.get(roomId);
+        if (room) {
+          room.delete(ws);
+          if (room.size === 0) rooms.delete(roomId);
+        }
+        roomId = null;
+      }
+      return;
+    }
+
+    // ── Space-Call: Moderator mute-remote ────────────────────────────────────
+    if (msg.type === 'space_call_mute_remote') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const spaceId = String(msg.spaceId ?? '');
+      const targetId = String(msg.targetId ?? '');
+      const call = spaceCalls.get(spaceId);
+      if (!call || call.moderatorId !== session.arego_id) return;
+      const targetWs = call.participants.get(targetId);
+      if (targetWs?.readyState === 1) {
+        targetWs.send(JSON.stringify({
+          type: 'space_call_muted_by_moderator',
+          moderatorId: session.arego_id,
+          track: msg.track ?? 'audio', // 'audio' | 'video'
+        }));
+      }
+      return;
+    }
+
+    // ── Space-Call: Moderator kick ───────────────────────────────────────────
+    if (msg.type === 'space_call_kick') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const spaceId = String(msg.spaceId ?? '');
+      const targetId = String(msg.targetId ?? '');
+      const call = spaceCalls.get(spaceId);
+      if (!call || call.moderatorId !== session.arego_id) return;
+      const targetWs = call.participants.get(targetId);
+
+      // Gekickten Teilnehmer informieren und entfernen
+      if (targetWs?.readyState === 1) {
+        targetWs.send(JSON.stringify({ type: 'space_call_kicked', moderatorId: session.arego_id }));
+      }
+      call.participants.delete(targetId);
+
+      // Allen verbleibenden Teilnehmern melden
+      const kickMsg = JSON.stringify({
+        type: 'space_call_participant_left',
+        aregoId: targetId,
+        participantCount: call.participants.size,
+        moderatorId: call.moderatorId,
+        mode: call.participants.size <= 3 ? 'mesh' : 'sfu',
+        reason: 'kicked',
+      });
+      for (const [, peer] of call.participants) {
+        if (peer.readyState === 1) peer.send(kickMsg);
+      }
+
+      if (call.participants.size === 0) {
+        spaceCalls.delete(spaceId);
+      }
+
+      // Gekickten aus Room-System entfernen
+      const callRoomId = `space-call:${spaceId}`;
+      const callRoom = rooms.get(callRoomId);
+      if (callRoom && targetWs) {
+        callRoom.delete(targetWs);
+        if (callRoom.size === 0) rooms.delete(callRoomId);
+      }
+      return;
+    }
+
     // ── Relay (blindes Weiterleiten) ─────────────────────────────────────────
     if (!roomId) return;
 
@@ -2353,6 +2602,37 @@ wss.on('connection', (ws) => {
           if (peer.readyState === 1) peer.send(JSON.stringify({ type: 'peer_left' }));
         }
         if (room.size === 0) rooms.delete(roomId);
+      }
+    }
+
+    // ── Space-Call Cleanup ──────────────────────────────────────────────────
+    if (roomId?.startsWith('space-call:')) {
+      const spaceId = roomId.replace('space-call:', '');
+      const call = spaceCalls.get(spaceId);
+      if (call) {
+        const session = wsSessions.get(ws);
+        const leavingId = session?.arego_id;
+        if (leavingId && call.participants.has(leavingId)) {
+          call.participants.delete(leavingId);
+          if (call.moderatorId === leavingId && call.participants.size > 0) {
+            call.moderatorId = call.participants.keys().next().value;
+          }
+          if (call.participants.size === 0) {
+            spaceCalls.delete(spaceId);
+          } else {
+            const leaveMsg = JSON.stringify({
+              type: 'space_call_participant_left',
+              aregoId: leavingId,
+              participantCount: call.participants.size,
+              moderatorId: call.moderatorId,
+              mode: call.participants.size <= 3 ? 'mesh' : 'sfu',
+              reason: 'disconnected',
+            });
+            for (const [, peer] of call.participants) {
+              if (peer.readyState === 1) peer.send(leaveMsg);
+            }
+          }
+        }
       }
     }
 
