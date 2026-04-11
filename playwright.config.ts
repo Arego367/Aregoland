@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
   use: {
-    baseURL: 'https://localhost:444',
+    baseURL: 'http://127.0.0.1:5173',
     headless: true,
     ignoreHTTPSErrors: true,
     screenshot: 'only-on-failure',
@@ -15,7 +15,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'pnpm dev',
-    url: 'https://localhost:444',
+    url: 'http://127.0.0.1:5173',
     ignoreHTTPSErrors: true,
     reuseExistingServer: true,
     timeout: 15_000,
