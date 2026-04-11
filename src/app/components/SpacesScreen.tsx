@@ -7,7 +7,7 @@ import {
   Info, Check, X, GripVertical, UserPlus, Crown, Eye, ChevronDown,
   Pin, ThumbsUp, MessageSquare, Megaphone, Newspaper, Send, Lock, Layers,
   Paperclip, Mic, Play, Pause, Download, AtSign, Image as ImageIcon, FileText, Square,
-  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff, Camera, RotateCcw, Copy, LogOut
+  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff, Camera, RotateCcw, Copy, LogOut, Phone, Video
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity } from "@/app/auth/identity";
@@ -23,6 +23,8 @@ import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import aregolandNews from "@/app/data/aregoland-news.json";
+import SpaceCallOverlay from "./SpaceCallOverlay";
+import { SpaceCallManager, type SpaceCallState, type SpaceCallMode, type SpaceCallParticipant, type CallMediaType } from "@/app/lib/space-call-manager";
 
 const AREGOLAND_OFFICIAL_ID = "__aregoland_official__";
 
@@ -678,6 +680,79 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
   // Mitglied-Profil Popup
   const [memberProfile, setMemberProfile] = useState<SpaceMember | null>(null);
+
+  // ── Space Call State ──
+  const [spaceCallState, setSpaceCallState] = useState<SpaceCallState>("idle");
+  const [spaceCallMode, setSpaceCallMode] = useState<SpaceCallMode>("mesh");
+  const [spaceCallMediaType, setSpaceCallMediaType] = useState<CallMediaType>("audio");
+  const [spaceCallParticipants, setSpaceCallParticipants] = useState<SpaceCallParticipant[]>([]);
+  const [spaceCallLocalStream, setSpaceCallLocalStream] = useState<MediaStream | null>(null);
+  const [spaceCallModeratorId, setSpaceCallModeratorId] = useState<string | null>(null);
+  const spaceCallManagerRef = useRef<SpaceCallManager | null>(null);
+
+  // Kinderschutz: calls_enabled pruefen
+  const callsAllowed = useMemo(() => {
+    try {
+      const id = JSON.parse(localStorage.getItem("aregoland_identity") ?? "{}");
+      if (!id.ist_kind && id.accountType !== "child") return true;
+      // Kind-Konto: calls_enabled aus child_settings
+      const settings = JSON.parse(localStorage.getItem("aregoland_child_settings") ?? "{}");
+      return settings.calls_enabled !== false;
+    } catch { return true; }
+  }, []);
+
+  const maxCallParticipants = useMemo(() => {
+    try {
+      const id = JSON.parse(localStorage.getItem("aregoland_identity") ?? "{}");
+      if (!id.ist_kind && id.accountType !== "child") return Infinity;
+      const settings = JSON.parse(localStorage.getItem("aregoland_child_settings") ?? "{}");
+      return settings.max_call_participants ?? Infinity;
+    } catch { return Infinity; }
+  }, []);
+
+  // SpaceCallManager initialisieren
+  useEffect(() => {
+    const mgr = new SpaceCallManager({
+      onStateChange: setSpaceCallState,
+      onModeChange: setSpaceCallMode,
+      onParticipantsChange: setSpaceCallParticipants,
+      onLocalStream: setSpaceCallLocalStream,
+      onError: (err) => {
+        console.error("[SpaceCall] Fehler:", err);
+        if (onShowToast) onShowToast(err, "warning");
+      },
+      onModeratorChange: setSpaceCallModeratorId,
+      onKicked: () => {
+        if (onShowToast) onShowToast(t("spaceCall.kicked"), "warning");
+      },
+      onMutedByModerator: (track) => {
+        if (onShowToast) onShowToast(t("spaceCall.mutedByModerator"), "info");
+      },
+    });
+    spaceCallManagerRef.current = mgr;
+    return () => { mgr.destroy(); spaceCallManagerRef.current = null; };
+  }, []);
+
+  const handleJoinSpaceCall = useCallback((mediaType: CallMediaType) => {
+    if (!selectedSpace || !identity || !callsAllowed) return;
+    const mgr = spaceCallManagerRef.current;
+    if (!mgr || mgr.getState() !== "idle") return;
+    // Kinderschutz: max participants check
+    // (Server prueft auch, aber Client-Side Gate)
+    setSpaceCallMediaType(mediaType);
+    mgr.join(selectedSpace.id, identity.aregoId, mediaType);
+  }, [selectedSpace, identity, callsAllowed]);
+
+  const handleLeaveSpaceCall = useCallback(() => {
+    spaceCallManagerRef.current?.leave();
+  }, []);
+
+  const getSpaceCallDisplayName = useCallback((aregoId: string) => {
+    if (!selectedSpace) return aregoId;
+    const member = selectedSpace.members.find(m => m.aregoId === aregoId);
+    if (member) return memberDisplayName(member, selectedSpace.identityRule);
+    return aregoId.slice(0, 8);
+  }, [selectedSpace]);
 
   // Support-Chat
   interface SupportMsg { id: string; text: string; fromUser: boolean; issueNumber?: number; timestamp: string }
@@ -2982,6 +3057,26 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     const tmpl = getTemplate(selectedSpace.template);
     const appearance = loadAppearance(selectedSpace.id);
     return (
+      <>
+      {spaceCallState !== "idle" && identity && (
+        <SpaceCallOverlay
+          callState={spaceCallState}
+          callMode={spaceCallMode}
+          mediaType={spaceCallMediaType}
+          spaceName={selectedSpace.name}
+          participants={spaceCallParticipants}
+          localStream={spaceCallLocalStream}
+          moderatorId={spaceCallModeratorId}
+          myAregoId={identity.aregoId}
+          getDisplayName={getSpaceCallDisplayName}
+          onLeave={handleLeaveSpaceCall}
+          onToggleMic={() => spaceCallManagerRef.current?.toggleMic() ?? false}
+          onToggleCamera={() => spaceCallManagerRef.current?.toggleCamera() ?? false}
+          onSwitchCamera={() => { spaceCallManagerRef.current?.switchCamera(); }}
+          onMuteRemote={(id) => spaceCallManagerRef.current?.muteRemote(id)}
+          onKick={(id) => spaceCallManagerRef.current?.kick(id)}
+        />
+      )}
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         {/* Header with gradient banner + centered icon */}
         <div className={`relative ${activeTab === "overview" ? "h-36" : "h-20"} shrink-0 bg-gradient-to-br ${selectedSpace.color} transition-all`}>
@@ -3366,6 +3461,34 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           <span className="text-[10px] text-yellow-400">{t('spaces.globalChatHint')}</span>
                         )}
                       </div>
+                      {/* Space Call Buttons */}
+                      {callsAllowed && spaceCallState === "idle" && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleJoinSpaceCall("audio")}
+                            className="p-2 text-gray-400 hover:text-green-400 rounded-full hover:bg-green-500/10 transition-all"
+                            title={t("spaceCall.startCall")}
+                          >
+                            <Phone size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleJoinSpaceCall("video")}
+                            className="p-2 text-gray-400 hover:text-blue-400 rounded-full hover:bg-blue-500/10 transition-all"
+                            title={t("spaceCall.startCall")}
+                          >
+                            <Video size={18} />
+                          </button>
+                        </div>
+                      )}
+                      {spaceCallState === "active" && (
+                        <button
+                          onClick={handleLeaveSpaceCall}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-full animate-pulse"
+                        >
+                          <Phone size={14} />
+                          <span>{t("spaceCall.activeParticipants", { count: spaceCallParticipants.length + 1 })}</span>
+                        </button>
+                      )}
                     </div>
 
                     {/* Messages */}
@@ -5292,6 +5415,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           </div>
         </div>
       </div>
+      </>
     );
   }
 

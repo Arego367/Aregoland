@@ -19,17 +19,8 @@
 
 import { MediaStreamManager, type MediaKind } from '@/app/lib/media-stream-manager';
 import { buildIceServers } from '@/app/lib/p2p-manager';
-import {
-  Room,
-  RoomEvent,
-  Track,
-  VideoPresets,
-  ConnectionState,
-  ExternalE2EEKeyProvider,
-  type E2EEOptions,
-  type RemoteTrackPublication,
-  type RemoteParticipant,
-} from 'livekit-client';
+// LiveKit: dynamisch importiert (nur fuer SFU-Modus mit 4+ Teilnehmern)
+// livekit-client ist optional — nicht als Dependency installiert bis SFU gebraucht wird
 
 // ── Typen ───────────────────────────────────────────────────────────────────
 
@@ -85,7 +76,7 @@ export class SpaceCallManager {
   private meshPeers = new Map<string, MeshPeer>();
 
   // SFU-Modus (LiveKit)
-  private livekitRoom: Room | null = null;
+  private livekitRoom: any = null;
   private livekitUrl: string | null = null;
   private livekitRoomName: string | null = null;
   private sfuRemoteStreams = new Map<string, MediaStream>();
@@ -517,41 +508,48 @@ export class SpaceCallManager {
       }
 
       // E2EE Setup
-      let e2eeOptions: E2EEOptions | undefined;
+      let e2eeOptions: any;
       if (this.e2eeKey) {
         const rawKey = await crypto.subtle.exportKey('raw', this.e2eeKey);
         const keyBytes = new Uint8Array(rawKey);
-        const keyProvider = new ExternalE2EEKeyProvider();
+        const { ExternalE2EEKeyProvider: EKP } = await Function('return import("livekit-client")')();
+        const keyProvider = new EKP();
         keyProvider.setKey(keyBytes);
         e2eeOptions = {
           keyProvider,
-          worker: new Worker(
-            new URL('livekit-client/e2ee-worker', import.meta.url),
-            { type: 'module' },
-          ),
+          worker: new Worker('livekit-client/e2ee-worker', { type: 'module' }),
         };
       }
 
-      const room = new Room({
+      // Dynamischer LiveKit-Import
+      const lk = await Function('return import("livekit-client")')().catch(() => null);
+      if (!lk) {
+        console.error('[SpaceCallManager] livekit-client nicht verfuegbar');
+        this.callbacks.onError('SFU-Modus nicht verfuegbar');
+        return;
+      }
+      const { Room: LKRoom, RoomEvent: LKRoomEvent, Track: LKTrack, VideoPresets: LKPresets } = lk;
+
+      const room = new LKRoom({
         adaptiveStream: true,
         dynacast: true,
-        videoCaptureDefaults: { resolution: VideoPresets.h720.resolution },
+        videoCaptureDefaults: { resolution: LKPresets.h720.resolution },
         ...(e2eeOptions ? { e2ee: e2eeOptions } : {}),
       });
 
-      room.on(RoomEvent.Connected, () => {
+      room.on(LKRoomEvent.Connected, () => {
         console.log('[SpaceCallManager] LiveKit verbunden');
       });
 
-      room.on(RoomEvent.Disconnected, () => {
+      room.on(LKRoomEvent.Disconnected, () => {
         console.log('[SpaceCallManager] LiveKit getrennt');
         this.sfuRemoteStreams.clear();
         this.emitParticipants();
       });
 
       room.on(
-        RoomEvent.TrackSubscribed,
-        (track: Track, _pub: RemoteTrackPublication, participant: RemoteParticipant) => {
+        LKRoomEvent.TrackSubscribed,
+        (track: any, _pub: any, participant: any) => {
           const mediaTrack = track.mediaStreamTrack;
           if (!mediaTrack) return;
           const participantId = participant.identity;
@@ -569,8 +567,8 @@ export class SpaceCallManager {
       );
 
       room.on(
-        RoomEvent.TrackUnsubscribed,
-        (track: Track, _pub: RemoteTrackPublication, participant: RemoteParticipant) => {
+        LKRoomEvent.TrackUnsubscribed,
+        (track: any, _pub: any, participant: any) => {
           const mediaTrack = track.mediaStreamTrack;
           if (!mediaTrack) return;
           const participantId = participant.identity;
@@ -586,7 +584,7 @@ export class SpaceCallManager {
         },
       );
 
-      room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
+      room.on(LKRoomEvent.ParticipantDisconnected, (participant: any) => {
         this.sfuRemoteStreams.delete(participant.identity);
         this.emitParticipants();
       });
@@ -603,13 +601,13 @@ export class SpaceCallManager {
       if (localStream) {
         for (const track of localStream.getAudioTracks()) {
           await room.localParticipant.publishTrack(track, {
-            source: Track.Source.Microphone,
+            source: LKTrack.Source.Microphone,
           });
         }
         for (const track of localStream.getVideoTracks()) {
           await room.localParticipant.publishTrack(track, {
-            source: Track.Source.Camera,
-            videoEncoding: VideoPresets.h720.encoding,
+            source: LKTrack.Source.Camera,
+            videoEncoding: LKPresets.h720.encoding,
           });
         }
       }

@@ -927,5 +927,21 @@
     "fsk14Desc": "Standard. Voller Chat-Zugriff.",
     "fsk16": "FSK 16",
     "fsk16Desc": "Fast uneingeschränkt."
+  },
+  "spaceCall": {
+    "joinCall": "Anruf beitreten",
+    "startCall": "Anruf starten",
+    "joining": "Tritt bei...",
+    "leaving": "Verlasse Anruf...",
+    "cancel": "Abbrechen",
+    "participants": "Teilnehmer",
+    "modeSFU": "SFU-Node",
+    "modeMesh": "P2P-Mesh",
+    "switchCamera": "Kamera wechseln",
+    "callsDisabled": "Anrufe sind deaktiviert",
+    "maxParticipantsReached": "Maximale Teilnehmerzahl erreicht",
+    "kicked": "Du wurdest vom Moderator entfernt",
+    "mutedByModerator": "Moderator hat dich stummgeschaltet",
+    "activeParticipants": "{{count}} aktiv"
   }
 }
