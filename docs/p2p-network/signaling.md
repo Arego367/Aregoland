@@ -19,6 +19,7 @@ Client → WebSocket `/ws-signal` → Signaling-Server → WebSocket → Ziel-Cl
 - ICE Candidate Weiterleitung
 - Shortcode-Registrierung und -Einloesung (fuer Kontaktaustausch)
 - Space-Registry (oeffentliche Raeume)
+- **Online-Presence:** `hiddenPresenceUsers` Set trackt User mit verstecktem Status; `update_presence` Message fuer Live-Toggle; versteckte User werden nicht in `onlineUsers` aufgenommen und abonnieren keine `watchIds` (Gegenseitigkeit)
 
 ## Abhaengigkeiten
 - Genutzt von: [WebRTC](webrtc.md), [Contacts](/docs/contacts/qr-pairing.md)
