@@ -34,11 +34,12 @@ interface PeopleScreenProps {
   onStartChat?: (contact: Contact) => void;
   onStartCall?: (contact: Contact, type: 'audio' | 'video') => void;
   onlineContacts?: Set<string>;
+  hiddenStatusContacts?: Set<string>;
   contactsVersion?: number;
   onRemoveContact?: (contactId: string) => void;
 }
 
-export default function PeopleScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, tabs, onUpdateTabs, identity, onStartChat, onStartCall, onlineContacts, contactsVersion, onRemoveContact }: PeopleScreenProps) {
+export default function PeopleScreen({ onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, tabs, onUpdateTabs, identity, onStartChat, onStartCall, onlineContacts, hiddenStatusContacts, contactsVersion, onRemoveContact }: PeopleScreenProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -357,18 +358,20 @@ export default function PeopleScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                             <div className="absolute -bottom-1 -right-1 bg-gray-900 rounded-full p-1">
                               <Shield size={12} className="text-blue-400" />
                             </div>
-                          ) : (
-                            <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${onlineContacts?.has(contact.id) ? 'bg-green-500' : 'bg-gray-600'}`} />
-                          )}
+                          ) : onlineContacts && !hiddenStatusContacts?.has(contact.id) ? (
+                            <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-800 ${onlineContacts.has(contact.id) ? 'bg-green-500' : 'bg-gray-600'}`} />
+                          ) : null}
                         </div>
 
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-white">{contact.name}</h3>
-                          <div className="flex items-center gap-1.5 text-sm">
-                            <span className={onlineContacts?.has(contact.id) ? 'text-green-400' : 'text-gray-500'}>
-                              {onlineContacts?.has(contact.id) ? t('common.online') : t('common.offline')}
-                            </span>
-                          </div>
+                          {onlineContacts && !hiddenStatusContacts?.has(contact.id) && (
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <span className={onlineContacts.has(contact.id) ? 'text-green-400' : 'text-gray-500'}>
+                                {onlineContacts.has(contact.id) ? t('common.online') : t('common.offline')}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     </ContextMenu.Trigger>

@@ -23,11 +23,12 @@ interface ChatListScreenProps {
   onChatSelect: (chatId: string) => void;
   onNewChat?: (contact: Contact) => void;
   onlineContacts?: Set<string>;
+  hiddenStatusContacts?: Set<string>;
   /** Inkrementiert bei jeder neuen/gesendeten Nachricht → triggert Live-Refresh */
   chatListVersion?: number;
 }
 
-export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, onBack, tabs, onUpdateTabs, onChatSelect, onNewChat, onlineContacts, chatListVersion }: ChatListScreenProps) {
+export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, onBack, tabs, onUpdateTabs, onChatSelect, onNewChat, onlineContacts, hiddenStatusContacts, chatListVersion }: ChatListScreenProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -195,11 +196,11 @@ export default function ChatListScreen({ onOpenProfile, onOpenQRCode, onOpenSett
                         </svg>
                       </div>
                     </div>
-                  ) : (
+                  ) : onlineContacts && !hiddenStatusContacts?.has(chat.id) ? (
                     <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-gray-900 ${
-                      onlineContacts?.has(chat.id) ? 'bg-green-500' : 'bg-gray-600'
+                      onlineContacts.has(chat.id) ? 'bg-green-500' : 'bg-gray-600'
                     }`} />
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="flex-1 min-w-0">

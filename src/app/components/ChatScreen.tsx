@@ -573,7 +573,7 @@ export default function ChatScreen({
               <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-700">
                 <ImageWithFallback src={chatAvatar} alt={chatName} className="w-full h-full object-cover" />
               </div>
-              {!isGroup && (
+              {!isGroup && isContactOnline !== undefined && (
                 <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isContactOnline ? 'bg-green-500' : 'bg-gray-600'}`} />
               )}
             </div>
@@ -586,12 +586,12 @@ export default function ChatScreen({
                 {p2pStatus === 'connected'
                   ? t('chat.p2pEncrypted')
                   : p2pStatus === 'waiting'
-                  ? isContactOnline ? t('common.online') : t('common.offline')
+                  ? isContactOnline === undefined ? '' : isContactOnline ? t('common.online') : t('common.offline')
                   : p2pStatus === 'handshake'
                   ? t('chat.connectingP2P')
                   : p2pStatus === 'error'
                   ? (p2pError ?? t('chat.signalingUnreachable'))
-                  : isGroup ? t('chat.tapGroupInfo') : isContactOnline ? t('common.online') : t('common.offline')}
+                  : isGroup ? t('chat.tapGroupInfo') : isContactOnline === undefined ? '' : isContactOnline ? t('common.online') : t('common.offline')}
               </p>
             </div>
           </div>
@@ -1042,7 +1042,7 @@ export default function ChatScreen({
             name: chatName,
             avatar: chatAvatar,
             categories: [],
-            status: isContactOnline ? t('common.online') : t('common.offline'),
+            status: isContactOnline === undefined ? '' : isContactOnline ? t('common.online') : t('common.offline'),
           }}
           onClose={() => setShowContactDetail(false)}
           onUpdateContact={() => {}}

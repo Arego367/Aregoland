@@ -329,6 +329,7 @@ const verwalterRateLimit = new Map(); // verwalterId → { total: [ts], categori
 // Presence — nur RAM, kein Disk, kein Verlauf
 const onlineUsers      = new Map(); // aregoId → Set<WebSocket>
 const presenceWatchers = new Map(); // aregoId → Set<WebSocket>  (wer beobachtet diesen User?)
+const hiddenPresenceUsers = new Set(); // aregoIds die ihren Status verbergen
 
 // Authentifizierte Sessions — WebSocket-basiert, kein HTTP-Header nötig
 const wsSessions       = new Map(); // WebSocket → { arego_id, abo_status, fsk_stufe }
@@ -2187,24 +2188,44 @@ wss.on('connection', (ws) => {
       sessionsByAregoId.set(aregoId, session);
       presenceId = aregoId;
 
-      // Presence: als online markieren
-      if (!onlineUsers.has(presenceId)) onlineUsers.set(presenceId, new Set());
-      onlineUsers.get(presenceId).add(ws);
-
-      // Kontakt-Präsenz abonnieren
-      watchIds = Array.isArray(msg.watchIds)
-        ? msg.watchIds.map(id => String(id ?? '').slice(0, 64)).filter(Boolean).slice(0, 200)
-        : [];
-      for (const id of watchIds) {
-        if (!presenceWatchers.has(id)) presenceWatchers.set(id, new Set());
-        presenceWatchers.get(id).add(ws);
+      // Hidden-Presence: wenn User seinen Status verbirgt
+      const hideOnline = !!msg.hideOnlineStatus;
+      if (hideOnline) {
+        hiddenPresenceUsers.add(presenceId);
+      } else {
+        hiddenPresenceUsers.delete(presenceId);
       }
 
-      // Initiale Statusmeldung
+      // Presence: als online markieren (nur wenn nicht versteckt)
+      if (!hideOnline) {
+        if (!onlineUsers.has(presenceId)) onlineUsers.set(presenceId, new Set());
+        onlineUsers.get(presenceId).add(ws);
+      }
+
+      // Kontakt-Präsenz abonnieren (nur wenn eigener Status sichtbar — Gegenseitigkeit)
+      watchIds = [];
+      if (!hideOnline) {
+        watchIds = Array.isArray(msg.watchIds)
+          ? msg.watchIds.map(id => String(id ?? '').slice(0, 64)).filter(Boolean).slice(0, 200)
+          : [];
+        for (const id of watchIds) {
+          if (!presenceWatchers.has(id)) presenceWatchers.set(id, new Set());
+          presenceWatchers.get(id).add(ws);
+        }
+      }
+
+      // Initiale Statusmeldung: null = versteckt, true/false = sichtbar
+      const requestedWatchIds = Array.isArray(msg.watchIds)
+        ? msg.watchIds.map(id => String(id ?? '').slice(0, 64)).filter(Boolean).slice(0, 200)
+        : [];
       const statuses = {};
-      for (const id of watchIds) {
-        const sockets = onlineUsers.get(id);
-        statuses[id] = !!(sockets && sockets.size > 0);
+      for (const id of requestedWatchIds) {
+        if (hiddenPresenceUsers.has(id)) {
+          statuses[id] = null; // Status versteckt → Indicator komplett ausblenden
+        } else {
+          const sockets = onlineUsers.get(id);
+          statuses[id] = !!(sockets && sockets.size > 0);
+        }
       }
 
       // Kind-Status aus user_auth ermitteln (verwalter_1/verwalter_2 + nickname_self_edit)
@@ -2272,13 +2293,81 @@ wss.on('connection', (ws) => {
         statuses,
       }));
 
-      // Allen die MICH beobachten mitteilen dass ich online bin
-      const myWatchers = presenceWatchers.get(presenceId);
-      if (myWatchers) {
-        const update = JSON.stringify({ type: 'presence_update', statuses: { [presenceId]: true } });
-        for (const w of myWatchers) {
-          if (w !== ws && w.readyState === 1) w.send(update);
+      // Allen die MICH beobachten mitteilen dass ich online bin (nur wenn nicht versteckt)
+      if (!hideOnline) {
+        const myWatchers = presenceWatchers.get(presenceId);
+        if (myWatchers) {
+          const update = JSON.stringify({ type: 'presence_update', statuses: { [presenceId]: true } });
+          for (const w of myWatchers) {
+            if (w !== ws && w.readyState === 1) w.send(update);
+          }
         }
+      }
+      return;
+    }
+
+    // ── Live Presence Toggle — Status im laufenden Betrieb ändern ──────────
+    if (msg.type === 'update_presence') {
+      if (!presenceId) return;
+      const hide = !!msg.hideOnlineStatus;
+
+      if (hide) {
+        // Verstecken: aus onlineUsers entfernen, Watcher-Abos auflösen, als hidden markieren
+        hiddenPresenceUsers.add(presenceId);
+        const sockets = onlineUsers.get(presenceId);
+        if (sockets) {
+          sockets.delete(ws);
+          if (sockets.size === 0) onlineUsers.delete(presenceId);
+        }
+        // Watchers benachrichtigen: null = versteckt
+        const myWatchers = presenceWatchers.get(presenceId);
+        if (myWatchers) {
+          const update = JSON.stringify({ type: 'presence_update', statuses: { [presenceId]: null } });
+          for (const w of myWatchers) {
+            if (w.readyState === 1) w.send(update);
+          }
+        }
+        // Watcher-Abos dieses WS entfernen (Gegenseitigkeit)
+        for (const id of watchIds) {
+          const watchers = presenceWatchers.get(id);
+          if (watchers) {
+            watchers.delete(ws);
+            if (watchers.size === 0) presenceWatchers.delete(id);
+          }
+        }
+        watchIds = [];
+      } else {
+        // Sichtbar machen: wieder online markieren + Watchers abonnieren
+        hiddenPresenceUsers.delete(presenceId);
+        if (!onlineUsers.has(presenceId)) onlineUsers.set(presenceId, new Set());
+        onlineUsers.get(presenceId).add(ws);
+        // watchIds aus msg wiederherstellen
+        watchIds = Array.isArray(msg.watchIds)
+          ? msg.watchIds.map(id => String(id ?? '').slice(0, 64)).filter(Boolean).slice(0, 200)
+          : [];
+        for (const id of watchIds) {
+          if (!presenceWatchers.has(id)) presenceWatchers.set(id, new Set());
+          presenceWatchers.get(id).add(ws);
+        }
+        // Watchers benachrichtigen: wieder online
+        const myWatchers = presenceWatchers.get(presenceId);
+        if (myWatchers) {
+          const update = JSON.stringify({ type: 'presence_update', statuses: { [presenceId]: true } });
+          for (const w of myWatchers) {
+            if (w !== ws && w.readyState === 1) w.send(update);
+          }
+        }
+        // Aktuelle Statuses an Client senden
+        const statuses = {};
+        for (const id of watchIds) {
+          if (hiddenPresenceUsers.has(id)) {
+            statuses[id] = null;
+          } else {
+            const s = onlineUsers.get(id);
+            statuses[id] = !!(s && s.size > 0);
+          }
+        }
+        ws.send(JSON.stringify({ type: 'presence_update', statuses }));
       }
       return;
     }
@@ -2638,20 +2727,27 @@ wss.on('connection', (ws) => {
 
     // ── Presence Cleanup ─────────────────────────────────────────────────────
     if (presenceId) {
+      const wasHidden = hiddenPresenceUsers.has(presenceId);
       const sockets = onlineUsers.get(presenceId);
       if (sockets) {
         sockets.delete(ws);
         // Nur offline melden wenn KEIN anderer Tab/Gerät mehr verbunden ist
         if (sockets.size === 0) {
           onlineUsers.delete(presenceId);
-          const myWatchers = presenceWatchers.get(presenceId);
-          if (myWatchers) {
-            const update = JSON.stringify({ type: 'presence_update', statuses: { [presenceId]: false } });
-            for (const w of myWatchers) {
-              if (w.readyState === 1) w.send(update);
+          if (!wasHidden) {
+            const myWatchers = presenceWatchers.get(presenceId);
+            if (myWatchers) {
+              const update = JSON.stringify({ type: 'presence_update', statuses: { [presenceId]: false } });
+              for (const w of myWatchers) {
+                if (w.readyState === 1) w.send(update);
+              }
             }
           }
         }
+      }
+      // Hidden-Set aufräumen wenn kein Socket mehr verbunden
+      if (wasHidden && (!sockets || sockets.size === 0)) {
+        hiddenPresenceUsers.delete(presenceId);
       }
     }
 

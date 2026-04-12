@@ -351,7 +351,7 @@
     "sendFeedback": "Feedback senden",
     "onlineStatus": "Online-Status",
     "showOnlineStatus": "Online-Status anzeigen",
-    "showOnlineStatusDesc": "Wenn aus, erscheinst du für alle als offline",
+    "showOnlineStatusDesc": "Wenn aus, ist dein Status unsichtbar und du siehst auch keine Online-Anzeigen anderer",
     "blockedUsers": "Blockierte Nutzer",
     "noBlockedUsers": "Keine blockierten Nutzer.",
     "unblock": "Aufheben",
