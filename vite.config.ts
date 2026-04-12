@@ -27,8 +27,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
       manifest: {
-        name: 'Arego Chat',
-        short_name: 'Arego',
+        name: 'Aregoland Chat',
+        short_name: 'Aregoland',
         description: 'Sichere Kommunikation & Organisation',
         lang: 'de',
         theme_color: '#1D4ED8',
