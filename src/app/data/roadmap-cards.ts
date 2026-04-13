@@ -9,7 +9,14 @@
  *   aktiv      → done
  *   in-arbeit  → wip
  *   geplant    → planned
+ *
+ * Der Status wird automatisch aus card-status-map.generated.ts gelesen,
+ * welche vom Vite-Plugin bei Build/Dev-Start aus den Card-Markdown-Dateien
+ * generiert wird. Wenn sich ein Card-Status aendert, wird die Roadmap
+ * beim naechsten Build/HMR automatisch aktualisiert.
  */
+
+import cardStatusMap from "./card-status-map.generated";
 
 export type RoadmapStatus = "done" | "wip" | "planned";
 
@@ -26,10 +33,10 @@ export interface RoadmapSection {
 }
 
 // ---------------------------------------------------------------------------
-// Einzelne Items — sortiert nach Card-Status
+// Alle Roadmap-Items — Status wird aus den Card-Dateien abgeleitet
 // ---------------------------------------------------------------------------
 
-const doneItems: RoadmapItem[] = [
+const allItems: RoadmapItem[] = [
   {
     title: "Messenger",
     desc: "Vollstaendig verschluesselter P2P-Chat mit Audio/Video-Anrufen, Sprachnachrichten und Dateiversand. Alles geht direkt von Geraet zu Geraet — kein Server sieht oder speichert deine Nachrichten. Dazu Online/Offline-Status und Browser-Benachrichtigungen, damit du nichts verpasst.",
@@ -70,9 +77,6 @@ const doneItems: RoadmapItem[] = [
     desc: "Unser zentraler Raum — hier findest du Neuigkeiten, diese Roadmap und den Support-Chat. Support-Anfragen werden automatisch als GitHub Issues erstellt, mit Arego-ID Vertrauenssystem und Rate-Limiting.",
     cards: ["account/support"],
   },
-];
-
-const wipItems: RoadmapItem[] = [
   {
     title: "Spaces erweitern",
     desc: "Melde-System und Mitglieder-Kontrolle fuer Space-Admins, Video Calls und Streaming im Meeting- und Webinar-Modus. Spaces sollen der zentrale Ort werden, an dem Gruppen wirklich alles machen koennen.",
@@ -93,9 +97,6 @@ const wipItems: RoadmapItem[] = [
     desc: "Ein persoenlicher Assistent direkt in der App. Beantwortet Fragen, hilft bei Problemen — ohne dass du die App verlassen musst.",
     cards: ["account/support"],
   },
-];
-
-const plannedItems: RoadmapItem[] = [
   {
     title: "World",
     desc: "Aregolands eigener Social-Feed. Nur verifizierte Nutzer posten, das FSK-System schuetzt Kinder automatisch. Kein Algorithmus, kein Infinite Scroll — stattdessen KI-gestuetzte Post-Erstellung und wissenschaftsbasierte Bildschirmzeit fuer Kinder.",
@@ -144,11 +145,43 @@ const plannedItems: RoadmapItem[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Oeffentliche API
+// Status-Ableitung: Jedes Item bekommt den "schwaechsten" Status seiner Cards.
+//   planned < wip < done
+// Items ohne Cards bleiben "planned".
 // ---------------------------------------------------------------------------
 
+const statusPriority: Record<RoadmapStatus, number> = {
+  planned: 0,
+  wip: 1,
+  done: 2,
+};
+
+function deriveStatus(item: RoadmapItem): RoadmapStatus {
+  if (item.cards.length === 0) return "planned";
+
+  let minPriority = Infinity;
+  for (const card of item.cards) {
+    const s = cardStatusMap[card] ?? "planned";
+    const p = statusPriority[s];
+    if (p < minPriority) minPriority = p;
+  }
+
+  if (minPriority === 0) return "planned";
+  if (minPriority === 1) return "wip";
+  return "done";
+}
+
+// ---------------------------------------------------------------------------
+// Oeffentliche API — Items werden automatisch nach abgeleitetem Status gruppiert
+// ---------------------------------------------------------------------------
+
+const grouped: Record<RoadmapStatus, RoadmapItem[]> = { done: [], wip: [], planned: [] };
+for (const item of allItems) {
+  grouped[deriveStatus(item)].push(item);
+}
+
 export const roadmapSections: RoadmapSection[] = [
-  { status: "done", items: doneItems },
-  { status: "wip", items: wipItems },
-  { status: "planned", items: plannedItems },
+  { status: "done", items: grouped.done },
+  { status: "wip", items: grouped.wip },
+  { status: "planned", items: grouped.planned },
 ];
