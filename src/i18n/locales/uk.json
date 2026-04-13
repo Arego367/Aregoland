@@ -356,7 +356,11 @@
     "fskIdRequired": "ID-верифікація",
     "removeChild": "Видалити дитячий акаунт",
     "qrTTL": "QR-код дійсний 10 хвилин · одноразовий",
-    "confirmAddChild": "Додати дитину"
+    "confirmAddChild": "Додати дитину",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Календар",

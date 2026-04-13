@@ -356,7 +356,11 @@
     "fskIdRequired": "Személyazonosság-ellenőrzés",
     "removeChild": "Gyermekfiók eltávolítása",
     "qrTTL": "QR-kód 10 percig érvényes · egyszeri",
-    "confirmAddChild": "Gyermek hozzáadása"
+    "confirmAddChild": "Gyermek hozzáadása",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Naptár",

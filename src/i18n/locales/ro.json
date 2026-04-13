@@ -356,7 +356,11 @@
     "fskIdRequired": "Verificare identitate",
     "removeChild": "Șterge contul de copil",
     "qrTTL": "Cod QR valabil 10 minute · de unică folosință",
-    "confirmAddChild": "Adaugă copil"
+    "confirmAddChild": "Adaugă copil",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Calendar",

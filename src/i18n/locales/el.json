@@ -356,7 +356,11 @@
     "fskIdRequired": "Επαλήθευση ταυτότητας",
     "removeChild": "Αφαίρεση λογαριασμού παιδιού",
     "qrTTL": "Ο κωδικός QR ισχύει για 10 λεπτά · μιας χρήσης",
-    "confirmAddChild": "Προσθήκη παιδιού"
+    "confirmAddChild": "Προσθήκη παιδιού",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Ημερολόγιο",

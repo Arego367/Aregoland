@@ -356,7 +356,11 @@
     "fskIdRequired": "ID-verifisering",
     "removeChild": "Fjern barnekonto",
     "qrTTL": "QR-kode gyldig i 10 minutter · engangs",
-    "confirmAddChild": "Legg til barn"
+    "confirmAddChild": "Legg til barn",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Kalender",

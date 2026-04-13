@@ -356,7 +356,11 @@
     "fskIdRequired": "Overenie ID",
     "removeChild": "Odstrániť detský účet",
     "qrTTL": "QR kód platný 10 minút · jednorazový",
-    "confirmAddChild": "Pridať dieťa"
+    "confirmAddChild": "Pridať dieťa",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Kalendár",

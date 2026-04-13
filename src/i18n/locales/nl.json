@@ -356,7 +356,11 @@
     "fskIdRequired": "Identiteitsverificatie",
     "removeChild": "Kindaccount verwijderen",
     "qrTTL": "QR-code geldig voor 10 minuten · eenmalig",
-    "confirmAddChild": "Kind toevoegen"
+    "confirmAddChild": "Kind toevoegen",
+    "gdprExport": "Gegevensexport (AVG)",
+    "gdprExportBtn": "Alle gegevens exporteren",
+    "gdprExportDesc": "Gestructureerde JSON-export volgens AVG Art. 20",
+    "gdprExportStarted": "Export wordt gedownload..."
   },
   "calendar": {
     "title": "Kalender",

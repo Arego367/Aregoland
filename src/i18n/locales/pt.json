@@ -356,7 +356,11 @@
     "fskIdRequired": "Verificação de identidade",
     "removeChild": "Remover conta de criança",
     "qrTTL": "Código QR válido por 10 minutos · uso único",
-    "confirmAddChild": "Adicionar criança"
+    "confirmAddChild": "Adicionar criança",
+    "gdprExport": "Exportação de dados (RGPD)",
+    "gdprExportBtn": "Exportar todos os dados",
+    "gdprExportDesc": "Exportação JSON estruturada conforme RGPD Art. 20",
+    "gdprExportStarted": "Download em andamento..."
   },
   "calendar": {
     "title": "Calendário",

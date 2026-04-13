@@ -496,7 +496,11 @@
     "familyContactAdded": "{{name}} wurde als Familienkontakt hinzugefügt",
     "livekitNode": "LiveKit-Node",
     "livekitNodeUrl": "Node-URL",
-    "livekitNodeDesc": "WebSocket-URL deines selbst gehosteten LiveKit-Servers fuer SFU-Fallback"
+    "livekitNodeDesc": "WebSocket-URL deines selbst gehosteten LiveKit-Servers fuer SFU-Fallback",
+    "gdprExport": "Datenexport (DSGVO)",
+    "gdprExportBtn": "Alle Daten exportieren",
+    "gdprExportDesc": "Strukturierter JSON-Export nach Art. 20 DSGVO",
+    "gdprExportStarted": "Export wird heruntergeladen..."
   },
   "calendar": {
     "title": "Kalender",

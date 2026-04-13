@@ -356,7 +356,11 @@
     "fskIdRequired": "ID verifikacija",
     "removeChild": "Ukloni dječji račun",
     "qrTTL": "QR-kod vrijedi 10 minuta · jednokratno",
-    "confirmAddChild": "Dodaj dijete"
+    "confirmAddChild": "Dodaj dijete",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Kalendar",

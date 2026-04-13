@@ -356,7 +356,11 @@
     "fskIdRequired": "Henkilöllisyyden varmennus",
     "removeChild": "Poista lapsen tili",
     "qrTTL": "QR-koodi voimassa 10 minuuttia · kertakäyttöinen",
-    "confirmAddChild": "Lisää lapsi"
+    "confirmAddChild": "Lisää lapsi",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Kalenteri",

@@ -357,7 +357,11 @@
     "fskIdRequired": "ID verification",
     "removeChild": "Remove child account",
     "qrTTL": "QR code valid for 10 minutes · single use",
-    "confirmAddChild": "Add child"
+    "confirmAddChild": "Add child",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Calendar",

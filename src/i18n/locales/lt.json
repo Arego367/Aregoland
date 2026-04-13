@@ -357,7 +357,11 @@
     "fskIdRequired": "Tapatybės patvirtinimas",
     "removeChild": "Pašalinti vaiko paskyrą",
     "qrTTL": "QR kodas galioja 10 minučių · vienkartinis",
-    "confirmAddChild": "Pridėti vaiką"
+    "confirmAddChild": "Pridėti vaiką",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Kalendorius",

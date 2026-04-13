@@ -9,6 +9,7 @@ import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
 import { loadFsk, saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { signData } from "@/app/auth/crypto";
+import { downloadGdprExport } from "@/app/lib/gdpr-export";
 import { Html5Qrcode } from "html5-qrcode";
 import { getLiveKitNodeUrl, setLiveKitNodeUrl } from "@/app/lib/call-manager";
 
@@ -1191,6 +1192,26 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                     <span className="font-mono">{formatSize(s.estimate())}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* DSGVO Data Export */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.gdprExport')}</h3>
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
+                <button
+                  onClick={() => { downloadGdprExport(); setPrivacyToastMsg(t('settings.gdprExportStarted')); setPrivacyToast(true); setTimeout(() => setPrivacyToast(false), 2500); }}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Download size={16} className="text-blue-400" />
+                    <div className="text-left">
+                      <span className="text-sm font-medium block">{t('settings.gdprExportBtn')}</span>
+                      <span className="text-xs text-gray-500">{t('settings.gdprExportDesc')}</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-gray-500" />
+                </button>
               </div>
             </div>
 

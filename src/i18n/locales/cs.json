@@ -356,7 +356,11 @@
     "fskIdRequired": "Ověření identity",
     "removeChild": "Odstranit dětský účet",
     "qrTTL": "QR kód platný po dobu 10 minut · jednorázový",
-    "confirmAddChild": "Přidat dítě"
+    "confirmAddChild": "Přidat dítě",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Kalendář",

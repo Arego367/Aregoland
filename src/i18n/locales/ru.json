@@ -356,7 +356,11 @@
     "fskIdRequired": "ID-верификация",
     "removeChild": "Удалить детский аккаунт",
     "qrTTL": "QR-код действителен 10 минут · одноразовый",
-    "confirmAddChild": "Добавить ребёнка"
+    "confirmAddChild": "Добавить ребёнка",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Календарь",

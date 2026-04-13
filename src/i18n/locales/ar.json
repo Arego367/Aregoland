@@ -356,7 +356,11 @@
     "fskIdRequired": "التحقق من الهوية",
     "removeChild": "إزالة حساب الطفل",
     "qrTTL": "رمز QR صالح لمدة 10 دقائق · للاستخدام مرة واحدة",
-    "confirmAddChild": "إضافة طفل"
+    "confirmAddChild": "إضافة طفل",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "التقويم",

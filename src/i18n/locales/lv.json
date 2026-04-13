@@ -356,7 +356,11 @@
     "fskIdRequired": "ID verifikācija",
     "removeChild": "Noņemt bērna kontu",
     "qrTTL": "QR kods derīgs 10 minūtes · vienreizējs",
-    "confirmAddChild": "Pievienot bērnu"
+    "confirmAddChild": "Pievienot bērnu",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Kalendārs",

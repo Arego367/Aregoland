@@ -356,7 +356,11 @@
     "fskIdRequired": "Verifika tal-ID",
     "removeChild": "Neħħi kont tat-tifel/tifla",
     "qrTTL": "Kodiċi QR validu għal 10 minuti · darba waħda",
-    "confirmAddChild": "Żid tifel/tifla"
+    "confirmAddChild": "Żid tifel/tifla",
+    "gdprExport": "Data Export (GDPR)",
+    "gdprExportBtn": "Export all data",
+    "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
+    "gdprExportStarted": "Export downloading..."
   },
   "calendar": {
     "title": "Kalendarju",
