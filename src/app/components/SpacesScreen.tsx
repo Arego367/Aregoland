@@ -145,6 +145,12 @@ interface CustomRole {
     createEvents: boolean;
     viewSettings: boolean;
     visibleSettingsSections: string[]; // e.g. ["appearance","tags","visibility","invite","chats","roles"]
+    manageCalendar: boolean;
+    manageSchedule: boolean;
+    reportAbsence: boolean;
+    viewAbsenceDetails: boolean;
+    manageBookingSlots: boolean;
+    sendPushToAll: boolean;
   };
 }
 
@@ -639,7 +645,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [showCreateRole, setShowCreateRole] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleColor, setNewRoleColor] = useState("#3b82f6");
-  const [newRolePerms, setNewRolePerms] = useState<CustomRole["permissions"]>({ inviteMembers: false, removeMembers: false, manageChats: false, postNews: false, createEvents: false, viewSettings: false, visibleSettingsSections: [] });
+  const [newRolePerms, setNewRolePerms] = useState<CustomRole["permissions"]>({ inviteMembers: false, removeMembers: false, manageChats: false, postNews: false, createEvents: false, viewSettings: false, visibleSettingsSections: [], manageCalendar: false, manageSchedule: false, reportAbsence: false, viewAbsenceDetails: false, manageBookingSlots: false, sendPushToAll: false });
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [deleteStep, setDeleteStep] = useState(0); // 0=none, 1=confirm, 2=transfer, 3=final
@@ -1967,7 +1973,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const startEditRole = (cr: CustomRole) => {
     setNewRoleName(cr.name);
     setNewRoleColor(cr.color);
-    setNewRolePerms({ ...cr.permissions, visibleSettingsSections: [...(cr.permissions.visibleSettingsSections ?? [])] });
+    setNewRolePerms({ manageCalendar: false, manageSchedule: false, reportAbsence: false, viewAbsenceDetails: false, manageBookingSlots: false, sendPushToAll: false, ...cr.permissions, visibleSettingsSections: [...(cr.permissions.visibleSettingsSections ?? [])] });
     setEditingRoleId(cr.id);
     setShowCreateRole(true);
   };
@@ -5059,7 +5065,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           </div>
                           {/* Berechtigungen */}
                           <div className="space-y-1">
-                            {(["inviteMembers", "removeMembers", "manageChats", "postNews", "createEvents", "viewSettings"] as const).map(perm => (
+                            {(["inviteMembers", "removeMembers", "manageChats", "postNews", "createEvents", "viewSettings", "manageCalendar", "manageSchedule", "reportAbsence", "viewAbsenceDetails", "manageBookingSlots", "sendPushToAll"] as const).map(perm => (
                               <button key={perm}
                                 onClick={() => {
                                   setNewRolePerms(prev => {
@@ -5129,7 +5135,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                 saveSettings({ ...selectedSpace, customRoles: [...(selectedSpace.customRoles ?? []), role] });
                               }
                               setNewRoleName(""); setNewRoleColor("#3b82f6");
-                              setNewRolePerms({ inviteMembers: false, removeMembers: false, manageChats: false, postNews: false, createEvents: false, viewSettings: false, visibleSettingsSections: [] });
+                              setNewRolePerms({ inviteMembers: false, removeMembers: false, manageChats: false, postNews: false, createEvents: false, viewSettings: false, visibleSettingsSections: [], manageCalendar: false, manageSchedule: false, reportAbsence: false, viewAbsenceDetails: false, manageBookingSlots: false, sendPushToAll: false });
                               setShowCreateRole(false);
                               setEditingRoleId(null);
                             }}

@@ -11,12 +11,17 @@
 import type { RoadmapStatus } from "./roadmap-cards";
 
 const cardStatusMap: Record<string, RoadmapStatus> = {
+  "account/gdpr-export.card": "done",
   "account/profile": "done",
   "account/qr-code": "done",
   "account/settings": "done",
   "account/subscription": "done",
   "account/support": "wip",
   "calendar/events": "done",
+  "calendar/invitations.card": "done",
+  "calendar/push-reminders.card": "done",
+  "calendar/recurring-events.card": "done",
+  "calendar/space-layers.card": "done",
   "calls/voice-video": "done",
   "child-safety/child-profiles": "done",
   "child-safety/fsk-system": "done",
@@ -39,6 +44,7 @@ const cardStatusMap: Record<string, RoadmapStatus> = {
   "p2p-network/gossip-protocol": "done",
   "p2p-network/signaling": "done",
   "p2p-network/webrtc": "done",
+  "spaces/role-permissions-extended": "wip",
   "spaces/space-management": "done",
   "spaces/space-sync": "done",
 };
