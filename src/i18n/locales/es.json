@@ -428,7 +428,17 @@
     "recurEveryNWeeks": "Cada {{n}} semanas",
     "recurEveryNMonths": "Cada {{n}} meses",
     "recurEveryNYears": "Cada {{n}} años",
-    "spaceLayers": "Calendarios de espacio"
+    "spaceLayers": "Calendarios de espacio",
+    "invitees": "Invitados",
+    "addInvitees": "Invitar contactos",
+    "yourResponse": "Tu respuesta",
+    "rsvpAccept": "Aceptar",
+    "rsvpMaybe": "Quizás",
+    "rsvpDecline": "Rechazar",
+    "rsvpPending": "Pendiente",
+    "rsvpAccepted": "Aceptado",
+    "rsvpDeclined": "Rechazado",
+    "rsvpMaybe2": "Quizás"
   },
   "call": {
     "micOn": "Micrófono activado",

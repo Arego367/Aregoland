@@ -428,7 +428,17 @@
     "recurEveryNWeeks": "Elke {{n}} weken",
     "recurEveryNMonths": "Elke {{n}} maanden",
     "recurEveryNYears": "Elke {{n}} jaar",
-    "spaceLayers": "Space-kalenders"
+    "spaceLayers": "Space-kalenders",
+    "invitees": "Invitees",
+    "addInvitees": "Invite contacts",
+    "yourResponse": "Your response",
+    "rsvpAccept": "Accept",
+    "rsvpMaybe": "Maybe",
+    "rsvpDecline": "Decline",
+    "rsvpPending": "Pending",
+    "rsvpAccepted": "Accepted",
+    "rsvpDeclined": "Declined",
+    "rsvpMaybe2": "Maybe"
   },
   "call": {
     "micOn": "Microfoon aan",

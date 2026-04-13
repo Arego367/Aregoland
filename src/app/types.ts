@@ -29,6 +29,14 @@ export interface Tab {
 
 export type RecurrenceFreq = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
+export type InviteStatus = 'pending' | 'accepted' | 'declined' | 'maybe';
+
+export interface EventInvitee {
+  aregoId: string;
+  displayName: string;
+  status: InviteStatus;
+}
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -40,6 +48,8 @@ export interface CalendarEvent {
   note?: string;
   rrule?: string;      // RFC 5545 RRULE string, e.g. "FREQ=WEEKLY;INTERVAL=1;COUNT=10"
   exdates?: string[];  // Exception dates (YYYY-MM-DD) excluded from recurrence
+  invitees?: EventInvitee[];  // Invited contacts with RSVP status
+  organizerAregoId?: string;  // Who created/owns this event
 }
 
 export interface CalendarLayer {

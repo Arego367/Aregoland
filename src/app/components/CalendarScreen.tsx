@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle } from "lucide-react";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
-import type { CalendarEvent, RecurrenceFreq, CalendarLayer } from "@/app/types";
+import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus } from "@/app/types";
 import { expandRecurrence, buildRRule, rruleLabel } from "@/app/lib/rrule";
 import { scheduleReminder as scheduleSWReminder, cancelReminder, checkReminders } from "@/app/lib/reminder-scheduler";
+import { loadInvitations, invitationsToEvents, updateRsvp, type ReceivedInvitation } from "@/app/lib/calendar-invitations";
+import { loadContacts, type StoredContact } from "@/app/auth/contacts";
 
 // ── Persistence ──────────────────────────────────────────────────────────────
 
@@ -199,6 +201,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
   const calSearchRef = useRef<HTMLInputElement>(null);
   const [layers, setLayers] = useState<CalendarLayer[]>(loadLayers);
   const [showLayers, setShowLayers] = useState(false);
+  const [invitations, setInvitations] = useState<ReceivedInvitation[]>(loadInvitations);
   const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
 
@@ -297,8 +300,14 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
       list.push(calEv);
       m.set(se.date, list);
     }
+    // Merge received invitations (not declined)
+    for (const invEv of invitationsToEvents(invitations)) {
+      const list = m.get(invEv.date) ?? [];
+      list.push(invEv);
+      m.set(invEv.date, list);
+    }
     return m;
-  }, [events, expansionRange, layers, spaceEvents]);
+  }, [events, expansionRange, layers, spaceEvents, invitations]);
 
   const searchResults = useMemo(() => {
     if (!calSearchQuery.trim()) return [];
@@ -535,6 +544,11 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             onClose={() => setDetailEvent(null)}
             onEdit={() => { setEditingEvent(detailEvent); setDetailEvent(null); setShowForm(true); }}
             onDelete={() => deleteEvent(detailEvent.id)}
+            onRsvp={(eventId, status) => {
+              updateRsvp(eventId, status);
+              setInvitations(loadInvitations());
+              setDetailEvent(null);
+            }}
           />
         )}
       </AnimatePresence>
@@ -812,9 +826,33 @@ function EventFormModal({
   })();
   const [recurrence, setRecurrence] = useState<RecurrenceFreq | "none">(initialFreq);
 
+  // Invitees
+  const contacts = useMemo(() => loadContacts(), []);
+  const [selectedInvitees, setSelectedInvitees] = useState<string[]>(
+    initial?.invitees?.map((i) => i.aregoId) ?? []
+  );
+  const [showInviteePicker, setShowInviteePicker] = useState(false);
+
+  const toggleInvitee = (aregoId: string) => {
+    setSelectedInvitees((prev) =>
+      prev.includes(aregoId) ? prev.filter((id) => id !== aregoId) : [...prev, aregoId]
+    );
+  };
+
   const handleSave = () => {
     if (!title.trim()) return;
     const rrule = recurrence !== "none" ? buildRRule({ freq: recurrence }) : undefined;
+    const invitees: EventInvitee[] | undefined = selectedInvitees.length > 0
+      ? selectedInvitees.map((id) => {
+          const existing = initial?.invitees?.find((i) => i.aregoId === id);
+          const contact = contacts.find((c) => c.aregoId === id);
+          return {
+            aregoId: id,
+            displayName: existing?.displayName ?? contact?.displayName ?? id,
+            status: existing?.status ?? ("pending" as InviteStatus),
+          };
+        })
+      : undefined;
     onSave({
       id: initial?.id ?? generateId(),
       title: title.trim(),
@@ -826,6 +864,7 @@ function EventFormModal({
       note: note.trim() || undefined,
       rrule,
       exdates: initial?.exdates,
+      invitees,
     });
   };
 
@@ -937,6 +976,60 @@ function EventFormModal({
           </div>
         </div>
 
+        {/* Invitees */}
+        {contacts.length > 0 && (
+          <div className="mb-4">
+            <label className="text-xs text-gray-500 font-bold mb-2 block">{t('calendar.invitees')}</label>
+            {selectedInvitees.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {selectedInvitees.map((id) => {
+                  const c = contacts.find((ct) => ct.aregoId === id);
+                  return (
+                    <span key={id} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-purple-600/20 text-purple-300 text-xs font-medium">
+                      {c?.displayName ?? id.slice(0, 8)}
+                      <button onClick={() => toggleInvitee(id)} className="hover:text-white"><X size={12} /></button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <button
+              onClick={() => setShowInviteePicker(!showInviteePicker)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-gray-800 text-gray-400 hover:text-white transition-colors"
+            >
+              <UserPlus size={14} /> {t('calendar.addInvitees')}
+            </button>
+            <AnimatePresence>
+              {showInviteePicker && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden mt-2"
+                >
+                  <div className="max-h-40 overflow-y-auto space-y-1 bg-gray-800/50 rounded-xl p-2">
+                    {contacts.map((c) => {
+                      const selected = selectedInvitees.includes(c.aregoId);
+                      return (
+                        <button
+                          key={c.aregoId}
+                          onClick={() => toggleInvitee(c.aregoId)}
+                          className={`w-full flex items-center justify-between p-2 rounded-lg text-sm transition-all ${
+                            selected ? "bg-purple-600/15 text-purple-300" : "text-gray-300 hover:bg-gray-700"
+                          }`}
+                        >
+                          <span className="truncate">{c.displayName}</span>
+                          {selected && <Check size={14} className="text-purple-400 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
         {/* Color */}
         <div className="mb-4">
           <label className="text-xs text-gray-500 font-bold mb-2 block">{t('calendar.color')}</label>
@@ -978,12 +1071,13 @@ function EventFormModal({
 // ── Event Detail Modal ───────────────────────────────────────────────────────
 
 function EventDetailModal({
-  event, onClose, onEdit, onDelete,
+  event, onClose, onEdit, onDelete, onRsvp,
 }: {
   event: CalendarEvent;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onRsvp?: (eventId: string, status: InviteStatus) => void;
 }) {
   const { t } = useTranslation();
   const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
@@ -1035,6 +1129,47 @@ function EventDetailModal({
 
         {event.note && (
           <p className="text-sm text-gray-300 mt-3 p-3 rounded-xl bg-gray-800">{event.note}</p>
+        )}
+
+        {/* Invitees display */}
+        {event.invitees && event.invitees.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs text-gray-500 font-bold mb-1.5">{t('calendar.invitees')}</p>
+            <div className="space-y-1">
+              {event.invitees.map((inv) => (
+                <div key={inv.aregoId} className="flex items-center gap-2 text-sm">
+                  <span className={`w-2 h-2 rounded-full ${
+                    inv.status === "accepted" ? "bg-green-500" :
+                    inv.status === "declined" ? "bg-red-500" :
+                    inv.status === "maybe" ? "bg-yellow-500" : "bg-gray-500"
+                  }`} />
+                  <span className="text-gray-300">{inv.displayName}</span>
+                  <span className="text-xs text-gray-500">{t(`calendar.rsvp${inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}`)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* RSVP buttons for received invitations */}
+        {event.id.startsWith("invite-") && onRsvp && (
+          <div className="mt-4">
+            <p className="text-xs text-gray-500 font-bold mb-2">{t('calendar.yourResponse')}</p>
+            <div className="flex gap-2">
+              <button onClick={() => onRsvp(event.id.replace("invite-", ""), "accepted")}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-green-600/20 hover:bg-green-600/30 text-green-400 text-xs font-bold transition-colors">
+                <Check size={14} /> {t('calendar.rsvpAccept')}
+              </button>
+              <button onClick={() => onRsvp(event.id.replace("invite-", ""), "maybe")}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 text-xs font-bold transition-colors">
+                <HelpCircle size={14} /> {t('calendar.rsvpMaybe')}
+              </button>
+              <button onClick={() => onRsvp(event.id.replace("invite-", ""), "declined")}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs font-bold transition-colors">
+                <XCircle size={14} /> {t('calendar.rsvpDecline')}
+              </button>
+            </div>
+          </div>
         )}
 
         <div className="flex gap-3 mt-6">

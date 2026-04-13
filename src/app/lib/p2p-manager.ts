@@ -122,6 +122,28 @@ type CallSignalCb = (roomId: string, signal: CallSignal) => void;
 type ContactRemovedCb = (roomId: string, aregoId: string) => void;
 type ReadReceiptCb = (roomId: string, msgIds: string[]) => void;
 
+// ── Calendar Invitation Messages ──────────────────────────────────────────────
+
+export interface CalendarInviteMessage {
+  _t: 'calendar_invite';
+  eventId: string;
+  title: string;
+  date: string;         // YYYY-MM-DD
+  startTime: string;    // HH:mm
+  duration: string;
+  organizerAregoId: string;
+  organizerName: string;
+  note?: string;
+}
+
+export interface CalendarRsvpMessage {
+  _t: 'calendar_rsvp';
+  eventId: string;
+  responderAregoId: string;
+  responderName: string;
+  status: 'accepted' | 'declined' | 'maybe';
+}
+
 export class P2PManager {
   private conns = new Map<string, Conn>();
   private fileBuffers: Map<string, { fileName: string; fileMime: string; totalChunks: number; chunks: (string | null)[]; received: number; roomId: string }> | null = null;
@@ -131,6 +153,8 @@ export class P2PManager {
   private callSignalCb: CallSignalCb | null = null;
   private contactRemovedCb: ContactRemovedCb | null = null;
   private readReceiptCb: ReadReceiptCb | null = null;
+  private calendarInviteCb: ((roomId: string, invite: CalendarInviteMessage) => void) | null = null;
+  private calendarRsvpCb: ((roomId: string, rsvp: CalendarRsvpMessage) => void) | null = null;
   private globalIdentityPayload: string | undefined;
 
   // ── Callbacks registrieren ─────────────────────────────────────────────────
@@ -141,6 +165,8 @@ export class P2PManager {
   onCallSignal(cb: CallSignalCb) { this.callSignalCb = cb; }
   onContactRemoved(cb: ContactRemovedCb) { this.contactRemovedCb = cb; }
   onReadReceipt(cb: ReadReceiptCb) { this.readReceiptCb = cb; }
+  onCalendarInvite(cb: (roomId: string, invite: CalendarInviteMessage) => void) { this.calendarInviteCb = cb; }
+  onCalendarRsvp(cb: (roomId: string, rsvp: CalendarRsvpMessage) => void) { this.calendarRsvpCb = cb; }
 
   setIdentityPayload(payload: string | undefined) {
     this.globalIdentityPayload = payload;
@@ -233,6 +259,28 @@ export class P2PManager {
     } catch {
       return false;
     }
+  }
+
+  /** Sendet eine Kalender-Einladung verschlüsselt über den DataChannel */
+  async sendCalendarInvite(roomId: string, invite: CalendarInviteMessage): Promise<boolean> {
+    const c = this.conns.get(roomId);
+    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    try {
+      const ct = await encryptMessage(c.sessionKey, JSON.stringify(invite));
+      c.channel.send(JSON.stringify({ t: 'calendar_invite', ct }));
+      return true;
+    } catch { return false; }
+  }
+
+  /** Sendet eine RSVP-Antwort auf eine Kalender-Einladung */
+  async sendCalendarRsvp(roomId: string, rsvp: CalendarRsvpMessage): Promise<boolean> {
+    const c = this.conns.get(roomId);
+    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    try {
+      const ct = await encryptMessage(c.sessionKey, JSON.stringify(rsvp));
+      c.channel.send(JSON.stringify({ t: 'calendar_rsvp', ct }));
+      return true;
+    } catch { return false; }
   }
 
   /** Sendet ein Anruf-Signal verschlüsselt über den DataChannel */
@@ -472,6 +520,16 @@ export class P2PManager {
           try {
             const msgIds = JSON.parse(text) as string[];
             if (Array.isArray(msgIds)) this.readReceiptCb?.(c.roomId, msgIds);
+          } catch { /* ignorieren */ }
+        } else if (msg.t === 'calendar_invite') {
+          try {
+            const invite = JSON.parse(text) as CalendarInviteMessage;
+            if (invite._t === 'calendar_invite') this.calendarInviteCb?.(c.roomId, invite);
+          } catch { /* ignorieren */ }
+        } else if (msg.t === 'calendar_rsvp') {
+          try {
+            const rsvp = JSON.parse(text) as CalendarRsvpMessage;
+            if (rsvp._t === 'calendar_rsvp') this.calendarRsvpCb?.(c.roomId, rsvp);
           } catch { /* ignorieren */ }
         } else if (msg.t === 'file') {
           // Chunked File-Transfer

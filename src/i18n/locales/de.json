@@ -568,7 +568,17 @@
     "recurEveryNWeeks": "Alle {{n}} Wochen",
     "recurEveryNMonths": "Alle {{n}} Monate",
     "recurEveryNYears": "Alle {{n}} Jahre",
-    "spaceLayers": "Space-Kalender"
+    "spaceLayers": "Space-Kalender",
+    "invitees": "Eingeladene",
+    "addInvitees": "Kontakte einladen",
+    "yourResponse": "Deine Antwort",
+    "rsvpAccept": "Zusagen",
+    "rsvpMaybe": "Vielleicht",
+    "rsvpDecline": "Absagen",
+    "rsvpPending": "Ausstehend",
+    "rsvpAccepted": "Zugesagt",
+    "rsvpDeclined": "Abgesagt",
+    "rsvpMaybe2": "Vielleicht"
   },
   "call": {
     "micOn": "Mikrofon an",

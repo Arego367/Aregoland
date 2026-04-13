@@ -428,7 +428,17 @@
     "recurEveryNWeeks": "Every {{n}} weeks",
     "recurEveryNMonths": "Every {{n}} months",
     "recurEveryNYears": "Every {{n}} years",
-    "spaceLayers": "Space Calendars"
+    "spaceLayers": "Space Calendars",
+    "invitees": "Invitees",
+    "addInvitees": "Invite contacts",
+    "yourResponse": "Your response",
+    "rsvpAccept": "Accept",
+    "rsvpMaybe": "Maybe",
+    "rsvpDecline": "Decline",
+    "rsvpPending": "Pending",
+    "rsvpAccepted": "Accepted",
+    "rsvpDeclined": "Declined",
+    "rsvpMaybe2": "Maybe"
   },
   "call": {
     "micOn": "Mikrofonu mixgħul",
