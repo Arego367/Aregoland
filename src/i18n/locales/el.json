@@ -438,7 +438,16 @@
     "rsvpPending": "Pending",
     "rsvpAccepted": "Accepted",
     "rsvpDeclined": "Declined",
-    "rsvpMaybe2": "Maybe"
+    "rsvpMaybe2": "Maybe",
+    "timeBlocks": "Time Blocks",
+    "noTimeBlocks": "No time blocks defined",
+    "addTimeBlock": "Add time block",
+    "blockWork": "Work",
+    "blockInterruptible": "Interruptible",
+    "blockBuffer": "Buffer",
+    "blockAvailable": "Available",
+    "from": "From",
+    "to": "To"
   },
   "call": {
     "micOn": "Μικρόφωνο ενεργό",

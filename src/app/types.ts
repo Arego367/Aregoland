@@ -52,6 +52,16 @@ export interface CalendarEvent {
   organizerAregoId?: string;  // Who created/owns this event
 }
 
+export type TimeBlockType = 'work' | 'interruptible' | 'buffer' | 'available';
+
+export interface TimeBlock {
+  id: string;
+  type: TimeBlockType;
+  dayOfWeek: number;  // 0=Mon, 6=Sun (Montag-basiert)
+  startTime: string;  // HH:mm
+  endTime: string;    // HH:mm
+}
+
 export interface CalendarLayer {
   spaceId: string;
   spaceName: string;

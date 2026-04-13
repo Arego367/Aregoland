@@ -438,7 +438,16 @@
     "rsvpPending": "En attente",
     "rsvpAccepted": "Accepté",
     "rsvpDeclined": "Refusé",
-    "rsvpMaybe2": "Peut-être"
+    "rsvpMaybe2": "Peut-être",
+    "timeBlocks": "Blocs horaires",
+    "noTimeBlocks": "Aucun bloc horaire",
+    "addTimeBlock": "Ajouter un bloc",
+    "blockWork": "Travail",
+    "blockInterruptible": "Interruptible",
+    "blockBuffer": "Tampon",
+    "blockAvailable": "Disponible",
+    "from": "De",
+    "to": "À"
   },
   "call": {
     "micOn": "Micro activé",

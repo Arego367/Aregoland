@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer } from "lucide-react";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
-import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus } from "@/app/types";
+import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType } from "@/app/types";
 import { expandRecurrence, buildRRule, rruleLabel } from "@/app/lib/rrule";
 import { scheduleReminder as scheduleSWReminder, cancelReminder, checkReminders } from "@/app/lib/reminder-scheduler";
 import { loadInvitations, invitationsToEvents, updateRsvp, type ReceivedInvitation } from "@/app/lib/calendar-invitations";
@@ -115,6 +115,32 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// ── Time Blocks ─────────────────────────────────────────────────────────────
+
+const TIME_BLOCKS_KEY = "arego_calendar_time_blocks";
+
+function loadTimeBlocks(): TimeBlock[] {
+  try { return JSON.parse(localStorage.getItem(TIME_BLOCKS_KEY) ?? "[]"); } catch { return []; }
+}
+
+function saveTimeBlocks(blocks: TimeBlock[]) {
+  localStorage.setItem(TIME_BLOCKS_KEY, JSON.stringify(blocks));
+}
+
+const TIME_BLOCK_COLORS: Record<TimeBlockType, string> = {
+  work: "bg-blue-500/10 border-blue-500/20",
+  interruptible: "bg-yellow-500/10 border-yellow-500/20",
+  buffer: "bg-gray-500/10 border-gray-500/20",
+  available: "bg-green-500/10 border-green-500/20",
+};
+
+const TIME_BLOCK_LABELS: Record<TimeBlockType, string> = {
+  work: "calendar.blockWork",
+  interruptible: "calendar.blockInterruptible",
+  buffer: "calendar.blockBuffer",
+  available: "calendar.blockAvailable",
+};
+
 // ── Reminder Scheduling (delegated to Service Worker) ───────────────────────
 
 // ── Calendar Layers (Space Events) ──────────────────────────────────────────
@@ -202,6 +228,8 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
   const [layers, setLayers] = useState<CalendarLayer[]>(loadLayers);
   const [showLayers, setShowLayers] = useState(false);
   const [invitations, setInvitations] = useState<ReceivedInvitation[]>(loadInvitations);
+  const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>(loadTimeBlocks);
+  const [showBlockEditor, setShowBlockEditor] = useState(false);
   const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
 
@@ -363,6 +391,10 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         onOpenSupport={onOpenSupport}
         action={{ icon: CalendarPlus, label: t('calendar.newEvent'), onClick: () => { setEditingEvent(null); setShowForm(true); } }}
         rightExtra={<>
+          <button onClick={() => setShowBlockEditor(true)}
+            className="p-2 rounded-full transition-all text-gray-400 hover:text-white hover:bg-white/10">
+            <Timer size={20} />
+          </button>
           {layers.length > 0 && (
             <button onClick={() => setShowLayers(!showLayers)}
               className={`p-2 rounded-full transition-all ${showLayers ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
@@ -513,6 +545,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             todayStr={todayStr}
             eventsMap={eventsMap}
             onSelectEvent={setDetailEvent}
+            timeBlocks={timeBlocks}
           />
         )}
         {view === "day" && (
@@ -520,6 +553,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             date={selectedDate}
             events={eventsMap.get(toDateStr(selectedDate)) ?? []}
             onSelectEvent={setDetailEvent}
+            timeBlocks={timeBlocks}
           />
         )}
       </div>
@@ -532,6 +566,17 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             defaultDate={toDateStr(selectedDate)}
             onSave={addOrUpdateEvent}
             onClose={() => { setShowForm(false); setEditingEvent(null); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Time Block Editor Modal */}
+      <AnimatePresence>
+        {showBlockEditor && (
+          <TimeBlockEditor
+            blocks={timeBlocks}
+            onSave={(blocks) => { setTimeBlocks(blocks); saveTimeBlocks(blocks); setShowBlockEditor(false); }}
+            onClose={() => setShowBlockEditor(false)}
           />
         )}
       </AnimatePresence>
@@ -626,11 +671,12 @@ function MonthView({
 // ── Week View ────────────────────────────────────────────────────────────────
 
 function WeekView({
-  date, todayStr, eventsMap, onSelectEvent,
+  date, todayStr, eventsMap, onSelectEvent, timeBlocks,
 }: {
   date: Date; todayStr: string;
   eventsMap: Map<string, CalendarEvent[]>;
   onSelectEvent: (ev: CalendarEvent) => void;
+  timeBlocks: TimeBlock[];
 }) {
   const { t } = useTranslation();
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
@@ -664,13 +710,17 @@ function WeekView({
             {weekDates.map((d) => {
               const ds = toDateStr(d);
               const dayEvs = eventsMap.get(ds) ?? [];
+              const dow = weekdayMon(d);
+              const blockForHour = timeBlocks.find(
+                (b) => b.dayOfWeek === dow && parseInt(b.startTime) <= h && parseInt(b.endTime) > h
+              );
               const matching = dayEvs.filter((ev) => {
                 if (ev.duration === "allday") return false;
                 const [eh] = ev.startTime.split(":").map(Number);
                 return eh === h;
               });
               return (
-                <div key={ds} className="relative border-l border-gray-800/50">
+                <div key={ds} className={`relative border-l border-gray-800/50 ${blockForHour ? TIME_BLOCK_COLORS[blockForHour.type] : ""}`}>
                   {matching.map((ev) => {
                     const [, em] = ev.startTime.split(":").map(Number);
                     const dur = durationMinutes(ev.duration);
@@ -700,10 +750,11 @@ function WeekView({
 // ── Day View ─────────────────────────────────────────────────────────────────
 
 function DayView({
-  date, events, onSelectEvent,
+  date, events, onSelectEvent, timeBlocks,
 }: {
   date: Date; events: CalendarEvent[];
   onSelectEvent: (ev: CalendarEvent) => void;
+  timeBlocks: TimeBlock[];
 }) {
   const hours = Array.from({ length: 18 }, (_, i) => i + 5); // 05:00 - 22:00
   const allDay = events.filter((e) => e.duration === "allday");
@@ -734,8 +785,13 @@ function DayView({
 
       {/* Timed grid */}
       <div className="relative">
-        {hours.map((h) => (
-          <div key={h} className="flex h-[60px] border-t border-gray-800">
+        {hours.map((h) => {
+          const dow = weekdayMon(date);
+          const blockForHour = timeBlocks.find(
+            (b) => b.dayOfWeek === dow && parseInt(b.startTime) <= h && parseInt(b.endTime) > h
+          );
+          return (
+          <div key={h} className={`flex h-[60px] border-t border-gray-800 ${blockForHour ? TIME_BLOCK_COLORS[blockForHour.type] : ""}`}>
             <div className="w-12 text-[11px] text-gray-500 text-right pr-2 -mt-1.5 flex-shrink-0">
               {`${String(h).padStart(2, "0")}:00`}
             </div>
@@ -764,7 +820,8 @@ function DayView({
                 })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -1195,6 +1252,123 @@ function EventDetailModal({
             </button>
           )}
         </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── Time Block Editor ───────────────────────────────────────────────────────
+
+const BLOCK_TYPES: TimeBlockType[] = ["work", "interruptible", "buffer", "available"];
+const WEEKDAY_INDICES = [0, 1, 2, 3, 4, 5, 6]; // Mon-Sun
+
+function TimeBlockEditor({
+  blocks, onSave, onClose,
+}: {
+  blocks: TimeBlock[];
+  onSave: (blocks: TimeBlock[]) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
+  const [editing, setEditing] = useState<TimeBlock[]>([...blocks]);
+  const [addDay, setAddDay] = useState(0);
+  const [addStart, setAddStart] = useState("09:00");
+  const [addEnd, setAddEnd] = useState("17:00");
+  const [addType, setAddType] = useState<TimeBlockType>("work");
+
+  const addBlock = () => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setEditing([...editing, { id, type: addType, dayOfWeek: addDay, startTime: addStart, endTime: addEnd }]);
+  };
+
+  const removeBlock = (id: string) => {
+    setEditing(editing.filter((b) => b.id !== id));
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 350 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg bg-gray-900 rounded-t-3xl border-t border-gray-700 p-6 max-h-[85vh] overflow-y-auto"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold">{t('calendar.timeBlocks')}</h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-800"><X size={20} /></button>
+        </div>
+
+        {/* Existing blocks */}
+        <div className="space-y-2 mb-4">
+          {editing.length === 0 && (
+            <p className="text-sm text-gray-500 text-center py-4">{t('calendar.noTimeBlocks')}</p>
+          )}
+          {editing.map((b) => (
+            <div key={b.id} className={`flex items-center gap-3 p-3 rounded-xl border ${TIME_BLOCK_COLORS[b.type]}`}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium">{WEEKDAYS_SHORT[b.dayOfWeek]}: {b.startTime} - {b.endTime}</div>
+                <div className="text-xs text-gray-400">{t(TIME_BLOCK_LABELS[b.type])}</div>
+              </div>
+              <button onClick={() => removeBlock(b.id)} className="p-1 text-gray-500 hover:text-red-400">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Add new block */}
+        <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3 mb-4">
+          <p className="text-xs text-gray-500 font-bold uppercase">{t('calendar.addTimeBlock')}</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.day')}</label>
+              <select value={addDay} onChange={(e) => setAddDay(Number(e.target.value))}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white [color-scheme:dark]">
+                {WEEKDAY_INDICES.map((i) => (
+                  <option key={i} value={i}>{WEEKDAYS_SHORT[i]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.from')}</label>
+              <input type="time" value={addStart} onChange={(e) => setAddStart(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white [color-scheme:dark]" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.to')}</label>
+              <input type="time" value={addEnd} onChange={(e) => setAddEnd(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white [color-scheme:dark]" />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {BLOCK_TYPES.map((bt) => (
+              <button key={bt} onClick={() => setAddType(bt)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                  addType === bt ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+                }`}>
+                {t(TIME_BLOCK_LABELS[bt])}
+              </button>
+            ))}
+          </div>
+          <button onClick={addBlock}
+            className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold transition-colors">
+            + {t('calendar.addTimeBlock')}
+          </button>
+        </div>
+
+        <button onClick={() => onSave(editing)}
+          className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 transition-colors">
+          {t('common.save')}
+        </button>
       </motion.div>
     </motion.div>
   );

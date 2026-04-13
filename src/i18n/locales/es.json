@@ -438,7 +438,16 @@
     "rsvpPending": "Pendiente",
     "rsvpAccepted": "Aceptado",
     "rsvpDeclined": "Rechazado",
-    "rsvpMaybe2": "Quizás"
+    "rsvpMaybe2": "Quizás",
+    "timeBlocks": "Bloques de tiempo",
+    "noTimeBlocks": "Sin bloques definidos",
+    "addTimeBlock": "Añadir bloque",
+    "blockWork": "Trabajo",
+    "blockInterruptible": "Interrumpible",
+    "blockBuffer": "Buffer",
+    "blockAvailable": "Disponible",
+    "from": "Desde",
+    "to": "Hasta"
   },
   "call": {
     "micOn": "Micrófono activado",
