@@ -427,7 +427,8 @@
     "recurEveryNDays": "A cada {{n}} dias",
     "recurEveryNWeeks": "A cada {{n}} semanas",
     "recurEveryNMonths": "A cada {{n}} meses",
-    "recurEveryNYears": "A cada {{n}} anos"
+    "recurEveryNYears": "A cada {{n}} anos",
+    "spaceLayers": "Calendários de espaço"
   },
   "call": {
     "micOn": "Microfone ligado",

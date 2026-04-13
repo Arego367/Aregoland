@@ -42,4 +42,11 @@ export interface CalendarEvent {
   exdates?: string[];  // Exception dates (YYYY-MM-DD) excluded from recurrence
 }
 
+export interface CalendarLayer {
+  spaceId: string;
+  spaceName: string;
+  color: string;        // Space color string
+  visible: boolean;
+}
+
 export type { UserIdentity } from "@/app/auth/identity";

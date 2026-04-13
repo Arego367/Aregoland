@@ -427,7 +427,8 @@
     "recurEveryNDays": "Tous les {{n}} jours",
     "recurEveryNWeeks": "Toutes les {{n}} semaines",
     "recurEveryNMonths": "Tous les {{n}} mois",
-    "recurEveryNYears": "Tous les {{n}} ans"
+    "recurEveryNYears": "Tous les {{n}} ans",
+    "spaceLayers": "Calendriers d'espace"
   },
   "call": {
     "micOn": "Micro activé",

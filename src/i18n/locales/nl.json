@@ -427,7 +427,8 @@
     "recurEveryNDays": "Elke {{n}} dagen",
     "recurEveryNWeeks": "Elke {{n}} weken",
     "recurEveryNMonths": "Elke {{n}} maanden",
-    "recurEveryNYears": "Elke {{n}} jaar"
+    "recurEveryNYears": "Elke {{n}} jaar",
+    "spaceLayers": "Space-kalenders"
   },
   "call": {
     "micOn": "Microfoon aan",

@@ -567,7 +567,8 @@
     "recurEveryNDays": "Alle {{n}} Tage",
     "recurEveryNWeeks": "Alle {{n}} Wochen",
     "recurEveryNMonths": "Alle {{n}} Monate",
-    "recurEveryNYears": "Alle {{n}} Jahre"
+    "recurEveryNYears": "Alle {{n}} Jahre",
+    "spaceLayers": "Space-Kalender"
   },
   "call": {
     "micOn": "Mikrofon an",

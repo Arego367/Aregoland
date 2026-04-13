@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers } from "lucide-react";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
-import type { CalendarEvent, RecurrenceFreq } from "@/app/types";
+import type { CalendarEvent, RecurrenceFreq, CalendarLayer } from "@/app/types";
 import { expandRecurrence, buildRRule, rruleLabel } from "@/app/lib/rrule";
 import { scheduleReminder as scheduleSWReminder, cancelReminder, checkReminders } from "@/app/lib/reminder-scheduler";
 
@@ -115,6 +115,65 @@ function generateId(): string {
 
 // ── Reminder Scheduling (delegated to Service Worker) ───────────────────────
 
+// ── Calendar Layers (Space Events) ──────────────────────────────────────────
+
+const LAYERS_KEY = "arego_calendar_layers";
+
+function loadLayers(): CalendarLayer[] {
+  try {
+    return JSON.parse(localStorage.getItem(LAYERS_KEY) ?? "[]");
+  } catch { return []; }
+}
+
+function saveLayers(layers: CalendarLayer[]) {
+  localStorage.setItem(LAYERS_KEY, JSON.stringify(layers));
+}
+
+interface SpaceEventData {
+  spaceId: string;
+  spaceName: string;
+  spaceColor: string;
+  postId: string;
+  title: string;
+  date: string;
+  time: string;
+  location?: string;
+}
+
+function loadSpaceEvents(): SpaceEventData[] {
+  try {
+    const spaces = JSON.parse(localStorage.getItem("aregoland_spaces") ?? "[]");
+    const events: SpaceEventData[] = [];
+    for (const space of spaces) {
+      if (!space.posts) continue;
+      for (const post of space.posts) {
+        if (post.badge === "event" && post.eventDate) {
+          events.push({
+            spaceId: space.id,
+            spaceName: space.name,
+            spaceColor: space.color || "blue",
+            postId: post.id,
+            title: post.title,
+            date: post.eventDate,
+            time: post.eventTime || "00:00",
+            location: post.eventLocation,
+          });
+        }
+      }
+    }
+    return events;
+  } catch { return []; }
+}
+
+/** Map space color to a CalendarEvent-compatible color */
+function mapSpaceColor(spaceColor: string): string {
+  const map: Record<string, string> = {
+    blue: "blue", red: "pink", green: "green", purple: "purple",
+    orange: "orange", teal: "teal", yellow: "orange", pink: "pink",
+  };
+  return map[spaceColor] || "blue";
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 type View = "month" | "week" | "day";
@@ -138,11 +197,44 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
   const [calSearchOpen, setCalSearchOpen] = useState(false);
   const [calSearchQuery, setCalSearchQuery] = useState("");
   const calSearchRef = useRef<HTMLInputElement>(null);
+  const [layers, setLayers] = useState<CalendarLayer[]>(loadLayers);
+  const [showLayers, setShowLayers] = useState(false);
   const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
 
   // Persist
   useEffect(() => { saveEvents(events); }, [events]);
+
+  // Sync layers with available spaces
+  const spaceEvents = useMemo(() => loadSpaceEvents(), [events]); // re-derive when events change (forces refresh)
+  useEffect(() => {
+    const se = loadSpaceEvents();
+    const spaceIds = new Set(se.map((e) => e.spaceId));
+    const existing = new Map(layers.map((l) => [l.spaceId, l]));
+    let changed = false;
+    const next: CalendarLayer[] = [];
+    for (const sid of spaceIds) {
+      const sample = se.find((e) => e.spaceId === sid)!;
+      if (existing.has(sid)) {
+        next.push(existing.get(sid)!);
+      } else {
+        next.push({ spaceId: sid, spaceName: sample.spaceName, color: sample.spaceColor, visible: true });
+        changed = true;
+      }
+    }
+    if (changed || next.length !== layers.length) {
+      setLayers(next);
+      saveLayers(next);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleLayer = useCallback((spaceId: string) => {
+    setLayers((prev) => {
+      const next = prev.map((l) => l.spaceId === spaceId ? { ...l, visible: !l.visible } : l);
+      saveLayers(next);
+      return next;
+    });
+  }, []);
 
   // Schedule reminders via Service Worker on load
   useEffect(() => {
@@ -187,8 +279,26 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         m.set(ev.date, list);
       }
     }
+    // Merge visible space events
+    const visibleSpaces = new Set(layers.filter((l) => l.visible).map((l) => l.spaceId));
+    for (const se of spaceEvents) {
+      if (!visibleSpaces.has(se.spaceId)) continue;
+      const calEv: CalendarEvent = {
+        id: `space-${se.spaceId}-${se.postId}`,
+        title: `[${se.spaceName}] ${se.title}`,
+        date: se.date,
+        startTime: se.time,
+        duration: "1h",
+        reminder: "none",
+        color: mapSpaceColor(se.spaceColor),
+        note: se.location ? `📍 ${se.location}` : undefined,
+      };
+      const list = m.get(se.date) ?? [];
+      list.push(calEv);
+      m.set(se.date, list);
+    }
     return m;
-  }, [events, expansionRange]);
+  }, [events, expansionRange, layers, spaceEvents]);
 
   const searchResults = useMemo(() => {
     if (!calSearchQuery.trim()) return [];
@@ -244,6 +354,12 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         onOpenSupport={onOpenSupport}
         action={{ icon: CalendarPlus, label: t('calendar.newEvent'), onClick: () => { setEditingEvent(null); setShowForm(true); } }}
         rightExtra={<>
+          {layers.length > 0 && (
+            <button onClick={() => setShowLayers(!showLayers)}
+              className={`p-2 rounded-full transition-all ${showLayers ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
+              <Layers size={20} />
+            </button>
+          )}
           <button onClick={() => { setCalSearchOpen(!calSearchOpen); if (!calSearchOpen) { setCalSearchQuery(""); setTimeout(() => calSearchRef.current?.focus(), 100); } }}
             className={`p-2 rounded-full transition-all ${calSearchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
             <Search size={20} />
@@ -300,6 +416,39 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
                 )}
               </div>
             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Layer toggle panel */}
+      <AnimatePresence>
+        {showLayers && layers.length > 0 && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-b border-gray-800 bg-gray-900">
+            <div className="px-4 py-2.5 space-y-1.5">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t('calendar.spaceLayers')}</span>
+                <button onClick={() => setShowLayers(false)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={14} />
+                </button>
+              </div>
+              {layers.map((layer) => (
+                <button
+                  key={layer.spaceId}
+                  onClick={() => toggleLayer(layer.spaceId)}
+                  className={`w-full flex items-center gap-3 p-2 rounded-xl transition-all ${
+                    layer.visible ? "bg-gray-800/70" : "bg-gray-800/30 opacity-50"
+                  }`}
+                >
+                  <div className={`w-3 h-3 rounded-full bg-${mapSpaceColor(layer.color)}-500 ${layer.visible ? "" : "opacity-30"}`} />
+                  <span className="text-sm font-medium flex-1 text-left truncate">{layer.spaceName}</span>
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                    layer.visible ? "bg-blue-600 border-blue-600" : "border-gray-600"
+                  }`}>
+                    {layer.visible && <span className="text-white text-xs font-bold">✓</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
