@@ -559,6 +559,7 @@
     "yourRole": "Your role",
     "emptyOverview": "No chats or events yet. Invite members to get started.",
     "noChatsYet": "No chats in this space yet.",
+    "noSubroomAccess": "No access — a moderator must assign you a role.",
     "tab_overview": "Overview",
     "tab_chats": "Chats",
     "tab_members": "Members",

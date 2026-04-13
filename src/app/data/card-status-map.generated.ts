@@ -44,6 +44,7 @@ const cardStatusMap: Record<string, RoadmapStatus> = {
   "p2p-network/gossip-protocol": "done",
   "p2p-network/signaling": "done",
   "p2p-network/webrtc": "done",
+  "spaces/no-access-default": "wip",
   "spaces/role-permissions-extended": "wip",
   "spaces/space-management": "done",
   "spaces/space-sync": "done",

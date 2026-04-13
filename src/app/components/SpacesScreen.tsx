@@ -2014,8 +2014,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       spaceId: selectedSpace.id,
       name: "Allgemein",
       isGlobal: false,
-      readRoles: ["founder", "admin", "guest"],
-      writeRoles: ["founder", "admin", "guest"],
+      readRoles: ["founder", "admin"],
+      writeRoles: ["founder", "admin"],
       createdAt: new Date().toISOString(),
       unreadCount: 0,
     };
@@ -3651,7 +3651,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
               // ── Open Subroom View ──
               if (openSubroom) {
-                const subroomChannels = openSubroom.channels ?? [];
+                const subroomChannels = (openSubroom.channels ?? []).filter(ch => ch.readRoles.includes(myRole));
                 return (
                   <div className="space-y-3 -mt-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -3662,6 +3662,12 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       <h3 className="text-sm font-bold">{openSubroom.name}</h3>
                       <span className="text-xs text-gray-500 ml-auto">{openSubroom.memberIds.length} {t('spaces.members')}</span>
                     </div>
+                    {subroomChannels.length === 0 && !canManage && (
+                      <div className="text-center py-8 text-gray-600">
+                        <Lock size={24} className="mx-auto mb-2 opacity-50" />
+                        <p className="text-xs">{t('spaces.noSubroomAccess')}</p>
+                      </div>
+                    )}
                     {subroomChannels.map(ch => (
                       <button
                         key={ch.id}

@@ -707,6 +707,7 @@
     "yourRole": "Deine Rolle",
     "emptyOverview": "Noch keine Chats oder Termine. Lade Mitglieder ein um loszulegen.",
     "noChatsYet": "Noch keine Chats in diesem Space.",
+    "noSubroomAccess": "Kein Zugriff — ein Moderator muss dir eine Rolle zuweisen.",
     "tab_overview": "Übersicht",
     "tab_chats": "Chats",
     "tab_members": "Mitglieder",
