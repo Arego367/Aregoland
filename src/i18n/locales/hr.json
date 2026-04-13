@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Maks. 30 dana za ovu ulogu",
     "createChat": "Stvori razgovor",
     "chatNamePlaceholder": "Unesi naziv razgovora",
-    "writeAccess": "Pristup pisanju",
-    "readAccess": "Pristup čitanju",
+    "writeAccess": "Pisanje",
+    "readAccess": "Čitanje",
     "globalChatHint": "Samo Admini/Moderatori mogu pisati",
     "noMessagesYet": "Još nema poruka. Napiši prvu!",
     "chatInputPlaceholder": "Napiši poruku...",
@@ -729,7 +729,14 @@
     "customTag": "Stvori vlastitu oznaku",
     "selfExcludeChannel": "Isključi me iz ovog kanala",
     "reIncludeChannel": "Ponovno me uključi u ovaj kanal",
-    "excludedChannels": "Isključeni kanali"
+    "excludedChannels": "Isključeni kanali",
+    "channelRoleInfo": "Prikaži pristup uloga",
+    "channelRoleTransparencyTitle": "Tko ima pristup ovom kanalu?",
+    "readShort": "čitanje",
+    "writeShort": "pisanje",
+    "noRolesAssigned": "Nema dodijeljenih uloga",
+    "excludedMembersCount": "{{count}} član isključen",
+    "excludedMembersCount_plural": "{{count}} članova isključeno"
   },
   "childProfile": {
     "title": "Profili djece",

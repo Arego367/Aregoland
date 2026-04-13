@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Max. 30 zile pentru acest rol",
     "createChat": "Creează conversație",
     "chatNamePlaceholder": "Introdu numele conversației",
-    "writeAccess": "Acces la scriere",
-    "readAccess": "Acces la citire",
+    "writeAccess": "Scriere",
+    "readAccess": "Citire",
     "globalChatHint": "Doar adminii/moderatorii pot scrie",
     "noMessagesYet": "Încă fără mesaje. Scrie primul!",
     "chatInputPlaceholder": "Scrie mesaj...",
@@ -729,7 +729,14 @@
     "customTag": "Creează etichetă personalizată",
     "selfExcludeChannel": "Excludă-mă din acest canal",
     "reIncludeChannel": "Reinclude-mă în acest canal",
-    "excludedChannels": "Canale excluse"
+    "excludedChannels": "Canale excluse",
+    "channelRoleInfo": "Afișează acces rol",
+    "channelRoleTransparencyTitle": "Cine are acces la acest canal?",
+    "readShort": "citire",
+    "writeShort": "scriere",
+    "noRolesAssigned": "Niciun rol atribuit",
+    "excludedMembersCount": "{{count}} membru exclus",
+    "excludedMembersCount_plural": "{{count}} membri excluși"
   },
   "childProfile": {
     "title": "Profiluri copii",

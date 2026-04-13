@@ -618,8 +618,8 @@
     "ttlMaxForRole": "Maks. 30 dienų šiai rolei",
     "createChat": "Sukurti pokalbį",
     "chatNamePlaceholder": "Įveskite pokalbio pavadinimą",
-    "writeAccess": "Rašymo prieiga",
-    "readAccess": "Skaitymo prieiga",
+    "writeAccess": "Rašymas",
+    "readAccess": "Skaitymas",
     "globalChatHint": "Tik adminai/moderatoriai gali rašyti",
     "noMessagesYet": "Dar nėra žinučių. Parašyk pirmąją!",
     "chatInputPlaceholder": "Rašyti žinutę...",
@@ -730,7 +730,14 @@
     "customTag": "Sukurti savo žymą",
     "selfExcludeChannel": "Pašalinti save iš šio kanalo",
     "reIncludeChannel": "Vėl įtraukti save į šį kanalą",
-    "excludedChannels": "Pašalinti kanalai"
+    "excludedChannels": "Pašalinti kanalai",
+    "channelRoleInfo": "Rodyti rolių prieigą",
+    "channelRoleTransparencyTitle": "Kas turi prieigą prie šio kanalo?",
+    "readShort": "skait.",
+    "writeShort": "rašyt.",
+    "noRolesAssigned": "Nėra priskirtų rolių",
+    "excludedMembersCount": "{{count}} narys pašalintas",
+    "excludedMembersCount_plural": "{{count}} nariai pašalinti"
   },
   "childProfile": {
     "title": "Vaikų profiliai",

@@ -734,7 +734,16 @@
     "customTag": "Create custom tag",
     "selfExcludeChannel": "Exclude myself from this channel",
     "reIncludeChannel": "Re-include myself in this channel",
-    "excludedChannels": "Excluded channels"
+    "excludedChannels": "Excluded channels",
+    "channelRoleInfo": "Show role access",
+    "channelRoleTransparencyTitle": "Who has access to this channel?",
+    "readAccess": "Read access",
+    "writeAccess": "Write access",
+    "readShort": "read",
+    "writeShort": "write",
+    "noRolesAssigned": "No roles assigned",
+    "excludedMembersCount": "{{count}} member excluded",
+    "excludedMembersCount_plural": "{{count}} members excluded"
   },
   "childProfile": {
     "title": "Child Profiles",

@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Макс. 30 дней для этой роли",
     "createChat": "Создать чат",
     "chatNamePlaceholder": "Введите название чата",
-    "writeAccess": "Доступ на запись",
-    "readAccess": "Доступ на чтение",
+    "writeAccess": "Запись",
+    "readAccess": "Чтение",
     "globalChatHint": "Только админы/модераторы могут писать",
     "noMessagesYet": "Пока нет сообщений. Напишите первое!",
     "chatInputPlaceholder": "Написать сообщение...",
@@ -729,7 +729,14 @@
     "customTag": "Создать свой тег",
     "selfExcludeChannel": "Исключить себя из этого канала",
     "reIncludeChannel": "Вернуться в этот канал",
-    "excludedChannels": "Исключённые каналы"
+    "excludedChannels": "Исключённые каналы",
+    "channelRoleInfo": "Показать доступ по ролям",
+    "channelRoleTransparencyTitle": "Кто имеет доступ к этому каналу?",
+    "readShort": "чтение",
+    "writeShort": "запись",
+    "noRolesAssigned": "Роли не назначены",
+    "excludedMembersCount": "{{count}} участник исключён",
+    "excludedMembersCount_plural": "{{count}} участников исключено"
   },
   "childProfile": {
     "title": "Детские профили",

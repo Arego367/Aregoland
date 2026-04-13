@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Maks. 30 dienas šai lomai",
     "createChat": "Izveidot čatu",
     "chatNamePlaceholder": "Ievadi čata nosaukumu",
-    "writeAccess": "Rakstīšanas piekļuve",
-    "readAccess": "Lasīšanas piekļuve",
+    "writeAccess": "Rakstīšana",
+    "readAccess": "Lasīšana",
     "globalChatHint": "Tikai admini/moderatori var rakstīt",
     "noMessagesYet": "Vēl nav ziņu. Uzraksti pirmo!",
     "chatInputPlaceholder": "Rakstīt ziņu...",
@@ -729,7 +729,14 @@
     "customTag": "Izveidot savu birku",
     "selfExcludeChannel": "Izslēgt sevi no šī kanāla",
     "reIncludeChannel": "Atkārtoti iekļaut sevi šajā kanālā",
-    "excludedChannels": "Izslēgtie kanāli"
+    "excludedChannels": "Izslēgtie kanāli",
+    "channelRoleInfo": "Rādīt lomu piekļuvi",
+    "channelRoleTransparencyTitle": "Kam ir piekļuve šim kanālam?",
+    "readShort": "lasīt",
+    "writeShort": "rakstīt",
+    "noRolesAssigned": "Nav piešķirtu lomu",
+    "excludedMembersCount": "{{count}} dalībnieks izslēgts",
+    "excludedMembersCount_plural": "{{count}} dalībnieki izslēgti"
   },
   "childProfile": {
     "title": "Bērnu profili",

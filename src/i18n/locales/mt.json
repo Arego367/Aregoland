@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Mass. 30 jum għal dan ir-rwol",
     "createChat": "Oħloq chat",
     "chatNamePlaceholder": "Daħħal isem taċ-chat",
-    "writeAccess": "Aċċess għall-kitba",
-    "readAccess": "Aċċess għall-qari",
+    "writeAccess": "Kitba",
+    "readAccess": "Qari",
     "globalChatHint": "Admins/Moderaturi biss jistgħu jiktbu",
     "noMessagesYet": "Għad m'hemmx messaġġi. Ikteb l-ewwel wieħed!",
     "chatInputPlaceholder": "Ikteb messaġġ...",
@@ -729,7 +729,14 @@
     "customTag": "Oħloq tag personalizzat",
     "selfExcludeChannel": "Eskludi lili nnifsi minn dan il-kanal",
     "reIncludeChannel": "Erġa inkludini f'dan il-kanal",
-    "excludedChannels": "Kanali esklużi"
+    "excludedChannels": "Kanali esklużi",
+    "channelRoleInfo": "Uri l-aċċess tar-rwoli",
+    "channelRoleTransparencyTitle": "Min għandu aċċess għal din il-kanal?",
+    "readShort": "qari",
+    "writeShort": "kitba",
+    "noRolesAssigned": "L-ebda rwol assenjati",
+    "excludedMembersCount": "{{count}} membru eskluż",
+    "excludedMembersCount_plural": "{{count}} membri esklużi"
   },
   "childProfile": {
     "title": "Profili tat-Tfal",

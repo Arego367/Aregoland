@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Max 30 dagar för denna roll",
     "createChat": "Skapa chatt",
     "chatNamePlaceholder": "Ange chattnamn",
-    "writeAccess": "Skrivåtkomst",
-    "readAccess": "Läsåtkomst",
+    "writeAccess": "Skrivbehörighet",
+    "readAccess": "Läsbehörighet",
     "globalChatHint": "Bara admins/moderatorer kan skriva",
     "noMessagesYet": "Inga meddelanden ännu. Skriv det första!",
     "chatInputPlaceholder": "Skriv meddelande...",
@@ -729,7 +729,14 @@
     "customTag": "Skapa egen tagg",
     "selfExcludeChannel": "Uteslut mig från denna kanal",
     "reIncludeChannel": "Inkludera mig igen i denna kanal",
-    "excludedChannels": "Uteslutna kanaler"
+    "excludedChannels": "Uteslutna kanaler",
+    "channelRoleInfo": "Visa rollåtkomst",
+    "channelRoleTransparencyTitle": "Vem har åtkomst till denna kanal?",
+    "readShort": "läsa",
+    "writeShort": "skriva",
+    "noRolesAssigned": "Inga roller tilldelade",
+    "excludedMembersCount": "{{count}} medlem utesluten",
+    "excludedMembersCount_plural": "{{count}} medlemmar uteslutna"
   },
   "childProfile": {
     "title": "Barnprofiler",

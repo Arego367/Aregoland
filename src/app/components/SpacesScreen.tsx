@@ -619,6 +619,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [channelReadRoles, setChannelReadRoles] = useState<Set<string>>(new Set(["guest"]));
   const [channelMembersVisible, setChannelMembersVisible] = useState(true);
   const [openChannel, setOpenChannel] = useState<SpaceChannel | null>(null);
+  const [showChannelRoles, setShowChannelRoles] = useState(false);
   const [chatMessages, setChatMessages] = useState<SpaceChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -1706,6 +1707,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     setOpenChannel(null);
     setChatMessages([]);
     setChatInput("");
+    setShowChannelRoles(false);
   };
 
   const handleSendMessage = () => {
@@ -3475,7 +3477,74 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           <span>{t("spaceCall.activeParticipants", { count: spaceCallParticipants.length + 1 })}</span>
                         </button>
                       )}
+                      <button
+                        onClick={() => setShowChannelRoles(v => !v)}
+                        className={`p-2 rounded-full transition-all shrink-0 ${showChannelRoles ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-blue-400 hover:bg-blue-500/10"}`}
+                        title={t('spaces.channelRoleInfo')}
+                      >
+                        <Shield size={18} />
+                      </button>
                     </div>
+
+                    {/* Channel Role Transparency Panel */}
+                    <AnimatePresence>
+                      {showChannelRoles && selectedSpace && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden border-b border-gray-800 shrink-0"
+                        >
+                          <div className="px-4 py-3 bg-gray-800/30 space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-bold text-gray-400">
+                              <Eye size={12} />
+                              <span>{t('spaces.channelRoleTransparencyTitle')}</span>
+                            </div>
+                            {/* Read Roles */}
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">{t('spaces.readAccess')}</span>
+                              <div className="flex flex-wrap gap-1">
+                                {openChannel.readRoles.map(r => {
+                                  const customRole = selectedSpace.customRoles?.find(cr => cr.name === r);
+                                  return (
+                                    <span key={String(r)} className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-500/15 text-blue-400" style={customRole?.color ? { backgroundColor: `${customRole.color}20`, color: customRole.color } : undefined}>
+                                      {String(r)}
+                                    </span>
+                                  );
+                                })}
+                                {openChannel.readRoles.length === 0 && (
+                                  <span className="text-[10px] text-gray-600 italic">{t('spaces.noRolesAssigned')}</span>
+                                )}
+                              </div>
+                            </div>
+                            {/* Write Roles */}
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">{t('spaces.writeAccess')}</span>
+                              <div className="flex flex-wrap gap-1">
+                                {openChannel.writeRoles.map(r => {
+                                  const customRole = selectedSpace.customRoles?.find(cr => cr.name === r);
+                                  return (
+                                    <span key={String(r)} className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-green-500/15 text-green-400" style={customRole?.color ? { backgroundColor: `${customRole.color}20`, color: customRole.color } : undefined}>
+                                      {String(r)}
+                                    </span>
+                                  );
+                                })}
+                                {openChannel.writeRoles.length === 0 && (
+                                  <span className="text-[10px] text-gray-600 italic">{t('spaces.noRolesAssigned')}</span>
+                                )}
+                              </div>
+                            </div>
+                            {/* Excluded members count */}
+                            {(openChannel.excludedMemberIds?.length ?? 0) > 0 && (
+                              <div className="text-[10px] text-gray-500 flex items-center gap-1.5 pt-1 border-t border-gray-700/50">
+                                <EyeOff size={10} />
+                                <span>{t('spaces.excludedMembersCount', { count: openChannel.excludedMemberIds!.length })}</span>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
@@ -3686,8 +3755,20 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           <Hash size={16} className="text-gray-500 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium truncate">{ch.name}</div>
-                            {ch.lastMessage && (
+                            {ch.lastMessage ? (
                               <div className="text-xs text-gray-500 truncate mt-0.5">{ch.lastMessage}</div>
+                            ) : (
+                              <div className="flex flex-wrap gap-1 mt-0.5">
+                                {ch.readRoles.filter(r => r !== "founder" && r !== "admin").map(r => {
+                                  const canWrite = ch.writeRoles.includes(r);
+                                  const customRole = selectedSpace?.customRoles?.find(cr => cr.name === r);
+                                  return (
+                                    <span key={String(r)} className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${canWrite ? "bg-green-500/10 text-green-500" : "bg-blue-500/10 text-blue-400"}`} style={customRole?.color ? { backgroundColor: `${customRole.color}15`, color: customRole.color } : undefined}>
+                                      {String(r)} · {canWrite ? t('spaces.writeShort') : t('spaces.readShort')}
+                                    </span>
+                                  );
+                                })}
+                              </div>
                             )}
                           </div>
                         </button>
@@ -3784,8 +3865,20 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           <span className="text-sm font-medium truncate">{ch.name}</span>
                           {ch.isGlobal && <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-yellow-500/20 text-yellow-400 font-bold shrink-0">GLOBAL</span>}
                         </div>
-                        {ch.lastMessage && (
+                        {ch.lastMessage ? (
                           <div className="text-xs text-gray-500 truncate mt-0.5">{ch.lastMessage}</div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {ch.readRoles.filter(r => r !== "founder" && r !== "admin").map(r => {
+                              const canWrite = ch.writeRoles.includes(r);
+                              const customRole = selectedSpace?.customRoles?.find(cr => cr.name === r);
+                              return (
+                                <span key={String(r)} className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${canWrite ? "bg-green-500/10 text-green-500" : "bg-blue-500/10 text-blue-400"}`} style={customRole?.color ? { backgroundColor: `${customRole.color}15`, color: customRole.color } : undefined}>
+                                  {String(r)} · {canWrite ? t('spaces.writeShort') : t('spaces.readShort')}
+                                </span>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
                       {ch.lastMessageTime && (

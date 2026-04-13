@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Макс. 30 дни за тази роля",
     "createChat": "Създаване на чат",
     "chatNamePlaceholder": "Въведи име на чата",
-    "writeAccess": "Достъп за писане",
-    "readAccess": "Достъп за четене",
+    "writeAccess": "Писане",
+    "readAccess": "Четене",
     "globalChatHint": "Само админи/модератори могат да пишат",
     "noMessagesYet": "Все още няма съобщения. Напиши първото!",
     "chatInputPlaceholder": "Напиши съобщение...",
@@ -729,7 +729,14 @@
     "customTag": "Създаване на собствен таг",
     "selfExcludeChannel": "Изключи ме от този канал",
     "reIncludeChannel": "Включи ме отново в този канал",
-    "excludedChannels": "Изключени канали"
+    "excludedChannels": "Изключени канали",
+    "channelRoleInfo": "Покажи достъп по роли",
+    "channelRoleTransparencyTitle": "Кой има достъп до този канал?",
+    "readShort": "четене",
+    "writeShort": "писане",
+    "noRolesAssigned": "Няма зададени роли",
+    "excludedMembersCount": "{{count}} изключен член",
+    "excludedMembersCount_plural": "{{count}} изключени члена"
   },
   "childProfile": {
     "title": "Детски профили",

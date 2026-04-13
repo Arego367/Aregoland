@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Max. 30 dní pro tuto roli",
     "createChat": "Vytvořit chat",
     "chatNamePlaceholder": "Zadej název chatu",
-    "writeAccess": "Přístup pro zápis",
-    "readAccess": "Přístup pro čtení",
+    "writeAccess": "Zápis",
+    "readAccess": "Čtení",
     "globalChatHint": "Pouze admini/moderátoři mohou psát",
     "noMessagesYet": "Zatím žádné zprávy. Napiš první!",
     "chatInputPlaceholder": "Napsat zprávu...",
@@ -729,7 +729,14 @@
     "customTag": "Vytvořit vlastní štítek",
     "selfExcludeChannel": "Vyloučit se z tohoto kanálu",
     "reIncludeChannel": "Znovu se zahrnout do tohoto kanálu",
-    "excludedChannels": "Vyloučené kanály"
+    "excludedChannels": "Vyloučené kanály",
+    "channelRoleInfo": "Zobrazit přístup rolí",
+    "channelRoleTransparencyTitle": "Kdo má přístup k tomuto kanálu?",
+    "readShort": "čtení",
+    "writeShort": "zápis",
+    "noRolesAssigned": "Žádné role",
+    "excludedMembersCount": "{{count}} vyloučený člen",
+    "excludedMembersCount_plural": "{{count}} vyloučených členů"
   },
   "childProfile": {
     "title": "Dětské profily",

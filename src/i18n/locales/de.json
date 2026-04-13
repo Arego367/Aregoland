@@ -942,7 +942,16 @@
     "settingsGroupSecurity": "Sicherheit & Kontrolle",
     "selfExcludeChannel": "Mich aus diesem Kanal ausschließen",
     "reIncludeChannel": "Wieder in diesen Kanal einschließen",
-    "excludedChannels": "Ausgeschlossene Kanäle"
+    "excludedChannels": "Ausgeschlossene Kanäle",
+    "channelRoleInfo": "Rollen-Zugriff anzeigen",
+    "channelRoleTransparencyTitle": "Wer hat Zugriff auf diesen Kanal?",
+    "readAccess": "Lesezugriff",
+    "writeAccess": "Schreibzugriff",
+    "readShort": "lesen",
+    "writeShort": "schreiben",
+    "noRolesAssigned": "Keine Rollen zugewiesen",
+    "excludedMembersCount": "{{count}} Mitglied ausgeschlossen",
+    "excludedMembersCount_plural": "{{count}} Mitglieder ausgeschlossen"
   },
   "childProfile": {
     "title": "Kinder-Profile",

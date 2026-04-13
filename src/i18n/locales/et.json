@@ -729,7 +729,14 @@
     "customTag": "Loo kohandatud silt",
     "selfExcludeChannel": "Välista end sellest kanalist",
     "reIncludeChannel": "Lisa end uuesti sellesse kanalisse",
-    "excludedChannels": "Välistatud kanalid"
+    "excludedChannels": "Välistatud kanalid",
+    "channelRoleInfo": "Kuva rollipääs",
+    "channelRoleTransparencyTitle": "Kellel on sellele kanalile juurdepääs?",
+    "readShort": "lugem.",
+    "writeShort": "kirjut.",
+    "noRolesAssigned": "Rolle pole määratud",
+    "excludedMembersCount": "{{count}} liige välistatud",
+    "excludedMembersCount_plural": "{{count}} liiget välistatud"
   },
   "childProfile": {
     "title": "Laste profiilid",

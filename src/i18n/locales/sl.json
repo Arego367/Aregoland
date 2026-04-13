@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Največ 30 dni za to vlogo",
     "createChat": "Ustvari klepet",
     "chatNamePlaceholder": "Vnesi ime klepeta",
-    "writeAccess": "Pisalni dostop",
-    "readAccess": "Bralni dostop",
+    "writeAccess": "Pisanje",
+    "readAccess": "Branje",
     "globalChatHint": "Samo admini/moderatorji lahko pišejo",
     "noMessagesYet": "Še ni sporočil. Napiši prvo!",
     "chatInputPlaceholder": "Napiši sporočilo...",
@@ -729,7 +729,14 @@
     "customTag": "Ustvari lastno oznako",
     "selfExcludeChannel": "Izključi me iz tega kanala",
     "reIncludeChannel": "Ponovno me vključi v ta kanal",
-    "excludedChannels": "Izključeni kanali"
+    "excludedChannels": "Izključeni kanali",
+    "channelRoleInfo": "Prikaži dostop vlog",
+    "channelRoleTransparencyTitle": "Kdo ima dostop do tega kanala?",
+    "readShort": "branje",
+    "writeShort": "pisanje",
+    "noRolesAssigned": "Ni dodeljenih vlog",
+    "excludedMembersCount": "{{count}} član izključen",
+    "excludedMembersCount_plural": "{{count}} članov izključenih"
   },
   "childProfile": {
     "title": "Otroški profili",

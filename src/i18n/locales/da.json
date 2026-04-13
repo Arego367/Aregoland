@@ -729,7 +729,14 @@
     "customTag": "Opret eget tag",
     "selfExcludeChannel": "Udeluk mig fra denne kanal",
     "reIncludeChannel": "Inkluder mig igen i denne kanal",
-    "excludedChannels": "Udelukkede kanaler"
+    "excludedChannels": "Udelukkede kanaler",
+    "channelRoleInfo": "Vis rolleadgang",
+    "channelRoleTransparencyTitle": "Hvem har adgang til denne kanal?",
+    "readShort": "læse",
+    "writeShort": "skrive",
+    "noRolesAssigned": "Ingen roller tildelt",
+    "excludedMembersCount": "{{count}} medlem udelukket",
+    "excludedMembersCount_plural": "{{count}} medlemmer udelukket"
   },
   "childProfile": {
     "title": "Børneprofiler",

@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Μέγ. 30 ημέρες για αυτόν τον ρόλο",
     "createChat": "Δημιουργία συνομιλίας",
     "chatNamePlaceholder": "Εισαγωγή ονόματος συνομιλίας",
-    "writeAccess": "Δικαίωμα εγγραφής",
-    "readAccess": "Δικαίωμα ανάγνωσης",
+    "writeAccess": "Εγγραφή",
+    "readAccess": "Ανάγνωση",
     "globalChatHint": "Μόνο Διαχειριστές/Συντονιστές μπορούν να γράφουν",
     "noMessagesYet": "Δεν υπάρχουν ακόμα μηνύματα. Γράψε το πρώτο!",
     "chatInputPlaceholder": "Γράψε μήνυμα...",
@@ -729,7 +729,14 @@
     "customTag": "Δημιουργία προσαρμοσμένης ετικέτας",
     "selfExcludeChannel": "Αποκλεισμός εαυτού από αυτό το κανάλι",
     "reIncludeChannel": "Επανένταξη σε αυτό το κανάλι",
-    "excludedChannels": "Αποκλεισμένα κανάλια"
+    "excludedChannels": "Αποκλεισμένα κανάλια",
+    "channelRoleInfo": "Εμφάνιση πρόσβασης ρόλων",
+    "channelRoleTransparencyTitle": "Ποιος έχει πρόσβαση σε αυτό το κανάλι;",
+    "readShort": "ανάγν.",
+    "writeShort": "εγγρ.",
+    "noRolesAssigned": "Κανένας ρόλος",
+    "excludedMembersCount": "{{count}} μέλος εξαιρέθηκε",
+    "excludedMembersCount_plural": "{{count}} μέλη εξαιρέθηκαν"
   },
   "childProfile": {
     "title": "Προφίλ παιδιών",

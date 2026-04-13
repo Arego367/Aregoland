@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Макс. 30 днів для цієї ролі",
     "createChat": "Створити чат",
     "chatNamePlaceholder": "Введіть назву чату",
-    "writeAccess": "Доступ на запис",
-    "readAccess": "Доступ на читання",
+    "writeAccess": "Запис",
+    "readAccess": "Читання",
     "globalChatHint": "Тільки адміни/модератори можуть писати",
     "noMessagesYet": "Ще немає повідомлень. Напишіть перше!",
     "chatInputPlaceholder": "Написати повідомлення...",
@@ -729,7 +729,14 @@
     "customTag": "Створити власний тег",
     "selfExcludeChannel": "Виключити себе з цього каналу",
     "reIncludeChannel": "Повернутися до цього каналу",
-    "excludedChannels": "Виключені канали"
+    "excludedChannels": "Виключені канали",
+    "channelRoleInfo": "Показати доступ ролей",
+    "channelRoleTransparencyTitle": "Хто має доступ до цього каналу?",
+    "readShort": "читання",
+    "writeShort": "запис",
+    "noRolesAssigned": "Ролі не призначено",
+    "excludedMembersCount": "{{count}} учасник виключений",
+    "excludedMembersCount_plural": "{{count}} учасників виключено"
   },
   "childProfile": {
     "title": "Дитячі профілі",

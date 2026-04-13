@@ -729,7 +729,14 @@
     "customTag": "إنشاء وسم مخصص",
     "selfExcludeChannel": "استبعاد نفسي من هذه القناة",
     "reIncludeChannel": "إعادة تضميني في هذه القناة",
-    "excludedChannels": "القنوات المستبعدة"
+    "excludedChannels": "القنوات المستبعدة",
+    "channelRoleInfo": "عرض صلاحيات الأدوار",
+    "channelRoleTransparencyTitle": "من لديه حق الوصول إلى هذه القناة؟",
+    "readShort": "قراءة",
+    "writeShort": "كتابة",
+    "noRolesAssigned": "لا أدوار معينة",
+    "excludedMembersCount": "{{count}} عضو مستبعد",
+    "excludedMembersCount_plural": "{{count}} أعضاء مستبعدون"
   },
   "childProfile": {
     "title": "ملفات الأطفال",

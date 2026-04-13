@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Max. 30 nap ehhez a szerepkörhöz",
     "createChat": "Csevegés létrehozása",
     "chatNamePlaceholder": "Csevegés neve",
-    "writeAccess": "Írási jogosultság",
-    "readAccess": "Olvasási jogosultság",
+    "writeAccess": "Írás",
+    "readAccess": "Olvasás",
     "globalChatHint": "Csak adminok/moderátorok írhatnak",
     "noMessagesYet": "Még nincsenek üzenetek. Írd az elsőt!",
     "chatInputPlaceholder": "Üzenet írása...",
@@ -729,7 +729,14 @@
     "customTag": "Saját címke létrehozása",
     "selfExcludeChannel": "Kizárom magam ebből a csatornából",
     "reIncludeChannel": "Visszakerülés ebbe a csatornába",
-    "excludedChannels": "Kizárt csatornák"
+    "excludedChannels": "Kizárt csatornák",
+    "channelRoleInfo": "Szerepkör hozzáférés",
+    "channelRoleTransparencyTitle": "Kinek van hozzáférése ehhez a csatornához?",
+    "readShort": "olvasás",
+    "writeShort": "írás",
+    "noRolesAssigned": "Nincs szerep",
+    "excludedMembersCount": "{{count}} tag kizárva",
+    "excludedMembersCount_plural": "{{count}} tag kizárva"
   },
   "childProfile": {
     "title": "Gyermekprofilok",

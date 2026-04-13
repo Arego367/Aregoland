@@ -729,7 +729,14 @@
     "customTag": "Eigen tag aanmaken",
     "selfExcludeChannel": "Mezelf uitsluiten van dit kanaal",
     "reIncludeChannel": "Mezelf weer opnemen in dit kanaal",
-    "excludedChannels": "Uitgesloten kanalen"
+    "excludedChannels": "Uitgesloten kanalen",
+    "channelRoleInfo": "Roltoegang tonen",
+    "channelRoleTransparencyTitle": "Wie heeft toegang tot dit kanaal?",
+    "readShort": "lezen",
+    "writeShort": "schrijven",
+    "noRolesAssigned": "Geen rollen toegewezen",
+    "excludedMembersCount": "{{count}} lid uitgesloten",
+    "excludedMembersCount_plural": "{{count}} leden uitgesloten"
   },
   "childProfile": {
     "title": "Kinderprofielen",

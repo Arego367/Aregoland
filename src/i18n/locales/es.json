@@ -617,8 +617,8 @@
     "ttlMaxForRole": "Máx. 30 días para este rol",
     "createChat": "Crear chat",
     "chatNamePlaceholder": "Introducir nombre del chat",
-    "writeAccess": "Acceso de escritura",
-    "readAccess": "Acceso de lectura",
+    "writeAccess": "Escritura",
+    "readAccess": "Lectura",
     "globalChatHint": "Solo admins/moderadores pueden escribir",
     "noMessagesYet": "Aún no hay mensajes. ¡Escribe el primero!",
     "chatInputPlaceholder": "Escribir mensaje...",
@@ -729,7 +729,14 @@
     "customTag": "Crear etiqueta personalizada",
     "selfExcludeChannel": "Excluirme de este canal",
     "reIncludeChannel": "Reincluirme en este canal",
-    "excludedChannels": "Canales excluidos"
+    "excludedChannels": "Canales excluidos",
+    "channelRoleInfo": "Mostrar acceso por rol",
+    "channelRoleTransparencyTitle": "¿Quién tiene acceso a este canal?",
+    "readShort": "leer",
+    "writeShort": "escribir",
+    "noRolesAssigned": "Sin roles asignados",
+    "excludedMembersCount": "{{count}} miembro excluido",
+    "excludedMembersCount_plural": "{{count}} miembros excluidos"
   },
   "childProfile": {
     "title": "Perfiles infantiles",
