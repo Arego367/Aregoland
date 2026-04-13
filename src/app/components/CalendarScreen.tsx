@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat } from "lucide-react";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
-import type { CalendarEvent } from "@/app/types";
+import type { CalendarEvent, RecurrenceFreq } from "@/app/types";
+import { expandRecurrence, buildRRule, rruleLabel } from "@/app/lib/rrule";
 
 // ── Persistence ──────────────────────────────────────────────────────────────
 
@@ -46,6 +47,14 @@ const REMINDERS: { value: CalendarEvent["reminder"]; labelKey: string }[] = [
   { value: "30min", labelKey: "calendar.rem30min" },
   { value: "1h", labelKey: "calendar.rem1h" },
   { value: "1day", labelKey: "calendar.rem1day" },
+];
+
+const RECURRENCES: { value: RecurrenceFreq | "none"; labelKey: string }[] = [
+  { value: "none", labelKey: "calendar.recurNone" },
+  { value: "DAILY", labelKey: "calendar.recurDaily" },
+  { value: "WEEKLY", labelKey: "calendar.recurWeekly" },
+  { value: "MONTHLY", labelKey: "calendar.recurMonthly" },
+  { value: "YEARLY", labelKey: "calendar.recurYearly" },
 ];
 
 function toDateStr(d: Date): string {
@@ -166,15 +175,44 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
     events.forEach(scheduleReminder);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Compute a visible range for recurrence expansion based on current view
+  const expansionRange = useMemo(() => {
+    const d = new Date(selectedDate);
+    if (view === "month") {
+      const start = new Date(d.getFullYear(), d.getMonth(), 1);
+      start.setDate(start.getDate() - 7); // pad for prev month overflow
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      end.setDate(end.getDate() + 7); // pad for next month overflow
+      return { start: toDateStr(start), end: toDateStr(end) };
+    } else if (view === "week") {
+      const mon = new Date(d);
+      mon.setDate(mon.getDate() - weekdayMon(mon));
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      return { start: toDateStr(mon), end: toDateStr(sun) };
+    } else {
+      return { start: toDateStr(d), end: toDateStr(d) };
+    }
+  }, [selectedDate, view]);
+
   const eventsMap = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
     for (const ev of events) {
-      const list = m.get(ev.date) ?? [];
-      list.push(ev);
-      m.set(ev.date, list);
+      if (ev.rrule) {
+        const dates = expandRecurrence(ev.date, ev.rrule, expansionRange.start, expansionRange.end, ev.exdates);
+        for (const ds of dates) {
+          const list = m.get(ds) ?? [];
+          list.push({ ...ev, date: ds });
+          m.set(ds, list);
+        }
+      } else {
+        const list = m.get(ev.date) ?? [];
+        list.push(ev);
+        m.set(ev.date, list);
+      }
     }
     return m;
-  }, [events]);
+  }, [events, expansionRange]);
 
   const searchResults = useMemo(() => {
     if (!calSearchQuery.trim()) return [];
@@ -640,8 +678,17 @@ function EventFormModal({
   const [color, setColor] = useState(initial?.color ?? "blue");
   const [note, setNote] = useState(initial?.note ?? "");
 
+  // Recurrence state — derive initial freq from existing rrule
+  const initialFreq = (() => {
+    if (!initial?.rrule) return "none" as const;
+    const match = initial.rrule.match(/FREQ=(\w+)/);
+    return (match?.[1] as RecurrenceFreq) ?? ("none" as const);
+  })();
+  const [recurrence, setRecurrence] = useState<RecurrenceFreq | "none">(initialFreq);
+
   const handleSave = () => {
     if (!title.trim()) return;
+    const rrule = recurrence !== "none" ? buildRRule({ freq: recurrence }) : undefined;
     onSave({
       id: initial?.id ?? generateId(),
       title: title.trim(),
@@ -651,6 +698,8 @@ function EventFormModal({
       reminder,
       color,
       note: note.trim() || undefined,
+      rrule,
+      exdates: initial?.exdates,
     });
   };
 
@@ -736,6 +785,24 @@ function EventFormModal({
                 onClick={() => setReminder(r.value)}
                 className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
                   reminder === r.value ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+                }`}
+              >
+                {t(r.labelKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Recurrence */}
+        <div className="mb-4">
+          <label className="text-xs text-gray-500 font-bold mb-2 block">{t('calendar.recurrence')}</label>
+          <div className="flex flex-wrap gap-2">
+            {RECURRENCES.map((r) => (
+              <button
+                key={r.value}
+                onClick={() => setRecurrence(r.value)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                  recurrence === r.value ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
                 }`}
               >
                 {t(r.labelKey)}
@@ -830,6 +897,13 @@ function EventDetailModal({
         {event.reminder !== "none" && (
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
             <span>{t('calendar.reminderLabel', { label: t(REMINDERS.find((r) => r.value === event.reminder)?.labelKey ?? '') })}</span>
+          </div>
+        )}
+
+        {event.rrule && (
+          <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+            <Repeat size={14} />
+            <span>{rruleLabel(event.rrule, t)}</span>
           </div>
         )}
 

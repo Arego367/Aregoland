@@ -414,7 +414,17 @@
       "Sk"
     ],
     "searchPlaceholder": "Ieškoti įvykių...",
-    "noSearchResults": "Įvykis nerastas"
+    "noSearchResults": "Įvykis nerastas",
+    "recurrence": "Recurrence",
+    "recurNone": "None",
+    "recurDaily": "Daily",
+    "recurWeekly": "Weekly",
+    "recurMonthly": "Monthly",
+    "recurYearly": "Yearly",
+    "recurEveryNDays": "Every {{n}} days",
+    "recurEveryNWeeks": "Every {{n}} weeks",
+    "recurEveryNMonths": "Every {{n}} months",
+    "recurEveryNYears": "Every {{n}} years"
   },
   "call": {
     "micOn": "Mikrofonas įjungtas",

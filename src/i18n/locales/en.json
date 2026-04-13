@@ -414,7 +414,17 @@
       "Sun"
     ],
     "searchPlaceholder": "Search events...",
-    "noSearchResults": "No event found"
+    "noSearchResults": "No event found",
+    "recurrence": "Recurrence",
+    "recurNone": "None",
+    "recurDaily": "Daily",
+    "recurWeekly": "Weekly",
+    "recurMonthly": "Monthly",
+    "recurYearly": "Yearly",
+    "recurEveryNDays": "Every {{n}} days",
+    "recurEveryNWeeks": "Every {{n}} weeks",
+    "recurEveryNMonths": "Every {{n}} months",
+    "recurEveryNYears": "Every {{n}} years"
   },
   "call": {
     "micOn": "Microphone on",

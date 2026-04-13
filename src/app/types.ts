@@ -27,6 +27,8 @@ export interface Tab {
   hidden?: boolean;
 }
 
+export type RecurrenceFreq = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -36,6 +38,8 @@ export interface CalendarEvent {
   reminder: 'none' | '10min' | '30min' | '1h' | '1day';
   color: string;       // Tailwind color class prefix, e.g. 'blue', 'purple'
   note?: string;
+  rrule?: string;      // RFC 5545 RRULE string, e.g. "FREQ=WEEKLY;INTERVAL=1;COUNT=10"
+  exdates?: string[];  // Exception dates (YYYY-MM-DD) excluded from recurrence
 }
 
 export type { UserIdentity } from "@/app/auth/identity";

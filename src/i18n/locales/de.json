@@ -553,7 +553,17 @@
       "So"
     ],
     "searchPlaceholder": "Termine suchen...",
-    "noSearchResults": "Kein Termin gefunden"
+    "noSearchResults": "Kein Termin gefunden",
+    "recurrence": "Wiederholung",
+    "recurNone": "Keine",
+    "recurDaily": "Täglich",
+    "recurWeekly": "Wöchentlich",
+    "recurMonthly": "Monatlich",
+    "recurYearly": "Jährlich",
+    "recurEveryNDays": "Alle {{n}} Tage",
+    "recurEveryNWeeks": "Alle {{n}} Wochen",
+    "recurEveryNMonths": "Alle {{n}} Monate",
+    "recurEveryNYears": "Alle {{n}} Jahre"
   },
   "call": {
     "micOn": "Mikrofon an",
@@ -576,7 +586,7 @@
     "screenShareStop": "Teilen beenden",
     "screenShareActive": "Bildschirm wird geteilt",
     "screenShareRemote": "{{name}} teilt den Bildschirm",
-    "screenShareNotSupported": "Bildschirm teilen wird von diesem Browser nicht unterst\u00fctzt",
+    "screenShareNotSupported": "Bildschirm teilen wird von diesem Browser nicht unterstützt",
     "screenShareFskRequired": "Bildschirm teilen ab FSK 16"
   },
   "qrScreen": {
