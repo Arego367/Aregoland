@@ -6,6 +6,7 @@ import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
 import type { CalendarEvent, RecurrenceFreq } from "@/app/types";
 import { expandRecurrence, buildRRule, rruleLabel } from "@/app/lib/rrule";
+import { scheduleReminder as scheduleSWReminder, cancelReminder, checkReminders } from "@/app/lib/reminder-scheduler";
 
 // ── Persistence ──────────────────────────────────────────────────────────────
 
@@ -112,33 +113,7 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ── Reminder Scheduling ─────────────────────────────────────────────────────
-
-function scheduleReminder(ev: CalendarEvent) {
-  if (ev.reminder === "none" || ev.duration === "allday") return;
-  const [h, m] = ev.startTime.split(":").map(Number);
-  const eventDate = parseDate(ev.date);
-  eventDate.setHours(h, m, 0, 0);
-  let offsetMs = 0;
-  switch (ev.reminder) {
-    case "10min": offsetMs = 10 * 60_000; break;
-    case "30min": offsetMs = 30 * 60_000; break;
-    case "1h": offsetMs = 60 * 60_000; break;
-    case "1day": offsetMs = 24 * 60 * 60_000; break;
-  }
-  const fireAt = eventDate.getTime() - offsetMs;
-  const delay = fireAt - Date.now();
-  if (delay <= 0) return;
-  if (delay > 24 * 60 * 60_000) return; // nur innerhalb der nächsten 24h
-  setTimeout(() => {
-    if (Notification.permission === "granted") {
-      new Notification(`Termin: ${ev.title}`, {
-        body: `${ev.startTime} Uhr`,
-        icon: "/favicon.ico",
-      });
-    }
-  }, delay);
-}
+// ── Reminder Scheduling (delegated to Service Worker) ───────────────────────
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -169,10 +144,11 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
   // Persist
   useEffect(() => { saveEvents(events); }, [events]);
 
-  // Schedule reminders on load
+  // Schedule reminders via Service Worker on load
   useEffect(() => {
     if (Notification.permission === "default") Notification.requestPermission();
-    events.forEach(scheduleReminder);
+    events.forEach(scheduleSWReminder);
+    checkReminders();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compute a visible range for recurrence expansion based on current view
@@ -234,13 +210,14 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
       }
       return [...prev, ev];
     });
-    scheduleReminder(ev);
+    scheduleSWReminder(ev);
     setShowForm(false);
     setEditingEvent(null);
   }, []);
 
   const deleteEvent = useCallback((id: string) => {
     setEvents((prev) => prev.filter((e) => e.id !== id));
+    cancelReminder(id);
     setDetailEvent(null);
   }, []);
 

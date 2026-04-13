@@ -106,6 +106,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
       manifest: {
@@ -138,27 +141,9 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MiB — Bundle waechst durch 27 Sprachen
-        // Nur App-Shell cachen, keine API-Calls oder WebSocket-Verbindungen
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        navigateFallback: 'index.html',
-        runtimeCaching: [
-          {
-            // Statische Assets mit Cache-First
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|ico|woff|woff2)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'static-assets',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Tage
-              },
-            },
-          },
-        ],
-        // Signaling-WebSocket und API-Calls NICHT cachen
-        navigateFallbackDenylist: [/^\/ws-signal/, /^\/code/],
       },
       devOptions: {
         enabled: true,
