@@ -158,6 +158,7 @@ interface SpaceSubroom {
   id: string;
   spaceId: string;
   name: string;
+  creatorId?: string; // aregoId des Subroom-Erstellers (Moderator)
   memberIds: string[]; // Teilmenge der Space-Mitglieder (aregoIds)
   channels: SpaceChannel[];
   createdAt: string;
@@ -2014,8 +2015,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       spaceId: selectedSpace.id,
       name: "Allgemein",
       isGlobal: false,
-      readRoles: ["founder", "admin"],
-      writeRoles: ["founder", "admin"],
+      readRoles: [],
+      writeRoles: [],
       createdAt: new Date().toISOString(),
       unreadCount: 0,
     };
@@ -2023,6 +2024,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       id: subroomId,
       spaceId: selectedSpace.id,
       name: subroomName.trim(),
+      creatorId: identity?.aregoId,
       memberIds: Array.from(subroomMemberIds),
       channels: [generalChannel],
       createdAt: new Date().toISOString(),
@@ -3651,7 +3653,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
               // ── Open Subroom View ──
               if (openSubroom) {
-                const subroomChannels = (openSubroom.channels ?? []).filter(ch => ch.readRoles.includes(myRole));
+                const isSubroomCreator = openSubroom.creatorId === identity?.aregoId;
+                const subroomChannels = (openSubroom.channels ?? []).filter(ch => isSubroomCreator || ch.readRoles.includes(myRole));
                 return (
                   <div className="space-y-3 -mt-1">
                     <div className="flex items-center gap-3 mb-2">
