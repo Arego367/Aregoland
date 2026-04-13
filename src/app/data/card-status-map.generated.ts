@@ -47,6 +47,7 @@ const cardStatusMap: Record<string, RoadmapStatus> = {
   "spaces/no-access-default": "wip",
   "spaces/privacy-by-design-subrooms": "wip",
   "spaces/role-permissions-extended": "wip",
+  "spaces/subroom-gossip-sync": "wip",
   "spaces/space-management": "done",
   "spaces/space-sync": "done",
 };

@@ -1028,6 +1028,7 @@ export default function App() {
                 members: (space.members ?? []).map((m: any) => ({ aregoId: m.aregoId, displayName: m.displayName, role: m.role, joinedAt: m.joinedAt })),
                 channels: (space.channels ?? []).map((ch: any) => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, createdAt: ch.createdAt })),
                 customRoles: space.customRoles ?? [],
+                subrooms: (space.subrooms ?? []).map((sr: any) => ({ id: sr.id, spaceId: sr.spaceId, name: sr.name, creatorId: sr.creatorId, memberIds: sr.memberIds, channels: sr.channels ?? [], createdAt: sr.createdAt })),
                 tags: space.tags ?? [],
                 visibility: space.visibility ?? 'private',
                 guestPermissions: space.guestPermissions ?? { readChats: true },
@@ -1066,7 +1067,25 @@ export default function App() {
               members: msg.members ?? existing[idx]?.members ?? [],
               posts: existing[idx]?.posts ?? [],
               channels: msg.channels ?? existing[idx]?.channels ?? [],
-              subrooms: existing[idx]?.subrooms ?? [],
+              subrooms: (() => {
+                const local: any[] = existing[idx]?.subrooms ?? [];
+                const remote: any[] = msg.subrooms ?? [];
+                if (remote.length === 0) return local;
+                const merged = [...local];
+                for (const rSr of remote) {
+                  const li = merged.findIndex((s: any) => s.id === rSr.id);
+                  if (li >= 0) {
+                    // Merge: creator hat Autoritaet ueber Config, memberIds = Union
+                    const localSr = merged[li];
+                    const useRemote = !localSr.createdAt || rSr.createdAt > localSr.createdAt;
+                    const unionMembers = Array.from(new Set([...(localSr.memberIds ?? []), ...(rSr.memberIds ?? [])]));
+                    merged[li] = { ...(useRemote ? rSr : localSr), memberIds: unionMembers };
+                  } else {
+                    merged.push(rSr);
+                  }
+                }
+                return merged;
+              })(),
               customRoles: msg.customRoles ?? [],
               tags: msg.tags ?? [],
               guestPermissions: msg.guestPermissions ?? { readChats: true },

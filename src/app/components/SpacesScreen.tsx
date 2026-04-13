@@ -310,6 +310,7 @@ function buildSyncPayload(space: Space): SpaceSyncPayload {
     members: space.members.map(m => ({ aregoId: m.aregoId, displayName: m.displayName, role: m.role, joinedAt: m.joinedAt })),
     channels: space.channels.map(ch => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, createdAt: ch.createdAt })),
     customRoles: space.customRoles,
+    subrooms: (space.subrooms ?? []).map(sr => ({ id: sr.id, spaceId: sr.spaceId, name: sr.name, creatorId: sr.creatorId, memberIds: sr.memberIds, channels: sr.channels.map(ch => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, createdAt: ch.createdAt })), createdAt: sr.createdAt })),
     tags: space.tags ?? [],
     visibility: space.visibility,
     guestPermissions: space.guestPermissions,
@@ -3738,12 +3739,12 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   ))}
 
                   {/* Unterräume */}
-                  {(selectedSpace.subrooms ?? []).length > 0 && (
+                  {(() => { const mySubrooms = (selectedSpace.subrooms ?? []).filter(sr => sr.memberIds.includes(identity?.aregoId ?? '') || sr.creatorId === identity?.aregoId); return mySubrooms.length > 0 && (
                     <div className="mt-4 space-y-2">
                       <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 px-1">
                         <Layers size={12} /> {t('spaces.subrooms')}
                       </h3>
-                      {(selectedSpace.subrooms ?? []).map(sr => (
+                      {mySubrooms.map(sr => (
                         <button
                           key={sr.id}
                           onClick={() => setOpenSubroom(sr)}
@@ -3760,7 +3761,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                         </button>
                       ))}
                     </div>
-                  )}
+                  ); })()}
                 </>
               );
             })()}
