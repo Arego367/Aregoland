@@ -6,10 +6,87 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  detect-changes:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    outputs:
+      signaling_changed: ${{ steps.changes.outputs.signaling }}
+      frontend_changed: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Detect changed paths
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          echo "Changed files:"
+          echo "$CHANGED"
+          if echo "$CHANGED" | grep -q '^signaling-server/'; then
+            echo "signaling=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signaling=false" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$CHANGED" | grep -qv '^signaling-server/'; then
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "frontend=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-push:
+    needs: detect-changes
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Deploy Frontend
+        if: needs.detect-changes.outputs.frontend_changed == 'true'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /root/Aregoland
+            git fetch origin main
+            git reset --hard origin/main
+            ./restart-frontend.sh
+
+      - name: Pull code (signaling-only change)
+        if: needs.detect-changes.outputs.frontend_changed == 'false'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /root/Aregoland
+            git fetch origin main
+            git reset --hard origin/main
+
+      - name: Schedule signaling restart for midnight
+        if: needs.detect-changes.outputs.signaling_changed == 'true'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            FLAG="/root/.signaling-restart-pending"
+            echo "$(date -Iseconds) — Signaling-Änderungen erkannt, Restart auf Mitternacht verschoben" > "$FLAG"
+            echo "⏰ Signaling-Restart geplant für Mitternacht (00:00 UTC)"
+            echo "   Flag-Datei: $FLAG"
+
+      - name: Health Check
+        if: needs.detect-changes.outputs.frontend_changed == 'true'
+        run: |
+          sleep 5
+          curl -sf https://aregoland.de/api/health
+
+  deploy-manual:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Full Deploy (manual)
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
