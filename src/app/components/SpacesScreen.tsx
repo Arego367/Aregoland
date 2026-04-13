@@ -127,6 +127,7 @@ interface SpaceChannel {
   readRoles: (SpaceRole | string)[];  // Wer darf lesen (built-in + custom role names)
   writeRoles: (SpaceRole | string)[]; // Wer darf schreiben
   membersVisible: boolean; // Mitglieder sehen sich gegenseitig in diesem Chat
+  excludedMemberIds?: string[]; // Moderatoren die sich selbst ausgeschlossen haben (aregoIds)
   createdAt: string;
   lastMessage?: string;
   lastMessageTime?: string;
@@ -310,7 +311,7 @@ function buildSyncPayload(space: Space): SpaceSyncPayload {
     members: space.members.map(m => ({ aregoId: m.aregoId, displayName: m.displayName, role: m.role, joinedAt: m.joinedAt })),
     channels: space.channels.map(ch => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, createdAt: ch.createdAt })),
     customRoles: space.customRoles,
-    subrooms: (space.subrooms ?? []).map(sr => ({ id: sr.id, spaceId: sr.spaceId, name: sr.name, creatorId: sr.creatorId, memberIds: sr.memberIds, channels: sr.channels.map(ch => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, createdAt: ch.createdAt })), createdAt: sr.createdAt })),
+    subrooms: (space.subrooms ?? []).map(sr => ({ id: sr.id, spaceId: sr.spaceId, name: sr.name, creatorId: sr.creatorId, memberIds: sr.memberIds, channels: sr.channels.map(ch => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, excludedMemberIds: ch.excludedMemberIds, createdAt: ch.createdAt })), createdAt: sr.createdAt })),
     tags: space.tags ?? [],
     visibility: space.visibility,
     guestPermissions: space.guestPermissions,
@@ -3655,7 +3656,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               // ── Open Subroom View ──
               if (openSubroom) {
                 const isSubroomCreator = openSubroom.creatorId === identity?.aregoId;
-                const subroomChannels = (openSubroom.channels ?? []).filter(ch => isSubroomCreator || ch.readRoles.includes(myRole));
+                const myAregoId = identity?.aregoId ?? '';
+                const subroomChannels = (openSubroom.channels ?? []).filter(ch => {
+                  if (ch.excludedMemberIds?.includes(myAregoId)) return false;
+                  return isSubroomCreator || ch.readRoles.includes(myRole);
+                });
                 return (
                   <div className="space-y-3 -mt-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -3673,20 +3678,78 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       </div>
                     )}
                     {subroomChannels.map(ch => (
-                      <button
-                        key={ch.id}
-                        onClick={() => handleOpenChannel(ch)}
-                        className="w-full flex items-center gap-3 p-3 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-gray-600 transition-all text-left"
-                      >
-                        <Hash size={16} className="text-gray-500 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">{ch.name}</div>
-                          {ch.lastMessage && (
-                            <div className="text-xs text-gray-500 truncate mt-0.5">{ch.lastMessage}</div>
-                          )}
-                        </div>
-                      </button>
+                      <div key={ch.id} className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenChannel(ch)}
+                          className="flex-1 flex items-center gap-3 p-3 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-gray-600 transition-all text-left"
+                        >
+                          <Hash size={16} className="text-gray-500 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{ch.name}</div>
+                            {ch.lastMessage && (
+                              <div className="text-xs text-gray-500 truncate mt-0.5">{ch.lastMessage}</div>
+                            )}
+                          </div>
+                        </button>
+                        {isSubroomCreator && (
+                          <button
+                            onClick={() => {
+                              const excluded = ch.excludedMemberIds ?? [];
+                              const isExcluded = excluded.includes(myAregoId);
+                              const updatedChannels = (openSubroom.channels ?? []).map(c =>
+                                c.id !== ch.id ? c : { ...c, excludedMemberIds: isExcluded ? excluded.filter(id => id !== myAregoId) : [...excluded, myAregoId] }
+                              );
+                              const updatedSubrooms = (selectedSpace.subrooms ?? []).map(sr =>
+                                sr.id !== openSubroom.id ? sr : { ...sr, channels: updatedChannels }
+                              );
+                              const updated = { ...selectedSpace, subrooms: updatedSubrooms };
+                              updateSpace(updated);
+                              setOpenSubroom({ ...openSubroom, channels: updatedChannels });
+                            }}
+                            className="p-2 text-gray-500 hover:text-orange-400 rounded-lg hover:bg-orange-500/10 transition-all shrink-0"
+                            title={t('spaces.selfExcludeChannel')}
+                          >
+                            <EyeOff size={14} />
+                          </button>
+                        )}
+                      </div>
                     ))}
+                    {/* Excluded channels — moderator can re-include */}
+                    {isSubroomCreator && (() => {
+                      const excludedChannels = (openSubroom.channels ?? []).filter(ch => ch.excludedMemberIds?.includes(myAregoId));
+                      return excludedChannels.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <h4 className="text-[10px] font-bold text-gray-600 uppercase tracking-wider flex items-center gap-1.5 px-1">
+                            <EyeOff size={10} /> {t('spaces.excludedChannels')}
+                          </h4>
+                          {excludedChannels.map(ch => (
+                            <div key={ch.id} className="flex items-center gap-2">
+                              <div className="flex-1 flex items-center gap-3 p-3 bg-gray-800/30 rounded-xl border border-gray-700/30 opacity-50 text-left">
+                                <Hash size={16} className="text-gray-600 shrink-0" />
+                                <div className="text-sm font-medium truncate text-gray-500">{ch.name}</div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const updatedChannels = (openSubroom.channels ?? []).map(c =>
+                                    c.id !== ch.id ? c : { ...c, excludedMemberIds: (c.excludedMemberIds ?? []).filter(id => id !== myAregoId) }
+                                  );
+                                  const updatedSubrooms = (selectedSpace.subrooms ?? []).map(sr =>
+                                    sr.id !== openSubroom.id ? sr : { ...sr, channels: updatedChannels }
+                                  );
+                                  const updated = { ...selectedSpace, subrooms: updatedSubrooms };
+                                  updateSpace(updated);
+                                  setOpenSubroom({ ...openSubroom, channels: updatedChannels });
+                                }}
+                                className="p-2 text-gray-500 hover:text-green-400 rounded-lg hover:bg-green-500/10 transition-all shrink-0"
+                                title={t('spaces.reIncludeChannel')}
+                              >
+                                <Eye size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     {canManage && (
                       <button onClick={() => handleDeleteSubroom(openSubroom.id)} className="w-full flex items-center justify-center gap-2 p-2 text-red-400 text-xs hover:bg-red-500/10 rounded-xl transition-colors mt-2">
                         <Trash2 size={14} /> {t('spaces.deleteSubroom')}

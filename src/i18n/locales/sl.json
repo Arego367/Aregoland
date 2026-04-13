@@ -726,7 +726,10 @@
     "searchPlaceholder": "Išči prostor...",
     "noSearchResults": "Noben prostor ni najden",
     "tags": "Oznake",
-    "customTag": "Ustvari lastno oznako"
+    "customTag": "Ustvari lastno oznako",
+    "selfExcludeChannel": "Izključi me iz tega kanala",
+    "reIncludeChannel": "Ponovno me vključi v ta kanal",
+    "excludedChannels": "Izključeni kanali"
   },
   "childProfile": {
     "title": "Otroški profili",

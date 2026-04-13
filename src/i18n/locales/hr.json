@@ -726,7 +726,10 @@
     "searchPlaceholder": "Traži Space...",
     "noSearchResults": "Space nije pronađen",
     "tags": "Oznake",
-    "customTag": "Stvori vlastitu oznaku"
+    "customTag": "Stvori vlastitu oznaku",
+    "selfExcludeChannel": "Isključi me iz ovog kanala",
+    "reIncludeChannel": "Ponovno me uključi u ovaj kanal",
+    "excludedChannels": "Isključeni kanali"
   },
   "childProfile": {
     "title": "Profili djece",

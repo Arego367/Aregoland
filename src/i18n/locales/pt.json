@@ -726,7 +726,10 @@
     "searchPlaceholder": "Pesquisar espaço...",
     "noSearchResults": "Nenhum espaço encontrado",
     "tags": "Etiquetas",
-    "customTag": "Criar etiqueta personalizada"
+    "customTag": "Criar etiqueta personalizada",
+    "selfExcludeChannel": "Excluir-me deste canal",
+    "reIncludeChannel": "Reincluir-me neste canal",
+    "excludedChannels": "Canais excluídos"
   },
   "childProfile": {
     "title": "Perfis de crianças",

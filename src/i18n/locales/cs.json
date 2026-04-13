@@ -726,7 +726,10 @@
     "searchPlaceholder": "Hledat Space...",
     "noSearchResults": "Žádný Space nenalezen",
     "tags": "Štítky",
-    "customTag": "Vytvořit vlastní štítek"
+    "customTag": "Vytvořit vlastní štítek",
+    "selfExcludeChannel": "Vyloučit se z tohoto kanálu",
+    "reIncludeChannel": "Znovu se zahrnout do tohoto kanálu",
+    "excludedChannels": "Vyloučené kanály"
   },
   "childProfile": {
     "title": "Dětské profily",

@@ -726,7 +726,10 @@
     "searchPlaceholder": "Шукати Space...",
     "noSearchResults": "Space не знайдено",
     "tags": "Теги",
-    "customTag": "Створити власний тег"
+    "customTag": "Створити власний тег",
+    "selfExcludeChannel": "Виключити себе з цього каналу",
+    "reIncludeChannel": "Повернутися до цього каналу",
+    "excludedChannels": "Виключені канали"
   },
   "childProfile": {
     "title": "Дитячі профілі",

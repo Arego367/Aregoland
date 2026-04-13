@@ -726,7 +726,10 @@
     "searchPlaceholder": "Hae Spacea...",
     "noSearchResults": "Spacea ei löytynyt",
     "tags": "Tunnisteet",
-    "customTag": "Luo oma tunniste"
+    "customTag": "Luo oma tunniste",
+    "selfExcludeChannel": "Sulje minut pois tästä kanavasta",
+    "reIncludeChannel": "Lisää minut takaisin tähän kanavaan",
+    "excludedChannels": "Poissuljetut kanavat"
   },
   "childProfile": {
     "title": "Lasten profiilit",

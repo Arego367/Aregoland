@@ -726,7 +726,10 @@
     "searchPlaceholder": "Space zoeken...",
     "noSearchResults": "Geen Space gevonden",
     "tags": "Tags",
-    "customTag": "Eigen tag aanmaken"
+    "customTag": "Eigen tag aanmaken",
+    "selfExcludeChannel": "Mezelf uitsluiten van dit kanaal",
+    "reIncludeChannel": "Mezelf weer opnemen in dit kanaal",
+    "excludedChannels": "Uitgesloten kanalen"
   },
   "childProfile": {
     "title": "Kinderprofielen",

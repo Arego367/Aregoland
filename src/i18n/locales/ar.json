@@ -726,7 +726,10 @@
     "searchPlaceholder": "بحث عن Space...",
     "noSearchResults": "لم يتم العثور على Space",
     "tags": "وسوم",
-    "customTag": "إنشاء وسم مخصص"
+    "customTag": "إنشاء وسم مخصص",
+    "selfExcludeChannel": "استبعاد نفسي من هذه القناة",
+    "reIncludeChannel": "إعادة تضميني في هذه القناة",
+    "excludedChannels": "القنوات المستبعدة"
   },
   "childProfile": {
     "title": "ملفات الأطفال",

@@ -727,7 +727,10 @@
     "searchPlaceholder": "Ieškoti erdvės...",
     "noSearchResults": "Erdvė nerasta",
     "tags": "Žymos",
-    "customTag": "Sukurti savo žymą"
+    "customTag": "Sukurti savo žymą",
+    "selfExcludeChannel": "Pašalinti save iš šio kanalo",
+    "reIncludeChannel": "Vėl įtraukti save į šį kanalą",
+    "excludedChannels": "Pašalinti kanalai"
   },
   "childProfile": {
     "title": "Vaikų profiliai",

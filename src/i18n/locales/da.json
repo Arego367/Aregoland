@@ -726,7 +726,10 @@
     "searchPlaceholder": "Søg Space...",
     "noSearchResults": "Intet Space fundet",
     "tags": "Tags",
-    "customTag": "Opret eget tag"
+    "customTag": "Opret eget tag",
+    "selfExcludeChannel": "Udeluk mig fra denne kanal",
+    "reIncludeChannel": "Inkluder mig igen i denne kanal",
+    "excludedChannels": "Udelukkede kanaler"
   },
   "childProfile": {
     "title": "Børneprofiler",

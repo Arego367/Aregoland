@@ -726,7 +726,10 @@
     "searchPlaceholder": "Space keresése...",
     "noSearchResults": "Nem található Space",
     "tags": "Címkék",
-    "customTag": "Saját címke létrehozása"
+    "customTag": "Saját címke létrehozása",
+    "selfExcludeChannel": "Kizárom magam ebből a csatornából",
+    "reIncludeChannel": "Visszakerülés ebbe a csatornába",
+    "excludedChannels": "Kizárt csatornák"
   },
   "childProfile": {
     "title": "Gyermekprofilok",

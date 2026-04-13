@@ -726,7 +726,10 @@
     "searchPlaceholder": "Αναζήτηση Space...",
     "noSearchResults": "Δεν βρέθηκε Space",
     "tags": "Ετικέτες",
-    "customTag": "Δημιουργία προσαρμοσμένης ετικέτας"
+    "customTag": "Δημιουργία προσαρμοσμένης ετικέτας",
+    "selfExcludeChannel": "Αποκλεισμός εαυτού από αυτό το κανάλι",
+    "reIncludeChannel": "Επανένταξη σε αυτό το κανάλι",
+    "excludedChannels": "Αποκλεισμένα κανάλια"
   },
   "childProfile": {
     "title": "Προφίλ παιδιών",

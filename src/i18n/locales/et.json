@@ -726,7 +726,10 @@
     "searchPlaceholder": "Otsi Space'i...",
     "noSearchResults": "Space'i ei leitud",
     "tags": "Sildid",
-    "customTag": "Loo kohandatud silt"
+    "customTag": "Loo kohandatud silt",
+    "selfExcludeChannel": "Välista end sellest kanalist",
+    "reIncludeChannel": "Lisa end uuesti sellesse kanalisse",
+    "excludedChannels": "Välistatud kanalid"
   },
   "childProfile": {
     "title": "Laste profiilid",

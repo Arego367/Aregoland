@@ -939,7 +939,10 @@
     "settingsGroupAppearance": "Erscheinungsbild",
     "settingsGroupAccess": "Zugang & Sichtbarkeit",
     "settingsGroupManagement": "Verwaltung",
-    "settingsGroupSecurity": "Sicherheit & Kontrolle"
+    "settingsGroupSecurity": "Sicherheit & Kontrolle",
+    "selfExcludeChannel": "Mich aus diesem Kanal ausschließen",
+    "reIncludeChannel": "Wieder in diesen Kanal einschließen",
+    "excludedChannels": "Ausgeschlossene Kanäle"
   },
   "childProfile": {
     "title": "Kinder-Profile",

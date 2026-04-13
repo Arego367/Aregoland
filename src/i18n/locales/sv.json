@@ -726,7 +726,10 @@
     "searchPlaceholder": "Sök Space...",
     "noSearchResults": "Ingen Space hittad",
     "tags": "Taggar",
-    "customTag": "Skapa egen tagg"
+    "customTag": "Skapa egen tagg",
+    "selfExcludeChannel": "Uteslut mig från denna kanal",
+    "reIncludeChannel": "Inkludera mig igen i denna kanal",
+    "excludedChannels": "Uteslutna kanaler"
   },
   "childProfile": {
     "title": "Barnprofiler",

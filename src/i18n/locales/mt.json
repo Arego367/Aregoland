@@ -726,7 +726,10 @@
     "searchPlaceholder": "Fittex Space...",
     "noSearchResults": "L-ebda Space instab",
     "tags": "Tags",
-    "customTag": "Oħloq tag personalizzat"
+    "customTag": "Oħloq tag personalizzat",
+    "selfExcludeChannel": "Eskludi lili nnifsi minn dan il-kanal",
+    "reIncludeChannel": "Erġa inkludini f'dan il-kanal",
+    "excludedChannels": "Kanali esklużi"
   },
   "childProfile": {
     "title": "Profili tat-Tfal",

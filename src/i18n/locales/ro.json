@@ -726,7 +726,10 @@
     "searchPlaceholder": "Caută spațiu...",
     "noSearchResults": "Niciun spațiu găsit",
     "tags": "Etichete",
-    "customTag": "Creează etichetă personalizată"
+    "customTag": "Creează etichetă personalizată",
+    "selfExcludeChannel": "Excludă-mă din acest canal",
+    "reIncludeChannel": "Reinclude-mă în acest canal",
+    "excludedChannels": "Canale excluse"
   },
   "childProfile": {
     "title": "Profiluri copii",

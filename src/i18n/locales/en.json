@@ -731,7 +731,10 @@
     "searchPlaceholder": "Search space...",
     "noSearchResults": "No space found",
     "tags": "Tags",
-    "customTag": "Create custom tag"
+    "customTag": "Create custom tag",
+    "selfExcludeChannel": "Exclude myself from this channel",
+    "reIncludeChannel": "Re-include myself in this channel",
+    "excludedChannels": "Excluded channels"
   },
   "childProfile": {
     "title": "Child Profiles",

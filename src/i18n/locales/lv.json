@@ -726,7 +726,10 @@
     "searchPlaceholder": "Meklēt Space...",
     "noSearchResults": "Space nav atrasts",
     "tags": "Birkas",
-    "customTag": "Izveidot savu birku"
+    "customTag": "Izveidot savu birku",
+    "selfExcludeChannel": "Izslēgt sevi no šī kanāla",
+    "reIncludeChannel": "Atkārtoti iekļaut sevi šajā kanālā",
+    "excludedChannels": "Izslēgtie kanāli"
   },
   "childProfile": {
     "title": "Bērnu profili",

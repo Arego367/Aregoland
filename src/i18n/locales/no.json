@@ -726,7 +726,10 @@
     "searchPlaceholder": "Søk i Space...",
     "noSearchResults": "Ingen Space funnet",
     "tags": "Tagger",
-    "customTag": "Opprett egen tagg"
+    "customTag": "Opprett egen tagg",
+    "selfExcludeChannel": "Ekskluder meg fra denne kanalen",
+    "reIncludeChannel": "Inkluder meg igjen i denne kanalen",
+    "excludedChannels": "Ekskluderte kanaler"
   },
   "childProfile": {
     "title": "Barneprofiler",
