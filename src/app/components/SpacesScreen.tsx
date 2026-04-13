@@ -23,6 +23,7 @@ import QRCodeSvg from "react-qr-code";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import aregolandNews from "@/app/data/aregoland-news.json";
+import { roadmapSections, type RoadmapStatus } from "@/app/data/roadmap-cards";
 import SpaceCallOverlay from "./SpaceCallOverlay";
 import { SpaceCallManager, type SpaceCallState, type SpaceCallMode, type SpaceCallParticipant, type CallMediaType } from "@/app/lib/space-call-manager";
 
@@ -2821,8 +2822,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 Die Roadmap zeigt wohin die Reise geht — nicht in welcher Reihenfolge. Features entstehen wenn die Zeit reif ist, die Idee zuendet oder einfach Lust da ist. So wird gute Software gebaut.
               </p>
               {(() => {
-                const roadmapSections = [
-                  {
+                const sectionStyle: Record<RoadmapStatus, { key: string; label: string; icon: React.ReactNode; chevronColor: string; dotClass: string; labelColor: string; cardBg: string; cardIcon: React.ReactNode }> = {
+                  done: {
                     key: "done",
                     label: "Bereits fertig",
                     icon: <CheckCircle2 size={10} className="text-white" />,
@@ -2831,18 +2832,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     labelColor: "text-emerald-400",
                     cardBg: "bg-emerald-500/10 border-emerald-500/20",
                     cardIcon: <CheckCircle2 size={12} className="text-emerald-400 mt-0.5 shrink-0" />,
-                    items: [
-                      { title: "Messenger", desc: "Vollstaendig verschluesselter P2P-Chat mit Audio/Video-Anrufen, Sprachnachrichten und Dateiversand. Alles geht direkt von Geraet zu Geraet — kein Server sieht oder speichert deine Nachrichten. Dazu Online/Offline-Status und Browser-Benachrichtigungen, damit du nichts verpasst." },
-                      { title: "Kontakte", desc: "QR-Code scannen oder Kurzcode eingeben — fertig, Kontakt hinzugefuegt. Keine Handynummer noetig, keine Kontaktliste die hochgeladen wird. Du entscheidest wer dich erreichen darf." },
-                      { title: "Spaces", desc: "Digitale Raeume fuer Familien, Vereine, Schulen und Firmen. Mit Rollen-System (Gruender, Admin, Custom), QR-Einladungen, oeffentlicher Suche, Beitritts-Genehmigung und Echtzeit-Sync zwischen allen Mitgliedern via Gossip Protocol — komplett dezentral, kein Single Point of Failure." },
-                      { title: "Kalender", desc: "Monats-, Wochen- und Tagesansicht mit Event-Erstellung und Erinnerungen. Laeuft komplett lokal auf deinem Geraet. Spaeter kommen Familien-Kalender, Spaces-Kalender und P2P-Teilen dazu." },
-                      { title: "Profil & Sicherheit", desc: "Passwordlose Registrierung — kein Passwort, kein Datenleck, dein Geraet ist dein Schluessel. Dazu Kind-Konten mit FSK-Grundlage, Recovery per QR-Code oder Textschluessel, und ein vollstaendiges Profil mit Avatar, Adressen und Datenschutz-Einstellungen." },
-                      { title: "Sprachen", desc: "Aregoland spricht 24 Sprachen — alle EU-Sprachen plus Arabisch, Russisch und Ukrainisch. Damit moeglichst viele Menschen in Europa die App in ihrer Sprache nutzen koennen, von Anfang an." },
-                      { title: "PWA & Infrastruktur", desc: "Aregoland laeuft als Progressive Web App direkt im Browser — installierbar auf jedem Geraet, ohne App Store. Das ist unsere Beta-Phase: Nutzer koennen die App bereits testen und nutzen, waehrend wir parallel die nativen Apps fuer Google Play und Apple App Store vorbereiten. Dazu Prod-Build ueber Nginx, E-Mail-Weiterleitungen und PayPal-Spendensystem." },
-                      { title: "Aregoland Official Space", desc: "Unser zentraler Raum — hier findest du Neuigkeiten, diese Roadmap und den Support-Chat. Support-Anfragen werden automatisch als GitHub Issues erstellt, mit Arego-ID Vertrauenssystem und Rate-Limiting." },
-                    ],
                   },
-                  {
+                  wip: {
                     key: "wip",
                     label: "In Arbeit",
                     icon: <Hammer size={10} className="text-white" />,
@@ -2851,14 +2842,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     labelColor: "text-amber-400",
                     cardBg: "bg-amber-500/10 border-amber-500/20",
                     cardIcon: <Hammer size={12} className="text-amber-400 mt-0.5 shrink-0" />,
-                    items: [
-                      { title: "Spaces erweitern", desc: "Melde-System und Mitglieder-Kontrolle fuer Space-Admins, Video Calls und Streaming im Meeting- und Webinar-Modus. Spaces sollen der zentrale Ort werden, an dem Gruppen wirklich alles machen koennen." },
-                      { title: "Chat-Verbesserungen", desc: "Angepinnte Chats damit Wichtiges oben bleibt, und zwei getrennte Profile — privat und beruflich — die parallel laufen. So musst du nicht zwischen Apps wechseln." },
-                      { title: "Backup & Recovery", desc: "Erweitertes Backup im .arego Format, komplett E2E verschluesselt. Recovery per Datei-Upload und Shamir's Secret Sharing — dein Schluessel wird aufgeteilt, damit kein einzelner Punkt alles verlieren kann." },
-                      { title: "KI-Support", desc: "Ein persoenlicher Assistent direkt in der App. Beantwortet Fragen, hilft bei Problemen — ohne dass du die App verlassen musst." },
-                    ],
                   },
-                  {
+                  planned: {
                     key: "planned",
                     label: "Geplant",
                     icon: <Sparkles size={10} className="text-white" />,
@@ -2867,19 +2852,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     labelColor: "text-purple-400",
                     cardBg: "bg-purple-500/10 border-purple-500/20",
                     cardIcon: <Sparkles size={12} className="text-purple-400 mt-0.5 shrink-0" />,
-                    items: [
-                      { title: "World", desc: "Aregolands eigener Social-Feed. Nur verifizierte Nutzer posten, das FSK-System schuetzt Kinder automatisch. Kein Algorithmus, kein Infinite Scroll — stattdessen KI-gestuetzte Post-Erstellung und wissenschaftsbasierte Bildschirmzeit fuer Kinder." },
-                      { title: "Kinderschutz & EUDI Wallet", desc: "FSK wird vollstaendig: serverseitige Alterspruefung, Kinder unter 16 unsichtbar fuer Fremde. Das Ganze laeuft ueber die europaeische digitale Identitaet (EUDI Wallet) — die EU baut die Infrastruktur, wir liefern den Kanal. Sandbox 2026, Produktion Ende 2026." },
-                      { title: "Spaces als Plattform", desc: "Shop-System zum Verkaufen direkt im Space, EPC QR-Rechnungen fuer gebuehrenfreie SEPA-Zahlungen, und ein B2B-Layer als Privacy-first Alternative zu LinkedIn — Unternehmensseiten, Arbeitsplatz-Verifizierung, berufliche Identitaet ueber EUDI Wallet." },
-                      { title: "Kalender & Dokumente", desc: "Kalender waechst weiter: Kinder-Stundenplan, Familien-Termine P2P teilen, Spaces-Kalender, iCal Import/Export. Dazu P2P-Dokumentenaustausch mit Ordner-System und Ablaufdaten — fuer Behoerden, Schulen, Aerzte." },
-                      { title: "Institutionen & Politik", desc: "Gemeinden, Schulen und Vereine bekommen eigene Formulare mit EUDI-Anbindung. Die Politik-Kachel uebersetzt Gesetze in Alltagssprache und ermoeglicht anonymes Voting — Demokratie direkt in der App." },
-                      { title: "Native Apps", desc: "Google Play und Apple App Store — native Apps via Capacitor.js. Damit Aregoland aus der PWA-Beta rauswaechst und als vollwertige App auf jedem Smartphone laeuft." },
-                      { title: "Kinder-Medienzugang", desc: "Eigener Player mit Whitelist-Prinzip: Eltern fuegen erlaubte Kanaele hinzu, Kinder sehen nur diese. Kein Algorithmus, keine Als-naechstes-Falle. Mit Eltern-Abo (YouTube Premium) keine Werbung. Technologie: YouTube Data API." },
-                      { title: "Community-Schutz (Niu Niu Niu)", desc: "3-Stufen-System gegen Hass und Missbrauch — ohne Privacy zu opfern. Von Verwarnung ueber Einschraenkungen bis zur Polizei-Meldung per EUDI-Hash. Aregoland kennt nie die echte Identitaet. KI-Moderation plus Community-Moderatoren je Sprache." },
-                      { title: "Autonomes KI-Team", desc: "Nach dem Launch: KI-Agenten die Aregoland selbst organisieren — Support, Social Media, Marketing, Monitoring. Open Source auf eigenem Server. Erst wenn echte Nutzer da sind, nicht vorher." },
-                    ],
                   },
-                ];
+                };
+
+                const sections = roadmapSections.map(rs => ({ ...sectionStyle[rs.status], items: rs.items }));
 
                 return (
                   <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">
@@ -2888,7 +2864,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     </h3>
 
                     <div className="relative space-y-4 pl-6 before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-emerald-500 before:via-amber-500 before:to-purple-500">
-                      {roadmapSections.map((section) => (
+                      {sections.map((section) => (
                         <div key={section.key} className="relative">
                           <div className={`absolute -left-6 top-0.5 w-4 h-4 rounded-full ${section.dotClass} flex items-center justify-center`}>
                             {section.icon}
