@@ -736,7 +736,14 @@
     "writeShort": "kirj.",
     "noRolesAssigned": "Ei rooleja",
     "excludedMembersCount": "{{count}} jäsen poissuljettu",
-    "excludedMembersCount_plural": "{{count}} jäsentä poissuljettu"
+    "excludedMembersCount_plural": "{{count}} jäsentä poissuljettu",
+    "tab_myRooms": "Omat huoneet",
+    "myRoomsTitle": "Hallinnoimani huoneet",
+    "myRoomsCount": "huonetta",
+    "myRoomsEmpty": "Et hallinnoi vielä yhtään alahuonetta.",
+    "myRoomsChannels": "Kanavat",
+    "myRoomsMembers": "Jäsenet",
+    "channels": "Kanavat"
   },
   "childProfile": {
     "title": "Lasten profiilit",

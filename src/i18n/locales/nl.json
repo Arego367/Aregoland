@@ -736,7 +736,14 @@
     "writeShort": "schrijven",
     "noRolesAssigned": "Geen rollen toegewezen",
     "excludedMembersCount": "{{count}} lid uitgesloten",
-    "excludedMembersCount_plural": "{{count}} leden uitgesloten"
+    "excludedMembersCount_plural": "{{count}} leden uitgesloten",
+    "tab_myRooms": "Mijn kamers",
+    "myRoomsTitle": "Mijn beheerde kamers",
+    "myRoomsCount": "kamers",
+    "myRoomsEmpty": "Je beheert nog geen subkamers.",
+    "myRoomsChannels": "Kanalen",
+    "myRoomsMembers": "Leden",
+    "channels": "Kanalen"
   },
   "childProfile": {
     "title": "Kinderprofielen",

@@ -736,7 +736,14 @@
     "writeShort": "scrittura",
     "noRolesAssigned": "Nessun ruolo assegnato",
     "excludedMembersCount": "{{count}} membro escluso",
-    "excludedMembersCount_plural": "{{count}} membri esclusi"
+    "excludedMembersCount_plural": "{{count}} membri esclusi",
+    "tab_myRooms": "Le mie stanze",
+    "myRoomsTitle": "Le mie stanze gestite",
+    "myRoomsCount": "stanze",
+    "myRoomsEmpty": "Non gestisci ancora nessuna sotto-stanza.",
+    "myRoomsChannels": "Canali",
+    "myRoomsMembers": "Membri",
+    "channels": "Canali"
   },
   "childProfile": {
     "title": "Profili bambino",

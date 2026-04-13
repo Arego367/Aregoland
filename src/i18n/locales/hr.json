@@ -736,7 +736,14 @@
     "writeShort": "pisanje",
     "noRolesAssigned": "Nema dodijeljenih uloga",
     "excludedMembersCount": "{{count}} član isključen",
-    "excludedMembersCount_plural": "{{count}} članova isključeno"
+    "excludedMembersCount_plural": "{{count}} članova isključeno",
+    "tab_myRooms": "Moje sobe",
+    "myRoomsTitle": "Moje upravljane sobe",
+    "myRoomsCount": "soba",
+    "myRoomsEmpty": "Još ne upravljate nijednom podsobe.",
+    "myRoomsChannels": "Kanali",
+    "myRoomsMembers": "Članovi",
+    "channels": "Kanali"
   },
   "childProfile": {
     "title": "Profili djece",

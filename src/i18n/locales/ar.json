@@ -736,7 +736,14 @@
     "writeShort": "كتابة",
     "noRolesAssigned": "لا أدوار معينة",
     "excludedMembersCount": "{{count}} عضو مستبعد",
-    "excludedMembersCount_plural": "{{count}} أعضاء مستبعدون"
+    "excludedMembersCount_plural": "{{count}} أعضاء مستبعدون",
+    "tab_myRooms": "غرفي",
+    "myRoomsTitle": "غرفي المُدارة",
+    "myRoomsCount": "غرف",
+    "myRoomsEmpty": "أنت لا تدير أي غرف فرعية حتى الآن.",
+    "myRoomsChannels": "القنوات",
+    "myRoomsMembers": "الأعضاء",
+    "channels": "القنوات"
   },
   "childProfile": {
     "title": "ملفات الأطفال",

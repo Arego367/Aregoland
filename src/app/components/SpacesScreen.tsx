@@ -160,6 +160,7 @@ interface SpaceSubroom {
   spaceId: string;
   name: string;
   creatorId?: string; // aregoId des Subroom-Erstellers (Moderator)
+  moderatorId?: string; // expliziter Moderator (falls nicht der Ersteller)
   memberIds: string[]; // Teilmenge der Space-Mitglieder (aregoIds)
   channels: SpaceChannel[];
   createdAt: string;
@@ -311,7 +312,7 @@ function buildSyncPayload(space: Space): SpaceSyncPayload {
     members: space.members.map(m => ({ aregoId: m.aregoId, displayName: m.displayName, role: m.role, joinedAt: m.joinedAt })),
     channels: space.channels.map(ch => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, createdAt: ch.createdAt })),
     customRoles: space.customRoles,
-    subrooms: (space.subrooms ?? []).map(sr => ({ id: sr.id, spaceId: sr.spaceId, name: sr.name, creatorId: sr.creatorId, memberIds: sr.memberIds, channels: sr.channels.map(ch => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, excludedMemberIds: ch.excludedMemberIds, createdAt: ch.createdAt })), createdAt: sr.createdAt })),
+    subrooms: (space.subrooms ?? []).map(sr => ({ id: sr.id, spaceId: sr.spaceId, name: sr.name, creatorId: sr.creatorId, moderatorId: sr.moderatorId, memberIds: sr.memberIds, channels: sr.channels.map(ch => ({ id: ch.id, spaceId: ch.spaceId, name: ch.name, isGlobal: ch.isGlobal, readRoles: ch.readRoles, writeRoles: ch.writeRoles, membersVisible: ch.membersVisible, excludedMemberIds: ch.excludedMemberIds, createdAt: ch.createdAt })), createdAt: sr.createdAt })),
     tags: space.tags ?? [],
     visibility: space.visibility,
     guestPermissions: space.guestPermissions,
@@ -553,11 +554,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const bannerFileRef = useRef<HTMLInputElement>(null);
 
   // Detail
-  const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings" | "world">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings" | "world" | "myRooms">("overview");
 
   // Kachel-Grid Reihenfolge
-  type TileId = "news" | "chats" | "members" | "profile" | "settings" | "world";
-  const TILE_DEFAULTS: TileId[] = ["news", "chats", "members", "profile", "settings", "world"];
+  type TileId = "news" | "chats" | "members" | "profile" | "settings" | "world" | "myRooms";
+  const TILE_DEFAULTS: TileId[] = ["news", "chats", "myRooms", "members", "profile", "settings", "world"];
   const loadTileOrder = (spaceId: string): TileId[] => {
     try {
       const raw: TileId[] = JSON.parse(localStorage.getItem(`aregoland_space_tiles_${spaceId}`) ?? "[]");
@@ -3107,7 +3108,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               const isFounderOrAdmin = myRole === "founder" || myRole === "admin";
               const overviewCustomRole = (selectedSpace.customRoles ?? []).find(cr => cr.name === myRole);
               const canSeeAnySettings = isFounderOrAdmin || !!overviewCustomRole?.permissions.viewSettings;
-              const tiles = canSeeAnySettings ? allTiles : allTiles.filter(t => t !== "settings");
+              const tiles = allTiles.filter(t => {
+                if (t === "settings" && !canSeeAnySettings) return false;
+                if (t === "myRooms" && (selectedSpace.subrooms ?? []).filter(sr => sr.creatorId === identity?.aregoId || sr.moderatorId === identity?.aregoId).length === 0) return false;
+                return true;
+              });
 
               // Aktivitäts-Infos berechnen
               const newsCount = (selectedSpace.posts ?? []).length;
@@ -3124,6 +3129,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 return `Vor ${Math.floor(diff / 86_400_000)} T`;
               };
 
+              const myModeratorRooms = (selectedSpace.subrooms ?? []).filter(sr => sr.creatorId === identity?.aregoId || sr.moderatorId === identity?.aregoId);
               const TILE_CONFIG: Record<TileId, { icon: typeof Newspaper; color: string; gradient: string; label: string; desc: string; activity?: string }> = {
                 news: {
                   icon: Newspaper, color: "text-amber-400", gradient: "from-amber-600 to-orange-500",
@@ -3134,6 +3140,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   icon: MessageCircle, color: "text-blue-400", gradient: "from-blue-600 to-cyan-500",
                   label: t('spaces.tab_chats'), desc: `${(selectedSpace.channels ?? []).length} Kanäle`,
                   activity: lastChatTime ? `${timeAgo(lastChatTime)}${chatUnread > 0 ? ` · ${chatUnread} neu` : ""}` : undefined,
+                },
+                myRooms: {
+                  icon: LayoutGrid, color: "text-orange-400", gradient: "from-orange-600 to-red-500",
+                  label: t('spaces.tab_myRooms'), desc: `${myModeratorRooms.length} ${t('spaces.myRoomsCount')}`,
                 },
                 members: {
                   icon: Users, color: "text-green-400", gradient: "from-green-600 to-emerald-500",
@@ -3724,7 +3734,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
               // ── Open Subroom View ──
               if (openSubroom) {
-                const isSubroomCreator = openSubroom.creatorId === identity?.aregoId;
+                const isSubroomCreator = openSubroom.creatorId === identity?.aregoId || openSubroom.moderatorId === identity?.aregoId;
                 const myAregoId = identity?.aregoId ?? '';
                 const subroomChannels = (openSubroom.channels ?? []).filter(ch => {
                   if (ch.excludedMemberIds?.includes(myAregoId)) return false;
@@ -3895,7 +3905,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   ))}
 
                   {/* Unterräume */}
-                  {(() => { const mySubrooms = (selectedSpace.subrooms ?? []).filter(sr => sr.memberIds.includes(identity?.aregoId ?? '') || sr.creatorId === identity?.aregoId); return mySubrooms.length > 0 && (
+                  {(() => { const mySubrooms = (selectedSpace.subrooms ?? []).filter(sr => sr.memberIds.includes(identity?.aregoId ?? '') || sr.creatorId === identity?.aregoId || sr.moderatorId === identity?.aregoId); return mySubrooms.length > 0 && (
                     <div className="mt-4 space-y-2">
                       <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 px-1">
                         <Layers size={12} /> {t('spaces.subrooms')}
@@ -4407,6 +4417,75 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     </button>
                   )}
                 </>
+              );
+            })()}
+
+            {activeTab === "myRooms" && (() => {
+              const myAregoId = identity?.aregoId ?? '';
+              const moderatedRooms = (selectedSpace.subrooms ?? []).filter(sr => sr.creatorId === myAregoId || sr.moderatorId === myAregoId);
+
+              if (moderatedRooms.length === 0) {
+                return (
+                  <div className="text-center py-12 text-gray-600">
+                    <LayoutGrid size={32} className="mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">{t('spaces.myRoomsEmpty')}</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-1 px-1">
+                    <LayoutGrid size={14} className="text-orange-400" />
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t('spaces.myRoomsTitle')}</h3>
+                    <span className="text-[10px] text-gray-600 ml-auto">{moderatedRooms.length} {t('spaces.myRoomsCount')}</span>
+                  </div>
+                  {moderatedRooms.map(sr => {
+                    const memberCount = sr.memberIds.length;
+                    const channelCount = (sr.channels ?? []).length;
+                    return (
+                      <div key={sr.id} className="bg-gray-800/50 rounded-xl border border-orange-500/20 hover:border-orange-500/40 transition-all overflow-hidden">
+                        {/* Room header */}
+                        <button
+                          onClick={() => { setActiveTab("chats"); setOpenSubroom(sr); }}
+                          className="w-full flex items-center gap-3 p-3 text-left"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-600 to-red-500 flex items-center justify-center shrink-0">
+                            <Layers size={18} className="text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-bold truncate block">{sr.name}</span>
+                            <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-0.5">
+                              <span className="flex items-center gap-1"><Users size={10} /> {memberCount}</span>
+                              <span className="flex items-center gap-1"><Hash size={10} /> {channelCount} {t('spaces.channels')}</span>
+                            </div>
+                          </div>
+                          <ChevronRight size={16} className="text-gray-600 shrink-0" />
+                        </button>
+                        {/* Quick actions */}
+                        <div className="border-t border-gray-700/30 px-3 py-2 flex items-center gap-2">
+                          <button
+                            onClick={() => { setActiveTab("chats"); setOpenSubroom(sr); }}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                          >
+                            <Hash size={12} /> {t('spaces.myRoomsChannels')}
+                          </button>
+                          <div className="w-px h-4 bg-gray-700/50" />
+                          <button
+                            onClick={() => { setActiveTab("members"); }}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-green-400 hover:bg-green-500/10 rounded-lg transition-colors"
+                          >
+                            <Users size={12} /> {t('spaces.myRoomsMembers')}
+                          </button>
+                          <div className="w-px h-4 bg-gray-700/50" />
+                          <div className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-gray-600 cursor-default">
+                            <Calendar size={12} /> {t('spaces.comingSoon')}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               );
             })()}
 

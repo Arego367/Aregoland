@@ -736,7 +736,14 @@
     "writeShort": "εγγρ.",
     "noRolesAssigned": "Κανένας ρόλος",
     "excludedMembersCount": "{{count}} μέλος εξαιρέθηκε",
-    "excludedMembersCount_plural": "{{count}} μέλη εξαιρέθηκαν"
+    "excludedMembersCount_plural": "{{count}} μέλη εξαιρέθηκαν",
+    "tab_myRooms": "Τα δωμάτιά μου",
+    "myRoomsTitle": "Τα διαχειριζόμενα δωμάτιά μου",
+    "myRoomsCount": "δωμάτια",
+    "myRoomsEmpty": "Δεν διαχειρίζεστε ακόμη κανένα υποδωμάτιο.",
+    "myRoomsChannels": "Κανάλια",
+    "myRoomsMembers": "Μέλη",
+    "channels": "Κανάλια"
   },
   "childProfile": {
     "title": "Προφίλ παιδιών",

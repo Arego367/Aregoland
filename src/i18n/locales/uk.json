@@ -736,7 +736,14 @@
     "writeShort": "запис",
     "noRolesAssigned": "Ролі не призначено",
     "excludedMembersCount": "{{count}} учасник виключений",
-    "excludedMembersCount_plural": "{{count}} учасників виключено"
+    "excludedMembersCount_plural": "{{count}} учасників виключено",
+    "tab_myRooms": "Мої кімнати",
+    "myRoomsTitle": "Мої керовані кімнати",
+    "myRoomsCount": "кімнат",
+    "myRoomsEmpty": "Ви ще не керуєте підкімнатами.",
+    "myRoomsChannels": "Канали",
+    "myRoomsMembers": "Учасники",
+    "channels": "Канали"
   },
   "childProfile": {
     "title": "Дитячі профілі",

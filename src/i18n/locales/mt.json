@@ -736,7 +736,14 @@
     "writeShort": "kitba",
     "noRolesAssigned": "L-ebda rwol assenjati",
     "excludedMembersCount": "{{count}} membru eskluż",
-    "excludedMembersCount_plural": "{{count}} membri esklużi"
+    "excludedMembersCount_plural": "{{count}} membri esklużi",
+    "tab_myRooms": "Il-kmamar tiegħi",
+    "myRoomsTitle": "Il-kmamar immaniġġjati tiegħi",
+    "myRoomsCount": "kmamar",
+    "myRoomsEmpty": "Għadek m'intix timmaniġġja l-ebda subkamra.",
+    "myRoomsChannels": "Kanali",
+    "myRoomsMembers": "Membri",
+    "channels": "Kanali"
   },
   "childProfile": {
     "title": "Profili tat-Tfal",

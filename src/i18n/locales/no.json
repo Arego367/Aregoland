@@ -736,7 +736,14 @@
     "writeShort": "skrive",
     "noRolesAssigned": "Ingen roller tildelt",
     "excludedMembersCount": "{{count}} medlem ekskludert",
-    "excludedMembersCount_plural": "{{count}} medlemmer ekskludert"
+    "excludedMembersCount_plural": "{{count}} medlemmer ekskludert",
+    "tab_myRooms": "Mine rom",
+    "myRoomsTitle": "Mine administrerte rom",
+    "myRoomsCount": "rom",
+    "myRoomsEmpty": "Du administrerer ingen underrom ennå.",
+    "myRoomsChannels": "Kanaler",
+    "myRoomsMembers": "Medlemmer",
+    "channels": "Kanaler"
   },
   "childProfile": {
     "title": "Barneprofiler",

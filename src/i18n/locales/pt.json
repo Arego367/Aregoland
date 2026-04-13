@@ -736,7 +736,14 @@
     "writeShort": "escrever",
     "noRolesAssigned": "Sem papéis atribuídos",
     "excludedMembersCount": "{{count}} membro excluído",
-    "excludedMembersCount_plural": "{{count}} membros excluídos"
+    "excludedMembersCount_plural": "{{count}} membros excluídos",
+    "tab_myRooms": "Minhas salas",
+    "myRoomsTitle": "Minhas salas geridas",
+    "myRoomsCount": "salas",
+    "myRoomsEmpty": "Você não gerencia nenhuma sub-sala ainda.",
+    "myRoomsChannels": "Canais",
+    "myRoomsMembers": "Membros",
+    "channels": "Canais"
   },
   "childProfile": {
     "title": "Perfis de crianças",

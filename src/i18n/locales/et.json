@@ -736,7 +736,14 @@
     "writeShort": "kirjut.",
     "noRolesAssigned": "Rolle pole määratud",
     "excludedMembersCount": "{{count}} liige välistatud",
-    "excludedMembersCount_plural": "{{count}} liiget välistatud"
+    "excludedMembersCount_plural": "{{count}} liiget välistatud",
+    "tab_myRooms": "Minu toad",
+    "myRoomsTitle": "Minu hallatavad toad",
+    "myRoomsCount": "tuba",
+    "myRoomsEmpty": "Sa ei halda veel ühtegi alamtuba.",
+    "myRoomsChannels": "Kanalid",
+    "myRoomsMembers": "Liikmed",
+    "channels": "Kanalid"
   },
   "childProfile": {
     "title": "Laste profiilid",

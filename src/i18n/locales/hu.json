@@ -736,7 +736,14 @@
     "writeShort": "írás",
     "noRolesAssigned": "Nincs szerep",
     "excludedMembersCount": "{{count}} tag kizárva",
-    "excludedMembersCount_plural": "{{count}} tag kizárva"
+    "excludedMembersCount_plural": "{{count}} tag kizárva",
+    "tab_myRooms": "Szobáim",
+    "myRoomsTitle": "Kezelt szobáim",
+    "myRoomsCount": "szoba",
+    "myRoomsEmpty": "Még nem kezelsz alszobákat.",
+    "myRoomsChannels": "Csatornák",
+    "myRoomsMembers": "Tagok",
+    "channels": "Csatornák"
   },
   "childProfile": {
     "title": "Gyermekprofilok",

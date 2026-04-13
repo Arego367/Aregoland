@@ -736,7 +736,14 @@
     "writeShort": "rakstīt",
     "noRolesAssigned": "Nav piešķirtu lomu",
     "excludedMembersCount": "{{count}} dalībnieks izslēgts",
-    "excludedMembersCount_plural": "{{count}} dalībnieki izslēgti"
+    "excludedMembersCount_plural": "{{count}} dalībnieki izslēgti",
+    "tab_myRooms": "Manas istabas",
+    "myRoomsTitle": "Manas pārvaldītās istabas",
+    "myRoomsCount": "istabas",
+    "myRoomsEmpty": "Jūs vēl nepārvaldāt nevienu apakšistabu.",
+    "myRoomsChannels": "Kanāli",
+    "myRoomsMembers": "Dalībnieki",
+    "channels": "Kanāli"
   },
   "childProfile": {
     "title": "Bērnu profili",

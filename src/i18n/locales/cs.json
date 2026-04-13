@@ -736,7 +736,14 @@
     "writeShort": "zápis",
     "noRolesAssigned": "Žádné role",
     "excludedMembersCount": "{{count}} vyloučený člen",
-    "excludedMembersCount_plural": "{{count}} vyloučených členů"
+    "excludedMembersCount_plural": "{{count}} vyloučených členů",
+    "tab_myRooms": "Moje místnosti",
+    "myRoomsTitle": "Moje spravované místnosti",
+    "myRoomsCount": "místností",
+    "myRoomsEmpty": "Zatím nespravujete žádné podmístnosti.",
+    "myRoomsChannels": "Kanály",
+    "myRoomsMembers": "Členové",
+    "channels": "Kanály"
   },
   "childProfile": {
     "title": "Dětské profily",

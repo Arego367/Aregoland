@@ -737,7 +737,14 @@
     "writeShort": "rašyt.",
     "noRolesAssigned": "Nėra priskirtų rolių",
     "excludedMembersCount": "{{count}} narys pašalintas",
-    "excludedMembersCount_plural": "{{count}} nariai pašalinti"
+    "excludedMembersCount_plural": "{{count}} nariai pašalinti",
+    "tab_myRooms": "Mano kambariai",
+    "myRoomsTitle": "Mano valdomi kambariai",
+    "myRoomsCount": "kambariai",
+    "myRoomsEmpty": "Dar nevaldote jokių pokambarių.",
+    "myRoomsChannels": "Kanalai",
+    "myRoomsMembers": "Nariai",
+    "channels": "Kanalai"
   },
   "childProfile": {
     "title": "Vaikų profiliai",

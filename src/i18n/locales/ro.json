@@ -736,7 +736,14 @@
     "writeShort": "scriere",
     "noRolesAssigned": "Niciun rol atribuit",
     "excludedMembersCount": "{{count}} membru exclus",
-    "excludedMembersCount_plural": "{{count}} membri excluși"
+    "excludedMembersCount_plural": "{{count}} membri excluși",
+    "tab_myRooms": "Camerele mele",
+    "myRoomsTitle": "Camerele mele gestionate",
+    "myRoomsCount": "camere",
+    "myRoomsEmpty": "Nu gestionezi încă nicio subcameră.",
+    "myRoomsChannels": "Canale",
+    "myRoomsMembers": "Membri",
+    "channels": "Canale"
   },
   "childProfile": {
     "title": "Profiluri copii",

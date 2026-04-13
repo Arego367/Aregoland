@@ -246,7 +246,7 @@ export interface SpaceSyncPayload {
   visibility: string;
   guestPermissions: { readChats: boolean };
   settings: unknown;
-  subrooms?: { id: string; spaceId: string; name: string; creatorId?: string; memberIds: string[]; channels: unknown[]; createdAt: string }[];
+  subrooms?: { id: string; spaceId: string; name: string; creatorId?: string; moderatorId?: string; memberIds: string[]; channels: unknown[]; createdAt: string }[];
   appearance?: { icon?: { type: string; value: string }; banner?: { type: string; value: string } };
   versionMeta?: import('./gossip').SpaceVersionMeta;
 }

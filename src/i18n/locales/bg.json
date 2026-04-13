@@ -736,7 +736,14 @@
     "writeShort": "писане",
     "noRolesAssigned": "Няма зададени роли",
     "excludedMembersCount": "{{count}} изключен член",
-    "excludedMembersCount_plural": "{{count}} изключени члена"
+    "excludedMembersCount_plural": "{{count}} изключени члена",
+    "tab_myRooms": "Моите стаи",
+    "myRoomsTitle": "Моите управлявани стаи",
+    "myRoomsCount": "стаи",
+    "myRoomsEmpty": "Все още не управлявате подстаи.",
+    "myRoomsChannels": "Канали",
+    "myRoomsMembers": "Членове",
+    "channels": "Канали"
   },
   "childProfile": {
     "title": "Детски профили",

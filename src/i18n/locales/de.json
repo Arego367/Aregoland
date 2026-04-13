@@ -945,13 +945,18 @@
     "excludedChannels": "Ausgeschlossene Kanäle",
     "channelRoleInfo": "Rollen-Zugriff anzeigen",
     "channelRoleTransparencyTitle": "Wer hat Zugriff auf diesen Kanal?",
-    "readAccess": "Lesezugriff",
-    "writeAccess": "Schreibzugriff",
     "readShort": "lesen",
     "writeShort": "schreiben",
     "noRolesAssigned": "Keine Rollen zugewiesen",
     "excludedMembersCount": "{{count}} Mitglied ausgeschlossen",
-    "excludedMembersCount_plural": "{{count}} Mitglieder ausgeschlossen"
+    "excludedMembersCount_plural": "{{count}} Mitglieder ausgeschlossen",
+    "tab_myRooms": "Meine Räume",
+    "myRoomsTitle": "Meine verwalteten Räume",
+    "myRoomsCount": "Räume",
+    "myRoomsEmpty": "Du verwaltest aktuell keine Unterräume.",
+    "myRoomsChannels": "Kanäle",
+    "myRoomsMembers": "Mitglieder",
+    "channels": "Kanäle"
   },
   "childProfile": {
     "title": "Kinder-Profile",

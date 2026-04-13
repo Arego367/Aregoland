@@ -737,13 +737,18 @@
     "excludedChannels": "Excluded channels",
     "channelRoleInfo": "Show role access",
     "channelRoleTransparencyTitle": "Who has access to this channel?",
-    "readAccess": "Read access",
-    "writeAccess": "Write access",
     "readShort": "read",
     "writeShort": "write",
     "noRolesAssigned": "No roles assigned",
     "excludedMembersCount": "{{count}} member excluded",
-    "excludedMembersCount_plural": "{{count}} members excluded"
+    "excludedMembersCount_plural": "{{count}} members excluded",
+    "tab_myRooms": "My Rooms",
+    "myRoomsTitle": "My managed rooms",
+    "myRoomsCount": "rooms",
+    "myRoomsEmpty": "You are not managing any subrooms yet.",
+    "myRoomsChannels": "Channels",
+    "myRoomsMembers": "Members",
+    "channels": "Channels"
   },
   "childProfile": {
     "title": "Child Profiles",

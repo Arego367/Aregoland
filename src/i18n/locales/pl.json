@@ -736,7 +736,14 @@
     "writeShort": "zapis",
     "noRolesAssigned": "Brak ról",
     "excludedMembersCount": "{{count}} członek wykluczony",
-    "excludedMembersCount_plural": "{{count}} członków wykluczonych"
+    "excludedMembersCount_plural": "{{count}} członków wykluczonych",
+    "tab_myRooms": "Moje pokoje",
+    "myRoomsTitle": "Moje zarządzane pokoje",
+    "myRoomsCount": "pokoi",
+    "myRoomsEmpty": "Nie zarządzasz jeszcze żadnymi podpokojami.",
+    "myRoomsChannels": "Kanały",
+    "myRoomsMembers": "Członkowie",
+    "channels": "Kanały"
   },
   "childProfile": {
     "title": "Profile dzieci",

@@ -736,7 +736,14 @@
     "writeShort": "skriva",
     "noRolesAssigned": "Inga roller tilldelade",
     "excludedMembersCount": "{{count}} medlem utesluten",
-    "excludedMembersCount_plural": "{{count}} medlemmar uteslutna"
+    "excludedMembersCount_plural": "{{count}} medlemmar uteslutna",
+    "tab_myRooms": "Mina rum",
+    "myRoomsTitle": "Mina hanterade rum",
+    "myRoomsCount": "rum",
+    "myRoomsEmpty": "Du hanterar inga underrum ännu.",
+    "myRoomsChannels": "Kanaler",
+    "myRoomsMembers": "Medlemmar",
+    "channels": "Kanaler"
   },
   "childProfile": {
     "title": "Barnprofiler",
