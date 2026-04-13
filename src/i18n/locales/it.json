@@ -462,7 +462,18 @@
     "incomingAudio": "Chiamata in arrivo",
     "connecting": "Connessione in corso...",
     "reject": "Rifiuta",
-    "accept": "Accetta"
+    "accept": "Accetta",
+    "record": "Record",
+    "recordStart": "Start recording",
+    "recordStop": "Stop recording",
+    "recording": "Recording",
+    "recordConsentTitle": "Record this call?",
+    "recordConsentMessage": "{{name}} wants to record this call. All participants must agree.",
+    "recordConsentAccept": "Agree",
+    "recordConsentReject": "Decline",
+    "recordConsentWaiting": "Waiting for consent…",
+    "recordConsentRejected": "Recording declined",
+    "recordSaved": "Recording saved"
   },
   "qrScreen": {
     "title": "Codice QR",

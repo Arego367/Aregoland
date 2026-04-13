@@ -611,7 +611,18 @@
     "screenShareActive": "Bildschirm wird geteilt",
     "screenShareRemote": "{{name}} teilt den Bildschirm",
     "screenShareNotSupported": "Bildschirm teilen wird von diesem Browser nicht unterstützt",
-    "screenShareFskRequired": "Bildschirm teilen ab FSK 16"
+    "screenShareFskRequired": "Bildschirm teilen ab FSK 16",
+    "record": "Aufnahme",
+    "recordStart": "Aufnahme starten",
+    "recordStop": "Aufnahme beenden",
+    "recording": "Aufnahme läuft",
+    "recordConsentTitle": "Anruf aufnehmen?",
+    "recordConsentMessage": "{{name}} möchte diesen Anruf aufnehmen. Alle Teilnehmer müssen zustimmen.",
+    "recordConsentAccept": "Zustimmen",
+    "recordConsentReject": "Ablehnen",
+    "recordConsentWaiting": "Warte auf Zustimmung…",
+    "recordConsentRejected": "Aufnahme abgelehnt",
+    "recordSaved": "Aufnahme gespeichert"
   },
   "qrScreen": {
     "title": "QR-Code",

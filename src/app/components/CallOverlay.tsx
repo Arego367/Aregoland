@@ -7,11 +7,12 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, CameraOff, Wifi, Radio } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, CameraOff, Wifi, Radio, Circle, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { ImageWithFallback } from '@/app/components/ImageWithFallback';
 import type { ConnectionMode } from '@/app/lib/call-manager';
+import type { CallRecordingState, CallRecordingActions } from '@/app/hooks/useCallRecording';
 
 export type CallState = 'idle' | 'ringing' | 'incoming' | 'connecting' | 'active';
 export type CallType = 'audio' | 'video';
@@ -29,6 +30,9 @@ interface CallOverlayProps {
   cameraUnavailable?: boolean;
   /** Aktueller Verbindungsmodus: P2P, SFU oder TURN */
   connectionMode?: ConnectionMode;
+  /** Aufnahme-State und Actions */
+  recording?: CallRecordingState;
+  recordingActions?: CallRecordingActions;
 }
 
 // ── Control-Button ──────────────────────────────────────────────────────────
@@ -70,16 +74,18 @@ interface CallControlsProps {
   onToggleMute: () => void;
   onToggleCamera: () => void;
   onHangup: () => void;
+  recording?: CallRecordingState;
+  onRecordToggle?: () => void;
 }
 
 function CallControls({
   callType, cameraUnavailable, isMuted, isCameraOff,
   onToggleMute, onToggleCamera, onHangup,
+  recording, onRecordToggle,
 }: CallControlsProps) {
   const { t } = useTranslation();
   return (
     <div className="flex justify-center gap-6">
-      {/* Reihe 1: Kern-Controls */}
       <ControlButton
         icon={isMuted ? <MicOff size={24} /> : <Mic size={24} />}
         onClick={onToggleMute}
@@ -94,11 +100,14 @@ function CallControls({
           label={isCameraOff ? t('call.cameraOn') : t('call.cameraOff')}
         />
       )}
-      {/* Platzhalter für zukünftige Buttons:
-          - Desktop teilen (ScreenShare)
-          - Effekte / Hintergrund-Blur
-          - Layout wechseln (Grid/Speaker)
-      */}
+      {onRecordToggle && (
+        <ControlButton
+          icon={recording?.isRecording ? <Square size={24} /> : <Circle size={24} />}
+          onClick={onRecordToggle}
+          active={recording?.isRecording || recording?.consent === 'requesting'}
+          label={recording?.isRecording ? t('call.recordStop') : t('call.recordStart')}
+        />
+      )}
       <ControlButton
         icon={<PhoneOff size={24} />}
         onClick={onHangup}
@@ -127,10 +136,73 @@ function ConnectionModeIndicator({ mode, t }: { mode?: ConnectionMode; t: (key: 
   );
 }
 
+// ── Aufnahme-Einwilligungsdialog ───────────────────────────────────────────
+
+function RecordConsentDialog({
+  contactName, onAccept, onReject,
+}: { contactName: string; onAccept: () => void; onReject: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 mx-6 max-w-sm w-full shadow-2xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-3 bg-red-500/10 rounded-full">
+            <Circle size={24} className="text-red-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-white">{t('call.recordConsentTitle')}</h3>
+        </div>
+        <p className="text-sm text-gray-300 mb-6">
+          {t('call.recordConsentMessage', { name: contactName })}
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onReject}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors text-sm font-medium"
+          >
+            {t('call.recordConsentReject')}
+          </button>
+          <button
+            onClick={onAccept}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-500 transition-colors text-sm font-medium"
+          >
+            {t('call.recordConsentAccept')}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Aufnahme-Indikator ─────────────────────────────────────────────────────
+
+function RecordingIndicator({ elapsed }: { elapsed: number }) {
+  const { t } = useTranslation();
+  const formatTime = (s: number) =>
+    `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="inline-flex items-center gap-2 bg-red-600/90 px-3 py-1 rounded-full backdrop-blur-sm"
+    >
+      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+      <span className="text-xs text-white font-medium">{t('call.recording')} {formatTime(elapsed)}</span>
+    </motion.div>
+  );
+}
+
 export default function CallOverlay({
   callState, callType, contactName, contactAvatar,
   onAccept, onReject, onHangup, localStream, remoteStream,
   cameraUnavailable, connectionMode,
+  recording, recordingActions,
 }: CallOverlayProps) {
   const { t } = useTranslation();
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -193,6 +265,15 @@ export default function CallOverlay({
     if (video) { video.enabled = !video.enabled; setIsCameraOff(!video.enabled); }
   }, [localStream]);
 
+  const handleRecordToggle = useCallback(() => {
+    if (!recordingActions) return;
+    if (recording?.isRecording) {
+      recordingActions.stopRecording();
+    } else if (recording?.consent === 'idle' || recording?.consent === 'rejected') {
+      recordingActions.requestRecording();
+    }
+  }, [recording, recordingActions]);
+
   const formatTime = (s: number) =>
     `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 
@@ -247,7 +328,29 @@ export default function CallOverlay({
                   {formatTime(elapsed)}
                 </span>
                 <ConnectionModeIndicator mode={connectionMode} t={t} />
+                {recording?.isRecording && <RecordingIndicator elapsed={recording.elapsed} />}
+                {recording?.consent === 'requesting' && (
+                  <span className="text-xs text-yellow-400 bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
+                    {t('call.recordConsentWaiting')}
+                  </span>
+                )}
+                {recording?.consent === 'rejected' && (
+                  <span className="text-xs text-red-400 bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
+                    {t('call.recordConsentRejected')}
+                  </span>
+                )}
               </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Aufnahme-Einwilligungsdialog */}
+          <AnimatePresence>
+            {recording?.incomingRequest && recordingActions && (
+              <RecordConsentDialog
+                contactName={contactName}
+                onAccept={recordingActions.acceptRecording}
+                onReject={recordingActions.rejectRecording}
+              />
             )}
           </AnimatePresence>
 
@@ -309,7 +412,25 @@ export default function CallOverlay({
             {callState === 'active' && formatTime(elapsed)}
           </p>
           {callState === 'active' && <ConnectionModeIndicator mode={connectionMode} t={t} />}
+          {callState === 'active' && recording?.isRecording && <RecordingIndicator elapsed={recording.elapsed} />}
+          {callState === 'active' && recording?.consent === 'requesting' && (
+            <span className="text-xs text-yellow-400">{t('call.recordConsentWaiting')}</span>
+          )}
+          {callState === 'active' && recording?.consent === 'rejected' && (
+            <span className="text-xs text-red-400">{t('call.recordConsentRejected')}</span>
+          )}
           {callType === 'audio' && callState === 'active' && <audio ref={remoteVideoRef as any} autoPlay />}
+
+          {/* Aufnahme-Einwilligungsdialog (Audio) */}
+          <AnimatePresence>
+            {recording?.incomingRequest && recordingActions && (
+              <RecordConsentDialog
+                contactName={contactName}
+                onAccept={recordingActions.acceptRecording}
+                onReject={recordingActions.rejectRecording}
+              />
+            )}
+          </AnimatePresence>
         </div>
       )}
 
@@ -349,6 +470,8 @@ export default function CallOverlay({
                 onToggleMute={toggleMute}
                 onToggleCamera={toggleCamera}
                 onHangup={onHangup}
+                recording={recording}
+                onRecordToggle={callState === 'active' && recordingActions ? handleRecordToggle : undefined}
               />
             )}
           </motion.div>

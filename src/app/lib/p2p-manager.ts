@@ -109,7 +109,7 @@ interface Conn {
 /** Anruf-Signaling über den DataChannel */
 export interface CallSignal {
   _t: 'call';
-  action: 'offer' | 'answer' | 'ice' | 'hangup';
+  action: 'offer' | 'answer' | 'ice' | 'hangup' | 'record-request' | 'record-accept' | 'record-reject' | 'record-stop';
   callType: 'audio' | 'video';
   sdp?: string;
   candidate?: RTCIceCandidateInit;

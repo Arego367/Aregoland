@@ -10,6 +10,7 @@ import { loadHistory, saveHistory, clearHistory, type StoredMessage } from "@/ap
 import type { P2PStatus, CallSignal } from "@/app/lib/p2p-manager";
 import CallOverlay from './CallOverlay';
 import { CallManager, type CallState, type CallType } from '@/app/lib/call-manager';
+import { useCallRecording } from '@/app/hooks/useCallRecording';
 import { ContactDetailModal } from './ContactDetailModal';
 import { blockContact, isBlocked } from "@/app/auth/contacts";
 import data from '@emoji-mart/data';
@@ -299,14 +300,37 @@ export default function ChatScreen({
     cm.reject();
   }, [cm]);
 
+  // ── Call-Recording ──────────────────────────────────────────────────────────
+  const sendRecordSignal = useCallback(
+    (signal: CallSignal) => sendCallSignalRef.current(signal),
+    [],
+  );
+  const [recordingState, recordingActions] = useCallRecording(
+    sendRecordSignal, callType, localStream, remoteStream, chatName,
+  );
+
+  // Aufnahme aufräumen wenn Anruf endet
+  const prevCallStateRef = useRef(callState);
+  useEffect(() => {
+    if (prevCallStateRef.current !== 'idle' && callState === 'idle') {
+      recordingActions.cleanup();
+    }
+    prevCallStateRef.current = callState;
+  });
+
   // Call-Signal Handler registrieren
   useEffect(() => {
     const handler = (signal: CallSignal) => {
+      // Recording-Signale an den Hook weiterleiten
+      if (['record-request', 'record-accept', 'record-reject', 'record-stop'].includes(signal.action)) {
+        recordingActions.handleRecordingSignal(signal.action);
+        return;
+      }
       cm.handleSignal(signal, (s) => sendCallSignalRef.current(s));
     };
     registerCallSignalHandler(handler);
     return () => unregisterCallSignalHandler();
-  }, [roomId, registerCallSignalHandler, unregisterCallSignalHandler, cm]);
+  }, [roomId, registerCallSignalHandler, unregisterCallSignalHandler, cm, recordingActions]);
 
   // Auto-Start Anruf (aus Kontakt-Detail oder PeopleScreen)
   useEffect(() => {
@@ -1007,6 +1031,8 @@ export default function ChatScreen({
             localStream={localStream}
             remoteStream={remoteStream}
             cameraUnavailable={cameraUnavailable}
+            recording={recordingState}
+            recordingActions={recordingActions}
           />
         )}
       </AnimatePresence>

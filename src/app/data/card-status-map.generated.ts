@@ -11,12 +11,19 @@
 import type { RoadmapStatus } from "./roadmap-cards";
 
 const cardStatusMap: Record<string, RoadmapStatus> = {
+  "account/gdpr-export.card": "done",
   "account/profile": "done",
   "account/qr-code": "done",
   "account/settings": "done",
   "account/subscription": "done",
   "account/support": "wip",
   "calendar/events": "done",
+  "calendar/invitations.card": "done",
+  "calendar/push-reminders.card": "done",
+  "calendar/recurring-events.card": "done",
+  "calendar/space-layers.card": "done",
+  "calendar/time-blocks.card": "done",
+  "calls/call-recording.card": "done",
   "calls/voice-video": "done",
   "child-safety/child-profiles": "done",
   "child-safety/fsk-system": "done",
