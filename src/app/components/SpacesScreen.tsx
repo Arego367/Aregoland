@@ -7,13 +7,14 @@ import {
   Info, Check, X, GripVertical, UserPlus, Crown, Eye, ChevronDown,
   Pin, ThumbsUp, MessageSquare, Megaphone, Newspaper, Send, Lock, Layers,
   Paperclip, Mic, Play, Pause, Download, AtSign, Image as ImageIcon, FileText, Square,
-  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff, Camera, RotateCcw, Copy, LogOut, Phone, Video
+  Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff, Camera, RotateCcw, Copy, LogOut, Phone, Video,
+  ClipboardList, Filter
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { loadIdentity, type LinkedChild } from "@/app/auth/identity";
 import { loadFsk, type FskLevel } from "@/app/auth/fsk";
-import { addAbsenceStatus, queueAbsenceReport } from "@/app/lib/member-absence";
-import type { AbsenceStatusType } from "@/app/types";
+import { addAbsenceStatus, queueAbsenceReport, getActiveAbsences, getAbsencesBySpace, resolveVisibility, filterByVisibility } from "@/app/lib/member-absence";
+import type { AbsenceStatusType, MemberAbsenceStatus } from "@/app/types";
 import { loadContacts, removeContact } from "@/app/auth/contacts";
 import { Html5Qrcode } from "html5-qrcode";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -556,11 +557,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const bannerFileRef = useRef<HTMLInputElement>(null);
 
   // Detail
-  const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings" | "world" | "myRooms">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings" | "world" | "myRooms" | "status">("overview");
 
   // Kachel-Grid Reihenfolge
-  type TileId = "news" | "chats" | "members" | "profile" | "settings" | "world" | "myRooms";
-  const TILE_DEFAULTS: TileId[] = ["news", "chats", "myRooms", "members", "profile", "settings", "world"];
+  type TileId = "news" | "chats" | "members" | "profile" | "settings" | "world" | "myRooms" | "status";
+  const TILE_DEFAULTS: TileId[] = ["news", "chats", "myRooms", "status", "members", "profile", "settings", "world"];
   const loadTileOrder = (spaceId: string): TileId[] => {
     try {
       const raw: TileId[] = JSON.parse(localStorage.getItem(`aregoland_space_tiles_${spaceId}`) ?? "[]");
@@ -677,6 +678,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [newsFilter, setNewsFilter] = useState<"all" | "announcement" | "news" | "event">("all");
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [commentText, setCommentText] = useState<Record<string, string>>({});
+
+  // Status Board
+  const [statusFilter, setStatusFilter] = useState<AbsenceStatusType | "all">("all");
+  const [statusSort, setStatusSort] = useState<"name" | "date">("date");
 
   // Absence Report Modal
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
@@ -3160,7 +3165,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           )}
           <div className="absolute bottom-0 left-0 p-4 w-full z-10">
             <h1 className={`font-bold ${activeTab === "overview" ? "text-2xl" : "text-lg ml-10"}`}>
-              {activeTab === "overview" ? selectedSpace.name : activeTab === "members" ? `${selectedSpace.members.length} ${t('spaces.members')}` : t(`spaces.tab_${activeTab}`)}
+              {activeTab === "overview" ? selectedSpace.name : activeTab === "members" ? `${selectedSpace.members.length} ${t('spaces.members')}` : activeTab === "status" ? t('spaces.absenceStatusBoard') : t(`spaces.tab_${activeTab}`)}
             </h1>
           </div>
         </div>
@@ -3178,9 +3183,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               const isFounderOrAdmin = myRole === "founder" || myRole === "admin";
               const overviewCustomRole = (selectedSpace.customRoles ?? []).find(cr => cr.name === myRole);
               const canSeeAnySettings = isFounderOrAdmin || !!overviewCustomRole?.permissions.viewSettings;
+              const canViewAbsence = isFounderOrAdmin || !!overviewCustomRole?.permissions.viewAbsenceDetails;
               const tiles = allTiles.filter(t => {
                 if (t === "settings" && !canSeeAnySettings) return false;
                 if (t === "myRooms" && (selectedSpace.subrooms ?? []).filter(sr => sr.creatorId === identity?.aregoId || sr.moderatorId === identity?.aregoId).length === 0) return false;
+                if (t === "status" && !canViewAbsence) return false;
                 return true;
               });
 
@@ -3200,6 +3207,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               };
 
               const myModeratorRooms = (selectedSpace.subrooms ?? []).filter(sr => sr.creatorId === identity?.aregoId || sr.moderatorId === identity?.aregoId);
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const activeAbsenceCount = getActiveAbsences(selectedSpace.id, todayStr).length;
               const TILE_CONFIG: Record<TileId, { icon: typeof Newspaper; color: string; gradient: string; label: string; desc: string; activity?: string }> = {
                 news: {
                   icon: Newspaper, color: "text-amber-400", gradient: "from-amber-600 to-orange-500",
@@ -3231,6 +3240,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   icon: Globe, color: "text-cyan-400", gradient: "from-cyan-600 to-teal-500",
                   label: t('spaces.tab_world'), desc: "Öffentlicher Feed",
                   activity: "Bald verfügbar",
+                },
+                status: {
+                  icon: ClipboardList, color: "text-rose-400", gradient: "from-rose-600 to-pink-500",
+                  label: t('spaces.absenceStatusBoard'), desc: t('spaces.statusBoardDesc'),
+                  activity: activeAbsenceCount > 0 ? t('spaces.absenceAbsentCount', { count: activeAbsenceCount }) : undefined,
                 },
               };
 
@@ -5703,6 +5717,162 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-xl transition-colors">{t('spaces.deleteFinalConfirm')}</button>
                         <button onClick={() => setDeleteStep(0)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-xs font-medium rounded-xl hover:bg-gray-700 transition-colors">{t('common.cancel')}</button>
                       </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── STATUS TAB ── */}
+            {activeTab === "status" && (() => {
+              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "guest";
+              const isModRole = myRole === "founder" || myRole === "admin";
+              const statusCustomRole = (selectedSpace.customRoles ?? []).find(cr => cr.name === myRole);
+              const isModerator = isModRole || !!statusCustomRole?.permissions.viewAbsenceDetails;
+
+              if (!isModerator) return null; // guests have no access
+
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const viewerType = isModRole || statusCustomRole?.permissions.viewAbsenceDetails ? "moderator" : "member";
+              const visibility = resolveVisibility(viewerType, true);
+              const allAbsences = getAbsencesBySpace(selectedSpace.id);
+              const visibleAbsences = filterByVisibility(allAbsences, visibility) as MemberAbsenceStatus[];
+              const activeAbsences = visibleAbsences.filter(s => {
+                if (s.startDate > todayStr) return false;
+                if (s.endDate && s.endDate < todayStr) return false;
+                return true;
+              });
+
+              const filtered = (statusFilter === "all" ? activeAbsences : activeAbsences.filter(a => a.type === statusFilter));
+              const sorted = [...filtered].sort((a, b) => {
+                if (statusSort === "name") {
+                  const nameA = selectedSpace.members.find(m => m.aregoId === a.memberId)?.displayName ?? "";
+                  const nameB = selectedSpace.members.find(m => m.aregoId === b.memberId)?.displayName ?? "";
+                  return nameA.localeCompare(nameB);
+                }
+                return new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime();
+              });
+
+              const typeIcon = (type: AbsenceStatusType) => {
+                switch (type) {
+                  case "sick": return "🤒";
+                  case "vacation": return "🏖️";
+                  case "homeoffice": return "🏠";
+                  case "other": return "📋";
+                }
+              };
+              const typeColor = (type: AbsenceStatusType) => {
+                switch (type) {
+                  case "sick": return "text-red-400 bg-red-500/10 border-red-500/30";
+                  case "vacation": return "text-blue-400 bg-blue-500/10 border-blue-500/30";
+                  case "homeoffice": return "text-green-400 bg-green-500/10 border-green-500/30";
+                  case "other": return "text-gray-400 bg-gray-500/10 border-gray-500/30";
+                }
+              };
+
+              const totalMembers = selectedSpace.members.length;
+
+              return (
+                <div className="space-y-4">
+                  {/* Summary banner */}
+                  <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center">
+                          <ClipboardList size={20} className="text-rose-400" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-white">
+                            {viewerType === "moderator"
+                              ? t('spaces.statusBoardModeratorTitle')
+                              : t('spaces.absenceStatusBoard')}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {t('spaces.absenceAbsentCount', { count: activeAbsences.length })} / {totalMembers} {t('spaces.members')}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filters */}
+                  <div className="flex gap-2 flex-wrap">
+                    {(["all", "sick", "vacation", "homeoffice", "other"] as const).map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setStatusFilter(f)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                          statusFilter === f
+                            ? "border-rose-500 bg-rose-500/10 text-rose-300"
+                            : "border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600"
+                        }`}
+                      >
+                        {f === "all" ? t('spaces.filterAll') : `${typeIcon(f)} ${t(`spaces.absenceType${f.charAt(0).toUpperCase() + f.slice(1)}`)}`}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Sort toggle */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setStatusSort(statusSort === "name" ? "date" : "name")}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600 transition-all"
+                    >
+                      <ArrowUpDown size={12} />
+                      {statusSort === "name" ? t('spaces.sortByName') : t('spaces.sortByDate')}
+                    </button>
+                  </div>
+
+                  {/* Absence list */}
+                  {sorted.length === 0 ? (
+                    <div className="flex flex-col items-center py-10 text-center space-y-3">
+                      <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center">
+                        <CheckCircle2 size={28} className="text-green-500" />
+                      </div>
+                      <p className="text-sm text-gray-400">{t('spaces.absenceNoAbsences')}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {sorted.map(absence => {
+                        const member = selectedSpace.members.find(m => m.aregoId === absence.memberId);
+                        const reporter = viewerType === "moderator" && absence.reportedBy
+                          ? selectedSpace.members.find(m => m.aregoId === absence.reportedBy)
+                          : null;
+                        const dateLabel = absence.endDate
+                          ? `${absence.startDate} – ${absence.endDate}`
+                          : t('spaces.absenceSince', { date: absence.startDate });
+                        return (
+                          <div key={absence.id} className={`rounded-xl border p-3 ${typeColor(absence.type)}`}>
+                            <div className="flex items-start gap-3">
+                              <div className="text-lg mt-0.5">{typeIcon(absence.type)}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-white truncate">
+                                    {member?.displayName ?? absence.memberId}
+                                  </span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/50 text-gray-400 shrink-0">
+                                    {t(`spaces.absenceType${absence.type.charAt(0).toUpperCase() + absence.type.slice(1)}`)}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-0.5">{dateLabel}</div>
+                                {absence.label && viewerType === "moderator" && (
+                                  <div className="text-xs text-gray-400 mt-1">{absence.label}</div>
+                                )}
+                                {absence.note && viewerType === "moderator" && (
+                                  <div className="text-xs text-gray-500 mt-1 italic">
+                                    💬 {absence.note}
+                                  </div>
+                                )}
+                                {reporter && viewerType === "moderator" && (
+                                  <div className="text-[10px] text-gray-600 mt-1">
+                                    {t('spaces.absenceReportedBy')}: {reporter.displayName}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -787,7 +787,11 @@
     "bookingPreview": "Попередній перегляд",
     "bookingNoTemplates": "Шаблони відсутні",
     "bookingRequestSent": "Запит надіслано",
-    "bookingCounterProposal": "Контрпропозиція"
+    "bookingCounterProposal": "Контрпропозиція",
+    "statusBoardDesc": "Відсутності та статус",
+    "statusBoardModeratorTitle": "Огляд модератора",
+    "sortByName": "За ім'ям",
+    "sortByDate": "За датою"
   },
   "childProfile": {
     "title": "Дитячі профілі",

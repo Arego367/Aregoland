@@ -788,7 +788,11 @@
     "bookingPreview": "Peržiūra",
     "bookingNoTemplates": "Nėra šablonų",
     "bookingRequestSent": "Prašymas išsiųstas",
-    "bookingCounterProposal": "Kontrapasiūlymas"
+    "bookingCounterProposal": "Kontrapasiūlymas",
+    "statusBoardDesc": "Neatvykimai ir būsena",
+    "statusBoardModeratorTitle": "Moderatoriaus apžvalga",
+    "sortByName": "Pagal vardą",
+    "sortByDate": "Pagal datą"
   },
   "childProfile": {
     "title": "Vaikų profiliai",

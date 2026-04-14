@@ -787,7 +787,11 @@
     "bookingPreview": "Previzualizare",
     "bookingNoTemplates": "Niciun șablon disponibil",
     "bookingRequestSent": "Cerere trimisă",
-    "bookingCounterProposal": "Contrapropunere"
+    "bookingCounterProposal": "Contrapropunere",
+    "statusBoardDesc": "Absențe și stare",
+    "statusBoardModeratorTitle": "Prezentare moderator",
+    "sortByName": "După nume",
+    "sortByDate": "După dată"
   },
   "childProfile": {
     "title": "Profiluri copii",

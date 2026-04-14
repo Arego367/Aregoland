@@ -787,7 +787,11 @@
     "bookingPreview": "Anteprima",
     "bookingNoTemplates": "Nessun modello disponibile",
     "bookingRequestSent": "Richiesta inviata",
-    "bookingCounterProposal": "Controproposta"
+    "bookingCounterProposal": "Controproposta",
+    "statusBoardDesc": "Assenze e stato",
+    "statusBoardModeratorTitle": "Panoramica moderatore",
+    "sortByName": "Per nome",
+    "sortByDate": "Per data"
   },
   "childProfile": {
     "title": "Profili bambino",

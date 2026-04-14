@@ -787,7 +787,11 @@
     "bookingPreview": "Náhled",
     "bookingNoTemplates": "Žádné šablony k dispozici",
     "bookingRequestSent": "Žádost odeslána",
-    "bookingCounterProposal": "Protinávrh"
+    "bookingCounterProposal": "Protinávrh",
+    "statusBoardDesc": "Absence a stav",
+    "statusBoardModeratorTitle": "Přehled moderátora",
+    "sortByName": "Podle jména",
+    "sortByDate": "Podle data"
   },
   "childProfile": {
     "title": "Dětské profily",

@@ -787,7 +787,11 @@
     "bookingPreview": "Преглед",
     "bookingNoTemplates": "Няма налични шаблони",
     "bookingRequestSent": "Заявката е изпратена",
-    "bookingCounterProposal": "Контрапредложение"
+    "bookingCounterProposal": "Контрапредложение",
+    "statusBoardDesc": "Отсъствия и статус",
+    "statusBoardModeratorTitle": "Преглед на модератора",
+    "sortByName": "По име",
+    "sortByDate": "По дата"
   },
   "childProfile": {
     "title": "Детски профили",

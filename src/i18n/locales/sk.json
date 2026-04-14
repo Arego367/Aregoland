@@ -787,7 +787,11 @@
     "bookingPreview": "Náhľad",
     "bookingNoTemplates": "Žiadne šablóny k dispozícii",
     "bookingRequestSent": "Žiadosť odoslaná",
-    "bookingCounterProposal": "Protinávrh"
+    "bookingCounterProposal": "Protinávrh",
+    "statusBoardDesc": "Neprítomnosti a stav",
+    "statusBoardModeratorTitle": "Prehľad moderátora",
+    "sortByName": "Podľa mena",
+    "sortByDate": "Podľa dátumu"
   },
   "childProfile": {
     "title": "Detské profily",

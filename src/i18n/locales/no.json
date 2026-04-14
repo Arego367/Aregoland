@@ -787,7 +787,11 @@
     "bookingPreview": "Forhåndsvisning",
     "bookingNoTemplates": "Ingen maler tilgjengelige",
     "bookingRequestSent": "Forespørsel sendt",
-    "bookingCounterProposal": "Motforslag"
+    "bookingCounterProposal": "Motforslag",
+    "statusBoardDesc": "Fravær og status",
+    "statusBoardModeratorTitle": "Moderatoroversikt",
+    "sortByName": "Etter navn",
+    "sortByDate": "Etter dato"
   },
   "childProfile": {
     "title": "Barneprofiler",

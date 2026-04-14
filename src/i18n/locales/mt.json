@@ -787,7 +787,11 @@
     "bookingPreview": "Preview",
     "bookingNoTemplates": "L-ebda mudelli disponibbli",
     "bookingRequestSent": "Talba mibgħuta",
-    "bookingCounterProposal": "Kontro-proposta"
+    "bookingCounterProposal": "Kontro-proposta",
+    "statusBoardDesc": "Assenzas u status",
+    "statusBoardModeratorTitle": "Ħarsa ġenerali tal-moderatur",
+    "sortByName": "Skont l-isem",
+    "sortByDate": "Skont id-data"
   },
   "childProfile": {
     "title": "Profili tat-Tfal",

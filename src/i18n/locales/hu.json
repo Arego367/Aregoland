@@ -787,7 +787,11 @@
     "bookingPreview": "Előnézet",
     "bookingNoTemplates": "Nincsenek elérhető sablonok",
     "bookingRequestSent": "Kérés elküldve",
-    "bookingCounterProposal": "Ellenjavaslat"
+    "bookingCounterProposal": "Ellenjavaslat",
+    "statusBoardDesc": "Hiányzások és állapot",
+    "statusBoardModeratorTitle": "Moderátor áttekintés",
+    "sortByName": "Név szerint",
+    "sortByDate": "Dátum szerint"
   },
   "childProfile": {
     "title": "Gyermekprofilok",

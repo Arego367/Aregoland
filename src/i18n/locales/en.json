@@ -792,7 +792,11 @@
     "bookingPreview": "Preview",
     "bookingNoTemplates": "No templates available",
     "bookingRequestSent": "Request sent",
-    "bookingCounterProposal": "Counter proposal"
+    "bookingCounterProposal": "Counter proposal",
+    "statusBoardDesc": "Absences and status",
+    "statusBoardModeratorTitle": "Moderator Overview",
+    "sortByName": "By name",
+    "sortByDate": "By date"
   },
   "childProfile": {
     "title": "Child Profiles",

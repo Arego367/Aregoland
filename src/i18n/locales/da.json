@@ -787,7 +787,11 @@
     "bookingPreview": "Forhåndsvisning",
     "bookingNoTemplates": "Ingen skabeloner tilgængelige",
     "bookingRequestSent": "Anmodning sendt",
-    "bookingCounterProposal": "Modforslag"
+    "bookingCounterProposal": "Modforslag",
+    "statusBoardDesc": "Fravær og status",
+    "statusBoardModeratorTitle": "Moderatoroversigt",
+    "sortByName": "Efter navn",
+    "sortByDate": "Efter dato"
   },
   "childProfile": {
     "title": "Børneprofiler",

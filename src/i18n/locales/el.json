@@ -787,7 +787,11 @@
     "bookingPreview": "Προεπισκόπηση",
     "bookingNoTemplates": "Δεν υπάρχουν πρότυπα",
     "bookingRequestSent": "Αίτημα στάλθηκε",
-    "bookingCounterProposal": "Αντιπρόταση"
+    "bookingCounterProposal": "Αντιπρόταση",
+    "statusBoardDesc": "Απουσίες και κατάσταση",
+    "statusBoardModeratorTitle": "Επισκόπηση συντονιστή",
+    "sortByName": "Κατά όνομα",
+    "sortByDate": "Κατά ημερομηνία"
   },
   "childProfile": {
     "title": "Προφίλ παιδιών",

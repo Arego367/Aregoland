@@ -787,7 +787,11 @@
     "bookingPreview": "معاينة",
     "bookingNoTemplates": "لا توجد قوالب متاحة",
     "bookingRequestSent": "تم إرسال الطلب",
-    "bookingCounterProposal": "اقتراح مضاد"
+    "bookingCounterProposal": "اقتراح مضاد",
+    "statusBoardDesc": "الغيابات والحالة",
+    "statusBoardModeratorTitle": "نظرة عامة للمشرف",
+    "sortByName": "حسب الاسم",
+    "sortByDate": "حسب التاريخ"
   },
   "childProfile": {
     "title": "ملفات الأطفال",

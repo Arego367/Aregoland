@@ -787,7 +787,11 @@
     "bookingPreview": "Predogled",
     "bookingNoTemplates": "Ni razpoložljivih predlog",
     "bookingRequestSent": "Zahteva poslana",
-    "bookingCounterProposal": "Protiponudba"
+    "bookingCounterProposal": "Protiponudba",
+    "statusBoardDesc": "Odsotnosti in status",
+    "statusBoardModeratorTitle": "Pregled moderatorja",
+    "sortByName": "Po imenu",
+    "sortByDate": "Po datumu"
   },
   "childProfile": {
     "title": "Otroški profili",

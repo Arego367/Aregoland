@@ -787,7 +787,11 @@
     "bookingPreview": "Esikatselu",
     "bookingNoTemplates": "Ei malleja saatavilla",
     "bookingRequestSent": "Pyyntö lähetetty",
-    "bookingCounterProposal": "Vastaehdotus"
+    "bookingCounterProposal": "Vastaehdotus",
+    "statusBoardDesc": "Poissaolot ja tila",
+    "statusBoardModeratorTitle": "Moderaattorin yleiskatsaus",
+    "sortByName": "Nimen mukaan",
+    "sortByDate": "Päivämäärän mukaan"
   },
   "childProfile": {
     "title": "Lasten profiilit",

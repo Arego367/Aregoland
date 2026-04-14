@@ -787,7 +787,11 @@
     "bookingPreview": "Priekšskatījums",
     "bookingNoTemplates": "Nav pieejamu veidņu",
     "bookingRequestSent": "Pieprasījums nosūtīts",
-    "bookingCounterProposal": "Pretpiedāvājums"
+    "bookingCounterProposal": "Pretpiedāvājums",
+    "statusBoardDesc": "Prombūtnes un statuss",
+    "statusBoardModeratorTitle": "Moderatora pārskats",
+    "sortByName": "Pēc vārda",
+    "sortByDate": "Pēc datuma"
   },
   "childProfile": {
     "title": "Bērnu profili",

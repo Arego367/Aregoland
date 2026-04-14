@@ -981,7 +981,6 @@
     "absenceStatusBoard": "Status-Board",
     "absenceAbsentCount": "{{count}} abwesend",
     "absenceNoAbsences": "Keine Abwesenheiten",
-    "absenceDateRange": "Zeitraum",
     "absenceNoteForModerator": "Notiz für Moderator",
     "absenceReportedBy": "Gemeldet von",
     "absenceSince": "Seit {{date}}",
@@ -1001,7 +1000,9 @@
     "bookingPreview": "Vorschau",
     "bookingNoTemplates": "Keine Vorlagen vorhanden",
     "bookingRequestSent": "Anfrage gesendet",
-    "bookingCounterProposal": "Gegenvorschlag"
+    "bookingCounterProposal": "Gegenvorschlag",
+    "statusBoardDesc": "Abwesenheiten und Status",
+    "statusBoardModeratorTitle": "Moderator-Übersicht"
   },
   "childProfile": {
     "title": "Kinder-Profile",

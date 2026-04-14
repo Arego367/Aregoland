@@ -787,7 +787,11 @@
     "bookingPreview": "Предпросмотр",
     "bookingNoTemplates": "Шаблоны отсутствуют",
     "bookingRequestSent": "Запрос отправлен",
-    "bookingCounterProposal": "Контрпредложение"
+    "bookingCounterProposal": "Контрпредложение",
+    "statusBoardDesc": "Отсутствия и статус",
+    "statusBoardModeratorTitle": "Обзор модератора",
+    "sortByName": "По имени",
+    "sortByDate": "По дате"
   },
   "childProfile": {
     "title": "Детские профили",

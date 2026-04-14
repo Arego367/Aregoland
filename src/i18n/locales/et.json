@@ -787,7 +787,11 @@
     "bookingPreview": "Eelvaade",
     "bookingNoTemplates": "Malle pole saadaval",
     "bookingRequestSent": "Taotlus saadetud",
-    "bookingCounterProposal": "Vastupakkumine"
+    "bookingCounterProposal": "Vastupakkumine",
+    "statusBoardDesc": "Puudumised ja olek",
+    "statusBoardModeratorTitle": "Moderaatori ülevaade",
+    "sortByName": "Nime järgi",
+    "sortByDate": "Kuupäeva järgi"
   },
   "childProfile": {
     "title": "Laste profiilid",

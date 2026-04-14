@@ -787,7 +787,11 @@
     "bookingPreview": "Voorbeeld",
     "bookingNoTemplates": "Geen sjablonen beschikbaar",
     "bookingRequestSent": "Verzoek verzonden",
-    "bookingCounterProposal": "Tegenvoorstel"
+    "bookingCounterProposal": "Tegenvoorstel",
+    "statusBoardDesc": "Afwezigheden en status",
+    "statusBoardModeratorTitle": "Moderator overzicht",
+    "sortByName": "Op naam",
+    "sortByDate": "Op datum"
   },
   "childProfile": {
     "title": "Kinderprofielen",
