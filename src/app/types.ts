@@ -1,3 +1,23 @@
+// ── Absence / Status types ──
+
+export type AbsenceStatusType = "sick" | "vacation" | "homeoffice" | "other";
+
+export type AbsenceVisibility = "full" | "limited" | "none";
+
+export interface MemberAbsenceStatus {
+  id: string;
+  memberId: string;         // aregoId
+  spaceId: string;
+  type: AbsenceStatusType;
+  label?: string;           // Freitext für "other"
+  startDate: string;        // ISO YYYY-MM-DD
+  endDate?: string;         // optional, für mehrtägig
+  note?: string;            // nur für Moderator sichtbar
+  reportedAt: string;       // ISO datetime
+  reportedBy: string;       // aregoId (Eltern melden für Kind)
+  childId?: string;         // wenn Elternteil für Kind meldet
+}
+
 export interface Contact {
   id: string;
   name: string;
