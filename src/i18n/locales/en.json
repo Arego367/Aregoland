@@ -865,7 +865,12 @@
     "childScheduleNotes": "Notes",
     "childScheduleNotesPlaceholder": "e.g. Wednesday no OGS",
     "childScheduleConfigured": "Configured",
-    "childScheduleNotConfigured": "Not configured yet"
+    "childScheduleNotConfigured": "Not configured yet",
+    "dayPlanTitle": "Day Plan",
+    "dayPlanToday": "Today",
+    "dayPlanTomorrow": "Tomorrow",
+    "dayPlanNoSchool": "No school",
+    "dayPlanEmpty": "No entries for this day"
   },
   "childProfile": {
     "title": "Child Profiles",

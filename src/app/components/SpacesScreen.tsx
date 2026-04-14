@@ -15,9 +15,9 @@ import { loadIdentity, isChildAccount, type LinkedChild } from "@/app/auth/ident
 import { loadFsk, type FskLevel } from "@/app/auth/fsk";
 import { addAbsenceStatus, queueAbsenceReport, getActiveAbsences, getAbsencesBySpace, resolveVisibility, filterByVisibility } from "@/app/lib/member-absence";
 import { getEntriesBySpace, addTimetableEntry, updateTimetableEntry, deleteTimetableEntry } from "@/app/lib/timetable";
-import { getConfigByChild, addScheduleConfig, updateScheduleConfig } from "@/app/lib/school-schedule";
+import { getConfigByChild, addScheduleConfig, updateScheduleConfig, buildDayPlan, getHolidayForDate } from "@/app/lib/school-schedule";
 import { notifyCancellation } from "@/app/lib/reminder-scheduler";
-import type { TimetableEntry, TimetableEntryStatus, ChildScheduleConfig } from "@/app/types";
+import type { TimetableEntry, TimetableEntryStatus, ChildScheduleConfig, DayPlanEntry, DayPlanEntryType } from "@/app/types";
 import { addTemplate, generateSlots, getTemplatesBySpace, getFreeSlots, countMemberBookings, updateSlotStatus, filterSlotsForMember, addRequest } from "@/app/lib/booking";
 import type { AbsenceStatusType, MemberAbsenceStatus, SlotFlexibility, BookingTemplate, BookingSlot } from "@/app/types";
 import { loadContacts, removeContact } from "@/app/auth/contacts";
@@ -715,6 +715,8 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [csBusDep, setCsBusDep] = useState("");
   const [csNotes, setCsNotes] = useState("");
   const [csExistingId, setCsExistingId] = useState<string | null>(null);
+  const [dayPlanDate, setDayPlanDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [dayPlanChildId, setDayPlanChildId] = useState<string | null>(null);
 
   // Absence Report Modal
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
@@ -6515,6 +6517,137 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           )}
                         </AnimatePresence>
                       </>
+                    );
+                  })()}
+
+                  {/* Day Plan View (Eltern + Kind) */}
+                  {!canManage && (() => {
+                    const childProfiles: Record<string, { name?: string }> = (() => {
+                      try { return JSON.parse(localStorage.getItem("arego_child_profiles") ?? "{}"); }
+                      catch { return {}; }
+                    })();
+                    const childIds = Object.keys(childProfiles);
+                    const selectedChild = dayPlanChildId ?? (childIds[0] || identity?.aregoId || "");
+                    const holiday = getHolidayForDate(selectedSpace.id, dayPlanDate);
+                    const dayPlan = selectedChild ? buildDayPlan(selectedChild, dayPlanDate, selectedSpace.id) : [];
+
+                    const typeIcon = (t: DayPlanEntryType) => {
+                      switch (t) {
+                        case "lesson": return "📚";
+                        case "break": return "☕";
+                        case "ogs": return "🏫";
+                        case "bus": return "🚌";
+                        case "hort": return "🎨";
+                      }
+                    };
+                    const typeColor = (t: DayPlanEntryType) => {
+                      switch (t) {
+                        case "lesson": return "border-blue-500/30 bg-blue-500/5";
+                        case "break": return "border-gray-500/30 bg-gray-500/5";
+                        case "ogs": return "border-green-500/30 bg-green-500/5";
+                        case "bus": return "border-yellow-500/30 bg-yellow-500/5";
+                        case "hort": return "border-purple-500/30 bg-purple-500/5";
+                      }
+                    };
+
+                    const shiftDate = (days: number) => {
+                      const d = new Date(dayPlanDate + "T00:00:00");
+                      d.setDate(d.getDate() + days);
+                      setDayPlanDate(d.toISOString().slice(0, 10));
+                    };
+
+                    const dayLabel = (() => {
+                      const today = new Date().toISOString().slice(0, 10);
+                      const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
+                      if (dayPlanDate === today) return t('spaces.dayPlanToday');
+                      if (dayPlanDate === tomorrow) return t('spaces.dayPlanTomorrow');
+                      return new Date(dayPlanDate + "T00:00:00").toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+                    })();
+
+                    // Filter for child view: only lessons and breaks
+                    const visiblePlan = isChild
+                      ? dayPlan.filter(e => e.type === "lesson" || e.type === "break")
+                      : dayPlan;
+
+                    return (
+                      <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs font-semibold text-white">{t('spaces.dayPlanTitle')}</div>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => shiftDate(-1)} className="w-7 h-7 rounded-lg bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-400">
+                              <ArrowLeft size={12} />
+                            </button>
+                            <span className="text-[11px] text-gray-400 min-w-[70px] text-center">{dayLabel}</span>
+                            <button onClick={() => shiftDate(1)} className="w-7 h-7 rounded-lg bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-400">
+                              <ChevronRight size={12} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Child selector (if multiple children) */}
+                        {childIds.length > 1 && (
+                          <div className="flex gap-1.5 flex-wrap">
+                            {childIds.map(cid => (
+                              <button
+                                key={cid}
+                                onClick={() => setDayPlanChildId(cid)}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all ${
+                                  selectedChild === cid
+                                    ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
+                                    : "border-gray-700 bg-gray-800/50 text-gray-400"
+                                }`}
+                              >
+                                {childProfiles[cid]?.name ?? cid.slice(0, 8)}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Holiday notice */}
+                        {holiday ? (
+                          <div className="flex flex-col items-center py-6 text-center space-y-2">
+                            <div className="text-2xl">🎉</div>
+                            <div className="text-sm font-semibold text-white">{t('spaces.dayPlanNoSchool')}</div>
+                            <div className="text-xs text-gray-500">{holiday.title}</div>
+                          </div>
+                        ) : visiblePlan.length === 0 ? (
+                          <div className="flex flex-col items-center py-6 text-center space-y-2">
+                            <div className="text-2xl">📭</div>
+                            <div className="text-xs text-gray-400">{t('spaces.dayPlanEmpty')}</div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {visiblePlan.map((entry, i) => (
+                              <div key={i} className={`rounded-lg border p-2.5 flex items-center gap-3 ${typeColor(entry.type)}`}>
+                                <div className="text-base shrink-0">{typeIcon(entry.type)}</div>
+                                <div className="text-center shrink-0 w-12">
+                                  <div className="text-[11px] font-bold text-white">{entry.time}</div>
+                                  {entry.time !== entry.endTime && (
+                                    <div className="text-[9px] text-gray-500">{entry.endTime}</div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className={`text-xs font-medium ${entry.status === "cancelled" ? "line-through text-red-400" : "text-white"}`}>
+                                    {entry.label}
+                                  </div>
+                                  {!isChild && entry.detail && (
+                                    <div className={`text-[10px] mt-0.5 ${entry.status === "substitution" ? "text-orange-400" : "text-gray-500"}`}>
+                                      {entry.detail}
+                                    </div>
+                                  )}
+                                </div>
+                                {entry.status && entry.status !== "normal" && (
+                                  <div className={`text-[9px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                                    entry.status === "cancelled" ? "bg-red-500/20 text-red-400" : "bg-orange-500/20 text-orange-400"
+                                  }`}>
+                                    {entry.status === "cancelled" ? "✕" : "↻"}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     );
                   })()}
 

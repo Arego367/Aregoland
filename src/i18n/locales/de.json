@@ -1071,7 +1071,12 @@
     "childScheduleNotes": "Hinweise",
     "childScheduleNotesPlaceholder": "z.B. Mittwoch kein OGS",
     "childScheduleConfigured": "Konfiguriert",
-    "childScheduleNotConfigured": "Noch nicht eingerichtet"
+    "childScheduleNotConfigured": "Noch nicht eingerichtet",
+    "dayPlanTitle": "Tagesplan",
+    "dayPlanToday": "Heute",
+    "dayPlanTomorrow": "Morgen",
+    "dayPlanNoSchool": "Schulfrei",
+    "dayPlanEmpty": "Keine Einträge für diesen Tag"
   },
   "childProfile": {
     "title": "Kinder-Profile",
