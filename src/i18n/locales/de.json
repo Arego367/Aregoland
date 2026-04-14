@@ -1060,7 +1060,18 @@
     "timetableStatusNote": "Hinweis",
     "timetableStatusNotePlaceholder": "Grund für Ausfall...",
     "timetableCancellationAlert": "Ausfälle heute",
-    "timetableCancellationCount": "{{count}} Ausfälle/Vertretungen"
+    "timetableCancellationCount": "{{count}} Ausfälle/Vertretungen",
+    "childScheduleTitle": "Betreuungszeiten je Kind",
+    "childScheduleEditTitle": "OGS / Hort / Bus-Zeiten",
+    "childScheduleOgs": "OGS (Offene Ganztagsschule)",
+    "childScheduleHort": "Hort (Nachmittagsbetreuung)",
+    "childScheduleBus": "Schulbus",
+    "childScheduleBusArrival": "Ankunft",
+    "childScheduleBusDeparture": "Abfahrt",
+    "childScheduleNotes": "Hinweise",
+    "childScheduleNotesPlaceholder": "z.B. Mittwoch kein OGS",
+    "childScheduleConfigured": "Konfiguriert",
+    "childScheduleNotConfigured": "Noch nicht eingerichtet"
   },
   "childProfile": {
     "title": "Kinder-Profile",

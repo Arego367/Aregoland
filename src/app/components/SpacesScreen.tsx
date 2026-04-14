@@ -15,8 +15,9 @@ import { loadIdentity, isChildAccount, type LinkedChild } from "@/app/auth/ident
 import { loadFsk, type FskLevel } from "@/app/auth/fsk";
 import { addAbsenceStatus, queueAbsenceReport, getActiveAbsences, getAbsencesBySpace, resolveVisibility, filterByVisibility } from "@/app/lib/member-absence";
 import { getEntriesBySpace, addTimetableEntry, updateTimetableEntry, deleteTimetableEntry } from "@/app/lib/timetable";
+import { getConfigByChild, addScheduleConfig, updateScheduleConfig } from "@/app/lib/school-schedule";
 import { notifyCancellation } from "@/app/lib/reminder-scheduler";
-import type { TimetableEntry, TimetableEntryStatus } from "@/app/types";
+import type { TimetableEntry, TimetableEntryStatus, ChildScheduleConfig } from "@/app/types";
 import { addTemplate, generateSlots, getTemplatesBySpace, getFreeSlots, countMemberBookings, updateSlotStatus, filterSlotsForMember, addRequest } from "@/app/lib/booking";
 import type { AbsenceStatusType, MemberAbsenceStatus, SlotFlexibility, BookingTemplate, BookingSlot } from "@/app/types";
 import { loadContacts, removeContact } from "@/app/auth/contacts";
@@ -704,6 +705,16 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [ttSubRoom, setTtSubRoom] = useState("");
   const [ttNote, setTtNote] = useState("");
   const [cancellationCount, setCancellationCount] = useState(0);
+  const [showChildScheduleModal, setShowChildScheduleModal] = useState(false);
+  const [csChildId, setCsChildId] = useState("");
+  const [csOgsStart, setCsOgsStart] = useState("");
+  const [csOgsEnd, setCsOgsEnd] = useState("");
+  const [csHortStart, setCsHortStart] = useState("");
+  const [csHortEnd, setCsHortEnd] = useState("");
+  const [csBusArr, setCsBusArr] = useState("");
+  const [csBusDep, setCsBusDep] = useState("");
+  const [csNotes, setCsNotes] = useState("");
+  const [csExistingId, setCsExistingId] = useState<string | null>(null);
 
   // Absence Report Modal
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
@@ -6341,6 +6352,171 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       ))}
                     </div>
                   )}
+
+                  {/* Child Schedule Config — OGS/Hort/Bus (Parent view) */}
+                  {!isChild && !canManage && (() => {
+                    const childProfiles: Record<string, { name?: string }> = (() => {
+                      try { return JSON.parse(localStorage.getItem("arego_child_profiles") ?? "{}"); }
+                      catch { return {}; }
+                    })();
+                    const childIds = Object.keys(childProfiles);
+                    if (childIds.length === 0) return null;
+
+                    const openChildConfig = (childId: string) => {
+                      const existing = getConfigByChild(childId, selectedSpace.id);
+                      setCsChildId(childId);
+                      setCsExistingId(existing?.id ?? null);
+                      setCsOgsStart(existing?.ogsStart ?? "");
+                      setCsOgsEnd(existing?.ogsEnd ?? "");
+                      setCsHortStart(existing?.hortStart ?? "");
+                      setCsHortEnd(existing?.hortEnd ?? "");
+                      setCsBusArr(existing?.busArrival ?? "");
+                      setCsBusDep(existing?.busDeparture ?? "");
+                      setCsNotes(existing?.notes ?? "");
+                      setShowChildScheduleModal(true);
+                    };
+
+                    const handleSaveConfig = () => {
+                      if (!identity || !csChildId) return;
+                      const data = {
+                        ogsStart: csOgsStart || undefined,
+                        ogsEnd: csOgsEnd || undefined,
+                        hortStart: csHortStart || undefined,
+                        hortEnd: csHortEnd || undefined,
+                        busArrival: csBusArr || undefined,
+                        busDeparture: csBusDep || undefined,
+                        notes: csNotes || undefined,
+                        updatedBy: identity.aregoId,
+                      };
+                      if (csExistingId) {
+                        updateScheduleConfig(csExistingId, data);
+                      } else {
+                        addScheduleConfig({
+                          childId: csChildId,
+                          spaceId: selectedSpace.id,
+                          ...data,
+                          updatedBy: identity.aregoId,
+                        });
+                      }
+                      setShowChildScheduleModal(false);
+                    };
+
+                    return (
+                      <>
+                        <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                          <div className="text-xs font-semibold text-white mb-2">{t('spaces.childScheduleTitle')}</div>
+                          <div className="space-y-2">
+                            {childIds.map(cid => {
+                              const name = childProfiles[cid]?.name ?? cid.slice(0, 8);
+                              const config = getConfigByChild(cid, selectedSpace.id);
+                              const hasConfig = !!config;
+                              return (
+                                <button
+                                  key={cid}
+                                  onClick={() => openChildConfig(cid)}
+                                  className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-gray-800 hover:bg-gray-700/50 border border-gray-700/50 transition-all text-left"
+                                >
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${hasConfig ? "bg-green-500/20" : "bg-gray-700"}`}>
+                                    <User size={14} className={hasConfig ? "text-green-400" : "text-gray-500"} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-medium text-white truncate">{name}</div>
+                                    <div className="text-[10px] text-gray-500">
+                                      {hasConfig
+                                        ? [config.ogsStart && "OGS", config.hortStart && "Hort", config.busArrival && "Bus"].filter(Boolean).join(" · ") || t('spaces.childScheduleConfigured')
+                                        : t('spaces.childScheduleNotConfigured')}
+                                    </div>
+                                  </div>
+                                  <ChevronRight size={14} className="text-gray-600 shrink-0" />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Child Schedule Modal */}
+                        <AnimatePresence>
+                          {showChildScheduleModal && (
+                            <motion.div
+                              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                              className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center"
+                              onClick={() => setShowChildScheduleModal(false)}
+                            >
+                              <motion.div
+                                initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
+                                className="bg-gray-900 border border-gray-700/50 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-5 space-y-4"
+                                onClick={e => e.stopPropagation()}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <h3 className="text-base font-bold text-white">{t('spaces.childScheduleEditTitle')}</h3>
+                                  <button onClick={() => setShowChildScheduleModal(false)} className="text-gray-500 hover:text-white">
+                                    <X size={18} />
+                                  </button>
+                                </div>
+                                <div className="space-y-3">
+                                  <div className="text-xs text-gray-400 font-medium">{t('spaces.childScheduleOgs')}</div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 mb-1 block">{t('spaces.timetableStart')}</label>
+                                      <input type="time" value={csOgsStart} onChange={e => setCsOgsStart(e.target.value)}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 mb-1 block">{t('spaces.timetableEnd')}</label>
+                                      <input type="time" value={csOgsEnd} onChange={e => setCsOgsEnd(e.target.value)}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-400 font-medium">{t('spaces.childScheduleHort')}</div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 mb-1 block">{t('spaces.timetableStart')}</label>
+                                      <input type="time" value={csHortStart} onChange={e => setCsHortStart(e.target.value)}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 mb-1 block">{t('spaces.timetableEnd')}</label>
+                                      <input type="time" value={csHortEnd} onChange={e => setCsHortEnd(e.target.value)}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-400 font-medium">{t('spaces.childScheduleBus')}</div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 mb-1 block">{t('spaces.childScheduleBusArrival')}</label>
+                                      <input type="time" value={csBusArr} onChange={e => setCsBusArr(e.target.value)}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 mb-1 block">{t('spaces.childScheduleBusDeparture')}</label>
+                                      <input type="time" value={csBusDep} onChange={e => setCsBusDep(e.target.value)}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-gray-400 mb-1 block">{t('spaces.childScheduleNotes')}</label>
+                                    <input value={csNotes} onChange={e => setCsNotes(e.target.value)}
+                                      placeholder={t('spaces.childScheduleNotesPlaceholder')}
+                                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-indigo-500 focus:outline-none" />
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 pt-1">
+                                  <button onClick={() => setShowChildScheduleModal(false)}
+                                    className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-xs font-medium rounded-xl hover:bg-gray-700 transition-colors">
+                                    {t('common.cancel')}
+                                  </button>
+                                  <button onClick={handleSaveConfig}
+                                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-colors">
+                                    {t('common.save')}
+                                  </button>
+                                </div>
+                              </motion.div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </>
+                    );
+                  })()}
 
                   {/* Create/Edit Form Modal */}
                   <AnimatePresence>

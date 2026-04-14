@@ -854,7 +854,18 @@
     "timetableStatusNote": "Note",
     "timetableStatusNotePlaceholder": "Reason for cancellation...",
     "timetableCancellationAlert": "Cancellations today",
-    "timetableCancellationCount": "{{count}} cancelled/substituted"
+    "timetableCancellationCount": "{{count}} cancelled/substituted",
+    "childScheduleTitle": "Child Schedule Settings",
+    "childScheduleEditTitle": "OGS / Hort / Bus Times",
+    "childScheduleOgs": "OGS (Open All-Day School)",
+    "childScheduleHort": "Hort (Aftercare)",
+    "childScheduleBus": "Bus",
+    "childScheduleBusArrival": "Arrival",
+    "childScheduleBusDeparture": "Departure",
+    "childScheduleNotes": "Notes",
+    "childScheduleNotesPlaceholder": "e.g. Wednesday no OGS",
+    "childScheduleConfigured": "Configured",
+    "childScheduleNotConfigured": "Not configured yet"
   },
   "childProfile": {
     "title": "Child Profiles",
