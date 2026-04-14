@@ -10,8 +10,10 @@ import {
   Search, Tag, CheckCircle2, Hammer, Sparkles, Map, ArrowUpDown, SortAsc, EyeOff, Camera, RotateCcw, Copy, LogOut, Phone, Video
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
-import { loadIdentity } from "@/app/auth/identity";
+import { loadIdentity, type LinkedChild } from "@/app/auth/identity";
 import { loadFsk, type FskLevel } from "@/app/auth/fsk";
+import { addAbsenceStatus, queueAbsenceReport } from "@/app/lib/member-absence";
+import type { AbsenceStatusType } from "@/app/types";
 import { loadContacts, removeContact } from "@/app/auth/contacts";
 import { Html5Qrcode } from "html5-qrcode";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -675,6 +677,74 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [newsFilter, setNewsFilter] = useState<"all" | "announcement" | "news" | "event">("all");
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [commentText, setCommentText] = useState<Record<string, string>>({});
+
+  // Absence Report Modal
+  const [showAbsenceModal, setShowAbsenceModal] = useState(false);
+  const [absenceStep, setAbsenceStep] = useState(0);
+  const [absenceIsParent, setAbsenceIsParent] = useState(false);
+  const [absenceLinkedChildren, setAbsenceLinkedChildren] = useState<LinkedChild[]>([]);
+  const [absenceSelectedChild, setAbsenceSelectedChild] = useState<string | null>(null);
+  const [absenceType, setAbsenceType] = useState<AbsenceStatusType>("sick");
+  const [absenceLabel, setAbsenceLabel] = useState("");
+  const [absenceNote, setAbsenceNote] = useState("");
+  const [absenceStartDate, setAbsenceStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [absenceEndDate, setAbsenceEndDate] = useState("");
+  const [absenceRangeMode, setAbsenceRangeMode] = useState<"today" | "range">("today");
+
+  const openAbsenceModal = useCallback(() => {
+    // Determine if user is a parent (has linked children)
+    try {
+      const profiles = JSON.parse(localStorage.getItem("arego_child_profiles") ?? "{}");
+      const childIds = Object.keys(profiles);
+      if (childIds.length > 0) {
+        setAbsenceIsParent(true);
+        setAbsenceLinkedChildren(childIds.map(id => ({
+          child_id: id,
+          fsk_stufe: 0,
+          displayName: profiles[id]?.displayName || profiles[id]?.nickname || id.slice(0, 8),
+          firstName: profiles[id]?.firstName,
+        })));
+      } else {
+        setAbsenceIsParent(false);
+        setAbsenceLinkedChildren([]);
+      }
+    } catch {
+      setAbsenceIsParent(false);
+      setAbsenceLinkedChildren([]);
+    }
+    setAbsenceStep(0);
+    setAbsenceSelectedChild(null);
+    setAbsenceType("sick");
+    setAbsenceLabel("");
+    setAbsenceNote("");
+    setAbsenceStartDate(new Date().toISOString().slice(0, 10));
+    setAbsenceEndDate("");
+    setAbsenceRangeMode("today");
+    setShowAbsenceModal(true);
+  }, []);
+
+  const submitAbsenceReport = useCallback(() => {
+    if (!selectedSpace || !identity) return;
+    const memberId = absenceIsParent && absenceSelectedChild ? absenceSelectedChild : identity.aregoId;
+    const record = {
+      memberId,
+      spaceId: selectedSpace.id,
+      type: absenceType,
+      label: absenceType === "other" ? absenceLabel : undefined,
+      startDate: absenceRangeMode === "today" ? new Date().toISOString().slice(0, 10) : absenceStartDate,
+      endDate: absenceRangeMode === "range" && absenceEndDate ? absenceEndDate : undefined,
+      note: absenceNote || undefined,
+      reportedBy: identity.aregoId,
+      childId: absenceIsParent && absenceSelectedChild ? absenceSelectedChild : undefined,
+    };
+    try {
+      addAbsenceStatus(record);
+    } catch {
+      queueAbsenceReport(record);
+    }
+    setShowAbsenceModal(false);
+    if (onShowToast) onShowToast(t("spaces.absenceReported"), "info");
+  }, [selectedSpace, identity, absenceIsParent, absenceSelectedChild, absenceType, absenceLabel, absenceStartDate, absenceEndDate, absenceRangeMode, absenceNote, onShowToast, t]);
 
   // Discover — öffentliche Space-Suche
   const [discoverSpaces, setDiscoverSpaces] = useState<PublicSpace[]>([]);
@@ -3176,6 +3246,27 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     </div>
                   </div>
 
+                  {/* Abwesenheit melden Button */}
+                  {(() => {
+                    const canReport = isFounderOrAdmin || !!overviewCustomRole?.permissions.reportAbsence;
+                    if (!canReport) return null;
+                    return (
+                      <button
+                        onClick={openAbsenceModal}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/20 transition-all"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center shrink-0">
+                          <Phone size={18} className="text-orange-400" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="text-sm font-semibold text-orange-300">{t("spaces.reportAbsence")}</div>
+                          <div className="text-[11px] text-gray-500">{t("spaces.reportAbsenceDesc")}</div>
+                        </div>
+                        <ChevronRight size={16} className="text-orange-400/50 shrink-0" />
+                      </button>
+                    );
+                  })()}
+
                   {/* Kachel-Grid — Drag & Drop (dnd-kit) */}
                   <DndContext
                     sensors={tileSensors}
@@ -5642,6 +5733,198 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           </div>
         </div>
       </div>
+
+      {/* ── ABSENCE REPORT MODAL ── */}
+      <AnimatePresence>
+        {showAbsenceModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center"
+            onClick={() => setShowAbsenceModal(false)}
+          >
+            <motion.div
+              initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="w-full max-w-md bg-gray-900 border border-gray-700/50 rounded-t-2xl sm:rounded-2xl p-5 space-y-4"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">{t("spaces.reportAbsence")}</h3>
+                <button onClick={() => setShowAbsenceModal(false)} className="p-1 text-gray-500 hover:text-white"><X size={20} /></button>
+              </div>
+
+              {/* Step indicator */}
+              <div className="flex gap-1">
+                {(absenceIsParent ? [0, 1, 2] : [0, 1, 2]).map(s => (
+                  <div key={s} className={`h-1 flex-1 rounded-full transition-colors ${absenceStep >= s ? "bg-orange-500" : "bg-gray-700"}`} />
+                ))}
+              </div>
+
+              {/* ── PARENT FLOW ── */}
+              {absenceIsParent && absenceStep === 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.absenceSelectChild")}</p>
+                  <div className="space-y-2">
+                    {absenceLinkedChildren.map(child => (
+                      <button
+                        key={child.child_id}
+                        onClick={() => { setAbsenceSelectedChild(child.child_id); setAbsenceStep(1); }}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                          absenceSelectedChild === child.child_id
+                            ? "border-orange-500 bg-orange-500/10"
+                            : "border-gray-700/50 bg-gray-800/50 hover:bg-gray-800"
+                        }`}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-sm font-bold text-white">
+                          {(child.firstName || child.displayName || child.child_id)?.[0]?.toUpperCase() ?? "?"}
+                        </div>
+                        <span className="text-sm font-medium text-white">{child.firstName || child.displayName || child.child_id.slice(0, 8)}</span>
+                        <ChevronRight size={16} className="ml-auto text-gray-600" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {absenceIsParent && absenceStep === 1 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.absenceSelectType")}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { type: "sick" as const, icon: Heart, label: t("spaces.absenceTypeSick"), color: "red" },
+                      { type: "other" as const, icon: Info, label: t("spaces.absenceTypeOther"), color: "gray" },
+                    ]).map(opt => (
+                      <button
+                        key={opt.type}
+                        onClick={() => { setAbsenceType(opt.type); setAbsenceStep(2); }}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${
+                          absenceType === opt.type ? `border-${opt.color}-500 bg-${opt.color}-500/10` : "border-gray-700/50 bg-gray-800/50 hover:bg-gray-800"
+                        }`}
+                      >
+                        <opt.icon size={24} className={`text-${opt.color}-400`} />
+                        <span className="text-xs font-medium text-white">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {absenceIsParent && absenceStep === 2 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.absenceConfirm")}</p>
+                  {absenceType === "other" && (
+                    <input
+                      type="text" value={absenceLabel} onChange={e => setAbsenceLabel(e.target.value)}
+                      placeholder={t("spaces.absenceLabelPlaceholder")}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-orange-500"
+                    />
+                  )}
+                  <textarea
+                    value={absenceNote} onChange={e => setAbsenceNote(e.target.value)}
+                    placeholder={t("spaces.absenceNotePlaceholder")} rows={2}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-orange-500 resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => setAbsenceStep(1)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">{t("common.back")}</button>
+                    <button onClick={submitAbsenceReport} className="flex-1 py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-colors">{t("spaces.absenceSubmit")}</button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── EMPLOYEE FLOW ── */}
+              {!absenceIsParent && absenceStep === 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.absenceSelectType")}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { type: "sick" as const, icon: Heart, label: t("spaces.absenceTypeSick"), color: "text-red-400", border: "border-red-500 bg-red-500/10" },
+                      { type: "homeoffice" as const, icon: Home, label: t("spaces.absenceTypeHomeoffice"), color: "text-blue-400", border: "border-blue-500 bg-blue-500/10" },
+                      { type: "vacation" as const, icon: Calendar, label: t("spaces.absenceTypeVacation"), color: "text-green-400", border: "border-green-500 bg-green-500/10" },
+                      { type: "other" as const, icon: Info, label: t("spaces.absenceTypeOther"), color: "text-gray-400", border: "border-gray-500 bg-gray-500/10" },
+                    ]).map(opt => (
+                      <button
+                        key={opt.type}
+                        onClick={() => { setAbsenceType(opt.type); setAbsenceStep(1); }}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${
+                          absenceType === opt.type ? opt.border : "border-gray-700/50 bg-gray-800/50 hover:bg-gray-800"
+                        }`}
+                      >
+                        <opt.icon size={24} className={opt.color} />
+                        <span className="text-xs font-medium text-white">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!absenceIsParent && absenceStep === 1 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.absenceSelectPeriod")}</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setAbsenceRangeMode("today")}
+                      className={`flex-1 py-2.5 text-sm font-medium rounded-xl border transition-all ${
+                        absenceRangeMode === "today" ? "border-orange-500 bg-orange-500/10 text-orange-300" : "border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700"
+                      }`}
+                    >{t("spaces.absenceToday")}</button>
+                    <button
+                      onClick={() => setAbsenceRangeMode("range")}
+                      className={`flex-1 py-2.5 text-sm font-medium rounded-xl border transition-all ${
+                        absenceRangeMode === "range" ? "border-orange-500 bg-orange-500/10 text-orange-300" : "border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700"
+                      }`}
+                    >{t("spaces.absenceDateRange")}</button>
+                  </div>
+                  {absenceRangeMode === "range" && (
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-[10px] text-gray-500 mb-1 block">{t("spaces.absenceFrom")}</label>
+                        <input type="date" value={absenceStartDate} onChange={e => setAbsenceStartDate(e.target.value)}
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-[10px] text-gray-500 mb-1 block">{t("spaces.absenceTo")}</label>
+                        <input type="date" value={absenceEndDate} onChange={e => setAbsenceEndDate(e.target.value)}
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500" />
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setAbsenceStep(0)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">{t("common.back")}</button>
+                    <button onClick={() => setAbsenceStep(2)} className="flex-1 py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-colors">{t("common.next")}</button>
+                  </div>
+                </div>
+              )}
+
+              {!absenceIsParent && absenceStep === 2 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.absenceConfirm")}</p>
+                  <div className="bg-gray-800/50 rounded-xl p-3 space-y-1 text-sm">
+                    <div className="flex justify-between"><span className="text-gray-500">{t("spaces.absenceTypeLabel")}</span><span className="text-white font-medium">{t(`spaces.absenceType${absenceType.charAt(0).toUpperCase() + absenceType.slice(1)}`)}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">{t("spaces.absencePeriodLabel")}</span><span className="text-white font-medium">{absenceRangeMode === "today" ? t("spaces.absenceToday") : `${absenceStartDate} – ${absenceEndDate || "?"}`}</span></div>
+                  </div>
+                  {absenceType === "other" && (
+                    <input
+                      type="text" value={absenceLabel} onChange={e => setAbsenceLabel(e.target.value)}
+                      placeholder={t("spaces.absenceLabelPlaceholder")}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-orange-500"
+                    />
+                  )}
+                  <textarea
+                    value={absenceNote} onChange={e => setAbsenceNote(e.target.value)}
+                    placeholder={t("spaces.absenceNotePlaceholder")} rows={2}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-orange-500 resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => setAbsenceStep(1)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">{t("common.back")}</button>
+                    <button onClick={submitAbsenceReport} className="flex-1 py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-colors">{t("spaces.absenceSubmit")}</button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </>
     );
   }
