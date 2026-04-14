@@ -2936,7 +2936,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 <Info size={16} className="text-blue-400 shrink-0" />
                 <div>
                   <p className="text-xs text-gray-400">App-Version</p>
-                  <p className="text-sm font-bold">Aregoland Beta &bull; V{__APP_VERSION__}</p>
+                  <p className="text-sm font-bold">Aregoland Beta &bull; {__GIT_HASH__}</p><p className="text-[10px] text-gray-500">{__BUILD_DATE__}</p>
                 </div>
               </div>
             </div>
