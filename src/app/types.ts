@@ -134,4 +134,71 @@ export interface CalendarLayer {
   visible: boolean;
 }
 
+// ── Timetable / Stundenplan types ──
+
+export type TimetableEntryStatus = "normal" | "cancelled" | "substitution";
+
+export interface TimetableEntry {
+  id: string;
+  spaceId: string;
+  subject: string;
+  teacherId: string;
+  teacherName: string;
+  room: string;
+  weekday: number;              // 1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr
+  startTime: string;            // HH:mm
+  endTime: string;              // HH:mm
+  status: TimetableEntryStatus;
+  substituteTeacherId?: string;
+  substituteTeacherName?: string;
+  substituteRoom?: string;
+  statusNote?: string;
+  updatedAt: string;            // ISO datetime
+  createdBy: string;            // aregoId
+}
+
+// ── Child Schedule / OGS / Bus types ──
+
+export interface ChildScheduleConfig {
+  id: string;
+  childId: string;              // aregoId
+  spaceId: string;
+  ogsStart?: string;            // HH:mm
+  ogsEnd?: string;              // HH:mm
+  busArrival?: string;          // HH:mm
+  busDeparture?: string;        // HH:mm
+  hortStart?: string;           // HH:mm
+  hortEnd?: string;             // HH:mm
+  notes?: string;
+  updatedBy: string;            // aregoId
+  updatedAt: string;            // ISO datetime
+}
+
+// ── School Holiday types ──
+
+export type SchoolHolidayType = "holiday" | "closure" | "teacher_day";
+
+export interface SchoolHoliday {
+  id: string;
+  spaceId: string;
+  title: string;
+  startDate: string;            // ISO YYYY-MM-DD
+  endDate: string;              // ISO YYYY-MM-DD
+  type: SchoolHolidayType;
+  createdBy: string;            // aregoId
+}
+
+// ── Day Plan (aggregated view) types ──
+
+export type DayPlanEntryType = "lesson" | "break" | "ogs" | "bus" | "hort";
+
+export interface DayPlanEntry {
+  time: string;                 // HH:mm
+  endTime: string;              // HH:mm
+  type: DayPlanEntryType;
+  label: string;
+  detail?: string;
+  status?: TimetableEntryStatus;
+}
+
 export type { UserIdentity } from "@/app/auth/identity";
