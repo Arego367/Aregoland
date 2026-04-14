@@ -634,7 +634,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               </AlertDialog.Portal>
             </AlertDialog.Root>
 
-            <p className="text-center text-xs text-gray-600 mt-4">Version 1.0.0 (Build 2026.01)</p>
+            <p className="text-center text-xs text-gray-600 mt-4">Version: {__GIT_HASH__} — {__BUILD_DATE__}</p>
           </div>
         </div>
       </div>

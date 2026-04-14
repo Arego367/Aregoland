@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import path from 'path'
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'fs'
+import { execSync } from 'child_process'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -87,9 +88,28 @@ export default cardStatusMap;
   };
 }
 
+const gitHash = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+  } catch {
+    return 'unknown';
+  }
+})();
+
+const buildDate = new Date().toLocaleString('de-DE', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Berlin',
+});
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __GIT_HASH__: JSON.stringify(gitHash),
+    __BUILD_DATE__: JSON.stringify(buildDate),
   },
   server: {
     host: '127.0.0.1',
