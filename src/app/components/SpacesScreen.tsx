@@ -3295,6 +3295,36 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           >
             <ArrowLeft size={20} />
           </button>
+          {/* Space Call Buttons — Übersicht Header */}
+          {activeTab === "overview" && callsAllowed && spaceCallState === "idle" && (
+            <div className="absolute top-4 right-4 flex items-center gap-1.5 z-20">
+              <button
+                onClick={() => handleJoinSpaceCall("audio")}
+                className="p-2 bg-black/40 backdrop-blur-md rounded-full text-gray-300 hover:text-green-400 hover:bg-green-500/20 transition-all"
+                title={t("spaceCall.startCall")}
+              >
+                <Phone size={18} />
+              </button>
+              <button
+                onClick={() => handleJoinSpaceCall("video")}
+                className="p-2 bg-black/40 backdrop-blur-md rounded-full text-gray-300 hover:text-blue-400 hover:bg-blue-500/20 transition-all"
+                title={t("spaceCall.startCall")}
+              >
+                <Video size={18} />
+              </button>
+            </div>
+          )}
+          {activeTab === "overview" && spaceCallState === "active" && (
+            <div className="absolute top-4 right-4 z-20">
+              <button
+                onClick={handleLeaveSpaceCall}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-full animate-pulse"
+              >
+                <Phone size={14} />
+                <span>{t("spaceCall.activeParticipants", { count: spaceCallParticipants.length + 1 })}</span>
+              </button>
+            </div>
+          )}
           {/* Centered Icon — nur auf Übersicht */}
           {activeTab === "overview" && (
             <div className="absolute inset-0 flex items-center justify-center z-0 -mt-4">
