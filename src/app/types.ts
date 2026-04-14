@@ -18,6 +18,51 @@ export interface MemberAbsenceStatus {
   childId?: string;         // wenn Elternteil für Kind meldet
 }
 
+// ── Booking / Buchung types ──
+
+export type SlotFlexibility = "fixed" | "flexible";
+
+export type SlotStatus = "free" | "booked" | "blocked";
+
+export type BookingRequestStatus = "pending" | "accepted" | "declined" | "counter";
+
+export interface BookingSlot {
+  id: string;
+  templateId: string;
+  startTime: string;        // HH:mm
+  endTime: string;          // HH:mm
+  bookedBy?: string;        // aregoId — null = frei
+  bookedAt?: string;        // ISO datetime
+  status: SlotStatus;
+}
+
+export interface BookingTemplate {
+  id: string;
+  spaceId: string;
+  title: string;            // z.B. "Elternsprechtag Mai 2026"
+  createdBy: string;        // Moderator aregoId
+  date: string;             // ISO YYYY-MM-DD
+  startTime: string;        // HH:mm — Fenster-Start
+  endTime: string;          // HH:mm — Fenster-Ende
+  slotDuration: number;     // Minuten (10, 15, 20, 30, 60)
+  slotFlex: SlotFlexibility;
+  breakBetween: number;     // Pausen-Minuten zwischen Slots
+  maxBookingsPerMember: number;
+  slots: BookingSlot[];
+  createdAt: string;
+}
+
+export interface BookingRequest {
+  id: string;
+  templateId: string;
+  requestedBy: string;      // aregoId
+  preferredTimes?: string[];
+  message?: string;
+  status: BookingRequestStatus;
+  counterSlotId?: string;
+  createdAt: string;
+}
+
 export interface Contact {
   id: string;
   name: string;
