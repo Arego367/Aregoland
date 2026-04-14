@@ -37,6 +37,14 @@ if [[ $SERVICES_CHANGED -eq 1 ]]; then
   systemctl daemon-reload
 fi
 
+# ── Vite Dev-Server stoppen (Production nutzt dist/ über Nginx) ──────────────
+VITE_SERVICE="arego-vite"
+if systemctl is-active --quiet "$VITE_SERVICE" 2>/dev/null; then
+  echo "→ Vite Dev-Server stoppen (Production braucht ihn nicht) ..."
+  systemctl stop "$VITE_SERVICE"
+  echo "  ✓ Vite gestoppt"
+fi
+
 # ── Nginx neu starten (um gecachte Dateien zu aktualisieren) ──────────────────
 echo "→ Nginx neu starten ..."
 systemctl restart "$NGINX_SERVICE"
