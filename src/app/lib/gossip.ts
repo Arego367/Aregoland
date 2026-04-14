@@ -123,6 +123,76 @@ export const SpaceVersionStore = {
   },
 };
 
+// ── Gossip Message Types für Status & Buchung ──
+
+export type GossipMessageType =
+  | 'absence_status'
+  | 'booking_update'
+  | 'chat'
+  | 'settings';
+
+export interface GossipEnvelope {
+  id: string;
+  type: GossipMessageType;
+  spaceId: string;
+  senderAregoId: string;
+  senderRole: string;
+  timestamp: string;
+  hop: number;
+  payload: unknown;
+}
+
+/** Absence-Status Gossip — Krankmeldung an alle Space-Mitglieder verteilen */
+export interface AbsenceGossipPayload {
+  memberId: string;
+  absenceType: 'sick' | 'vacation' | 'homeoffice' | 'other';
+  label?: string;
+  startDate: string;
+  endDate?: string;
+  visibility: 'full' | 'limited' | 'none';
+}
+
+/** Booking-Update Gossip — Buchungsänderungen synchronisieren */
+export interface BookingGossipPayload {
+  templateId: string;
+  slotId?: string;
+  action: 'slot_booked' | 'slot_released' | 'request_created' | 'request_resolved';
+  bookedBy?: string;
+  requestId?: string;
+  status?: string;
+}
+
+/** Offline-Queue für Abwesenheitsmeldungen (IndexedDB-kompatibel) */
+const OFFLINE_QUEUE_KEY = 'aregoland_gossip_offline_queue';
+
+export const OfflineGossipQueue = {
+  enqueue(envelope: GossipEnvelope): void {
+    const queue = this.getAll();
+    queue.push(envelope);
+    // Max 100 queued messages
+    const trimmed = queue.slice(-100);
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(trimmed));
+  },
+
+  getAll(): GossipEnvelope[] {
+    try {
+      return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) ?? '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  flush(): GossipEnvelope[] {
+    const queue = this.getAll();
+    localStorage.removeItem(OFFLINE_QUEUE_KEY);
+    return queue;
+  },
+
+  size(): number {
+    return this.getAll().length;
+  },
+};
+
 // ── Digest + Backfill Helpers ──
 
 export interface ChatDigest {

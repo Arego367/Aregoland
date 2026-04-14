@@ -144,6 +144,30 @@ export interface CalendarRsvpMessage {
   status: 'accepted' | 'declined' | 'maybe';
 }
 
+// ── Absence & Booking Messages über P2P DataChannel ─────────────────────────
+
+export interface AbsenceUpdateMessage {
+  _t: 'absence_update';
+  spaceId: string;
+  memberId: string;
+  absenceType: 'sick' | 'vacation' | 'homeoffice' | 'other';
+  label?: string;
+  startDate: string;
+  endDate?: string;
+  visibility: 'full' | 'limited' | 'none';
+}
+
+export interface BookingUpdateMessage {
+  _t: 'booking_update';
+  spaceId: string;
+  templateId: string;
+  slotId?: string;
+  action: 'slot_booked' | 'slot_released' | 'request_created' | 'request_resolved';
+  bookedBy?: string;
+  requestId?: string;
+  status?: string;
+}
+
 export class P2PManager {
   private conns = new Map<string, Conn>();
   private fileBuffers: Map<string, { fileName: string; fileMime: string; totalChunks: number; chunks: (string | null)[]; received: number; roomId: string }> | null = null;
@@ -155,6 +179,8 @@ export class P2PManager {
   private readReceiptCb: ReadReceiptCb | null = null;
   private calendarInviteCb: ((roomId: string, invite: CalendarInviteMessage) => void) | null = null;
   private calendarRsvpCb: ((roomId: string, rsvp: CalendarRsvpMessage) => void) | null = null;
+  private absenceUpdateCb: ((roomId: string, update: AbsenceUpdateMessage) => void) | null = null;
+  private bookingUpdateCb: ((roomId: string, update: BookingUpdateMessage) => void) | null = null;
   private globalIdentityPayload: string | undefined;
 
   // ── Callbacks registrieren ─────────────────────────────────────────────────
@@ -167,6 +193,8 @@ export class P2PManager {
   onReadReceipt(cb: ReadReceiptCb) { this.readReceiptCb = cb; }
   onCalendarInvite(cb: (roomId: string, invite: CalendarInviteMessage) => void) { this.calendarInviteCb = cb; }
   onCalendarRsvp(cb: (roomId: string, rsvp: CalendarRsvpMessage) => void) { this.calendarRsvpCb = cb; }
+  onAbsenceUpdate(cb: (roomId: string, update: AbsenceUpdateMessage) => void) { this.absenceUpdateCb = cb; }
+  onBookingUpdate(cb: (roomId: string, update: BookingUpdateMessage) => void) { this.bookingUpdateCb = cb; }
 
   setIdentityPayload(payload: string | undefined) {
     this.globalIdentityPayload = payload;
@@ -279,6 +307,28 @@ export class P2PManager {
     try {
       const ct = await encryptMessage(c.sessionKey, JSON.stringify(rsvp));
       c.channel.send(JSON.stringify({ t: 'calendar_rsvp', ct }));
+      return true;
+    } catch { return false; }
+  }
+
+  /** Sendet ein Abwesenheits-Update verschlüsselt über den DataChannel */
+  async sendAbsenceUpdate(roomId: string, update: AbsenceUpdateMessage): Promise<boolean> {
+    const c = this.conns.get(roomId);
+    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    try {
+      const ct = await encryptMessage(c.sessionKey, JSON.stringify(update));
+      c.channel.send(JSON.stringify({ t: 'absence_update', ct }));
+      return true;
+    } catch { return false; }
+  }
+
+  /** Sendet ein Buchungs-Update verschlüsselt über den DataChannel */
+  async sendBookingUpdate(roomId: string, update: BookingUpdateMessage): Promise<boolean> {
+    const c = this.conns.get(roomId);
+    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    try {
+      const ct = await encryptMessage(c.sessionKey, JSON.stringify(update));
+      c.channel.send(JSON.stringify({ t: 'booking_update', ct }));
       return true;
     } catch { return false; }
   }
@@ -530,6 +580,16 @@ export class P2PManager {
           try {
             const rsvp = JSON.parse(text) as CalendarRsvpMessage;
             if (rsvp._t === 'calendar_rsvp') this.calendarRsvpCb?.(c.roomId, rsvp);
+          } catch { /* ignorieren */ }
+        } else if (msg.t === 'absence_update') {
+          try {
+            const update = JSON.parse(text) as AbsenceUpdateMessage;
+            if (update._t === 'absence_update') this.absenceUpdateCb?.(c.roomId, update);
+          } catch { /* ignorieren */ }
+        } else if (msg.t === 'booking_update') {
+          try {
+            const update = JSON.parse(text) as BookingUpdateMessage;
+            if (update._t === 'booking_update') this.bookingUpdateCb?.(c.roomId, update);
           } catch { /* ignorieren */ }
         } else if (msg.t === 'file') {
           // Chunked File-Transfer

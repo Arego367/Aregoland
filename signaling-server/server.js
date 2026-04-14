@@ -2526,6 +2526,121 @@ wss.on('connection', (ws) => {
     }
 
     // ── Space-Call: Moderator kick ───────────────────────────────────────────
+    // ── Space Absence Update (Krankmeldung → Push an Moderator) ────────────
+    if (msg.type === 'space_absence_update') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const spaceId = String(msg.spaceId ?? '');
+      const targetAregoId = String(msg.targetAregoId ?? '');
+      if (!spaceId || !targetAregoId) return;
+
+      const payload = JSON.stringify({
+        type: 'space_absence_update',
+        spaceId,
+        absence: msg.absence ?? {},
+        fromAregoId: session.arego_id,
+      });
+
+      // Direkt an Ziel senden (Moderator) oder offline puffern
+      const targetSockets = onlineUsers.get(targetAregoId);
+      if (targetSockets && targetSockets.size > 0) {
+        for (const s of targetSockets) {
+          if (s.readyState === 1) s.send(payload);
+        }
+      } else {
+        const inboxRoom = `inbox:${targetAregoId}`;
+        storePending(inboxRoom, Buffer.from(payload));
+      }
+      return;
+    }
+
+    // ── Space Slot Booked (Bestätigung an Moderator + Buchender) ─────────
+    if (msg.type === 'space_slot_booked') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const spaceId = String(msg.spaceId ?? '');
+      const targetAregoIds = Array.isArray(msg.targetAregoIds) ? msg.targetAregoIds.map(String) : [];
+      if (!spaceId || targetAregoIds.length === 0) return;
+
+      const payload = JSON.stringify({
+        type: 'space_slot_booked',
+        spaceId,
+        templateId: msg.templateId ?? '',
+        slotId: msg.slotId ?? '',
+        bookedBy: session.arego_id,
+      });
+
+      for (const targetId of targetAregoIds) {
+        if (targetId === session.arego_id) continue; // Nicht an sich selbst
+        const targetSockets = onlineUsers.get(targetId);
+        if (targetSockets && targetSockets.size > 0) {
+          for (const s of targetSockets) {
+            if (s.readyState === 1) s.send(payload);
+          }
+        } else {
+          storePending(`inbox:${targetId}`, Buffer.from(payload));
+        }
+      }
+      return;
+    }
+
+    // ── Space Booking Request (Anfrage → Push an Moderator) ──────────────
+    if (msg.type === 'space_booking_request') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const spaceId = String(msg.spaceId ?? '');
+      const moderatorAregoId = String(msg.moderatorAregoId ?? '');
+      if (!spaceId || !moderatorAregoId) return;
+
+      const payload = JSON.stringify({
+        type: 'space_booking_request',
+        spaceId,
+        templateId: msg.templateId ?? '',
+        requestId: msg.requestId ?? '',
+        requestedBy: session.arego_id,
+        preferredTimes: msg.preferredTimes ?? [],
+        message: String(msg.message ?? '').slice(0, 500),
+      });
+
+      const targetSockets = onlineUsers.get(moderatorAregoId);
+      if (targetSockets && targetSockets.size > 0) {
+        for (const s of targetSockets) {
+          if (s.readyState === 1) s.send(payload);
+        }
+      } else {
+        storePending(`inbox:${moderatorAregoId}`, Buffer.from(payload));
+      }
+      return;
+    }
+
+    // ── Space Slot Reminder (konfigurierbar 10/30/60 min vor Termin) ─────
+    if (msg.type === 'space_slot_reminder') {
+      const session = wsSessions.get(ws);
+      if (!session) return;
+      const targetAregoId = String(msg.targetAregoId ?? '');
+      if (!targetAregoId) return;
+
+      const payload = JSON.stringify({
+        type: 'space_slot_reminder',
+        spaceId: msg.spaceId ?? '',
+        templateId: msg.templateId ?? '',
+        slotId: msg.slotId ?? '',
+        title: String(msg.title ?? '').slice(0, 200),
+        startTime: msg.startTime ?? '',
+        reminderMinutes: msg.reminderMinutes ?? 10,
+      });
+
+      const targetSockets = onlineUsers.get(targetAregoId);
+      if (targetSockets && targetSockets.size > 0) {
+        for (const s of targetSockets) {
+          if (s.readyState === 1) s.send(payload);
+        }
+      } else {
+        storePending(`inbox:${targetAregoId}`, Buffer.from(payload));
+      }
+      return;
+    }
+
     if (msg.type === 'space_call_kick') {
       const session = wsSessions.get(ws);
       if (!session) return;

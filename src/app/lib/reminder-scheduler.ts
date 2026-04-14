@@ -70,6 +70,70 @@ export async function checkReminders(): Promise<void> {
   sw.postMessage({ type: "CHECK_REMINDERS" });
 }
 
+// ── Booking Slot Reminders ──────────────────────────────────────────────────
+
+export type SlotReminderOffset = '10min' | '30min' | '1h';
+
+function slotReminderOffsetMs(offset: SlotReminderOffset): number {
+  switch (offset) {
+    case '10min': return 10 * 60_000;
+    case '30min': return 30 * 60_000;
+    case '1h': return 60 * 60_000;
+    default: return 10 * 60_000;
+  }
+}
+
+export interface SlotReminderInfo {
+  slotId: string;
+  templateId: string;
+  spaceId: string;
+  title: string;
+  startTime: string;   // ISO datetime
+}
+
+/** Schedule a reminder for a booked slot */
+export async function scheduleSlotReminder(
+  slot: SlotReminderInfo,
+  offset: SlotReminderOffset = '10min',
+): Promise<void> {
+  const fireAt = new Date(slot.startTime).getTime() - slotReminderOffsetMs(offset);
+  if (fireAt <= Date.now()) return;
+
+  const sw = await getSW();
+  if (!sw) {
+    fallbackSlotSchedule(slot, fireAt);
+    return;
+  }
+
+  sw.postMessage({
+    type: 'SCHEDULE_REMINDER',
+    reminder: {
+      eventId: `slot:${slot.slotId}`,
+      title: `Buchung: ${slot.title}`,
+      body: `Startet um ${new Date(slot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Uhr`,
+      fireAt,
+    },
+  });
+}
+
+/** Cancel a slot reminder */
+export async function cancelSlotReminder(slotId: string): Promise<void> {
+  await cancelReminder(`slot:${slotId}`);
+}
+
+function fallbackSlotSchedule(slot: SlotReminderInfo, fireAt: number): void {
+  const delay = fireAt - Date.now();
+  if (delay <= 0 || delay > 24 * 60 * 60_000) return;
+  setTimeout(() => {
+    if (Notification.permission === 'granted') {
+      new Notification(`Buchung: ${slot.title}`, {
+        body: `Startet um ${new Date(slot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Uhr`,
+        icon: '/favicon.ico',
+      });
+    }
+  }, delay);
+}
+
 /** Fallback for environments without SW support */
 function fallbackSchedule(ev: CalendarEvent): void {
   const [h, m] = ev.startTime.split(":").map(Number);
