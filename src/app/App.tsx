@@ -107,7 +107,7 @@ export default function App() {
   }, [toast]);
 
   // Deep-Link in einen Space (spaceId + tab)
-  const [spaceDeepLink, setSpaceDeepLink] = useState<{ spaceId: string; tab?: string } | null>(null);
+  const [spaceDeepLink, setSpaceDeepLink] = useState<{ spaceId: string; tab?: string; autoCall?: 'audio' | 'video' } | null>(null);
 
   // Eingehender Anruf wenn Chat nicht offen
   const [incomingCall, setIncomingCall] = useState<{
@@ -1408,6 +1408,44 @@ export default function App() {
     pendingCallIceRef.current = [];
     setIncomingCall(null);
   }, [incomingCall, manager]);
+
+  // ── 1:1-Call → Gruppen-Call (Quick-Space) ──────────────────────────────────
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { contactId, contactName, contactAvatar, mediaType } = (e as CustomEvent).detail ?? {};
+      if (!contactId || !identity) return;
+      const spaceId = `space-call-${Date.now().toString(36)}`;
+      const globalChannel = {
+        id: `ch-global-${spaceId}`, spaceId, name: "Global", isGlobal: true,
+        readRoles: ["founder", "admin", "guest"], writeRoles: ["founder", "admin"],
+        membersVisible: true, createdAt: new Date().toISOString(), unreadCount: 0,
+      };
+      const space = {
+        id: spaceId, name: `${identity.displayName} & ${contactName}`,
+        description: "", template: "custom" as const, color: "from-violet-600 to-fuchsia-600",
+        identityRule: "real_only" as const, founderId: identity.aregoId,
+        members: [
+          { aregoId: identity.aregoId, displayName: identity.displayName, role: "founder" as const, joinedAt: new Date().toISOString() },
+          { aregoId: contactId, displayName: contactName, role: "guest" as const, joinedAt: new Date().toISOString() },
+        ],
+        posts: [], channels: [globalChannel], subrooms: [], customRoles: [], tags: [],
+        guestPermissions: { readChats: true }, createdAt: new Date().toISOString(),
+        visibility: "private" as const, fsk: (fskStatus?.level ?? 6) as any,
+        settings: { membersVisible: true, coHostingAllowed: false, publicJoin: false, idVerification: false },
+      };
+      // Space in localStorage speichern
+      try {
+        const existing = JSON.parse(localStorage.getItem("aregoland_spaces") ?? "[]");
+        existing.push(space);
+        localStorage.setItem("aregoland_spaces", JSON.stringify(existing));
+      } catch { /* ignore */ }
+      // Zu SpacesScreen navigieren und Call automatisch starten
+      setSpaceDeepLink({ spaceId, tab: "overview", autoCall: mediaType ?? "video" });
+      setCurrentScreen("spaces");
+    };
+    window.addEventListener("arego-promote-to-space-call", handler);
+    return () => window.removeEventListener("arego-promote-to-space-call", handler);
+  }, [identity, fskStatus]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

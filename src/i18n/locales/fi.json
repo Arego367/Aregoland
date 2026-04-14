@@ -462,7 +462,8 @@
     "incomingAudio": "Saapuva puhelu",
     "connecting": "Yhteyttä muodostetaan...",
     "reject": "Hylkää",
-    "accept": "Vastaa"
+    "accept": "Vastaa",
+    "addParticipant": "Lisää osallistuja"
   },
   "qrScreen": {
     "title": "QR-koodi",

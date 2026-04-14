@@ -462,7 +462,8 @@
     "incomingAudio": "Llamada entrante",
     "connecting": "Conectando...",
     "reject": "Rechazar",
-    "accept": "Aceptar"
+    "accept": "Aceptar",
+    "addParticipant": "Añadir participante"
   },
   "qrScreen": {
     "title": "Código QR",

@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, CameraOff, Wifi, Radio } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, CameraOff, Wifi, Radio, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { ImageWithFallback } from '@/app/components/ImageWithFallback';
@@ -29,6 +29,8 @@ interface CallOverlayProps {
   cameraUnavailable?: boolean;
   /** Aktueller Verbindungsmodus: P2P, SFU oder TURN */
   connectionMode?: ConnectionMode;
+  /** Teilnehmer zum Anruf hinzufügen (1:1 → Gruppen-Call via Space) */
+  onAddParticipant?: () => void;
 }
 
 // ── Control-Button ──────────────────────────────────────────────────────────
@@ -64,22 +66,23 @@ function ControlButton({ icon, onClick, active, danger, label }: ControlButtonPr
 
 interface CallControlsProps {
   callType: CallType;
+  callState: CallState;
   cameraUnavailable?: boolean;
   isMuted: boolean;
   isCameraOff: boolean;
   onToggleMute: () => void;
   onToggleCamera: () => void;
   onHangup: () => void;
+  onAddParticipant?: () => void;
 }
 
 function CallControls({
-  callType, cameraUnavailable, isMuted, isCameraOff,
-  onToggleMute, onToggleCamera, onHangup,
+  callType, callState, cameraUnavailable, isMuted, isCameraOff,
+  onToggleMute, onToggleCamera, onHangup, onAddParticipant,
 }: CallControlsProps) {
   const { t } = useTranslation();
   return (
     <div className="flex justify-center gap-6">
-      {/* Reihe 1: Kern-Controls */}
       <ControlButton
         icon={isMuted ? <MicOff size={24} /> : <Mic size={24} />}
         onClick={onToggleMute}
@@ -94,11 +97,13 @@ function CallControls({
           label={isCameraOff ? t('call.cameraOn') : t('call.cameraOff')}
         />
       )}
-      {/* Platzhalter für zukünftige Buttons:
-          - Desktop teilen (ScreenShare)
-          - Effekte / Hintergrund-Blur
-          - Layout wechseln (Grid/Speaker)
-      */}
+      {callState === 'active' && onAddParticipant && (
+        <ControlButton
+          icon={<UserPlus size={24} />}
+          onClick={onAddParticipant}
+          label={t('call.addParticipant')}
+        />
+      )}
       <ControlButton
         icon={<PhoneOff size={24} />}
         onClick={onHangup}
@@ -130,7 +135,7 @@ function ConnectionModeIndicator({ mode, t }: { mode?: ConnectionMode; t: (key: 
 export default function CallOverlay({
   callState, callType, contactName, contactAvatar,
   onAccept, onReject, onHangup, localStream, remoteStream,
-  cameraUnavailable, connectionMode,
+  cameraUnavailable, connectionMode, onAddParticipant,
 }: CallOverlayProps) {
   const { t } = useTranslation();
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -343,12 +348,14 @@ export default function CallOverlay({
             ) : (
               <CallControls
                 callType={callType}
+                callState={callState}
                 cameraUnavailable={cameraUnavailable}
                 isMuted={isMuted}
                 isCameraOff={isCameraOff}
                 onToggleMute={toggleMute}
                 onToggleCamera={toggleCamera}
                 onHangup={onHangup}
+                onAddParticipant={onAddParticipant}
               />
             )}
           </motion.div>

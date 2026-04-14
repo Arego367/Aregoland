@@ -462,7 +462,8 @@
     "incomingAudio": "Inkomend gesprek",
     "connecting": "Verbinding maken...",
     "reject": "Weigeren",
-    "accept": "Aannemen"
+    "accept": "Aannemen",
+    "addParticipant": "Deelnemer toevoegen"
   },
   "qrScreen": {
     "title": "QR-code",

@@ -462,7 +462,8 @@
     "incomingAudio": "Příchozí hovor",
     "connecting": "Navazování spojení...",
     "reject": "Odmítnout",
-    "accept": "Přijmout"
+    "accept": "Přijmout",
+    "addParticipant": "Přidat účastníka"
   },
   "qrScreen": {
     "title": "QR kód",

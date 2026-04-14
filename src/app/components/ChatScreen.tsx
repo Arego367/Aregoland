@@ -1007,6 +1007,13 @@ export default function ChatScreen({
             localStream={localStream}
             remoteStream={remoteStream}
             cameraUnavailable={cameraUnavailable}
+            onAddParticipant={() => {
+              const mediaType = callType;
+              cm.hangup();
+              window.dispatchEvent(new CustomEvent('arego-promote-to-space-call', {
+                detail: { contactId: chatId, contactName: chatName, contactAvatar: chatAvatar, mediaType },
+              }));
+            }}
           />
         )}
       </AnimatePresence>

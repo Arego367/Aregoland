@@ -462,7 +462,8 @@
     "incomingAudio": "Dolazni poziv",
     "connecting": "Uspostavljanje veze...",
     "reject": "Odbij",
-    "accept": "Prihvati"
+    "accept": "Prihvati",
+    "addParticipant": "Dodaj sudionika"
   },
   "qrScreen": {
     "title": "QR-kod",

@@ -462,7 +462,8 @@
     "incomingAudio": "Chamada recebida",
     "connecting": "A ligar...",
     "reject": "Rejeitar",
-    "accept": "Aceitar"
+    "accept": "Aceitar",
+    "addParticipant": "Adicionar participante"
   },
   "qrScreen": {
     "title": "Código QR",

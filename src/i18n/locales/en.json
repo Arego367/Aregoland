@@ -463,7 +463,8 @@
     "incomingAudio": "Incoming Call",
     "connecting": "Connecting...",
     "reject": "Reject",
-    "accept": "Accept"
+    "accept": "Accept",
+    "addParticipant": "Add participant"
   },
   "qrScreen": {
     "title": "QR Code",

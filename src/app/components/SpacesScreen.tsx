@@ -514,7 +514,7 @@ interface SpacesScreenProps {
   onOpenSettings: () => void;
   onOpenSupport?: () => void;
   onShowToast?: (text: string, type?: 'info' | 'warning') => void;
-  deepLink?: { spaceId: string; tab?: string } | null;
+  deepLink?: { spaceId: string; tab?: string; autoCall?: 'audio' | 'video' } | null;
   onDeepLinkConsumed?: () => void;
 }
 
@@ -1063,7 +1063,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [openRoadmap, setOpenRoadmap] = useState<Record<string, boolean>>({ done: false, wip: true, planned: false });
   const toggleRoadmap = (key: string) => setOpenRoadmap(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // Deep-Link: direkt in einen Space + Tab navigieren
+  // Deep-Link: direkt in einen Space + Tab navigieren (optional mit autoCall)
   useEffect(() => {
     if (!deepLink) return;
     // Spaces neu laden (könnte gerade per join_response hinzugefügt worden sein)
@@ -1076,6 +1076,17 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       setSelectedSpace(target);
       setView("detail");
       setActiveTab((deepLink.tab ?? "overview") as typeof activeTab);
+      // Auto-Call starten (z.B. bei Promote von 1:1 → Gruppen-Call)
+      if (deepLink.autoCall && identity) {
+        const mediaType = deepLink.autoCall;
+        setTimeout(() => {
+          const mgr = spaceCallManagerRef.current;
+          if (mgr && mgr.getState() === "idle") {
+            setSpaceCallMediaType(mediaType);
+            mgr.join(target.id, identity.aregoId, mediaType);
+          }
+        }, 300);
+      }
     }
     onDeepLinkConsumed?.();
   }, [deepLink]);

@@ -462,7 +462,8 @@
     "incomingAudio": "مكالمة واردة",
     "connecting": "جارٍ إنشاء الاتصال...",
     "reject": "رفض",
-    "accept": "قبول"
+    "accept": "قبول",
+    "addParticipant": "إضافة مشارك"
   },
   "qrScreen": {
     "title": "رمز QR",

@@ -462,7 +462,8 @@
     "incomingAudio": "Apel primit",
     "connecting": "Se conectează...",
     "reject": "Respinge",
-    "accept": "Acceptă"
+    "accept": "Acceptă",
+    "addParticipant": "Adaugă participant"
   },
   "qrScreen": {
     "title": "Cod QR",

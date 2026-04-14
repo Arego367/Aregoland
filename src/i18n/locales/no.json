@@ -462,7 +462,8 @@
     "incomingAudio": "Innkommende anrop",
     "connecting": "Kobler til...",
     "reject": "Avvis",
-    "accept": "Svar"
+    "accept": "Svar",
+    "addParticipant": "Legg til deltaker"
   },
   "qrScreen": {
     "title": "QR-kode",

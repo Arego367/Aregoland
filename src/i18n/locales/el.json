@@ -462,7 +462,8 @@
     "incomingAudio": "Εισερχόμενη κλήση",
     "connecting": "Σύνδεση σε εξέλιξη...",
     "reject": "Απόρριψη",
-    "accept": "Αποδοχή"
+    "accept": "Αποδοχή",
+    "addParticipant": "Προσθήκη συμμετέχοντα"
   },
   "qrScreen": {
     "title": "Κωδικός QR",

@@ -462,7 +462,8 @@
     "incomingAudio": "Chiamata in arrivo",
     "connecting": "Connessione in corso...",
     "reject": "Rifiuta",
-    "accept": "Accetta"
+    "accept": "Accetta",
+    "addParticipant": "Aggiungi partecipante"
   },
   "qrScreen": {
     "title": "Codice QR",

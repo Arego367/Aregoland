@@ -462,7 +462,8 @@
     "incomingAudio": "Bejövő hívás",
     "connecting": "Kapcsolódás folyamatban...",
     "reject": "Elutasítás",
-    "accept": "Elfogadás"
+    "accept": "Elfogadás",
+    "addParticipant": "Résztvevő hozzáadása"
   },
   "qrScreen": {
     "title": "QR-kód",

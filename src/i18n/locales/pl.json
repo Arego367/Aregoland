@@ -462,7 +462,8 @@
     "incomingAudio": "Połączenie przychodzące",
     "connecting": "Łączenie...",
     "reject": "Odrzuć",
-    "accept": "Odbierz"
+    "accept": "Odbierz",
+    "addParticipant": "Dodaj uczestnika"
   },
   "qrScreen": {
     "title": "Kod QR",

@@ -462,7 +462,8 @@
     "incomingAudio": "Входящо обаждане",
     "connecting": "Установяване на връзка...",
     "reject": "Отхвърляне",
-    "accept": "Приемане"
+    "accept": "Приемане",
+    "addParticipant": "Добави участник"
   },
   "qrScreen": {
     "title": "QR код",

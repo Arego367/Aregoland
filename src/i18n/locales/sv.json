@@ -462,7 +462,8 @@
     "incomingAudio": "Inkommande samtal",
     "connecting": "Ansluter...",
     "reject": "Avvisa",
-    "accept": "Svara"
+    "accept": "Svara",
+    "addParticipant": "Lägg till deltagare"
   },
   "qrScreen": {
     "title": "QR-kod",

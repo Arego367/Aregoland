@@ -462,7 +462,8 @@
     "incomingAudio": "Dohodni klic",
     "connecting": "Vzpostavljanje povezave...",
     "reject": "Zavrni",
-    "accept": "Sprejmi"
+    "accept": "Sprejmi",
+    "addParticipant": "Dodaj udeleženca"
   },
   "qrScreen": {
     "title": "QR koda",

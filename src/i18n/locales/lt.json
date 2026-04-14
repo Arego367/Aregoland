@@ -463,7 +463,8 @@
     "incomingAudio": "Įeinantis skambutis",
     "connecting": "Jungiamasi...",
     "reject": "Atmesti",
-    "accept": "Atsiliepti"
+    "accept": "Atsiliepti",
+    "addParticipant": "Pridėti dalyvį"
   },
   "qrScreen": {
     "title": "QR kodas",

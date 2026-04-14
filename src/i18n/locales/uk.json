@@ -462,7 +462,8 @@
     "incomingAudio": "Вхідний дзвінок",
     "connecting": "Встановлення з'єднання...",
     "reject": "Відхилити",
-    "accept": "Прийняти"
+    "accept": "Прийняти",
+    "addParticipant": "Додати учасника"
   },
   "qrScreen": {
     "title": "QR-код",

@@ -462,7 +462,8 @@
     "incomingAudio": "Sejħa dieħla",
     "connecting": "Qed jikkonettja...",
     "reject": "Irrifjuta",
-    "accept": "Aċċetta"
+    "accept": "Aċċetta",
+    "addParticipant": "Żid parteċipant"
   },
   "qrScreen": {
     "title": "Kodiċi QR",

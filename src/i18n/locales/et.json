@@ -462,7 +462,8 @@
     "incomingAudio": "Sissetulev kõne",
     "connecting": "Ühenduse loomine...",
     "reject": "Keeldu",
-    "accept": "Vasta"
+    "accept": "Vasta",
+    "addParticipant": "Lisa osaleja"
   },
   "qrScreen": {
     "title": "QR-kood",

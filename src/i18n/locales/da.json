@@ -462,7 +462,8 @@
     "incomingAudio": "Indgående opkald",
     "connecting": "Forbindelse oprettes...",
     "reject": "Afvis",
-    "accept": "Besvar"
+    "accept": "Besvar",
+    "addParticipant": "Tilføj deltager"
   },
   "qrScreen": {
     "title": "QR-kode",

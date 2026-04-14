@@ -462,7 +462,8 @@
     "incomingAudio": "Ienākošs zvans",
     "connecting": "Savienojums tiek veidots...",
     "reject": "Noraidīt",
-    "accept": "Pieņemt"
+    "accept": "Pieņemt",
+    "addParticipant": "Pievienot dalībnieku"
   },
   "qrScreen": {
     "title": "QR kods",
