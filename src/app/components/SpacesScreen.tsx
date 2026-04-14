@@ -14,7 +14,8 @@ import { useTranslation } from 'react-i18next';
 import { loadIdentity, type LinkedChild } from "@/app/auth/identity";
 import { loadFsk, type FskLevel } from "@/app/auth/fsk";
 import { addAbsenceStatus, queueAbsenceReport, getActiveAbsences, getAbsencesBySpace, resolveVisibility, filterByVisibility } from "@/app/lib/member-absence";
-import type { AbsenceStatusType, MemberAbsenceStatus } from "@/app/types";
+import { addTemplate, generateSlots } from "@/app/lib/booking";
+import type { AbsenceStatusType, MemberAbsenceStatus, SlotFlexibility } from "@/app/types";
 import { loadContacts, removeContact } from "@/app/auth/contacts";
 import { Html5Qrcode } from "html5-qrcode";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -695,6 +696,54 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [absenceStartDate, setAbsenceStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [absenceEndDate, setAbsenceEndDate] = useState("");
   const [absenceRangeMode, setAbsenceRangeMode] = useState<"today" | "range">("today");
+
+  // Booking Template Creator Modal
+  const [showBookingWizard, setShowBookingWizard] = useState(false);
+  const [bookingStep, setBookingStep] = useState(0);
+  const [bookingTitle, setBookingTitle] = useState("");
+  const [bookingDate, setBookingDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [bookingStartTime, setBookingStartTime] = useState("08:00");
+  const [bookingEndTime, setBookingEndTime] = useState("12:00");
+  const [bookingSlotDuration, setBookingSlotDuration] = useState(15);
+  const [bookingBreakMin, setBookingBreakMin] = useState(5);
+  const [bookingSlotFlex, setBookingSlotFlex] = useState<SlotFlexibility>("fixed");
+  const [bookingMaxPerMember, setBookingMaxPerMember] = useState(1);
+
+  const openBookingWizard = useCallback(() => {
+    setBookingStep(0);
+    setBookingTitle("");
+    setBookingDate(new Date().toISOString().slice(0, 10));
+    setBookingStartTime("08:00");
+    setBookingEndTime("12:00");
+    setBookingSlotDuration(15);
+    setBookingBreakMin(5);
+    setBookingSlotFlex("fixed");
+    setBookingMaxPerMember(1);
+    setShowBookingWizard(true);
+  }, []);
+
+  const bookingPreviewSlots = useMemo(() => {
+    if (!showBookingWizard) return [];
+    return generateSlots(bookingStartTime, bookingEndTime, bookingSlotDuration, bookingBreakMin);
+  }, [showBookingWizard, bookingStartTime, bookingEndTime, bookingSlotDuration, bookingBreakMin]);
+
+  const submitBookingTemplate = useCallback(() => {
+    if (!selectedSpace || !identity || !bookingTitle.trim()) return;
+    addTemplate({
+      spaceId: selectedSpace.id,
+      title: bookingTitle.trim(),
+      createdBy: identity.aregoId,
+      date: bookingDate,
+      startTime: bookingStartTime,
+      endTime: bookingEndTime,
+      slotDuration: bookingSlotDuration,
+      slotFlex: bookingSlotFlex,
+      breakBetween: bookingBreakMin,
+      maxBookingsPerMember: bookingMaxPerMember,
+    });
+    setShowBookingWizard(false);
+    if (onShowToast) onShowToast(t("spaces.bookingTemplateCreated"), "info");
+  }, [selectedSpace, identity, bookingTitle, bookingDate, bookingStartTime, bookingEndTime, bookingSlotDuration, bookingSlotFlex, bookingBreakMin, bookingMaxPerMember, onShowToast, t]);
 
   const openAbsenceModal = useCallback(() => {
     // Determine if user is a parent (has linked children)
@@ -3277,6 +3326,27 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                           <div className="text-[11px] text-gray-500">{t("spaces.reportAbsenceDesc")}</div>
                         </div>
                         <ChevronRight size={16} className="text-orange-400/50 shrink-0" />
+                      </button>
+                    );
+                  })()}
+
+                  {/* Termine anlegen Button */}
+                  {(() => {
+                    const canManageBookings = isFounderOrAdmin || !!overviewCustomRole?.permissions.manageBookingSlots;
+                    if (!canManageBookings) return null;
+                    return (
+                      <button
+                        onClick={openBookingWizard}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 transition-all"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
+                          <Calendar size={18} className="text-blue-400" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="text-sm font-semibold text-blue-300">{t("spaces.bookingCreateSlots")}</div>
+                          <div className="text-[11px] text-gray-500">{t("spaces.bookingCreateSlotsDesc")}</div>
+                        </div>
+                        <ChevronRight size={16} className="text-blue-400/50 shrink-0" />
                       </button>
                     );
                   })()}
@@ -6088,6 +6158,198 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   <div className="flex gap-2">
                     <button onClick={() => setAbsenceStep(1)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">{t("common.back")}</button>
                     <button onClick={submitAbsenceReport} className="flex-1 py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-colors">{t("spaces.absenceSubmit")}</button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── BOOKING TEMPLATE CREATOR MODAL ── */}
+      <AnimatePresence>
+        {showBookingWizard && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center"
+            onClick={() => setShowBookingWizard(false)}
+          >
+            <motion.div
+              initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="w-full max-w-md bg-gray-900 border border-gray-700/50 rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[85vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">{t("spaces.bookingCreateSlots")}</h3>
+                <button onClick={() => setShowBookingWizard(false)} className="p-1 text-gray-500 hover:text-white"><X size={20} /></button>
+              </div>
+
+              {/* Step indicator */}
+              <div className="flex gap-1">
+                {[0, 1, 2, 3, 4].map(s => (
+                  <div key={s} className={`h-1 flex-1 rounded-full transition-colors ${bookingStep >= s ? "bg-blue-500" : "bg-gray-700"}`} />
+                ))}
+              </div>
+
+              {/* Step 0: Titel + Datum */}
+              {bookingStep === 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.bookingStepTitleDate")}</p>
+                  <div>
+                    <label className="text-[10px] text-gray-500 mb-1 block">{t("spaces.bookingTemplateTitle")}</label>
+                    <input
+                      type="text" value={bookingTitle} onChange={e => setBookingTitle(e.target.value)}
+                      placeholder={t("spaces.bookingTitlePlaceholder")}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 mb-1 block">{t("spaces.bookingDateLabel")}</label>
+                    <input
+                      type="date" value={bookingDate} onChange={e => setBookingDate(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <button
+                    onClick={() => bookingTitle.trim() && setBookingStep(1)}
+                    disabled={!bookingTitle.trim()}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-bold rounded-xl transition-colors"
+                  >{t("common.next")}</button>
+                </div>
+              )}
+
+              {/* Step 1: Zeitfenster */}
+              {bookingStep === 1 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.bookingTimeWindow")}</p>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-gray-500 mb-1 block">{t("spaces.bookingStartTime")}</label>
+                      <input
+                        type="time" value={bookingStartTime} onChange={e => setBookingStartTime(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-gray-500 mb-1 block">{t("spaces.bookingEndTime")}</label>
+                      <input
+                        type="time" value={bookingEndTime} onChange={e => setBookingEndTime(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setBookingStep(0)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">{t("common.back")}</button>
+                    <button onClick={() => setBookingStep(2)} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-colors">{t("common.next")}</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Slot-Dauer + Pause */}
+              {bookingStep === 2 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.bookingSlotDuration")}</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {[10, 15, 20, 30, 60].map(d => (
+                      <button
+                        key={d}
+                        onClick={() => setBookingSlotDuration(d)}
+                        className={`py-2.5 text-sm font-medium rounded-xl border transition-all ${
+                          bookingSlotDuration === d
+                            ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                            : "border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700"
+                        }`}
+                      >{d} min</button>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 mb-1 block">{t("spaces.bookingBreakBetween")}</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[0, 5, 10, 15].map(b => (
+                        <button
+                          key={b}
+                          onClick={() => setBookingBreakMin(b)}
+                          className={`py-2 text-sm font-medium rounded-xl border transition-all ${
+                            bookingBreakMin === b
+                              ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                              : "border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700"
+                          }`}
+                        >{b === 0 ? t("spaces.bookingNoBreak") : `${b} min`}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setBookingStep(1)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">{t("common.back")}</button>
+                    <button onClick={() => setBookingStep(3)} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-colors">{t("common.next")}</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Flexibilität */}
+              {bookingStep === 3 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.bookingSlotFlex")}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: "fixed" as const, icon: Lock, label: t("spaces.bookingFlexFixed"), desc: t("spaces.bookingFlexFixedDesc"), color: "blue" },
+                      { value: "flexible" as const, icon: Clock, label: t("spaces.bookingFlexFlexible"), desc: t("spaces.bookingFlexFlexibleDesc"), color: "green" },
+                    ]).map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setBookingSlotFlex(opt.value)}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${
+                          bookingSlotFlex === opt.value ? `border-${opt.color}-500 bg-${opt.color}-500/10` : "border-gray-700/50 bg-gray-800/50 hover:bg-gray-800"
+                        }`}
+                      >
+                        <opt.icon size={24} className={`text-${opt.color}-400`} />
+                        <span className="text-xs font-medium text-white">{opt.label}</span>
+                        <span className="text-[10px] text-gray-500 text-center">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setBookingStep(2)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">{t("common.back")}</button>
+                    <button onClick={() => setBookingStep(4)} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-colors">{t("common.next")}</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Preview + Bestätigen */}
+              {bookingStep === 4 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{t("spaces.bookingPreview")}</p>
+                  <div className="bg-gray-800/50 rounded-xl p-3 space-y-1 text-sm">
+                    <div className="flex justify-between"><span className="text-gray-500">{t("spaces.bookingTemplateTitle")}</span><span className="text-white font-medium">{bookingTitle}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">{t("spaces.bookingDateLabel")}</span><span className="text-white font-medium">{bookingDate}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">{t("spaces.bookingTimeWindow")}</span><span className="text-white font-medium">{bookingStartTime} – {bookingEndTime}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">{t("spaces.bookingSlotDuration")}</span><span className="text-white font-medium">{bookingSlotDuration} min</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">{t("spaces.bookingBreakBetween")}</span><span className="text-white font-medium">{bookingBreakMin} min</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">{t("spaces.bookingSlotFlex")}</span><span className="text-white font-medium">{bookingSlotFlex === "fixed" ? t("spaces.bookingFlexFixed") : t("spaces.bookingFlexFlexible")}</span></div>
+                  </div>
+                  {/* Generated slot preview */}
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">{t("spaces.bookingFreeSlots", { count: bookingPreviewSlots.length })}</p>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {bookingPreviewSlots.map((slot, i) => (
+                        <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 rounded-lg text-sm">
+                          <Clock size={12} className="text-blue-400 shrink-0" />
+                          <span className="text-white">{slot.startTime} – {slot.endTime}</span>
+                        </div>
+                      ))}
+                      {bookingPreviewSlots.length === 0 && (
+                        <p className="text-xs text-gray-600 italic">{t("spaces.bookingNoSlotsGenerated")}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setBookingStep(3)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">{t("common.back")}</button>
+                    <button
+                      onClick={submitBookingTemplate}
+                      disabled={bookingPreviewSlots.length === 0}
+                      className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-bold rounded-xl transition-colors"
+                    >{t("spaces.bookingConfirmCreate")}</button>
                   </div>
                 </div>
               )}
