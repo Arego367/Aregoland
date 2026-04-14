@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Aregoland — Nur Frontend (Vite + Nginx) neu starten.
+# Aregoland — Frontend bauen und Nginx neu starten.
 # Signaling-Server wird NICHT angefasst.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VITE_SERVICE="arego-vite"
 NGINX_SERVICE="nginx"
 
 if [[ $EUID -ne 0 ]]; then
@@ -12,12 +11,23 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+# ── Dependencies installieren (falls geändert) ───────────────────────────────
+echo "→ Dependencies prüfen ..."
+cd "$SCRIPT_DIR"
+pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+echo "  ✓ Dependencies aktuell"
+
+# ── Production Build ─────────────────────────────────────────────────────────
+echo "→ Production Build (vite build) ..."
+pnpm build
+echo "  ✓ Build abgeschlossen"
+
 # ── systemd Service-Files aktualisieren (falls geändert) ─────────────────────
 SERVICES_CHANGED=0
 for svc in arego-vite.service; do
   src="$SCRIPT_DIR/$svc"
   dst="/etc/systemd/system/$svc"
-  if [[ ! -f "$dst" ]] || ! diff -q "$src" "$dst" > /dev/null 2>&1; then
+  if [[ -f "$src" ]] && { [[ ! -f "$dst" ]] || ! diff -q "$src" "$dst" > /dev/null 2>&1; }; then
     cp "$src" "$dst"
     SERVICES_CHANGED=1
     echo "  ✓ $svc aktualisiert"
@@ -27,19 +37,7 @@ if [[ $SERVICES_CHANGED -eq 1 ]]; then
   systemctl daemon-reload
 fi
 
-# ── Vite neu starten ─────────────────────────────────────────────────────────
-echo "→ Vite Dev-Server neu starten ..."
-systemctl restart "$VITE_SERVICE"
-sleep 2
-if systemctl is-active --quiet "$VITE_SERVICE"; then
-  echo "  ✓ Vite läuft"
-else
-  echo "  ✗ Vite-Start fehlgeschlagen" >&2
-  journalctl -u "$VITE_SERVICE" -n 20 --no-pager >&2
-  exit 1
-fi
-
-# ── Nginx neu starten ────────────────────────────────────────────────────────
+# ── Nginx neu starten (um gecachte Dateien zu aktualisieren) ──────────────────
 echo "→ Nginx neu starten ..."
 systemctl restart "$NGINX_SERVICE"
 sleep 1
