@@ -1414,7 +1414,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
       guestPermissions: { readChats: true },
       createdAt: new Date().toISOString(),
       visibility: "private",
-      fsk: 18,
+      fsk: userFsk?.level ?? 6,
       settings: { ...tmpl.defaultSettings },
     };
     const updated = [...spaces, space];
