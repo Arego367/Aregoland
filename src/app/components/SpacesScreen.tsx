@@ -15,6 +15,7 @@ import { loadIdentity, isChildAccount, type LinkedChild } from "@/app/auth/ident
 import { loadFsk, type FskLevel } from "@/app/auth/fsk";
 import { addAbsenceStatus, queueAbsenceReport, getActiveAbsences, getAbsencesBySpace, resolveVisibility, filterByVisibility } from "@/app/lib/member-absence";
 import { getEntriesBySpace, addTimetableEntry, updateTimetableEntry, deleteTimetableEntry } from "@/app/lib/timetable";
+import { notifyCancellation } from "@/app/lib/reminder-scheduler";
 import type { TimetableEntry, TimetableEntryStatus } from "@/app/types";
 import { addTemplate, generateSlots, getTemplatesBySpace, getFreeSlots, countMemberBookings, updateSlotStatus, filterSlotsForMember, addRequest } from "@/app/lib/booking";
 import type { AbsenceStatusType, MemberAbsenceStatus, SlotFlexibility, BookingTemplate, BookingSlot } from "@/app/types";
@@ -698,6 +699,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [ttRoom, setTtRoom] = useState("");
   const [ttStart, setTtStart] = useState("08:00");
   const [ttEnd, setTtEnd] = useState("08:45");
+  const [ttStatus, setTtStatus] = useState<TimetableEntryStatus>("normal");
+  const [ttSubTeacher, setTtSubTeacher] = useState("");
+  const [ttSubRoom, setTtSubRoom] = useState("");
+  const [ttNote, setTtNote] = useState("");
+  const [cancellationCount, setCancellationCount] = useState(0);
 
   // Absence Report Modal
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
@@ -3365,14 +3371,19 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   label: t('spaces.absenceStatusBoard'), desc: t('spaces.statusBoardDesc'),
                   activity: activeAbsenceCount > 0 ? t('spaces.absenceAbsentCount', { count: activeAbsenceCount }) : undefined,
                 },
-                timetable: {
-                  icon: Calendar, color: "text-indigo-400", gradient: "from-indigo-600 to-purple-500",
-                  label: t('spaces.timetableTitle'), desc: t('spaces.timetableDesc'),
-                  activity: (() => {
-                    const todayEntries = getEntriesBySpace(selectedSpace.id).filter(e => e.weekday === (new Date().getDay() || 7));
-                    return todayEntries.length > 0 ? t('spaces.timetableLessonCount', { count: todayEntries.length }) : undefined;
-                  })(),
-                },
+                timetable: (() => {
+                  const todayWd = new Date().getDay();
+                  const todayEntries = getEntriesBySpace(selectedSpace.id).filter(e => e.weekday === todayWd);
+                  const cancelledToday = todayEntries.filter(e => e.status === "cancelled" || e.status === "substitution").length;
+                  return {
+                    icon: Calendar, color: cancelledToday > 0 ? "text-red-400" : "text-indigo-400",
+                    gradient: cancelledToday > 0 ? "from-red-600 to-orange-500" : "from-indigo-600 to-purple-500",
+                    label: t('spaces.timetableTitle'), desc: t('spaces.timetableDesc'),
+                    activity: cancelledToday > 0
+                      ? t('spaces.timetableCancellationCount', { count: cancelledToday })
+                      : todayEntries.length > 0 ? t('spaces.timetableLessonCount', { count: todayEntries.length }) : undefined,
+                  };
+                })(),
               };
 
               return (
@@ -6084,9 +6095,15 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                 { key: 5, short: t('spaces.timetableFri') },
               ];
 
-              const entries = getEntriesBySpace(selectedSpace.id)
+              const allSpaceEntries = getEntriesBySpace(selectedSpace.id);
+              const entries = allSpaceEntries
                 .filter(e => e.weekday === timetableDay)
                 .sort((a, b) => a.startTime.localeCompare(b.startTime));
+              const todayWeekday = new Date().getDay();
+              const todayCancellations = allSpaceEntries.filter(e =>
+                e.weekday === todayWeekday && (e.status === "cancelled" || e.status === "substitution")
+              );
+              void cancellationCount; // trigger re-render on status changes
 
               const statusColor = (s: TimetableEntryStatus) => {
                 switch (s) {
@@ -6118,6 +6135,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   setTtRoom(entry.room);
                   setTtStart(entry.startTime);
                   setTtEnd(entry.endTime);
+                  setTtStatus(entry.status);
+                  setTtSubTeacher(entry.substituteTeacherName ?? "");
+                  setTtSubRoom(entry.substituteRoom ?? "");
+                  setTtNote(entry.statusNote ?? "");
                 } else {
                   setEditingEntry(null);
                   setTtSubject("");
@@ -6125,6 +6146,10 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   setTtRoom("");
                   setTtStart("08:00");
                   setTtEnd("08:45");
+                  setTtStatus("normal");
+                  setTtSubTeacher("");
+                  setTtSubRoom("");
+                  setTtNote("");
                 }
                 setShowTimetableForm(true);
               };
@@ -6132,13 +6157,30 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
               const handleSave = () => {
                 if (!ttSubject.trim() || !identity) return;
                 if (editingEntry) {
+                  const statusChanged = editingEntry.status !== ttStatus;
                   updateTimetableEntry(editingEntry.id, {
                     subject: ttSubject.trim(),
                     teacherName: ttTeacher.trim(),
                     room: ttRoom.trim(),
                     startTime: ttStart,
                     endTime: ttEnd,
+                    status: ttStatus,
+                    substituteTeacherName: ttStatus === "substitution" ? ttSubTeacher.trim() || undefined : undefined,
+                    substituteRoom: ttStatus === "substitution" ? ttSubRoom.trim() || undefined : undefined,
+                    statusNote: ttNote.trim() || undefined,
                   });
+                  // Fire push notification when status changes to cancelled/substitution
+                  if (statusChanged && (ttStatus === "cancelled" || ttStatus === "substitution")) {
+                    notifyCancellation({
+                      entryId: editingEntry.id,
+                      spaceId: selectedSpace.id,
+                      subject: ttSubject.trim(),
+                      startTime: ttStart,
+                      newStatus: ttStatus,
+                      substituteTeacherName: ttStatus === "substitution" ? ttSubTeacher.trim() : undefined,
+                    });
+                    setCancellationCount(c => c + 1);
+                  }
                 } else {
                   addTimetableEntry({
                     spaceId: selectedSpace.id,
@@ -6149,8 +6191,14 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                     weekday: timetableDay,
                     startTime: ttStart,
                     endTime: ttEnd,
-                    status: "normal",
+                    status: ttStatus,
                     createdBy: identity.aregoId,
+                    ...(ttStatus === "substitution" ? {
+                      substituteTeacherId: "",
+                      substituteTeacherName: ttSubTeacher.trim(),
+                      substituteRoom: ttSubRoom.trim() || undefined,
+                    } : {}),
+                    ...(ttNote.trim() ? { statusNote: ttNote.trim() } : {}),
                   });
                 }
                 setShowTimetableForm(false);
@@ -6165,6 +6213,21 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
 
               return (
                 <div className="space-y-4">
+                  {/* Cancellation alert banner */}
+                  {todayCancellations.length > 0 && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center shrink-0">
+                        <X size={16} className="text-red-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-red-300">{t('spaces.timetableCancellationAlert')}</div>
+                        <div className="text-[11px] text-red-400/70 mt-0.5">
+                          {todayCancellations.map(e => e.subject).join(", ")}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Header */}
                   <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
                     <div className="flex items-center justify-between">
@@ -6344,6 +6407,63 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                                 />
                               </div>
                             </div>
+
+                            {/* Status selector */}
+                            <div>
+                              <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableStatusLabel')}</label>
+                              <div className="flex gap-1.5">
+                                {(["normal", "cancelled", "substitution"] as const).map(s => (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => setTtStatus(s)}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-all ${
+                                      ttStatus === s
+                                        ? s === "normal" ? "border-green-500 bg-green-500/10 text-green-300"
+                                          : s === "cancelled" ? "border-red-500 bg-red-500/10 text-red-300"
+                                          : "border-orange-500 bg-orange-500/10 text-orange-300"
+                                        : "border-gray-700 bg-gray-800/50 text-gray-400"
+                                    }`}
+                                  >
+                                    {statusLabel(s)}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Substitution fields */}
+                            {ttStatus === "substitution" && (
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableSubTeacher')}</label>
+                                  <input
+                                    value={ttSubTeacher} onChange={e => setTtSubTeacher(e.target.value)}
+                                    placeholder={t('spaces.timetableSubTeacherPlaceholder')}
+                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-orange-500 focus:outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableSubRoom')}</label>
+                                  <input
+                                    value={ttSubRoom} onChange={e => setTtSubRoom(e.target.value)}
+                                    placeholder={t('spaces.timetableRoomPlaceholder')}
+                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-orange-500 focus:outline-none"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Status note */}
+                            {ttStatus !== "normal" && (
+                              <div>
+                                <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableStatusNote')}</label>
+                                <input
+                                  value={ttNote} onChange={e => setTtNote(e.target.value)}
+                                  placeholder={t('spaces.timetableStatusNotePlaceholder')}
+                                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-indigo-500 focus:outline-none"
+                                />
+                              </div>
+                            )}
                           </div>
 
                           <div className="flex gap-2 pt-1">

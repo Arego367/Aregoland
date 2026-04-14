@@ -128,6 +128,7 @@ export const SpaceVersionStore = {
 export type GossipMessageType =
   | 'absence_status'
   | 'booking_update'
+  | 'timetable_status'
   | 'chat'
   | 'settings';
 
@@ -160,6 +161,21 @@ export interface BookingGossipPayload {
   bookedBy?: string;
   requestId?: string;
   status?: string;
+}
+
+/** Timetable-Status Gossip — Stundenplan-Änderungen (Ausfall/Vertretung) verteilen */
+export interface TimetableStatusGossipPayload {
+  entryId: string;
+  spaceId: string;
+  subject: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  newStatus: 'normal' | 'cancelled' | 'substitution';
+  substituteTeacherName?: string;
+  substituteRoom?: string;
+  statusNote?: string;
+  changedBy: string;
 }
 
 /** Offline-Queue für Abwesenheitsmeldungen (IndexedDB-kompatibel) */

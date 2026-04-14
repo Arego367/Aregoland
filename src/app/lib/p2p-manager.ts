@@ -168,6 +168,21 @@ export interface BookingUpdateMessage {
   status?: string;
 }
 
+export interface TimetableStatusMessage {
+  _t: 'timetable_status';
+  spaceId: string;
+  entryId: string;
+  subject: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  newStatus: 'normal' | 'cancelled' | 'substitution';
+  substituteTeacherName?: string;
+  substituteRoom?: string;
+  statusNote?: string;
+  changedBy: string;
+}
+
 export class P2PManager {
   private conns = new Map<string, Conn>();
   private fileBuffers: Map<string, { fileName: string; fileMime: string; totalChunks: number; chunks: (string | null)[]; received: number; roomId: string }> | null = null;
@@ -181,6 +196,7 @@ export class P2PManager {
   private calendarRsvpCb: ((roomId: string, rsvp: CalendarRsvpMessage) => void) | null = null;
   private absenceUpdateCb: ((roomId: string, update: AbsenceUpdateMessage) => void) | null = null;
   private bookingUpdateCb: ((roomId: string, update: BookingUpdateMessage) => void) | null = null;
+  private timetableStatusCb: ((roomId: string, update: TimetableStatusMessage) => void) | null = null;
   private globalIdentityPayload: string | undefined;
 
   // ── Callbacks registrieren ─────────────────────────────────────────────────
@@ -195,6 +211,7 @@ export class P2PManager {
   onCalendarRsvp(cb: (roomId: string, rsvp: CalendarRsvpMessage) => void) { this.calendarRsvpCb = cb; }
   onAbsenceUpdate(cb: (roomId: string, update: AbsenceUpdateMessage) => void) { this.absenceUpdateCb = cb; }
   onBookingUpdate(cb: (roomId: string, update: BookingUpdateMessage) => void) { this.bookingUpdateCb = cb; }
+  onTimetableStatus(cb: (roomId: string, update: TimetableStatusMessage) => void) { this.timetableStatusCb = cb; }
 
   setIdentityPayload(payload: string | undefined) {
     this.globalIdentityPayload = payload;
@@ -329,6 +346,17 @@ export class P2PManager {
     try {
       const ct = await encryptMessage(c.sessionKey, JSON.stringify(update));
       c.channel.send(JSON.stringify({ t: 'booking_update', ct }));
+      return true;
+    } catch { return false; }
+  }
+
+  /** Sendet ein Stundenplan-Status-Update verschlüsselt über den DataChannel */
+  async sendTimetableStatus(roomId: string, update: TimetableStatusMessage): Promise<boolean> {
+    const c = this.conns.get(roomId);
+    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    try {
+      const ct = await encryptMessage(c.sessionKey, JSON.stringify(update));
+      c.channel.send(JSON.stringify({ t: 'timetable_status', ct }));
       return true;
     } catch { return false; }
   }
@@ -590,6 +618,11 @@ export class P2PManager {
           try {
             const update = JSON.parse(text) as BookingUpdateMessage;
             if (update._t === 'booking_update') this.bookingUpdateCb?.(c.roomId, update);
+          } catch { /* ignorieren */ }
+        } else if (msg.t === 'timetable_status') {
+          try {
+            const update = JSON.parse(text) as TimetableStatusMessage;
+            if (update._t === 'timetable_status') this.timetableStatusCb?.(c.roomId, update);
           } catch { /* ignorieren */ }
         } else if (msg.t === 'file') {
           // Chunked File-Transfer

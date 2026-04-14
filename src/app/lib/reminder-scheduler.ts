@@ -121,6 +121,42 @@ export async function cancelSlotReminder(slotId: string): Promise<void> {
   await cancelReminder(`slot:${slotId}`);
 }
 
+// ── Timetable Cancellation Notifications ──────────────────────────────────
+
+export interface CancellationNotification {
+  entryId: string;
+  spaceId: string;
+  subject: string;
+  startTime: string;   // HH:mm
+  newStatus: 'cancelled' | 'substitution';
+  substituteTeacherName?: string;
+}
+
+/** Fire an immediate push notification for a timetable cancellation/substitution */
+export async function notifyCancellation(info: CancellationNotification): Promise<void> {
+  const title = info.newStatus === 'cancelled'
+    ? `${info.subject} fällt aus`
+    : `${info.subject} — Vertretung`;
+  const body = info.newStatus === 'cancelled'
+    ? `${info.subject} um ${info.startTime} Uhr fällt heute aus.`
+    : `${info.subject} um ${info.startTime} Uhr — Vertretung durch ${info.substituteTeacherName ?? '?'}`;
+
+  const sw = await getSW();
+  if (sw) {
+    sw.postMessage({
+      type: 'SCHEDULE_REMINDER',
+      reminder: {
+        eventId: `cancel:${info.entryId}`,
+        title,
+        body,
+        fireAt: Date.now() + 500, // fire immediately (small delay for SW processing)
+      },
+    });
+  } else if (Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/favicon.ico' });
+  }
+}
+
 function fallbackSlotSchedule(slot: SlotReminderInfo, fireAt: number): void {
   const delay = fireAt - Date.now();
   if (delay <= 0 || delay > 24 * 60 * 60_000) return;

@@ -846,7 +846,15 @@
     "timetableRoom": "Room",
     "timetableRoomPlaceholder": "e.g. A104",
     "timetableStart": "Start",
-    "timetableEnd": "End"
+    "timetableEnd": "End",
+    "timetableStatusLabel": "Status",
+    "timetableSubTeacher": "Substitute teacher",
+    "timetableSubTeacherPlaceholder": "e.g. Mr Jones",
+    "timetableSubRoom": "Substitute room",
+    "timetableStatusNote": "Note",
+    "timetableStatusNotePlaceholder": "Reason for cancellation...",
+    "timetableCancellationAlert": "Cancellations today",
+    "timetableCancellationCount": "{{count}} cancelled/substituted"
   },
   "childProfile": {
     "title": "Child Profiles",

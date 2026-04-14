@@ -1052,7 +1052,15 @@
     "timetableRoom": "Raum",
     "timetableRoomPlaceholder": "z.B. A104",
     "timetableStart": "Beginn",
-    "timetableEnd": "Ende"
+    "timetableEnd": "Ende",
+    "timetableStatusLabel": "Status",
+    "timetableSubTeacher": "Vertretungslehrer",
+    "timetableSubTeacherPlaceholder": "z.B. Herr Schmidt",
+    "timetableSubRoom": "Vertretungsraum",
+    "timetableStatusNote": "Hinweis",
+    "timetableStatusNotePlaceholder": "Grund für Ausfall...",
+    "timetableCancellationAlert": "Ausfälle heute",
+    "timetableCancellationCount": "{{count}} Ausfälle/Vertretungen"
   },
   "childProfile": {
     "title": "Kinder-Profile",
