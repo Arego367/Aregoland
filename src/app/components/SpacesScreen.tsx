@@ -15,7 +15,7 @@ import { loadIdentity, isChildAccount, type LinkedChild } from "@/app/auth/ident
 import { loadFsk, type FskLevel } from "@/app/auth/fsk";
 import { addAbsenceStatus, queueAbsenceReport, getActiveAbsences, getAbsencesBySpace, resolveVisibility, filterByVisibility } from "@/app/lib/member-absence";
 import { getEntriesBySpace, addTimetableEntry, updateTimetableEntry, deleteTimetableEntry } from "@/app/lib/timetable";
-import { getConfigByChild, addScheduleConfig, updateScheduleConfig, buildDayPlan, getHolidayForDate } from "@/app/lib/school-schedule";
+import { getConfigByChild, addScheduleConfig, updateScheduleConfig, buildDayPlan, getHolidayForDate, getHolidaysBySpace, addHoliday, updateHoliday, deleteHoliday } from "@/app/lib/school-schedule";
 import { notifyCancellation } from "@/app/lib/reminder-scheduler";
 import type { TimetableEntry, TimetableEntryStatus, ChildScheduleConfig, DayPlanEntry, DayPlanEntryType } from "@/app/types";
 import { addTemplate, generateSlots, getTemplatesBySpace, getFreeSlots, countMemberBookings, updateSlotStatus, filterSlotsForMember, addRequest } from "@/app/lib/booking";
@@ -717,6 +717,12 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [csExistingId, setCsExistingId] = useState<string | null>(null);
   const [dayPlanDate, setDayPlanDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [dayPlanChildId, setDayPlanChildId] = useState<string | null>(null);
+  const [showHolidayForm, setShowHolidayForm] = useState(false);
+  const [editingHoliday, setEditingHoliday] = useState<import("@/app/types").SchoolHoliday | null>(null);
+  const [hdTitle, setHdTitle] = useState("");
+  const [hdStart, setHdStart] = useState("");
+  const [hdEnd, setHdEnd] = useState("");
+  const [hdType, setHdType] = useState<"holiday" | "closure" | "teacher_day">("holiday");
 
   // Absence Report Modal
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
@@ -6354,6 +6360,165 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       ))}
                     </div>
                   )}
+
+                  {/* School Holidays — Moderator CRUD */}
+                  {canManage && (() => {
+                    const holidays = getHolidaysBySpace(selectedSpace.id)
+                      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+                    const openHolidayForm = (h?: import("@/app/types").SchoolHoliday) => {
+                      if (h) {
+                        setEditingHoliday(h);
+                        setHdTitle(h.title);
+                        setHdStart(h.startDate);
+                        setHdEnd(h.endDate);
+                        setHdType(h.type);
+                      } else {
+                        setEditingHoliday(null);
+                        setHdTitle("");
+                        setHdStart("");
+                        setHdEnd("");
+                        setHdType("holiday");
+                      }
+                      setShowHolidayForm(true);
+                    };
+
+                    const handleSaveHoliday = () => {
+                      if (!hdTitle.trim() || !hdStart || !hdEnd || !identity) return;
+                      if (editingHoliday) {
+                        updateHoliday(editingHoliday.id, {
+                          title: hdTitle.trim(),
+                          startDate: hdStart,
+                          endDate: hdEnd,
+                          type: hdType,
+                        });
+                      } else {
+                        addHoliday({
+                          spaceId: selectedSpace.id,
+                          title: hdTitle.trim(),
+                          startDate: hdStart,
+                          endDate: hdEnd,
+                          type: hdType,
+                          createdBy: identity.aregoId,
+                        });
+                      }
+                      setShowHolidayForm(false);
+                    };
+
+                    const hdTypeIcon = (t: "holiday" | "closure" | "teacher_day") => {
+                      switch (t) {
+                        case "holiday": return "🎄";
+                        case "closure": return "🔒";
+                        case "teacher_day": return "👩‍🏫";
+                      }
+                    };
+
+                    return (
+                      <>
+                        <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs font-semibold text-white">{t('spaces.schoolHolidayTitle')}</div>
+                            <button onClick={() => openHolidayForm()}
+                              className="w-6 h-6 rounded-md bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors">
+                              <Plus size={12} className="text-white" />
+                            </button>
+                          </div>
+                          {holidays.length === 0 ? (
+                            <div className="text-[11px] text-gray-500 py-2">{t('spaces.schoolHolidayEmpty')}</div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {holidays.map(h => (
+                                <button key={h.id} onClick={() => openHolidayForm(h)}
+                                  className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-gray-800 hover:bg-gray-700/50 border border-gray-700/50 transition-all text-left">
+                                  <span className="text-sm">{hdTypeIcon(h.type)}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-[11px] font-medium text-white truncate">{h.title}</div>
+                                    <div className="text-[10px] text-gray-500">{h.startDate} – {h.endDate}</div>
+                                  </div>
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">{t(`spaces.schoolHolidayType_${h.type}`)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Holiday Form Modal */}
+                        <AnimatePresence>
+                          {showHolidayForm && (
+                            <motion.div
+                              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                              className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center"
+                              onClick={() => setShowHolidayForm(false)}
+                            >
+                              <motion.div
+                                initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
+                                className="bg-gray-900 border border-gray-700/50 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-5 space-y-4"
+                                onClick={e => e.stopPropagation()}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <h3 className="text-base font-bold text-white">
+                                    {editingHoliday ? t('spaces.schoolHolidayEdit') : t('spaces.schoolHolidayAdd')}
+                                  </h3>
+                                  <button onClick={() => setShowHolidayForm(false)} className="text-gray-500 hover:text-white"><X size={18} /></button>
+                                </div>
+                                <div className="space-y-3">
+                                  <div>
+                                    <label className="text-xs text-gray-400 mb-1 block">{t('spaces.schoolHolidayName')}</label>
+                                    <input value={hdTitle} onChange={e => setHdTitle(e.target.value)}
+                                      placeholder={t('spaces.schoolHolidayNamePlaceholder')}
+                                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-indigo-500 focus:outline-none" />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableStart')}</label>
+                                      <input type="date" value={hdStart} onChange={e => setHdStart(e.target.value)}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableEnd')}</label>
+                                      <input type="date" value={hdEnd} onChange={e => setHdEnd(e.target.value)}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-gray-400 mb-1 block">{t('spaces.schoolHolidayTypeLabel')}</label>
+                                    <div className="flex gap-1.5">
+                                      {(["holiday", "closure", "teacher_day"] as const).map(tp => (
+                                        <button key={tp} type="button" onClick={() => setHdType(tp)}
+                                          className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-all ${
+                                            hdType === tp
+                                              ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
+                                              : "border-gray-700 bg-gray-800/50 text-gray-400"
+                                          }`}>
+                                          {hdTypeIcon(tp)} {t(`spaces.schoolHolidayType_${tp}`)}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 pt-1">
+                                  {editingHoliday && (
+                                    <button onClick={() => { deleteHoliday(editingHoliday.id); setShowHolidayForm(false); }}
+                                      className="px-4 py-2.5 rounded-xl bg-red-600/20 text-red-400 text-xs font-medium hover:bg-red-600/30 transition-colors">
+                                      <Trash2 size={14} />
+                                    </button>
+                                  )}
+                                  <button onClick={() => setShowHolidayForm(false)}
+                                    className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-xs font-medium rounded-xl hover:bg-gray-700 transition-colors">
+                                    {t('common.cancel')}
+                                  </button>
+                                  <button onClick={handleSaveHoliday} disabled={!hdTitle.trim() || !hdStart || !hdEnd}
+                                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-colors">
+                                    {editingHoliday ? t('common.save') : t('spaces.schoolHolidayAdd')}
+                                  </button>
+                                </div>
+                              </motion.div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </>
+                    );
+                  })()}
 
                   {/* Child Schedule Config — OGS/Hort/Bus (Parent view) */}
                   {!isChild && !canManage && (() => {

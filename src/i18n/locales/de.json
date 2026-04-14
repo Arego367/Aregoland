@@ -1076,7 +1076,17 @@
     "dayPlanToday": "Heute",
     "dayPlanTomorrow": "Morgen",
     "dayPlanNoSchool": "Schulfrei",
-    "dayPlanEmpty": "Keine Einträge für diesen Tag"
+    "dayPlanEmpty": "Keine Einträge für diesen Tag",
+    "schoolHolidayTitle": "Ferien & Schließtage",
+    "schoolHolidayEmpty": "Keine Ferien eingetragen",
+    "schoolHolidayAdd": "Feiertag hinzufügen",
+    "schoolHolidayEdit": "Feiertag bearbeiten",
+    "schoolHolidayName": "Bezeichnung",
+    "schoolHolidayNamePlaceholder": "z.B. Weihnachtsferien",
+    "schoolHolidayTypeLabel": "Typ",
+    "schoolHolidayType_holiday": "Ferien",
+    "schoolHolidayType_closure": "Schließtag",
+    "schoolHolidayType_teacher_day": "Pädagogischer Tag"
   },
   "childProfile": {
     "title": "Kinder-Profile",

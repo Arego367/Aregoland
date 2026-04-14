@@ -870,7 +870,17 @@
     "dayPlanToday": "Today",
     "dayPlanTomorrow": "Tomorrow",
     "dayPlanNoSchool": "No school",
-    "dayPlanEmpty": "No entries for this day"
+    "dayPlanEmpty": "No entries for this day",
+    "schoolHolidayTitle": "School Holidays & Closures",
+    "schoolHolidayEmpty": "No holidays scheduled",
+    "schoolHolidayAdd": "Add holiday",
+    "schoolHolidayEdit": "Edit holiday",
+    "schoolHolidayName": "Title",
+    "schoolHolidayNamePlaceholder": "e.g. Christmas Break",
+    "schoolHolidayTypeLabel": "Type",
+    "schoolHolidayType_holiday": "Holiday",
+    "schoolHolidayType_closure": "Closure",
+    "schoolHolidayType_teacher_day": "Teacher Day"
   },
   "childProfile": {
     "title": "Child Profiles",
