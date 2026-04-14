@@ -11,9 +11,11 @@ import {
   ClipboardList, Filter
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
-import { loadIdentity, type LinkedChild } from "@/app/auth/identity";
+import { loadIdentity, isChildAccount, type LinkedChild } from "@/app/auth/identity";
 import { loadFsk, type FskLevel } from "@/app/auth/fsk";
 import { addAbsenceStatus, queueAbsenceReport, getActiveAbsences, getAbsencesBySpace, resolveVisibility, filterByVisibility } from "@/app/lib/member-absence";
+import { getEntriesBySpace, addTimetableEntry, updateTimetableEntry, deleteTimetableEntry } from "@/app/lib/timetable";
+import type { TimetableEntry, TimetableEntryStatus } from "@/app/types";
 import { addTemplate, generateSlots, getTemplatesBySpace, getFreeSlots, countMemberBookings, updateSlotStatus, filterSlotsForMember, addRequest } from "@/app/lib/booking";
 import type { AbsenceStatusType, MemberAbsenceStatus, SlotFlexibility, BookingTemplate, BookingSlot } from "@/app/types";
 import { loadContacts, removeContact } from "@/app/auth/contacts";
@@ -558,11 +560,11 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const bannerFileRef = useRef<HTMLInputElement>(null);
 
   // Detail
-  const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings" | "world" | "myRooms" | "status">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "news" | "chats" | "members" | "profile" | "settings" | "world" | "myRooms" | "status" | "timetable">("overview");
 
   // Kachel-Grid Reihenfolge
-  type TileId = "news" | "chats" | "members" | "profile" | "settings" | "world" | "myRooms" | "status";
-  const TILE_DEFAULTS: TileId[] = ["news", "chats", "myRooms", "status", "members", "profile", "settings", "world"];
+  type TileId = "news" | "chats" | "members" | "profile" | "settings" | "world" | "myRooms" | "status" | "timetable";
+  const TILE_DEFAULTS: TileId[] = ["news", "chats", "myRooms", "timetable", "status", "members", "profile", "settings", "world"];
   const loadTileOrder = (spaceId: string): TileId[] => {
     try {
       const raw: TileId[] = JSON.parse(localStorage.getItem(`aregoland_space_tiles_${spaceId}`) ?? "[]");
@@ -683,6 +685,19 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   // Status Board
   const [statusFilter, setStatusFilter] = useState<AbsenceStatusType | "all">("all");
   const [statusSort, setStatusSort] = useState<"name" | "date">("date");
+
+  // Timetable
+  const [timetableDay, setTimetableDay] = useState<number>(() => {
+    const d = new Date().getDay();
+    return d >= 1 && d <= 5 ? d : 1;
+  });
+  const [showTimetableForm, setShowTimetableForm] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimetableEntry | null>(null);
+  const [ttSubject, setTtSubject] = useState("");
+  const [ttTeacher, setTtTeacher] = useState("");
+  const [ttRoom, setTtRoom] = useState("");
+  const [ttStart, setTtStart] = useState("08:00");
+  const [ttEnd, setTtEnd] = useState("08:45");
 
   // Absence Report Modal
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
@@ -3349,6 +3364,14 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   icon: ClipboardList, color: "text-rose-400", gradient: "from-rose-600 to-pink-500",
                   label: t('spaces.absenceStatusBoard'), desc: t('spaces.statusBoardDesc'),
                   activity: activeAbsenceCount > 0 ? t('spaces.absenceAbsentCount', { count: activeAbsenceCount }) : undefined,
+                },
+                timetable: {
+                  icon: Calendar, color: "text-indigo-400", gradient: "from-indigo-600 to-purple-500",
+                  label: t('spaces.timetableTitle'), desc: t('spaces.timetableDesc'),
+                  activity: (() => {
+                    const todayEntries = getEntriesBySpace(selectedSpace.id).filter(e => e.weekday === (new Date().getDay() || 7));
+                    return todayEntries.length > 0 ? t('spaces.timetableLessonCount', { count: todayEntries.length }) : undefined;
+                  })(),
                 },
               };
 
@@ -6041,6 +6064,315 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       })}
                     </div>
                   )}
+                </div>
+              );
+            })()}
+
+            {/* ── TIMETABLE TAB ── */}
+            {activeTab === "timetable" && (() => {
+              const myRole = selectedSpace.members.find(m => m.aregoId === identity?.aregoId)?.role ?? "guest";
+              const isModRole = myRole === "founder" || myRole === "admin";
+              const ttCustomRole = (selectedSpace.customRoles ?? []).find(cr => cr.name === myRole);
+              const canManage = isModRole || !!ttCustomRole?.permissions.manageSchedule;
+              const isChild = isChildAccount();
+
+              const WEEKDAYS = [
+                { key: 1, short: t('spaces.timetableMon') },
+                { key: 2, short: t('spaces.timetableTue') },
+                { key: 3, short: t('spaces.timetableWed') },
+                { key: 4, short: t('spaces.timetableThu') },
+                { key: 5, short: t('spaces.timetableFri') },
+              ];
+
+              const entries = getEntriesBySpace(selectedSpace.id)
+                .filter(e => e.weekday === timetableDay)
+                .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+              const statusColor = (s: TimetableEntryStatus) => {
+                switch (s) {
+                  case "normal": return "border-green-500/30 bg-green-500/5";
+                  case "cancelled": return "border-red-500/30 bg-red-500/5";
+                  case "substitution": return "border-orange-500/30 bg-orange-500/5";
+                }
+              };
+              const statusLabel = (s: TimetableEntryStatus) => {
+                switch (s) {
+                  case "normal": return t('spaces.timetableStatusNormal');
+                  case "cancelled": return t('spaces.timetableStatusCancelled');
+                  case "substitution": return t('spaces.timetableStatusSubstitution');
+                }
+              };
+              const statusBadgeColor = (s: TimetableEntryStatus) => {
+                switch (s) {
+                  case "normal": return "bg-green-500/20 text-green-400";
+                  case "cancelled": return "bg-red-500/20 text-red-400";
+                  case "substitution": return "bg-orange-500/20 text-orange-400";
+                }
+              };
+
+              const openForm = (entry?: TimetableEntry) => {
+                if (entry) {
+                  setEditingEntry(entry);
+                  setTtSubject(entry.subject);
+                  setTtTeacher(entry.teacherName);
+                  setTtRoom(entry.room);
+                  setTtStart(entry.startTime);
+                  setTtEnd(entry.endTime);
+                } else {
+                  setEditingEntry(null);
+                  setTtSubject("");
+                  setTtTeacher("");
+                  setTtRoom("");
+                  setTtStart("08:00");
+                  setTtEnd("08:45");
+                }
+                setShowTimetableForm(true);
+              };
+
+              const handleSave = () => {
+                if (!ttSubject.trim() || !identity) return;
+                if (editingEntry) {
+                  updateTimetableEntry(editingEntry.id, {
+                    subject: ttSubject.trim(),
+                    teacherName: ttTeacher.trim(),
+                    room: ttRoom.trim(),
+                    startTime: ttStart,
+                    endTime: ttEnd,
+                  });
+                } else {
+                  addTimetableEntry({
+                    spaceId: selectedSpace.id,
+                    subject: ttSubject.trim(),
+                    teacherId: "",
+                    teacherName: ttTeacher.trim(),
+                    room: ttRoom.trim(),
+                    weekday: timetableDay,
+                    startTime: ttStart,
+                    endTime: ttEnd,
+                    status: "normal",
+                    createdBy: identity.aregoId,
+                  });
+                }
+                setShowTimetableForm(false);
+                setEditingEntry(null);
+              };
+
+              const handleDelete = (id: string) => {
+                deleteTimetableEntry(id);
+                setShowTimetableForm(false);
+                setEditingEntry(null);
+              };
+
+              return (
+                <div className="space-y-4">
+                  {/* Header */}
+                  <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                          <Calendar size={20} className="text-indigo-400" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-white">{t('spaces.timetableTitle')}</div>
+                          <div className="text-xs text-gray-500">
+                            {entries.length} {t('spaces.timetableLessonCount', { count: entries.length })}
+                          </div>
+                        </div>
+                      </div>
+                      {canManage && (
+                        <button
+                          onClick={() => openForm()}
+                          className="w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors"
+                        >
+                          <Plus size={16} className="text-white" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Weekday selector */}
+                  <div className="flex gap-1.5">
+                    {WEEKDAYS.map(wd => (
+                      <button
+                        key={wd.key}
+                        onClick={() => setTimetableDay(wd.key)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-all ${
+                          timetableDay === wd.key
+                            ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
+                            : "border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600"
+                        }`}
+                      >
+                        {wd.short}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Entry list */}
+                  {entries.length === 0 ? (
+                    <div className="flex flex-col items-center py-10 text-center space-y-3">
+                      <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center">
+                        <Calendar size={28} className="text-gray-600" />
+                      </div>
+                      <p className="text-sm text-gray-400">{t('spaces.timetableEmpty')}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {entries.map(entry => (
+                        <div
+                          key={entry.id}
+                          className={`rounded-xl border p-3 ${statusColor(entry.status)} ${canManage ? "cursor-pointer hover:bg-gray-800/30" : ""}`}
+                          onClick={canManage ? () => openForm(entry) : undefined}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Time column */}
+                            <div className="text-center shrink-0 w-14">
+                              <div className="text-sm font-bold text-white">{entry.startTime}</div>
+                              <div className="text-[10px] text-gray-500">{entry.endTime}</div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-semibold ${entry.status === "cancelled" ? "line-through text-red-400" : "text-white"}`}>
+                                  {entry.subject}
+                                </span>
+                                {entry.status !== "normal" && (
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${statusBadgeColor(entry.status)}`}>
+                                    {statusLabel(entry.status)}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Teacher & Room — hidden for child view */}
+                              {!isChild && (
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  {entry.teacherName && <span>{entry.teacherName}</span>}
+                                  {entry.teacherName && entry.room && <span> · </span>}
+                                  {entry.room && <span>{entry.room}</span>}
+                                </div>
+                              )}
+
+                              {/* Substitution info — hidden for child view */}
+                              {!isChild && entry.status === "substitution" && entry.substituteTeacherName && (
+                                <div className="text-xs text-orange-400 mt-1">
+                                  {t('spaces.timetableSubstituteInfo', {
+                                    teacher: entry.substituteTeacherName,
+                                    room: entry.substituteRoom ?? entry.room,
+                                  })}
+                                </div>
+                              )}
+
+                              {/* Status note — moderators only */}
+                              {canManage && entry.statusNote && (
+                                <div className="text-xs text-gray-500 mt-1 italic">
+                                  {entry.statusNote}
+                                </div>
+                              )}
+                            </div>
+
+                            {canManage && (
+                              <ChevronRight size={14} className="text-gray-600 shrink-0 mt-1" />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Create/Edit Form Modal */}
+                  <AnimatePresence>
+                    {showTimetableForm && canManage && (
+                      <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center"
+                        onClick={() => setShowTimetableForm(false)}
+                      >
+                        <motion.div
+                          initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }}
+                          className="bg-gray-900 border border-gray-700/50 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-5 space-y-4"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-base font-bold text-white">
+                              {editingEntry ? t('spaces.timetableEditEntry') : t('spaces.timetableAddEntry')}
+                            </h3>
+                            <button onClick={() => setShowTimetableForm(false)} className="text-gray-500 hover:text-white">
+                              <X size={18} />
+                            </button>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableSubject')}</label>
+                              <input
+                                value={ttSubject} onChange={e => setTtSubject(e.target.value)}
+                                placeholder={t('spaces.timetableSubjectPlaceholder')}
+                                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableTeacher')}</label>
+                                <input
+                                  value={ttTeacher} onChange={e => setTtTeacher(e.target.value)}
+                                  placeholder={t('spaces.timetableTeacherPlaceholder')}
+                                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-indigo-500 focus:outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableRoom')}</label>
+                                <input
+                                  value={ttRoom} onChange={e => setTtRoom(e.target.value)}
+                                  placeholder={t('spaces.timetableRoomPlaceholder')}
+                                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-indigo-500 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableStart')}</label>
+                                <input
+                                  type="time" value={ttStart} onChange={e => setTtStart(e.target.value)}
+                                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-gray-400 mb-1 block">{t('spaces.timetableEnd')}</label>
+                                <input
+                                  type="time" value={ttEnd} onChange={e => setTtEnd(e.target.value)}
+                                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 pt-1">
+                            {editingEntry && (
+                              <button
+                                onClick={() => handleDelete(editingEntry.id)}
+                                className="px-4 py-2.5 rounded-xl bg-red-600/20 text-red-400 text-xs font-medium hover:bg-red-600/30 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setShowTimetableForm(false)}
+                              className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-xs font-medium rounded-xl hover:bg-gray-700 transition-colors"
+                            >
+                              {t('common.cancel')}
+                            </button>
+                            <button
+                              onClick={handleSave}
+                              disabled={!ttSubject.trim()}
+                              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white text-xs font-bold rounded-xl transition-colors"
+                            >
+                              {editingEntry ? t('common.save') : t('spaces.timetableAddEntry')}
+                            </button>
+                          </div>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })()}
