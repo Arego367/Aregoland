@@ -804,7 +804,21 @@
     "statusBoardDesc": "Ausencias y estado",
     "statusBoardModeratorTitle": "Vista del moderador",
     "sortByName": "Por nombre",
-    "sortByDate": "Por fecha"
+    "sortByDate": "Por fecha",
+    "bookingAvailableTitle": "Citas disponibles",
+    "bookingMyBookings": "{{count}} reservadas",
+    "bookingSelectSlot": "Selecciona un horario libre",
+    "bookingSlotFree": "Libre",
+    "bookingConfirmBook": "Reservar ahora",
+    "bookingMaxReached": "Máximo de reservas alcanzado",
+    "bookingAllBooked": "Todos los horarios ocupados",
+    "bookingRequestDesc": "Enviar solicitud de cita al moderador",
+    "bookingPreferredTimes": "Horarios preferidos",
+    "bookingTimePlaceholder": "ej. Lun 14:00, Mar 10:00",
+    "bookingAddTime": "Agregar horario",
+    "bookingRequestMessage": "Mensaje (opcional)",
+    "bookingRequestMsgPlaceholder": "Información adicional...",
+    "bookingRequestSubmit": "Enviar solicitud"
   },
   "childProfile": {
     "title": "Perfiles infantiles",

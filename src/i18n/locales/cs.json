@@ -804,7 +804,21 @@
     "statusBoardDesc": "Absence a stav",
     "statusBoardModeratorTitle": "Přehled moderátora",
     "sortByName": "Podle jména",
-    "sortByDate": "Podle data"
+    "sortByDate": "Podle data",
+    "bookingAvailableTitle": "Dostupné termíny",
+    "bookingMyBookings": "{{count}} rezervováno",
+    "bookingSelectSlot": "Vyberte volný slot",
+    "bookingSlotFree": "Volný",
+    "bookingConfirmBook": "Rezervovat",
+    "bookingMaxReached": "Maximální počet rezervací dosažen",
+    "bookingAllBooked": "Všechny sloty obsazeny",
+    "bookingRequestDesc": "Odeslat žádost o termín moderátorovi",
+    "bookingPreferredTimes": "Preferované časy",
+    "bookingTimePlaceholder": "např. Po 14:00, Út 10:00",
+    "bookingAddTime": "Přidat čas",
+    "bookingRequestMessage": "Zpráva (volitelné)",
+    "bookingRequestMsgPlaceholder": "Další informace...",
+    "bookingRequestSubmit": "Odeslat žádost"
   },
   "childProfile": {
     "title": "Dětské profily",

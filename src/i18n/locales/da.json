@@ -804,7 +804,21 @@
     "statusBoardDesc": "Fravær og status",
     "statusBoardModeratorTitle": "Moderatoroversigt",
     "sortByName": "Efter navn",
-    "sortByDate": "Efter dato"
+    "sortByDate": "Efter dato",
+    "bookingAvailableTitle": "Ledige tider",
+    "bookingMyBookings": "{{count}} booket",
+    "bookingSelectSlot": "Vælg en ledig tid",
+    "bookingSlotFree": "Ledig",
+    "bookingConfirmBook": "Book nu",
+    "bookingMaxReached": "Maks antal bookinger nået",
+    "bookingAllBooked": "Alle tider optaget",
+    "bookingRequestDesc": "Send en anmodning til moderatoren",
+    "bookingPreferredTimes": "Ønskede tidspunkter",
+    "bookingTimePlaceholder": "f.eks. Man 14:00, Tir 10:00",
+    "bookingAddTime": "Tilføj tidspunkt",
+    "bookingRequestMessage": "Besked (valgfri)",
+    "bookingRequestMsgPlaceholder": "Yderligere information...",
+    "bookingRequestSubmit": "Send anmodning"
   },
   "childProfile": {
     "title": "Børneprofiler",

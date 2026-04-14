@@ -804,7 +804,21 @@
     "statusBoardDesc": "Nieobecności i status",
     "statusBoardModeratorTitle": "Przegląd moderatora",
     "sortByName": "Wg nazwy",
-    "sortByDate": "Wg daty"
+    "sortByDate": "Wg daty",
+    "bookingAvailableTitle": "Dostępne terminy",
+    "bookingMyBookings": "{{count}} zarezerwowane",
+    "bookingSelectSlot": "Wybierz wolny slot",
+    "bookingSlotFree": "Wolny",
+    "bookingConfirmBook": "Zarezerwuj",
+    "bookingMaxReached": "Osiągnięto maks. liczbę rezerwacji",
+    "bookingAllBooked": "Wszystkie sloty zajęte",
+    "bookingRequestDesc": "Wyślij prośbę do moderatora",
+    "bookingPreferredTimes": "Preferowane godziny",
+    "bookingTimePlaceholder": "np. Pon 14:00, Wt 10:00",
+    "bookingAddTime": "Dodaj godzinę",
+    "bookingRequestMessage": "Wiadomość (opcjonalna)",
+    "bookingRequestMsgPlaceholder": "Dodatkowe informacje...",
+    "bookingRequestSubmit": "Wyślij prośbę"
   },
   "childProfile": {
     "title": "Profile dzieci",

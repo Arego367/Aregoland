@@ -14,8 +14,8 @@ import { useTranslation } from 'react-i18next';
 import { loadIdentity, type LinkedChild } from "@/app/auth/identity";
 import { loadFsk, type FskLevel } from "@/app/auth/fsk";
 import { addAbsenceStatus, queueAbsenceReport, getActiveAbsences, getAbsencesBySpace, resolveVisibility, filterByVisibility } from "@/app/lib/member-absence";
-import { addTemplate, generateSlots } from "@/app/lib/booking";
-import type { AbsenceStatusType, MemberAbsenceStatus, SlotFlexibility } from "@/app/types";
+import { addTemplate, generateSlots, getTemplatesBySpace, getFreeSlots, countMemberBookings, updateSlotStatus, filterSlotsForMember, addRequest } from "@/app/lib/booking";
+import type { AbsenceStatusType, MemberAbsenceStatus, SlotFlexibility, BookingTemplate, BookingSlot } from "@/app/types";
 import { loadContacts, removeContact } from "@/app/auth/contacts";
 import { Html5Qrcode } from "html5-qrcode";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -709,6 +709,17 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [bookingSlotFlex, setBookingSlotFlex] = useState<SlotFlexibility>("fixed");
   const [bookingMaxPerMember, setBookingMaxPerMember] = useState(1);
 
+  // Booking Slot Picker (Member view)
+  const [showSlotPicker, setShowSlotPicker] = useState(false);
+  const [slotPickerTemplate, setSlotPickerTemplate] = useState<BookingTemplate | null>(null);
+  const [slotPickerConfirm, setSlotPickerConfirm] = useState<string | null>(null); // slotId pending confirm
+
+  // Booking Request Form (Member view — flexible/no-slot)
+  const [showBookingRequest, setShowBookingRequest] = useState(false);
+  const [bookingReqTemplateId, setBookingReqTemplateId] = useState("");
+  const [bookingReqTimes, setBookingReqTimes] = useState<string[]>([""]);
+  const [bookingReqMessage, setBookingReqMessage] = useState("");
+
   const openBookingWizard = useCallback(() => {
     setBookingStep(0);
     setBookingTitle("");
@@ -744,6 +755,50 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
     setShowBookingWizard(false);
     if (onShowToast) onShowToast(t("spaces.bookingTemplateCreated"), "info");
   }, [selectedSpace, identity, bookingTitle, bookingDate, bookingStartTime, bookingEndTime, bookingSlotDuration, bookingSlotFlex, bookingBreakMin, bookingMaxPerMember, onShowToast, t]);
+
+  // Space booking templates for member view (memoized)
+  const spaceBookingTemplates = useMemo(() => {
+    if (!selectedSpace) return [];
+    return getTemplatesBySpace(selectedSpace.id);
+  }, [selectedSpace, showBookingWizard, showSlotPicker]); // re-derive after wizard/picker closes
+
+  const openSlotPicker = useCallback((tmpl: BookingTemplate) => {
+    setSlotPickerTemplate(tmpl);
+    setSlotPickerConfirm(null);
+    setShowSlotPicker(true);
+  }, []);
+
+  const confirmBookSlot = useCallback(() => {
+    if (!slotPickerTemplate || !slotPickerConfirm || !identity) return;
+    const memberBookings = countMemberBookings(slotPickerTemplate.id, identity.aregoId);
+    if (memberBookings >= slotPickerTemplate.maxBookingsPerMember) {
+      if (onShowToast) onShowToast(t("spaces.bookingMaxReached"), "error");
+      return;
+    }
+    updateSlotStatus(slotPickerTemplate.id, slotPickerConfirm, "booked", identity.aregoId);
+    setShowSlotPicker(false);
+    if (onShowToast) onShowToast(t("spaces.bookingBooked"), "info");
+  }, [slotPickerTemplate, slotPickerConfirm, identity, onShowToast, t]);
+
+  const openBookingRequestForm = useCallback((templateId: string) => {
+    setBookingReqTemplateId(templateId);
+    setBookingReqTimes([""]);
+    setBookingReqMessage("");
+    setShowBookingRequest(true);
+  }, []);
+
+  const submitBookingRequest = useCallback(() => {
+    if (!identity || !bookingReqTemplateId) return;
+    const times = bookingReqTimes.filter(t => t.trim());
+    addRequest({
+      templateId: bookingReqTemplateId,
+      requestedBy: identity.aregoId,
+      preferredTimes: times.length > 0 ? times : undefined,
+      message: bookingReqMessage.trim() || undefined,
+    });
+    setShowBookingRequest(false);
+    if (onShowToast) onShowToast(t("spaces.bookingRequestSent"), "info");
+  }, [identity, bookingReqTemplateId, bookingReqTimes, bookingReqMessage, onShowToast, t]);
 
   const openAbsenceModal = useCallback(() => {
     // Determine if user is a parent (has linked children)
@@ -3350,6 +3405,47 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                       </button>
                     );
                   })()}
+
+                  {/* ── Buchbare Termine (Member-View) ── */}
+                  {spaceBookingTemplates.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("spaces.bookingAvailableTitle")}</h4>
+                      {spaceBookingTemplates.map(tmpl => {
+                        const freeCount = tmpl.slots.filter(s => s.status === "free").length;
+                        const myBookings = identity ? tmpl.slots.filter(s => s.bookedBy === identity.aregoId).length : 0;
+                        return (
+                          <div key={tmpl.id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-semibold text-white">{tmpl.title}</span>
+                              <span className="text-[10px] text-gray-500">{tmpl.date}</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-gray-400 mb-2">
+                              <span className="flex items-center gap-1"><Clock size={10} /> {tmpl.startTime} – {tmpl.endTime}</span>
+                              <span className="flex items-center gap-1"><Calendar size={10} /> {t("spaces.bookingFreeSlots", { count: freeCount })}</span>
+                              {myBookings > 0 && <span className="text-green-400 flex items-center gap-1"><Check size={10} /> {t("spaces.bookingMyBookings", { count: myBookings })}</span>}
+                            </div>
+                            <div className="flex gap-2">
+                              {freeCount > 0 && (
+                                <button
+                                  onClick={() => openSlotPicker(tmpl)}
+                                  className="flex-1 py-2 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                                >{t("spaces.bookingBookSlot")}</button>
+                              )}
+                              {tmpl.slotFlex === "flexible" && (
+                                <button
+                                  onClick={() => openBookingRequestForm(tmpl.id)}
+                                  className="flex-1 py-2 text-xs font-semibold rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+                                >{t("spaces.bookingRequestSlot")}</button>
+                              )}
+                              {freeCount === 0 && tmpl.slotFlex === "fixed" && (
+                                <div className="flex-1 py-2 text-xs text-center text-gray-600 italic">{t("spaces.bookingAllBooked")}</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {/* Kachel-Grid — Drag & Drop (dnd-kit) */}
                   <DndContext
@@ -6353,6 +6449,157 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
                   </div>
                 </div>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── BOOKING SLOT PICKER MODAL (Member) ── */}
+      <AnimatePresence>
+        {showSlotPicker && slotPickerTemplate && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center"
+            onClick={() => setShowSlotPicker(false)}
+          >
+            <motion.div
+              initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="w-full max-w-md bg-gray-900 border border-gray-700/50 rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[85vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">{t("spaces.bookingBookSlot")}</h3>
+                <button onClick={() => setShowSlotPicker(false)} className="p-1 text-gray-500 hover:text-white"><X size={20} /></button>
+              </div>
+
+              {/* Template info */}
+              <div className="bg-gray-800/50 rounded-xl p-3 space-y-1 text-sm">
+                <div className="flex justify-between"><span className="text-gray-500">{t("spaces.bookingTemplateTitle")}</span><span className="text-white font-medium">{slotPickerTemplate.title}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">{t("spaces.bookingDateLabel")}</span><span className="text-white font-medium">{slotPickerTemplate.date}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">{t("spaces.bookingSlotDuration")}</span><span className="text-white font-medium">{slotPickerTemplate.slotDuration} min</span></div>
+              </div>
+
+              {/* Privacy-filtered slot list */}
+              <div>
+                <p className="text-xs text-gray-500 mb-2">{t("spaces.bookingSelectSlot")}</p>
+                <div className="max-h-60 overflow-y-auto space-y-1">
+                  {filterSlotsForMember(slotPickerTemplate.slots).map(slot => {
+                    const isFree = slot.status === "free";
+                    const isSelected = slotPickerConfirm === slot.id;
+                    return (
+                      <button
+                        key={slot.id}
+                        disabled={!isFree}
+                        onClick={() => setSlotPickerConfirm(isSelected ? null : slot.id)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+                          isSelected
+                            ? "bg-blue-600/20 border border-blue-500 text-blue-300"
+                            : isFree
+                              ? "bg-gray-800/50 border border-gray-700/50 text-white hover:bg-gray-800"
+                              : "bg-gray-800/30 border border-gray-800 text-gray-600 cursor-not-allowed"
+                        }`}
+                      >
+                        <Clock size={14} className={isSelected ? "text-blue-400" : isFree ? "text-gray-400" : "text-gray-700"} />
+                        <span className="flex-1 text-left">{slot.startTime} – {slot.endTime}</span>
+                        {isFree && <span className="text-[10px] text-green-400">{t("spaces.bookingSlotFree")}</span>}
+                        {slot.status === "booked" && <span className="text-[10px] text-gray-600">{t("spaces.bookingBooked")}</span>}
+                        {slot.status === "blocked" && <Lock size={12} className="text-gray-600" />}
+                        {isSelected && <Check size={14} className="text-blue-400" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Confirm / Request buttons */}
+              <div className="flex gap-2">
+                {slotPickerTemplate.slotFlex === "flexible" && (
+                  <button
+                    onClick={() => { setShowSlotPicker(false); openBookingRequestForm(slotPickerTemplate.id); }}
+                    className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors"
+                  >{t("spaces.bookingRequestSlot")}</button>
+                )}
+                <button
+                  onClick={confirmBookSlot}
+                  disabled={!slotPickerConfirm}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-bold rounded-xl transition-colors"
+                >{t("spaces.bookingConfirmBook")}</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── BOOKING REQUEST FORM MODAL (Member) ── */}
+      <AnimatePresence>
+        {showBookingRequest && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center"
+            onClick={() => setShowBookingRequest(false)}
+          >
+            <motion.div
+              initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="w-full max-w-md bg-gray-900 border border-gray-700/50 rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[85vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">{t("spaces.bookingRequestSlot")}</h3>
+                <button onClick={() => setShowBookingRequest(false)} className="p-1 text-gray-500 hover:text-white"><X size={20} /></button>
+              </div>
+
+              <p className="text-sm text-gray-400">{t("spaces.bookingRequestDesc")}</p>
+
+              {/* Preferred times */}
+              <div className="space-y-2">
+                <label className="text-[10px] text-gray-500 block">{t("spaces.bookingPreferredTimes")}</label>
+                {bookingReqTimes.map((time, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <input
+                      type="text" value={time}
+                      onChange={e => {
+                        const updated = [...bookingReqTimes];
+                        updated[i] = e.target.value;
+                        setBookingReqTimes(updated);
+                      }}
+                      placeholder={t("spaces.bookingTimePlaceholder")}
+                      className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                    />
+                    {bookingReqTimes.length > 1 && (
+                      <button onClick={() => setBookingReqTimes(bookingReqTimes.filter((_, j) => j !== i))} className="p-1.5 text-gray-600 hover:text-red-400"><X size={16} /></button>
+                    )}
+                  </div>
+                ))}
+                {bookingReqTimes.length < 3 && (
+                  <button
+                    onClick={() => setBookingReqTimes([...bookingReqTimes, ""])}
+                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  ><Plus size={12} /> {t("spaces.bookingAddTime")}</button>
+                )}
+              </div>
+
+              {/* Message */}
+              <div>
+                <label className="text-[10px] text-gray-500 mb-1 block">{t("spaces.bookingRequestMessage")}</label>
+                <textarea
+                  value={bookingReqMessage} onChange={e => setBookingReqMessage(e.target.value)}
+                  placeholder={t("spaces.bookingRequestMsgPlaceholder")} rows={3}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-none"
+                />
+              </div>
+
+              {/* Submit */}
+              <div className="flex gap-2">
+                <button onClick={() => setShowBookingRequest(false)} className="flex-1 py-2.5 bg-gray-800 text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">{t("common.cancel")}</button>
+                <button
+                  onClick={submitBookingRequest}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-colors"
+                >{t("spaces.bookingRequestSubmit")}</button>
+              </div>
             </motion.div>
           </motion.div>
         )}

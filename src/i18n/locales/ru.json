@@ -804,7 +804,21 @@
     "statusBoardDesc": "Отсутствия и статус",
     "statusBoardModeratorTitle": "Обзор модератора",
     "sortByName": "По имени",
-    "sortByDate": "По дате"
+    "sortByDate": "По дате",
+    "bookingAvailableTitle": "Доступные записи",
+    "bookingMyBookings": "{{count}} забронировано",
+    "bookingSelectSlot": "Выберите свободный слот",
+    "bookingSlotFree": "Свободно",
+    "bookingConfirmBook": "Забронировать",
+    "bookingMaxReached": "Максимум бронирований достигнут",
+    "bookingAllBooked": "Все слоты заняты",
+    "bookingRequestDesc": "Отправить запрос модератору",
+    "bookingPreferredTimes": "Желаемое время",
+    "bookingTimePlaceholder": "напр. Пн 14:00, Вт 10:00",
+    "bookingAddTime": "Добавить время",
+    "bookingRequestMessage": "Сообщение (необязательно)",
+    "bookingRequestMsgPlaceholder": "Дополнительная информация...",
+    "bookingRequestSubmit": "Отправить запрос"
   },
   "childProfile": {
     "title": "Детские профили",

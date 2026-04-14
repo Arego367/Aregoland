@@ -804,7 +804,21 @@
     "statusBoardDesc": "Assenzas u status",
     "statusBoardModeratorTitle": "Ħarsa ġenerali tal-moderatur",
     "sortByName": "Skont l-isem",
-    "sortByDate": "Skont id-data"
+    "sortByDate": "Skont id-data",
+    "bookingAvailableTitle": "Appuntamenti disponibbli",
+    "bookingMyBookings": "{{count}} ibbukjat",
+    "bookingSelectSlot": "Agħżel slot ħieles",
+    "bookingSlotFree": "Ħieles",
+    "bookingConfirmBook": "Ibbukkja issa",
+    "bookingMaxReached": "Massimu ta bukkjar intlaħaq",
+    "bookingAllBooked": "Slots kollha meħudin",
+    "bookingRequestDesc": "Ibgħat talba lill-moderatur",
+    "bookingPreferredTimes": "Ħinijiet preferuti",
+    "bookingTimePlaceholder": "eż. Tne 14:00, Tli 10:00",
+    "bookingAddTime": "Żid ħin",
+    "bookingRequestMessage": "Messaġġ (mhux obbligatorju)",
+    "bookingRequestMsgPlaceholder": "Informazzjoni addizzjonali...",
+    "bookingRequestSubmit": "Ibgħat it-talba"
   },
   "childProfile": {
     "title": "Profili tat-Tfal",

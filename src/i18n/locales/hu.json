@@ -804,7 +804,21 @@
     "statusBoardDesc": "Hiányzások és állapot",
     "statusBoardModeratorTitle": "Moderátor áttekintés",
     "sortByName": "Név szerint",
-    "sortByDate": "Dátum szerint"
+    "sortByDate": "Dátum szerint",
+    "bookingAvailableTitle": "Elérhető időpontok",
+    "bookingMyBookings": "{{count}} foglalva",
+    "bookingSelectSlot": "Válasszon szabad időpontot",
+    "bookingSlotFree": "Szabad",
+    "bookingConfirmBook": "Foglalás",
+    "bookingMaxReached": "Maximális foglalások elérve",
+    "bookingAllBooked": "Minden időpont foglalt",
+    "bookingRequestDesc": "Időpont-kérés küldése a moderátornak",
+    "bookingPreferredTimes": "Kívánt időpontok",
+    "bookingTimePlaceholder": "pl. Hé 14:00, Ke 10:00",
+    "bookingAddTime": "Időpont hozzáadása",
+    "bookingRequestMessage": "Üzenet (opcionális)",
+    "bookingRequestMsgPlaceholder": "További információ...",
+    "bookingRequestSubmit": "Kérés küldése"
   },
   "childProfile": {
     "title": "Gyermekprofilok",

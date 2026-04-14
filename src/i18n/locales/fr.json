@@ -804,7 +804,21 @@
     "statusBoardDesc": "Absences et statut",
     "statusBoardModeratorTitle": "Vue modérateur",
     "sortByName": "Par nom",
-    "sortByDate": "Par date"
+    "sortByDate": "Par date",
+    "bookingAvailableTitle": "Rendez-vous disponibles",
+    "bookingMyBookings": "{{count}} réservé(s)",
+    "bookingSelectSlot": "Sélectionnez un créneau libre",
+    "bookingSlotFree": "Libre",
+    "bookingConfirmBook": "Réserver",
+    "bookingMaxReached": "Nombre maximum de réservations atteint",
+    "bookingAllBooked": "Tous les créneaux pris",
+    "bookingRequestDesc": "Envoyer une demande au modérateur",
+    "bookingPreferredTimes": "Horaires souhaités",
+    "bookingTimePlaceholder": "ex. Lun 14h, Mar 10h",
+    "bookingAddTime": "Ajouter un horaire",
+    "bookingRequestMessage": "Message (facultatif)",
+    "bookingRequestMsgPlaceholder": "Informations complémentaires...",
+    "bookingRequestSubmit": "Envoyer la demande"
   },
   "childProfile": {
     "title": "Profils enfants",

@@ -805,7 +805,21 @@
     "statusBoardDesc": "Neatvykimai ir būsena",
     "statusBoardModeratorTitle": "Moderatoriaus apžvalga",
     "sortByName": "Pagal vardą",
-    "sortByDate": "Pagal datą"
+    "sortByDate": "Pagal datą",
+    "bookingAvailableTitle": "Galimi laikai",
+    "bookingMyBookings": "{{count}} užsakyta",
+    "bookingSelectSlot": "Pasirinkite laisvą laiką",
+    "bookingSlotFree": "Laisvas",
+    "bookingConfirmBook": "Rezervuoti",
+    "bookingMaxReached": "Pasiektas maks. rezervacijų skaičius",
+    "bookingAllBooked": "Visi laikai užimti",
+    "bookingRequestDesc": "Siųsti užklausą moderatoriui",
+    "bookingPreferredTimes": "Pageidaujami laikai",
+    "bookingTimePlaceholder": "pvz. Pr 14:00, An 10:00",
+    "bookingAddTime": "Pridėti laiką",
+    "bookingRequestMessage": "Žinutė (neprivaloma)",
+    "bookingRequestMsgPlaceholder": "Papildoma informacija...",
+    "bookingRequestSubmit": "Siųsti užklausą"
   },
   "childProfile": {
     "title": "Vaikų profiliai",

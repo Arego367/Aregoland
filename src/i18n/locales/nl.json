@@ -804,7 +804,21 @@
     "statusBoardDesc": "Afwezigheden en status",
     "statusBoardModeratorTitle": "Moderator overzicht",
     "sortByName": "Op naam",
-    "sortByDate": "Op datum"
+    "sortByDate": "Op datum",
+    "bookingAvailableTitle": "Beschikbare afspraken",
+    "bookingMyBookings": "{{count}} geboekt",
+    "bookingSelectSlot": "Kies een vrij tijdslot",
+    "bookingSlotFree": "Vrij",
+    "bookingConfirmBook": "Nu boeken",
+    "bookingMaxReached": "Maximum aantal boekingen bereikt",
+    "bookingAllBooked": "Alle slots bezet",
+    "bookingRequestDesc": "Stuur een verzoek naar de moderator",
+    "bookingPreferredTimes": "Gewenste tijden",
+    "bookingTimePlaceholder": "bijv. Ma 14:00, Di 10:00",
+    "bookingAddTime": "Tijd toevoegen",
+    "bookingRequestMessage": "Bericht (optioneel)",
+    "bookingRequestMsgPlaceholder": "Aanvullende informatie...",
+    "bookingRequestSubmit": "Verzoek versturen"
   },
   "childProfile": {
     "title": "Kinderprofielen",

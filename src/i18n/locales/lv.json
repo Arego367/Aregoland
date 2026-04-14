@@ -804,7 +804,21 @@
     "statusBoardDesc": "Prombūtnes un statuss",
     "statusBoardModeratorTitle": "Moderatora pārskats",
     "sortByName": "Pēc vārda",
-    "sortByDate": "Pēc datuma"
+    "sortByDate": "Pēc datuma",
+    "bookingAvailableTitle": "Pieejamie laiki",
+    "bookingMyBookings": "{{count}} rezervēti",
+    "bookingSelectSlot": "Izvēlieties brīvu laiku",
+    "bookingSlotFree": "Brīvs",
+    "bookingConfirmBook": "Rezervēt",
+    "bookingMaxReached": "Sasniegts maks. rezervāciju skaits",
+    "bookingAllBooked": "Visi laiki aizņemti",
+    "bookingRequestDesc": "Nosūtīt pieprasījumu moderatoram",
+    "bookingPreferredTimes": "Vēlamie laiki",
+    "bookingTimePlaceholder": "piem. Pr 14:00, Ot 10:00",
+    "bookingAddTime": "Pievienot laiku",
+    "bookingRequestMessage": "Ziņa (neobligāti)",
+    "bookingRequestMsgPlaceholder": "Papildu informācija...",
+    "bookingRequestSubmit": "Nosūtīt pieprasījumu"
   },
   "childProfile": {
     "title": "Bērnu profili",

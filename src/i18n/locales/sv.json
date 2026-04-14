@@ -804,7 +804,21 @@
     "statusBoardDesc": "Frånvaro och status",
     "statusBoardModeratorTitle": "Moderatoröversikt",
     "sortByName": "Efter namn",
-    "sortByDate": "Efter datum"
+    "sortByDate": "Efter datum",
+    "bookingAvailableTitle": "Lediga tider",
+    "bookingMyBookings": "{{count}} bokade",
+    "bookingSelectSlot": "Välj en ledig tid",
+    "bookingSlotFree": "Ledig",
+    "bookingConfirmBook": "Boka nu",
+    "bookingMaxReached": "Max antal bokningar uppnått",
+    "bookingAllBooked": "Alla tider upptagna",
+    "bookingRequestDesc": "Skicka förfrågan till moderatorn",
+    "bookingPreferredTimes": "Önskade tider",
+    "bookingTimePlaceholder": "t.ex. Mån 14:00, Tis 10:00",
+    "bookingAddTime": "Lägg till tid",
+    "bookingRequestMessage": "Meddelande (valfritt)",
+    "bookingRequestMsgPlaceholder": "Ytterligare information...",
+    "bookingRequestSubmit": "Skicka förfrågan"
   },
   "childProfile": {
     "title": "Barnprofiler",

@@ -804,7 +804,21 @@
     "statusBoardDesc": "Puudumised ja olek",
     "statusBoardModeratorTitle": "Moderaatori ülevaade",
     "sortByName": "Nime järgi",
-    "sortByDate": "Kuupäeva järgi"
+    "sortByDate": "Kuupäeva järgi",
+    "bookingAvailableTitle": "Saadaval ajad",
+    "bookingMyBookings": "{{count}} broneeritud",
+    "bookingSelectSlot": "Vali vaba aeg",
+    "bookingSlotFree": "Vaba",
+    "bookingConfirmBook": "Broneeri",
+    "bookingMaxReached": "Maksimaalne broneeringute arv täis",
+    "bookingAllBooked": "Kõik ajad hõivatud",
+    "bookingRequestDesc": "Saada moderaatorile ajasoov",
+    "bookingPreferredTimes": "Eelistatud ajad",
+    "bookingTimePlaceholder": "nt E 14:00, T 10:00",
+    "bookingAddTime": "Lisa sooviaeg",
+    "bookingRequestMessage": "Sõnum (valikuline)",
+    "bookingRequestMsgPlaceholder": "Lisainfo...",
+    "bookingRequestSubmit": "Saada soov"
   },
   "childProfile": {
     "title": "Laste profiilid",

@@ -804,7 +804,21 @@
     "statusBoardDesc": "Absențe și stare",
     "statusBoardModeratorTitle": "Prezentare moderator",
     "sortByName": "După nume",
-    "sortByDate": "După dată"
+    "sortByDate": "După dată",
+    "bookingAvailableTitle": "Programări disponibile",
+    "bookingMyBookings": "{{count}} rezervate",
+    "bookingSelectSlot": "Selectați un slot liber",
+    "bookingSlotFree": "Liber",
+    "bookingConfirmBook": "Rezervă acum",
+    "bookingMaxReached": "Număr maxim de rezervări atins",
+    "bookingAllBooked": "Toate sloturile ocupate",
+    "bookingRequestDesc": "Trimiteți o cerere moderatorului",
+    "bookingPreferredTimes": "Ore preferate",
+    "bookingTimePlaceholder": "ex. Lun 14:00, Mar 10:00",
+    "bookingAddTime": "Adaugă oră",
+    "bookingRequestMessage": "Mesaj (opțional)",
+    "bookingRequestMsgPlaceholder": "Informații suplimentare...",
+    "bookingRequestSubmit": "Trimite cererea"
   },
   "childProfile": {
     "title": "Profiluri copii",

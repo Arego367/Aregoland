@@ -804,7 +804,21 @@
     "statusBoardDesc": "Poissaolot ja tila",
     "statusBoardModeratorTitle": "Moderaattorin yleiskatsaus",
     "sortByName": "Nimen mukaan",
-    "sortByDate": "Päivämäärän mukaan"
+    "sortByDate": "Päivämäärän mukaan",
+    "bookingAvailableTitle": "Varattavat ajat",
+    "bookingMyBookings": "{{count}} varattu",
+    "bookingSelectSlot": "Valitse vapaa aika",
+    "bookingSlotFree": "Vapaa",
+    "bookingConfirmBook": "Varaa nyt",
+    "bookingMaxReached": "Varausten enimmäismäärä täynnä",
+    "bookingAllBooked": "Kaikki ajat varattu",
+    "bookingRequestDesc": "Lähetä aikatoive moderaattorille",
+    "bookingPreferredTimes": "Toivotut ajat",
+    "bookingTimePlaceholder": "esim. Ma 14:00, Ti 10:00",
+    "bookingAddTime": "Lisää toiveaika",
+    "bookingRequestMessage": "Viesti (valinnainen)",
+    "bookingRequestMsgPlaceholder": "Lisätietoja...",
+    "bookingRequestSubmit": "Lähetä pyyntö"
   },
   "childProfile": {
     "title": "Lasten profiilit",

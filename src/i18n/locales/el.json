@@ -804,7 +804,21 @@
     "statusBoardDesc": "Απουσίες και κατάσταση",
     "statusBoardModeratorTitle": "Επισκόπηση συντονιστή",
     "sortByName": "Κατά όνομα",
-    "sortByDate": "Κατά ημερομηνία"
+    "sortByDate": "Κατά ημερομηνία",
+    "bookingAvailableTitle": "Διαθέσιμα ραντεβού",
+    "bookingMyBookings": "{{count}} κρατήσεις",
+    "bookingSelectSlot": "Επιλέξτε διαθέσιμο slot",
+    "bookingSlotFree": "Ελεύθερο",
+    "bookingConfirmBook": "Κράτηση",
+    "bookingMaxReached": "Μέγιστος αριθμός κρατήσεων",
+    "bookingAllBooked": "Όλα κατειλημμένα",
+    "bookingRequestDesc": "Στείλτε αίτημα στον συντονιστή",
+    "bookingPreferredTimes": "Προτιμώμενες ώρες",
+    "bookingTimePlaceholder": "π.χ. Δευ 14:00, Τρ 10:00",
+    "bookingAddTime": "Προσθήκη ώρας",
+    "bookingRequestMessage": "Μήνυμα (προαιρετικό)",
+    "bookingRequestMsgPlaceholder": "Επιπλέον πληροφορίες...",
+    "bookingRequestSubmit": "Αποστολή αιτήματος"
   },
   "childProfile": {
     "title": "Προφίλ παιδιών",

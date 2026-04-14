@@ -804,7 +804,21 @@
     "statusBoardDesc": "Odsotnosti in status",
     "statusBoardModeratorTitle": "Pregled moderatorja",
     "sortByName": "Po imenu",
-    "sortByDate": "Po datumu"
+    "sortByDate": "Po datumu",
+    "bookingAvailableTitle": "Razpoložljivi termini",
+    "bookingMyBookings": "{{count}} rezerviranih",
+    "bookingSelectSlot": "Izberite prost termin",
+    "bookingSlotFree": "Prosto",
+    "bookingConfirmBook": "Rezerviraj",
+    "bookingMaxReached": "Doseženo maks. število rezervacij",
+    "bookingAllBooked": "Vsi termini zasedeni",
+    "bookingRequestDesc": "Pošljite zahtevo moderatorju",
+    "bookingPreferredTimes": "Želeni termini",
+    "bookingTimePlaceholder": "npr. Pon 14:00, Tor 10:00",
+    "bookingAddTime": "Dodaj termin",
+    "bookingRequestMessage": "Sporočilo (neobvezno)",
+    "bookingRequestMsgPlaceholder": "Dodatne informacije...",
+    "bookingRequestSubmit": "Pošlji zahtevo"
   },
   "childProfile": {
     "title": "Otroški profili",

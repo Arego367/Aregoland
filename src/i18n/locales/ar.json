@@ -804,7 +804,21 @@
     "statusBoardDesc": "الغيابات والحالة",
     "statusBoardModeratorTitle": "نظرة عامة للمشرف",
     "sortByName": "حسب الاسم",
-    "sortByDate": "حسب التاريخ"
+    "sortByDate": "حسب التاريخ",
+    "bookingAvailableTitle": "مواعيد متاحة",
+    "bookingMyBookings": "{{count}} محجوز",
+    "bookingSelectSlot": "اختر موعداً متاحاً",
+    "bookingSlotFree": "متاح",
+    "bookingConfirmBook": "احجز الآن",
+    "bookingMaxReached": "تم الوصول للحد الأقصى",
+    "bookingAllBooked": "جميع المواعيد محجوزة",
+    "bookingRequestDesc": "أرسل طلب موعد إلى المشرف",
+    "bookingPreferredTimes": "الأوقات المفضلة",
+    "bookingTimePlaceholder": "مثال: الإثنين 14:00",
+    "bookingAddTime": "إضافة وقت مفضل",
+    "bookingRequestMessage": "رسالة (اختياري)",
+    "bookingRequestMsgPlaceholder": "معلومات إضافية...",
+    "bookingRequestSubmit": "إرسال الطلب"
   },
   "childProfile": {
     "title": "ملفات الأطفال",

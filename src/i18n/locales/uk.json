@@ -804,7 +804,21 @@
     "statusBoardDesc": "Відсутності та статус",
     "statusBoardModeratorTitle": "Огляд модератора",
     "sortByName": "За ім'ям",
-    "sortByDate": "За датою"
+    "sortByDate": "За датою",
+    "bookingAvailableTitle": "Доступні записи",
+    "bookingMyBookings": "{{count}} заброньовано",
+    "bookingSelectSlot": "Оберіть вільний слот",
+    "bookingSlotFree": "Вільно",
+    "bookingConfirmBook": "Забронювати",
+    "bookingMaxReached": "Досягнуто максимум бронювань",
+    "bookingAllBooked": "Всі слоти зайняті",
+    "bookingRequestDesc": "Надіслати запит модератору",
+    "bookingPreferredTimes": "Бажаний час",
+    "bookingTimePlaceholder": "напр. Пн 14:00, Вт 10:00",
+    "bookingAddTime": "Додати час",
+    "bookingRequestMessage": "Повідомлення (необов'язково)",
+    "bookingRequestMsgPlaceholder": "Додаткова інформація...",
+    "bookingRequestSubmit": "Надіслати запит"
   },
   "childProfile": {
     "title": "Дитячі профілі",

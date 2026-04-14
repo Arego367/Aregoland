@@ -804,7 +804,21 @@
     "statusBoardDesc": "Отсъствия и статус",
     "statusBoardModeratorTitle": "Преглед на модератора",
     "sortByName": "По име",
-    "sortByDate": "По дата"
+    "sortByDate": "По дата",
+    "bookingAvailableTitle": "Налични часове",
+    "bookingMyBookings": "{{count}} резервирани",
+    "bookingSelectSlot": "Изберете свободен час",
+    "bookingSlotFree": "Свободен",
+    "bookingConfirmBook": "Резервирай",
+    "bookingMaxReached": "Максимум резервации достигнат",
+    "bookingAllBooked": "Всички часове заети",
+    "bookingRequestDesc": "Изпратете заявка до модератора",
+    "bookingPreferredTimes": "Предпочитани часове",
+    "bookingTimePlaceholder": "напр. Пон 14:00, Вт 10:00",
+    "bookingAddTime": "Добави час",
+    "bookingRequestMessage": "Съобщение (по избор)",
+    "bookingRequestMsgPlaceholder": "Допълнителна информация...",
+    "bookingRequestSubmit": "Изпрати заявка"
   },
   "childProfile": {
     "title": "Детски профили",

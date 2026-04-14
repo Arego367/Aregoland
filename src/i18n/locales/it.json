@@ -804,7 +804,21 @@
     "statusBoardDesc": "Assenze e stato",
     "statusBoardModeratorTitle": "Panoramica moderatore",
     "sortByName": "Per nome",
-    "sortByDate": "Per data"
+    "sortByDate": "Per data",
+    "bookingAvailableTitle": "Appuntamenti disponibili",
+    "bookingMyBookings": "{{count}} prenotati",
+    "bookingSelectSlot": "Seleziona uno slot libero",
+    "bookingSlotFree": "Libero",
+    "bookingConfirmBook": "Prenota ora",
+    "bookingMaxReached": "Numero massimo di prenotazioni raggiunto",
+    "bookingAllBooked": "Tutti gli slot occupati",
+    "bookingRequestDesc": "Invia una richiesta al moderatore",
+    "bookingPreferredTimes": "Orari preferiti",
+    "bookingTimePlaceholder": "es. Lun 14:00, Mar 10:00",
+    "bookingAddTime": "Aggiungi orario",
+    "bookingRequestMessage": "Messaggio (opzionale)",
+    "bookingRequestMsgPlaceholder": "Informazioni aggiuntive...",
+    "bookingRequestSubmit": "Invia richiesta"
   },
   "childProfile": {
     "title": "Profili bambino",
