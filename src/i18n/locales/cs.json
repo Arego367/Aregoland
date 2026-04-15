@@ -463,7 +463,11 @@
     "connecting": "Navazování spojení...",
     "reject": "Odmítnout",
     "accept": "Přijmout",
-    "addParticipant": "Přidat účastníka"
+    "addParticipant": "Přidat účastníka",
+    "searchContacts": "Hledat kontakty...",
+    "noContactsFound": "Žádné kontakty nenalezeny.",
+    "noContacts": "Žádné kontakty.",
+    "participantAdded": "{{name}} byl přidán do prostoru"
   },
   "qrScreen": {
     "title": "QR kód",

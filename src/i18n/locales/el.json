@@ -463,7 +463,11 @@
     "connecting": "Σύνδεση σε εξέλιξη...",
     "reject": "Απόρριψη",
     "accept": "Αποδοχή",
-    "addParticipant": "Προσθήκη συμμετέχοντα"
+    "addParticipant": "Προσθήκη συμμετέχοντα",
+    "searchContacts": "Αναζήτηση επαφών...",
+    "noContactsFound": "Δεν βρέθηκαν επαφές.",
+    "noContacts": "Δεν υπάρχουν επαφές.",
+    "participantAdded": "{{name}} προστέθηκε στον χώρο"
   },
   "qrScreen": {
     "title": "Κωδικός QR",

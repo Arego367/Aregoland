@@ -463,7 +463,11 @@
     "connecting": "Ühenduse loomine...",
     "reject": "Keeldu",
     "accept": "Vasta",
-    "addParticipant": "Lisa osaleja"
+    "addParticipant": "Lisa osaleja",
+    "searchContacts": "Otsi kontakte...",
+    "noContactsFound": "Kontakte ei leitud.",
+    "noContacts": "Kontaktid puuduvad.",
+    "participantAdded": "{{name}} lisatud ruumi"
   },
   "qrScreen": {
     "title": "QR-kood",

@@ -463,7 +463,11 @@
     "connecting": "Yhteyttä muodostetaan...",
     "reject": "Hylkää",
     "accept": "Vastaa",
-    "addParticipant": "Lisää osallistuja"
+    "addParticipant": "Lisää osallistuja",
+    "searchContacts": "Hae yhteystietoja...",
+    "noContactsFound": "Yhteystietoja ei löytynyt.",
+    "noContacts": "Ei yhteystietoja.",
+    "participantAdded": "{{name}} lisätty tilaan"
   },
   "qrScreen": {
     "title": "QR-koodi",

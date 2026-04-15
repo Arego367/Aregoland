@@ -463,7 +463,11 @@
     "connecting": "Vzpostavljanje povezave...",
     "reject": "Zavrni",
     "accept": "Sprejmi",
-    "addParticipant": "Dodaj udeleženca"
+    "addParticipant": "Dodaj udeleženca",
+    "searchContacts": "Iskanje stikov...",
+    "noContactsFound": "Stiki niso najdeni.",
+    "noContacts": "Ni stikov.",
+    "participantAdded": "{{name}} dodan v prostor"
   },
   "qrScreen": {
     "title": "QR koda",

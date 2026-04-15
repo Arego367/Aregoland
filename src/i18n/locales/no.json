@@ -463,7 +463,11 @@
     "connecting": "Kobler til...",
     "reject": "Avvis",
     "accept": "Svar",
-    "addParticipant": "Legg til deltaker"
+    "addParticipant": "Legg til deltaker",
+    "searchContacts": "Søk kontakter...",
+    "noContactsFound": "Ingen kontakter funnet.",
+    "noContacts": "Ingen kontakter.",
+    "participantAdded": "{{name}} lagt til i rommet"
   },
   "qrScreen": {
     "title": "QR-kode",

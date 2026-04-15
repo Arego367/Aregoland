@@ -463,7 +463,11 @@
     "connecting": "Se conectează...",
     "reject": "Respinge",
     "accept": "Acceptă",
-    "addParticipant": "Adaugă participant"
+    "addParticipant": "Adaugă participant",
+    "searchContacts": "Căutați contacte...",
+    "noContactsFound": "Nu s-au găsit contacte.",
+    "noContacts": "Fără contacte.",
+    "participantAdded": "{{name}} adăugat în spațiu"
   },
   "qrScreen": {
     "title": "Cod QR",

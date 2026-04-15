@@ -464,7 +464,11 @@
     "connecting": "Connecting...",
     "reject": "Reject",
     "accept": "Accept",
-    "addParticipant": "Add participant"
+    "addParticipant": "Add participant",
+    "searchContacts": "Search contacts...",
+    "noContactsFound": "No contacts found.",
+    "noContacts": "No contacts.",
+    "participantAdded": "{{name}} added to space"
   },
   "qrScreen": {
     "title": "QR Code",

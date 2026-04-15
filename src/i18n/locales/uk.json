@@ -463,7 +463,11 @@
     "connecting": "Встановлення з'єднання...",
     "reject": "Відхилити",
     "accept": "Прийняти",
-    "addParticipant": "Додати учасника"
+    "addParticipant": "Додати учасника",
+    "searchContacts": "Пошук контактів...",
+    "noContactsFound": "Контактів не знайдено.",
+    "noContacts": "Немає контактів.",
+    "participantAdded": "{{name}} додано до простору"
   },
   "qrScreen": {
     "title": "QR-код",

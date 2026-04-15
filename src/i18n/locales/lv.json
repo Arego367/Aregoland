@@ -463,7 +463,11 @@
     "connecting": "Savienojums tiek veidots...",
     "reject": "Noraidīt",
     "accept": "Pieņemt",
-    "addParticipant": "Pievienot dalībnieku"
+    "addParticipant": "Pievienot dalībnieku",
+    "searchContacts": "Meklēt kontaktus...",
+    "noContactsFound": "Kontakti nav atrasti.",
+    "noContacts": "Nav kontaktu.",
+    "participantAdded": "{{name}} pievienots telpai"
   },
   "qrScreen": {
     "title": "QR kods",

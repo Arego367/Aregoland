@@ -464,7 +464,11 @@
     "connecting": "Jungiamasi...",
     "reject": "Atmesti",
     "accept": "Atsiliepti",
-    "addParticipant": "Pridėti dalyvį"
+    "addParticipant": "Pridėti dalyvį",
+    "searchContacts": "Ieškoti kontaktų...",
+    "noContactsFound": "Kontaktų nerasta.",
+    "noContacts": "Nėra kontaktų.",
+    "participantAdded": "{{name}} pridėtas prie erdvės"
   },
   "qrScreen": {
     "title": "QR kodas",

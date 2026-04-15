@@ -612,7 +612,11 @@
     "screenShareRemote": "{{name}} teilt den Bildschirm",
     "screenShareNotSupported": "Bildschirm teilen wird von diesem Browser nicht unterstützt",
     "screenShareFskRequired": "Bildschirm teilen ab FSK 16",
-    "addParticipant": "Teilnehmer hinzufügen"
+    "addParticipant": "Teilnehmer hinzufügen",
+    "searchContacts": "Kontakte suchen...",
+    "noContactsFound": "Keine Kontakte gefunden.",
+    "noContacts": "Keine Kontakte vorhanden.",
+    "participantAdded": "{{name}} wurde zum Space hinzugefügt"
   },
   "qrScreen": {
     "title": "QR-Code",

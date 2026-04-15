@@ -13,7 +13,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Phone, PhoneOff, Video, VideoOff, Mic, MicOff,
   CameraOff, Users, Crown, X, Volume2, Wifi, Radio,
-  RotateCcw, Monitor, MonitorOff,
+  RotateCcw, Monitor, MonitorOff, UserPlus,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -45,6 +45,8 @@ interface SpaceCallOverlayProps {
   onToggleScreenShare: () => void;
   onMuteRemote: (targetId: string) => void;
   onKick: (targetId: string) => void;
+  /** Teilnehmer zum Space-Call hinzufügen */
+  onAddParticipant?: () => void;
 }
 
 // ── Audio-Level Detection ───────────────────────────────────────────────────
@@ -295,6 +297,7 @@ export default function SpaceCallOverlay({
   participants, localStream, localScreenStream, moderatorId, myAregoId, isScreenSharing,
   getDisplayName, onLeave, onToggleMic, onToggleCamera,
   onSwitchCamera, onToggleScreenShare, onMuteRemote, onKick,
+  onAddParticipant,
 }: SpaceCallOverlayProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -581,6 +584,17 @@ export default function SpaceCallOverlay({
               >
                 {isScreenSharing ? <MonitorOff size={24} /> : <Monitor size={24} />}
               </button>
+
+              {/* Teilnehmer hinzufügen */}
+              {onAddParticipant && (
+                <button
+                  onClick={onAddParticipant}
+                  className="p-4 rounded-full bg-gray-800/90 text-gray-300 hover:bg-gray-700 transition-colors"
+                  aria-label={t('call.addParticipant')}
+                >
+                  <UserPlus size={24} />
+                </button>
+              )}
 
               {/* Auflegen */}
               <button

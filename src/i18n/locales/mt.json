@@ -463,7 +463,11 @@
     "connecting": "Qed jikkonettja...",
     "reject": "Irrifjuta",
     "accept": "Aċċetta",
-    "addParticipant": "Żid parteċipant"
+    "addParticipant": "Żid parteċipant",
+    "searchContacts": "Fittex kuntatti...",
+    "noContactsFound": "L-ebda kuntatti nstabu.",
+    "noContacts": "L-ebda kuntatti.",
+    "participantAdded": "{{name}} miżjud mal-ispazju"
   },
   "qrScreen": {
     "title": "Kodiċi QR",

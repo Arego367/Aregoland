@@ -463,7 +463,11 @@
     "connecting": "Ansluter...",
     "reject": "Avvisa",
     "accept": "Svara",
-    "addParticipant": "Lägg till deltagare"
+    "addParticipant": "Lägg till deltagare",
+    "searchContacts": "Sök kontakter...",
+    "noContactsFound": "Inga kontakter hittades.",
+    "noContacts": "Inga kontakter.",
+    "participantAdded": "{{name}} har lagts till i utrymmet"
   },
   "qrScreen": {
     "title": "QR-kod",

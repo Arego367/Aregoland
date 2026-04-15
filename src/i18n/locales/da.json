@@ -463,7 +463,11 @@
     "connecting": "Forbindelse oprettes...",
     "reject": "Afvis",
     "accept": "Besvar",
-    "addParticipant": "Tilføj deltager"
+    "addParticipant": "Tilføj deltager",
+    "searchContacts": "Søg kontakter...",
+    "noContactsFound": "Ingen kontakter fundet.",
+    "noContacts": "Ingen kontakter.",
+    "participantAdded": "{{name}} er tilføjet til rummet"
   },
   "qrScreen": {
     "title": "QR-kode",

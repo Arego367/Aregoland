@@ -33,6 +33,7 @@ import AppHeader from "./AppHeader";
 import aregolandNews from "@/app/data/aregoland-news.json";
 import { roadmapSections, type RoadmapStatus } from "@/app/data/roadmap-cards";
 import SpaceCallOverlay from "./SpaceCallOverlay";
+import AddParticipantSheet from "./AddParticipantSheet";
 import { SpaceCallManager, type SpaceCallState, type SpaceCallMode, type SpaceCallParticipant, type CallMediaType } from "@/app/lib/space-call-manager";
 
 const AREGOLAND_OFFICIAL_ID = "__aregoland_official__";
@@ -920,6 +921,7 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
   const [spaceCallLocalStream, setSpaceCallLocalStream] = useState<MediaStream | null>(null);
   const [spaceCallModeratorId, setSpaceCallModeratorId] = useState<string | null>(null);
   const spaceCallManagerRef = useRef<SpaceCallManager | null>(null);
+  const [showAddParticipant, setShowAddParticipant] = useState(false);
 
   // Kinderschutz: calls_enabled pruefen
   const callsAllowed = useMemo(() => {
@@ -3294,8 +3296,39 @@ export default function SpacesScreen({ onBack, onOpenProfile, onOpenQRCode, onOp
           onSwitchCamera={() => { spaceCallManagerRef.current?.switchCamera(); }}
           onMuteRemote={(id) => spaceCallManagerRef.current?.muteRemote(id)}
           onKick={(id) => spaceCallManagerRef.current?.kick(id)}
+          onAddParticipant={() => setShowAddParticipant(true)}
         />
       )}
+      {/* Kontakt-Picker für Teilnehmer hinzufügen (Space-Call) */}
+      <AddParticipantSheet
+        open={showAddParticipant}
+        onClose={() => setShowAddParticipant(false)}
+        excludeIds={[
+          ...(identity ? [identity.aregoId] : []),
+          ...spaceCallParticipants.map(p => p.aregoId),
+          ...(selectedSpace?.members.map(m => m.aregoId) ?? []),
+        ]}
+        onSelect={(contact) => {
+          if (!selectedSpace) return;
+          // Kontakt als neues Mitglied zum Space hinzufügen
+          const updated = {
+            ...selectedSpace,
+            members: [
+              ...selectedSpace.members,
+              { aregoId: contact.aregoId, displayName: contact.displayName, role: "guest" as const, joinedAt: new Date().toISOString() },
+            ],
+          };
+          // Space in localStorage aktualisieren
+          try {
+            const all = JSON.parse(localStorage.getItem("aregoland_spaces") ?? "[]");
+            const idx = all.findIndex((s: any) => s.id === selectedSpace.id);
+            if (idx >= 0) { all[idx] = updated; }
+            localStorage.setItem("aregoland_spaces", JSON.stringify(all));
+          } catch { /* ignore */ }
+          setSelectedSpace(updated);
+          if (onShowToast) onShowToast(t('call.participantAdded', { name: contact.displayName }), 'info');
+        }}
+      />
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
         {/* Header with gradient banner + centered icon */}
         <div className={`relative ${activeTab === "overview" ? "h-36" : "h-20"} shrink-0 bg-gradient-to-br ${selectedSpace.color} transition-all`}>

@@ -463,7 +463,11 @@
     "connecting": "Установяване на връзка...",
     "reject": "Отхвърляне",
     "accept": "Приемане",
-    "addParticipant": "Добави участник"
+    "addParticipant": "Добави участник",
+    "searchContacts": "Търсене на контакти...",
+    "noContactsFound": "Няма намерени контакти.",
+    "noContacts": "Няма контакти.",
+    "participantAdded": "{{name}} е добавен в пространството"
   },
   "qrScreen": {
     "title": "QR код",

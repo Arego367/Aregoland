@@ -463,7 +463,11 @@
     "connecting": "Установка соединения...",
     "reject": "Отклонить",
     "accept": "Принять",
-    "addParticipant": "Добавить участника"
+    "addParticipant": "Добавить участника",
+    "searchContacts": "Поиск контактов...",
+    "noContactsFound": "Контакты не найдены.",
+    "noContacts": "Нет контактов.",
+    "participantAdded": "{{name}} добавлен в пространство"
   },
   "qrScreen": {
     "title": "QR-код",

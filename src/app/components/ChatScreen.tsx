@@ -12,6 +12,7 @@ import CallOverlay from './CallOverlay';
 import { CallManager, type CallState, type CallType } from '@/app/lib/call-manager';
 import { ContactDetailModal } from './ContactDetailModal';
 import { blockContact, isBlocked } from "@/app/auth/contacts";
+import AddParticipantSheet from './AddParticipantSheet';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 
@@ -259,6 +260,7 @@ export default function ChatScreen({
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [cameraUnavailable, setCameraUnavailable] = useState(false);
+  const [showAddParticipant, setShowAddParticipant] = useState(false);
 
   const callManagerRef = useRef<CallManager | null>(null);
   if (!callManagerRef.current) callManagerRef.current = new CallManager();
@@ -1007,16 +1009,30 @@ export default function ChatScreen({
             localStream={localStream}
             remoteStream={remoteStream}
             cameraUnavailable={cameraUnavailable}
-            onAddParticipant={() => {
-              const mediaType = callType;
-              cm.hangup();
-              window.dispatchEvent(new CustomEvent('arego-promote-to-space-call', {
-                detail: { contactId: chatId, contactName: chatName, contactAvatar: chatAvatar, mediaType },
-              }));
-            }}
+            onAddParticipant={() => setShowAddParticipant(true)}
           />
         )}
       </AnimatePresence>
+
+      {/* Kontakt-Picker für Teilnehmer hinzufügen */}
+      <AddParticipantSheet
+        open={showAddParticipant}
+        onClose={() => setShowAddParticipant(false)}
+        excludeIds={[chatId]}
+        onSelect={(contact) => {
+          const mediaType = callType;
+          cm.hangup();
+          window.dispatchEvent(new CustomEvent('arego-promote-to-space-call', {
+            detail: {
+              contactId: chatId,
+              contactName: chatName,
+              contactAvatar: chatAvatar,
+              mediaType,
+              additionalContacts: [{ aregoId: contact.aregoId, displayName: contact.displayName }],
+            },
+          }));
+        }}
+      />
 
       {/* Clear Chat Dialog */}
       <AlertDialog.Root open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>

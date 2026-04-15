@@ -463,7 +463,11 @@
     "connecting": "Verbinding maken...",
     "reject": "Weigeren",
     "accept": "Aannemen",
-    "addParticipant": "Deelnemer toevoegen"
+    "addParticipant": "Deelnemer toevoegen",
+    "searchContacts": "Contacten zoeken...",
+    "noContactsFound": "Geen contacten gevonden.",
+    "noContacts": "Geen contacten.",
+    "participantAdded": "{{name}} toegevoegd aan de ruimte"
   },
   "qrScreen": {
     "title": "QR-code",

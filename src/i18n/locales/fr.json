@@ -463,7 +463,11 @@
     "connecting": "Connexion en cours...",
     "reject": "Refuser",
     "accept": "Accepter",
-    "addParticipant": "Ajouter un participant"
+    "addParticipant": "Ajouter un participant",
+    "searchContacts": "Rechercher des contacts...",
+    "noContactsFound": "Aucun contact trouvé.",
+    "noContacts": "Aucun contact.",
+    "participantAdded": "{{name}} ajouté à l'espace"
   },
   "qrScreen": {
     "title": "Code QR",

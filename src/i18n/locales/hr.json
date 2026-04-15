@@ -463,7 +463,11 @@
     "connecting": "Uspostavljanje veze...",
     "reject": "Odbij",
     "accept": "Prihvati",
-    "addParticipant": "Dodaj sudionika"
+    "addParticipant": "Dodaj sudionika",
+    "searchContacts": "Pretraži kontakte...",
+    "noContactsFound": "Kontakti nisu pronađeni.",
+    "noContacts": "Nema kontakata.",
+    "participantAdded": "{{name}} dodan u prostor"
   },
   "qrScreen": {
     "title": "QR-kod",

@@ -1412,7 +1412,7 @@ export default function App() {
   // ── 1:1-Call → Gruppen-Call (Quick-Space) ──────────────────────────────────
   useEffect(() => {
     const handler = (e: Event) => {
-      const { contactId, contactName, contactAvatar, mediaType } = (e as CustomEvent).detail ?? {};
+      const { contactId, contactName, contactAvatar, mediaType, additionalContacts } = (e as CustomEvent).detail ?? {};
       if (!contactId || !identity) return;
       const spaceId = `space-call-${Date.now().toString(36)}`;
       const globalChannel = {
@@ -1420,14 +1420,27 @@ export default function App() {
         readRoles: ["founder", "admin", "guest"], writeRoles: ["founder", "admin"],
         membersVisible: true, createdAt: new Date().toISOString(), unreadCount: 0,
       };
+      // Mitglieder: Gründer + Gesprächspartner + optional weitere Kontakte
+      const members: { aregoId: string; displayName: string; role: "founder" | "guest"; joinedAt: string }[] = [
+        { aregoId: identity.aregoId, displayName: identity.displayName, role: "founder" as const, joinedAt: new Date().toISOString() },
+        { aregoId: contactId, displayName: contactName, role: "guest" as const, joinedAt: new Date().toISOString() },
+      ];
+      if (Array.isArray(additionalContacts)) {
+        for (const ac of additionalContacts) {
+          if (ac.aregoId && ac.aregoId !== identity.aregoId && ac.aregoId !== contactId) {
+            members.push({ aregoId: ac.aregoId, displayName: ac.displayName ?? ac.aregoId.slice(0, 8), role: "guest" as const, joinedAt: new Date().toISOString() });
+          }
+        }
+      }
+      const nameList = members.filter(m => m.aregoId !== identity.aregoId).map(m => m.displayName);
+      const spaceName = nameList.length <= 2
+        ? `${identity.displayName} & ${nameList.join(' & ')}`
+        : `${identity.displayName} + ${nameList.length}`;
       const space = {
-        id: spaceId, name: `${identity.displayName} & ${contactName}`,
+        id: spaceId, name: spaceName,
         description: "", template: "custom" as const, color: "from-violet-600 to-fuchsia-600",
         identityRule: "real_only" as const, founderId: identity.aregoId,
-        members: [
-          { aregoId: identity.aregoId, displayName: identity.displayName, role: "founder" as const, joinedAt: new Date().toISOString() },
-          { aregoId: contactId, displayName: contactName, role: "guest" as const, joinedAt: new Date().toISOString() },
-        ],
+        members,
         posts: [], channels: [globalChannel], subrooms: [], customRoles: [], tags: [],
         guestPermissions: { readChats: true }, createdAt: new Date().toISOString(),
         visibility: "private" as const, fsk: (fskStatus?.level ?? 6) as any,

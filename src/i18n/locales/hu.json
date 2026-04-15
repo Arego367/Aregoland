@@ -463,7 +463,11 @@
     "connecting": "Kapcsolódás folyamatban...",
     "reject": "Elutasítás",
     "accept": "Elfogadás",
-    "addParticipant": "Résztvevő hozzáadása"
+    "addParticipant": "Résztvevő hozzáadása",
+    "searchContacts": "Névjegyek keresése...",
+    "noContactsFound": "Nem találhatók névjegyek.",
+    "noContacts": "Nincsenek névjegyek.",
+    "participantAdded": "{{name}} hozzáadva a térhez"
   },
   "qrScreen": {
     "title": "QR-kód",
