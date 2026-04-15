@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
@@ -389,22 +390,50 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         onOpenQRCode={onOpenQRCode}
         onOpenSettings={onOpenSettings}
         onOpenSupport={onOpenSupport}
-        action={{ icon: CalendarPlus, label: t('calendar.newEvent'), onClick: () => { setEditingEvent(null); setShowForm(true); } }}
         rightExtra={<>
-          <button onClick={() => setShowBlockEditor(true)}
-            className="p-2 rounded-full transition-all text-gray-400 hover:text-white hover:bg-white/10">
-            <Timer size={20} />
-          </button>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <button className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl max-[480px]:rounded-full max-[480px]:p-2.5 transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center shrink-0">
+                <Plus size={18} />
+                <span className="max-[480px]:hidden">{t('common.addNew')}</span>
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                className="min-w-[200px] bg-gray-800 rounded-xl shadow-2xl p-2 border border-gray-700 z-50"
+                sideOffset={8}
+                align="end"
+              >
+                <DropdownMenu.Item
+                  onClick={() => { setEditingEvent(null); setShowForm(true); }}
+                  className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
+                >
+                  <CalendarPlus size={18} />
+                  <span className="font-medium">{t('calendar.newEvent')}</span>
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  onClick={() => setShowBlockEditor(true)}
+                  className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
+                >
+                  <Timer size={18} />
+                  <span className="font-medium">{t('calendar.timeBlocks')}</span>
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  onClick={() => { setCalSearchOpen(!calSearchOpen); if (!calSearchOpen) { setCalSearchQuery(""); setTimeout(() => calSearchRef.current?.focus(), 100); } }}
+                  className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
+                >
+                  <Search size={18} />
+                  <span className="font-medium">{t('common.search')}</span>
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
           {layers.length > 0 && (
             <button onClick={() => setShowLayers(!showLayers)}
               className={`p-2 rounded-full transition-all ${showLayers ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
               <Layers size={20} />
             </button>
           )}
-          <button onClick={() => { setCalSearchOpen(!calSearchOpen); if (!calSearchOpen) { setCalSearchQuery(""); setTimeout(() => calSearchRef.current?.focus(), 100); } }}
-            className={`p-2 rounded-full transition-all ${calSearchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>
-            <Search size={20} />
-          </button>
           <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
             {t('calendar.today')}
           </button>
