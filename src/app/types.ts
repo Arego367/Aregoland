@@ -119,12 +119,24 @@ export interface CalendarEvent {
 
 export type TimeBlockType = 'work' | 'interruptible' | 'buffer' | 'available';
 
+export interface TimeBlockBuffer {
+  minutes: number;    // Puffer-Dauer in Minuten
+  name?: string;      // optionaler Name (z.B. "Weg zur Arbeit")
+}
+
 export interface TimeBlock {
   id: string;
-  type: TimeBlockType;
-  dayOfWeek: number;  // 0=Mon, 6=Sun (Montag-basiert)
-  startTime: string;  // HH:mm
-  endTime: string;    // HH:mm
+  name: string;             // Freier Name (z.B. "Arbeit", "Pilates")
+  daysOfWeek: number[];     // 0=Mon, 6=Sun — mehrere Tage möglich
+  startTime: string;        // HH:mm
+  endTime: string;          // HH:mm
+  isInterruptible: boolean; // Unterbrechbar Ja/Nein
+  priority: number;         // Sortier-Reihenfolge (niedriger = höhere Priorität)
+  bufferBefore?: TimeBlockBuffer;
+  bufferAfter?: TimeBlockBuffer;
+  // Legacy support
+  type?: TimeBlockType;
+  dayOfWeek?: number;
 }
 
 export interface CalendarLayer {

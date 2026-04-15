@@ -1,11 +1,14 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
-import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType } from "@/app/types";
+import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer } from "@/app/types";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { expandRecurrence, buildRRule, rruleLabel } from "@/app/lib/rrule";
 import { scheduleReminder as scheduleSWReminder, cancelReminder, checkReminders } from "@/app/lib/reminder-scheduler";
 import { loadInvitations, invitationsToEvents, updateRsvp, type ReceivedInvitation } from "@/app/lib/calendar-invitations";
@@ -120,27 +123,59 @@ function generateId(): string {
 
 const TIME_BLOCKS_KEY = "arego_calendar_time_blocks";
 
+/** Migrate old TimeBlock format (single dayOfWeek, type-based) to new format */
+function migrateTimeBlock(b: TimeBlock & { dayOfWeek?: number; type?: TimeBlockType }): TimeBlock {
+  if (b.daysOfWeek && b.name !== undefined && b.priority !== undefined) return b;
+  return {
+    id: b.id,
+    name: b.name ?? (b.type === "work" ? "Arbeit" : b.type === "interruptible" ? "Unterbrechbar" : b.type === "buffer" ? "Puffer" : "Verfügbar"),
+    daysOfWeek: b.daysOfWeek ?? (b.dayOfWeek !== undefined ? [b.dayOfWeek] : [0]),
+    startTime: b.startTime,
+    endTime: b.endTime,
+    isInterruptible: b.isInterruptible ?? (b.type === "interruptible"),
+    priority: b.priority ?? 0,
+    bufferBefore: b.bufferBefore,
+    bufferAfter: b.bufferAfter,
+  };
+}
+
 function loadTimeBlocks(): TimeBlock[] {
-  try { return JSON.parse(localStorage.getItem(TIME_BLOCKS_KEY) ?? "[]"); } catch { return []; }
+  try {
+    const raw: TimeBlock[] = JSON.parse(localStorage.getItem(TIME_BLOCKS_KEY) ?? "[]");
+    const migrated = raw.map(migrateTimeBlock);
+    // Ensure unique priorities
+    migrated.forEach((b, i) => { if (b.priority === 0 && i > 0) b.priority = i; });
+    return migrated.sort((a, b) => a.priority - b.priority);
+  } catch { return []; }
 }
 
 function saveTimeBlocks(blocks: TimeBlock[]) {
-  localStorage.setItem(TIME_BLOCKS_KEY, JSON.stringify(blocks));
+  // Re-index priorities before saving
+  const indexed = blocks.map((b, i) => ({ ...b, priority: i }));
+  localStorage.setItem(TIME_BLOCKS_KEY, JSON.stringify(indexed));
 }
 
-const TIME_BLOCK_COLORS: Record<TimeBlockType, string> = {
-  work: "bg-blue-500/10 border-blue-500/20",
-  interruptible: "bg-yellow-500/10 border-yellow-500/20",
-  buffer: "bg-gray-500/10 border-gray-500/20",
-  available: "bg-green-500/10 border-green-500/20",
-};
+const TIME_BLOCK_COLOR = "bg-blue-500/10 border-blue-500/20";
 
-const TIME_BLOCK_LABELS: Record<TimeBlockType, string> = {
-  work: "calendar.blockWork",
-  interruptible: "calendar.blockInterruptible",
-  buffer: "calendar.blockBuffer",
-  available: "calendar.blockAvailable",
-};
+/** Format days array as compact string: Mo–Fr, Di, etc. */
+function formatDays(days: number[], weekdays: string[]): string {
+  if (days.length === 0) return "";
+  if (days.length === 7) return `${weekdays[0]}–${weekdays[6]}`;
+  const sorted = [...days].sort((a, b) => a - b);
+  // Check for consecutive ranges
+  const ranges: string[] = [];
+  let start = sorted[0];
+  let end = sorted[0];
+  for (let i = 1; i <= sorted.length; i++) {
+    if (i < sorted.length && sorted[i] === end + 1) {
+      end = sorted[i];
+    } else {
+      ranges.push(start === end ? weekdays[start] : `${weekdays[start]}–${weekdays[end]}`);
+      if (i < sorted.length) { start = sorted[i]; end = sorted[i]; }
+    }
+  }
+  return ranges.join(", ");
+}
 
 // ── Reminder Scheduling (delegated to Service Worker) ───────────────────────
 
@@ -741,7 +776,7 @@ function WeekView({
               const dayEvs = eventsMap.get(ds) ?? [];
               const dow = weekdayMon(d);
               const blockForHour = timeBlocks.find(
-                (b) => b.dayOfWeek === dow && parseInt(b.startTime) <= h && parseInt(b.endTime) > h
+                (b) => b.daysOfWeek.includes(dow) && parseInt(b.startTime) <= h && parseInt(b.endTime) > h
               );
               const matching = dayEvs.filter((ev) => {
                 if (ev.duration === "allday") return false;
@@ -749,7 +784,7 @@ function WeekView({
                 return eh === h;
               });
               return (
-                <div key={ds} className={`relative border-l border-gray-800/50 ${blockForHour ? TIME_BLOCK_COLORS[blockForHour.type] : ""}`}>
+                <div key={ds} className={`relative border-l border-gray-800/50 ${blockForHour ? TIME_BLOCK_COLOR : ""}`}>
                   {matching.map((ev) => {
                     const [, em] = ev.startTime.split(":").map(Number);
                     const dur = durationMinutes(ev.duration);
@@ -817,10 +852,10 @@ function DayView({
         {hours.map((h) => {
           const dow = weekdayMon(date);
           const blockForHour = timeBlocks.find(
-            (b) => b.dayOfWeek === dow && parseInt(b.startTime) <= h && parseInt(b.endTime) > h
+            (b) => b.daysOfWeek.includes(dow) && parseInt(b.startTime) <= h && parseInt(b.endTime) > h
           );
           return (
-          <div key={h} className={`flex h-[60px] border-t border-gray-800 ${blockForHour ? TIME_BLOCK_COLORS[blockForHour.type] : ""}`}>
+          <div key={h} className={`flex h-[60px] border-t border-gray-800 ${blockForHour ? TIME_BLOCK_COLOR : ""}`}>
             <div className="w-12 text-[11px] text-gray-500 text-right pr-2 -mt-1.5 flex-shrink-0">
               {`${String(h).padStart(2, "0")}:00`}
             </div>
@@ -1288,8 +1323,45 @@ function EventDetailModal({
 
 // ── Time Block Editor ───────────────────────────────────────────────────────
 
-const BLOCK_TYPES: TimeBlockType[] = ["work", "interruptible", "buffer", "available"];
 const WEEKDAY_INDICES = [0, 1, 2, 3, 4, 5, 6]; // Mon-Sun
+
+// ── Sortable Block Item (Drag & Drop) ──────────────────────────────────────
+
+function SortableBlockItem({
+  block, index, weekdays, onRemove,
+}: {
+  block: TimeBlock; index: number; weekdays: string[];
+  onRemove: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: block.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div ref={setNodeRef} style={style} className={`flex items-center gap-2 p-3 rounded-xl border ${TIME_BLOCK_COLOR}`}>
+      <button {...attributes} {...listeners} className="p-1 text-gray-500 hover:text-gray-300 cursor-grab touch-none">
+        <GripVertical size={14} />
+      </button>
+      <div className="text-sm font-bold text-gray-400 w-5 text-center">{index + 1}.</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium">
+          {block.name} | {formatDays(block.daysOfWeek, weekdays)} {block.startTime}–{block.endTime} | {block.isInterruptible ? t('calendar.interruptibleYes') : t('calendar.interruptibleNo')}
+        </div>
+        {(block.bufferBefore || block.bufferAfter) && (
+          <div className="text-xs text-gray-400 mt-0.5">
+            {block.bufferBefore && <span>{t('calendar.bufferBefore')}: {block.bufferBefore.minutes} min{block.bufferBefore.name ? ` (${block.bufferBefore.name})` : ""} </span>}
+            {block.bufferAfter && <span>{t('calendar.bufferAfter')}: {block.bufferAfter.minutes} min{block.bufferAfter.name ? ` (${block.bufferAfter.name})` : ""}</span>}
+          </div>
+        )}
+      </div>
+      <button onClick={() => onRemove(block.id)} className="p-1 text-gray-500 hover:text-red-400">
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
+
+// ── Time Block Editor ──────────────────────────────────────────────────────
 
 function TimeBlockEditor({
   blocks, onSave, onClose,
@@ -1301,19 +1373,63 @@ function TimeBlockEditor({
   const { t } = useTranslation();
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
   const [editing, setEditing] = useState<TimeBlock[]>([...blocks]);
-  const [addDay, setAddDay] = useState(0);
+
+  // New block form state
+  const [addName, setAddName] = useState("");
+  const [addDays, setAddDays] = useState<number[]>([]);
   const [addStart, setAddStart] = useState("09:00");
   const [addEnd, setAddEnd] = useState("17:00");
-  const [addType, setAddType] = useState<TimeBlockType>("work");
+  const [addInterruptible, setAddInterruptible] = useState(false);
+  const [addBufferBefore, setAddBufferBefore] = useState("");
+  const [addBufferBeforeName, setAddBufferBeforeName] = useState("");
+  const [addBufferAfter, setAddBufferAfter] = useState("");
+  const [addBufferAfterName, setAddBufferAfterName] = useState("");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const toggleDay = (d: number) => {
+    setAddDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
+  };
 
   const addBlock = () => {
+    if (!addName.trim() || addDays.length === 0) return;
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    setEditing([...editing, { id, type: addType, dayOfWeek: addDay, startTime: addStart, endTime: addEnd }]);
+    const newBlock: TimeBlock = {
+      id,
+      name: addName.trim(),
+      daysOfWeek: [...addDays].sort((a, b) => a - b),
+      startTime: addStart,
+      endTime: addEnd,
+      isInterruptible: addInterruptible,
+      priority: editing.length,
+      bufferBefore: addBufferBefore ? { minutes: parseInt(addBufferBefore), name: addBufferBeforeName.trim() || undefined } : undefined,
+      bufferAfter: addBufferAfter ? { minutes: parseInt(addBufferAfter), name: addBufferAfterName.trim() || undefined } : undefined,
+    };
+    setEditing([...editing, newBlock]);
+    setAddName(""); setAddDays([]); setAddStart("09:00"); setAddEnd("17:00");
+    setAddInterruptible(false); setAddBufferBefore(""); setAddBufferBeforeName("");
+    setAddBufferAfter(""); setAddBufferAfterName("");
   };
 
   const removeBlock = (id: string) => {
     setEditing(editing.filter((b) => b.id !== id));
   };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setEditing((items) => {
+        const oldIndex = items.findIndex((i) => i.id === active.id);
+        const newIndex = items.findIndex((i) => i.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const inputClass = "w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white [color-scheme:dark]";
 
   return (
     <motion.div
@@ -1336,60 +1452,102 @@ function TimeBlockEditor({
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-800"><X size={20} /></button>
         </div>
 
-        {/* Existing blocks */}
-        <div className="space-y-2 mb-4">
+        {/* Existing blocks — drag & drop sortable */}
+        <div className="space-y-2 mb-2">
           {editing.length === 0 && (
             <p className="text-sm text-gray-500 text-center py-4">{t('calendar.noTimeBlocks')}</p>
           )}
-          {editing.map((b) => (
-            <div key={b.id} className={`flex items-center gap-3 p-3 rounded-xl border ${TIME_BLOCK_COLORS[b.type]}`}>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">{WEEKDAYS_SHORT[b.dayOfWeek]}: {b.startTime} - {b.endTime}</div>
-                <div className="text-xs text-gray-400">{t(TIME_BLOCK_LABELS[b.type])}</div>
-              </div>
-              <button onClick={() => removeBlock(b.id)} className="p-1 text-gray-500 hover:text-red-400">
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={editing.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+              {editing.map((b, i) => (
+                <SortableBlockItem key={b.id} block={b} index={i} weekdays={WEEKDAYS_SHORT} onRemove={removeBlock} />
+              ))}
+            </SortableContext>
+          </DndContext>
         </div>
+        {editing.length > 0 && (
+          <p className="text-xs text-gray-500 text-center mb-4">{t('calendar.priorityHint')}</p>
+        )}
 
         {/* Add new block */}
         <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3 mb-4">
           <p className="text-xs text-gray-500 font-bold uppercase">{t('calendar.addTimeBlock')}</p>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.day')}</label>
-              <select value={addDay} onChange={(e) => setAddDay(Number(e.target.value))}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white [color-scheme:dark]">
-                {WEEKDAY_INDICES.map((i) => (
-                  <option key={i} value={i}>{WEEKDAYS_SHORT[i]}</option>
-                ))}
-              </select>
+
+          {/* Name */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{t('calendar.blockName')}</label>
+            <input type="text" value={addName} onChange={(e) => setAddName(e.target.value)}
+              placeholder={t('calendar.blockNamePlaceholder')}
+              className={inputClass} />
+          </div>
+
+          {/* Weekday chips */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{t('calendar.days')}</label>
+            <div className="flex flex-wrap gap-1.5">
+              {WEEKDAY_INDICES.map((i) => (
+                <button key={i} onClick={() => toggleDay(i)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                    addDays.includes(i) ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+                  }`}>
+                  {WEEKDAYS_SHORT[i]}
+                </button>
+              ))}
             </div>
+          </div>
+
+          {/* Time range */}
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-gray-500 mb-1 block">{t('calendar.from')}</label>
-              <input type="time" value={addStart} onChange={(e) => setAddStart(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white [color-scheme:dark]" />
+              <input type="time" value={addStart} onChange={(e) => setAddStart(e.target.value)} className={inputClass} />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-1 block">{t('calendar.to')}</label>
-              <input type="time" value={addEnd} onChange={(e) => setAddEnd(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white [color-scheme:dark]" />
+              <input type="time" value={addEnd} onChange={(e) => setAddEnd(e.target.value)} className={inputClass} />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {BLOCK_TYPES.map((bt) => (
-              <button key={bt} onClick={() => setAddType(bt)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                  addType === bt ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
-                }`}>
-                {t(TIME_BLOCK_LABELS[bt])}
-              </button>
-            ))}
+
+          {/* Interruptible toggle */}
+          <div className="flex items-center justify-between">
+            <label className="text-sm text-gray-300">{t('calendar.interruptible')}</label>
+            <button onClick={() => setAddInterruptible(!addInterruptible)}
+              className={`w-10 h-6 rounded-full transition-colors relative ${addInterruptible ? "bg-blue-600" : "bg-gray-700"}`}>
+              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${addInterruptible ? "left-[18px]" : "left-0.5"}`} />
+            </button>
           </div>
+
+          {/* Buffer before */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferBefore')} (min)</label>
+              <input type="number" min="0" value={addBufferBefore} onChange={(e) => setAddBufferBefore(e.target.value)}
+                placeholder="0" className={inputClass} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
+              <input type="text" value={addBufferBeforeName} onChange={(e) => setAddBufferBeforeName(e.target.value)}
+                placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
+            </div>
+          </div>
+
+          {/* Buffer after */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferAfter')} (min)</label>
+              <input type="number" min="0" value={addBufferAfter} onChange={(e) => setAddBufferAfter(e.target.value)}
+                placeholder="0" className={inputClass} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
+              <input type="text" value={addBufferAfterName} onChange={(e) => setAddBufferAfterName(e.target.value)}
+                placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
+            </div>
+          </div>
+
           <button onClick={addBlock}
-            className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold transition-colors">
+            disabled={!addName.trim() || addDays.length === 0}
+            className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold transition-colors">
             + {t('calendar.addTimeBlock')}
           </button>
         </div>
