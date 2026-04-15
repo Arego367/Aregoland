@@ -682,7 +682,7 @@ function MonthView({
   const MAX_VISIBLE = 2;
 
   return (
-    <div>
+    <div className="flex flex-col h-full">
       {/* Weekday headers */}
       <div className="grid grid-cols-7 mb-1">
         {WEEKDAYS_SHORT.map((wd) => (
@@ -691,9 +691,9 @@ function MonthView({
       </div>
       {/* Days */}
       {grid.map((row, ri) => (
-        <div key={ri} className="grid grid-cols-7 gap-px">
+        <div key={ri} className="grid grid-cols-7 gap-px flex-1">
           {row.map((cell, ci) => {
-            if (!cell) return <div key={ci} className="min-h-[72px]" />;
+            if (!cell) return <div key={ci} />;
             const ds = toDateStr(cell);
             const isToday = ds === todayStr;
             const dayEvents = eventsMap.get(ds) ?? [];
@@ -703,7 +703,7 @@ function MonthView({
               <button
                 key={ci}
                 onClick={() => onSelectDate(cell)}
-                className={`min-h-[72px] flex flex-col items-stretch p-0.5 rounded-lg transition-colors ${
+                className={`flex flex-col items-stretch p-0.5 rounded-lg transition-colors ${
                   isToday ? "bg-blue-600/20 ring-1 ring-blue-500" : "hover:bg-gray-800"
                 }`}
               >
