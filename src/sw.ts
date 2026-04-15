@@ -142,6 +142,12 @@ self.addEventListener("message", (event) => {
 
 // ── Lifecycle Events ────────────────────────────────────────────────────────
 
+// Activate new service worker immediately instead of waiting for all tabs to close.
+// Without this, users keep getting old cached content until every tab is closed.
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {

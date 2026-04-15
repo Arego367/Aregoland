@@ -467,7 +467,18 @@
     "searchContacts": "Пошук контактів...",
     "noContactsFound": "Контактів не знайдено.",
     "noContacts": "Немає контактів.",
-    "participantAdded": "{{name}} додано до простору"
+    "participantAdded": "{{name}} додано до простору",
+    "record": "Record",
+    "recordStart": "Start recording",
+    "recordStop": "Stop recording",
+    "recording": "Recording",
+    "recordConsentTitle": "Record this call?",
+    "recordConsentMessage": "{{name}} wants to record this call. All participants must agree.",
+    "recordConsentAccept": "Agree",
+    "recordConsentReject": "Decline",
+    "recordConsentWaiting": "Waiting for consent…",
+    "recordConsentRejected": "Recording declined",
+    "recordSaved": "Recording saved"
   },
   "qrScreen": {
     "title": "QR-код",

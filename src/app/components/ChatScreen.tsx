@@ -10,6 +10,7 @@ import { loadHistory, saveHistory, clearHistory, type StoredMessage } from "@/ap
 import type { P2PStatus, CallSignal } from "@/app/lib/p2p-manager";
 import CallOverlay from './CallOverlay';
 import { CallManager, type CallState, type CallType } from '@/app/lib/call-manager';
+import { useCallRecording } from '@/app/hooks/useCallRecording';
 import { ContactDetailModal } from './ContactDetailModal';
 import { blockContact, isBlocked } from "@/app/auth/contacts";
 import AddParticipantSheet from './AddParticipantSheet';
@@ -301,14 +302,37 @@ export default function ChatScreen({
     cm.reject();
   }, [cm]);
 
+  // ── Call-Recording ──────────────────────────────────────────────────────────
+  const sendRecordSignal = useCallback(
+    (signal: CallSignal) => sendCallSignalRef.current(signal),
+    [],
+  );
+  const [recordingState, recordingActions] = useCallRecording(
+    sendRecordSignal, callType, localStream, remoteStream, chatName,
+  );
+
+  // Aufnahme aufräumen wenn Anruf endet
+  const prevCallStateRef = useRef(callState);
+  useEffect(() => {
+    if (prevCallStateRef.current !== 'idle' && callState === 'idle') {
+      recordingActions.cleanup();
+    }
+    prevCallStateRef.current = callState;
+  });
+
   // Call-Signal Handler registrieren
   useEffect(() => {
     const handler = (signal: CallSignal) => {
+      // Recording-Signale an den Hook weiterleiten
+      if (['record-request', 'record-accept', 'record-reject', 'record-stop'].includes(signal.action)) {
+        recordingActions.handleRecordingSignal(signal.action);
+        return;
+      }
       cm.handleSignal(signal, (s) => sendCallSignalRef.current(s));
     };
     registerCallSignalHandler(handler);
     return () => unregisterCallSignalHandler();
-  }, [roomId, registerCallSignalHandler, unregisterCallSignalHandler, cm]);
+  }, [roomId, registerCallSignalHandler, unregisterCallSignalHandler, cm, recordingActions]);
 
   // Auto-Start Anruf (aus Kontakt-Detail oder PeopleScreen)
   useEffect(() => {
@@ -575,7 +599,7 @@ export default function ChatScreen({
               <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-700">
                 <ImageWithFallback src={chatAvatar} alt={chatName} className="w-full h-full object-cover" />
               </div>
-              {!isGroup && (
+              {!isGroup && isContactOnline !== undefined && (
                 <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${isContactOnline ? 'bg-green-500' : 'bg-gray-600'}`} />
               )}
             </div>
@@ -588,12 +612,12 @@ export default function ChatScreen({
                 {p2pStatus === 'connected'
                   ? t('chat.p2pEncrypted')
                   : p2pStatus === 'waiting'
-                  ? isContactOnline ? t('common.online') : t('common.offline')
+                  ? isContactOnline === undefined ? '' : isContactOnline ? t('common.online') : t('common.offline')
                   : p2pStatus === 'handshake'
                   ? t('chat.connectingP2P')
                   : p2pStatus === 'error'
                   ? (p2pError ?? t('chat.signalingUnreachable'))
-                  : isGroup ? t('chat.tapGroupInfo') : isContactOnline ? t('common.online') : t('common.offline')}
+                  : isGroup ? t('chat.tapGroupInfo') : isContactOnline === undefined ? '' : isContactOnline ? t('common.online') : t('common.offline')}
               </p>
             </div>
           </div>
@@ -1010,6 +1034,8 @@ export default function ChatScreen({
             remoteStream={remoteStream}
             cameraUnavailable={cameraUnavailable}
             onAddParticipant={() => setShowAddParticipant(true)}
+            recording={recordingState}
+            recordingActions={recordingActions}
           />
         )}
       </AnimatePresence>
@@ -1065,7 +1091,7 @@ export default function ChatScreen({
             name: chatName,
             avatar: chatAvatar,
             categories: [],
-            status: isContactOnline ? t('common.online') : t('common.offline'),
+            status: isContactOnline === undefined ? '' : isContactOnline ? t('common.online') : t('common.offline'),
           }}
           onClose={() => setShowContactDetail(false)}
           onUpdateContact={() => {}}

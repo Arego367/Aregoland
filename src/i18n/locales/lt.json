@@ -468,7 +468,18 @@
     "searchContacts": "Ieškoti kontaktų...",
     "noContactsFound": "Kontaktų nerasta.",
     "noContacts": "Nėra kontaktų.",
-    "participantAdded": "{{name}} pridėtas prie erdvės"
+    "participantAdded": "{{name}} pridėtas prie erdvės",
+    "record": "Record",
+    "recordStart": "Start recording",
+    "recordStop": "Stop recording",
+    "recording": "Recording",
+    "recordConsentTitle": "Record this call?",
+    "recordConsentMessage": "{{name}} wants to record this call. All participants must agree.",
+    "recordConsentAccept": "Agree",
+    "recordConsentReject": "Decline",
+    "recordConsentWaiting": "Waiting for consent…",
+    "recordConsentRejected": "Recording declined",
+    "recordSaved": "Recording saved"
   },
   "qrScreen": {
     "title": "QR kodas",

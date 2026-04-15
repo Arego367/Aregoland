@@ -467,7 +467,18 @@
     "searchContacts": "Otsi kontakte...",
     "noContactsFound": "Kontakte ei leitud.",
     "noContacts": "Kontaktid puuduvad.",
-    "participantAdded": "{{name}} lisatud ruumi"
+    "participantAdded": "{{name}} lisatud ruumi",
+    "record": "Record",
+    "recordStart": "Start recording",
+    "recordStop": "Stop recording",
+    "recording": "Recording",
+    "recordConsentTitle": "Record this call?",
+    "recordConsentMessage": "{{name}} wants to record this call. All participants must agree.",
+    "recordConsentAccept": "Agree",
+    "recordConsentReject": "Decline",
+    "recordConsentWaiting": "Waiting for consent…",
+    "recordConsentRejected": "Recording declined",
+    "recordSaved": "Recording saved"
   },
   "qrScreen": {
     "title": "QR-kood",

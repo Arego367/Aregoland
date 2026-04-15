@@ -467,7 +467,18 @@
     "searchContacts": "Поиск контактов...",
     "noContactsFound": "Контакты не найдены.",
     "noContacts": "Нет контактов.",
-    "participantAdded": "{{name}} добавлен в пространство"
+    "participantAdded": "{{name}} добавлен в пространство",
+    "record": "Record",
+    "recordStart": "Start recording",
+    "recordStop": "Stop recording",
+    "recording": "Recording",
+    "recordConsentTitle": "Record this call?",
+    "recordConsentMessage": "{{name}} wants to record this call. All participants must agree.",
+    "recordConsentAccept": "Agree",
+    "recordConsentReject": "Decline",
+    "recordConsentWaiting": "Waiting for consent…",
+    "recordConsentRejected": "Recording declined",
+    "recordSaved": "Recording saved"
   },
   "qrScreen": {
     "title": "QR-код",

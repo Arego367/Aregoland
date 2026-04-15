@@ -94,6 +94,7 @@ export default function App() {
   const [fskStatus, setFskStatus] = useState(() => loadFsk());
   const [totalUnread, setTotalUnread] = useState(() => getTotalUnread());
   const [onlineContacts, setOnlineContacts] = useState<Set<string>>(new Set());
+  const [hiddenStatusContacts, setHiddenStatusContacts] = useState<Set<string>>(new Set());
   const [chatListVersion, setChatListVersion] = useState(0);
   const [contactsVersion, setContactsVersion] = useState(0);
   const [contactStatusMap, setContactStatusMap] = useState<Record<string, ContactStatus>>(() => loadContactStatuses());
@@ -502,6 +503,7 @@ export default function App() {
       const sub = loadSubscription();
       const fskData = loadFsk();
       const contacts = loadContacts();
+      const hideOnline = localStorage.getItem("aregoland_hide_online") !== "false";
       ws.send(JSON.stringify({
         type: 'auth',
         aregoId: identity.aregoId,
@@ -511,6 +513,7 @@ export default function App() {
         abo_gueltig_bis: sub?.expiresAt ?? sub?.trialEnd ?? null,
         fsk_stufe: fskData?.level ?? 6,
         watchIds: contacts.map((c) => c.aregoId),
+        hideOnlineStatus: hideOnline,
       }));
 
       // Inbox-Room joinen nach Auth
@@ -559,7 +562,14 @@ export default function App() {
             setOnlineContacts((prev) => {
               const next = new Set(prev);
               for (const [id, online] of Object.entries(msg.statuses)) {
-                if (online) next.add(id); else next.delete(id);
+                if (online === true) next.add(id); else next.delete(id);
+              }
+              return next;
+            });
+            setHiddenStatusContacts((prev) => {
+              const next = new Set(prev);
+              for (const [id, online] of Object.entries(msg.statuses)) {
+                if (online === null) next.add(id); else next.delete(id);
               }
               return next;
             });
@@ -642,7 +652,14 @@ export default function App() {
           setOnlineContacts((prev) => {
             const next = new Set(prev);
             for (const [id, online] of Object.entries(msg.statuses)) {
-              if (online) next.add(id); else next.delete(id);
+              if (online === true) next.add(id); else next.delete(id);
+            }
+            return next;
+          });
+          setHiddenStatusContacts((prev) => {
+            const next = new Set(prev);
+            for (const [id, online] of Object.entries(msg.statuses)) {
+              if (online === null) next.add(id); else next.delete(id);
             }
             return next;
           });
@@ -1511,7 +1528,8 @@ export default function App() {
           onUpdateTabs={setTabs}
           onChatSelect={handleChatSelect}
           onNewChat={handleStartChat}
-          onlineContacts={onlineContacts}
+          onlineContacts={localStorage.getItem("aregoland_hide_online") !== "false" ? undefined : onlineContacts}
+          hiddenStatusContacts={hiddenStatusContacts}
           chatListVersion={chatListVersion}
         />
       )}
@@ -1524,7 +1542,13 @@ export default function App() {
           isGroup={activeChatData.isGroup}
           roomId={activeChatData.roomId}
           onBack={() => setCurrentScreen("chatList")}
-          isContactOnline={onlineContacts.has(activeChatData.id)}
+          isContactOnline={
+            localStorage.getItem("aregoland_hide_online") !== "false"
+              ? undefined  // eigener Status versteckt → Gegenseitigkeit
+              : hiddenStatusContacts.has(activeChatData.id)
+                ? undefined  // Kontakt hat Status versteckt → Indicator ausblenden
+                : onlineContacts.has(activeChatData.id)
+          }
           chatLockReason={
             contactStatusMap[activeChatData.id] === 'removed'
               ? `${activeChatData.name} hat dich aus den Kontakten entfernt.`
@@ -1586,7 +1610,8 @@ export default function App() {
           onOpenChildProfile={() => setCurrentScreen("childProfile")}
           tabs={tabs} onUpdateTabs={setTabs} identity={identity} onStartChat={handleStartChat}
           onStartCall={(contact, type) => { handleStartChat(contact); /* Chat öffnen, dann Anruf starten via setTimeout */ setTimeout(() => { const evt = new CustomEvent('arego-start-call', { detail: { type } }); window.dispatchEvent(evt); }, 300); }}
-          onlineContacts={onlineContacts}
+          onlineContacts={localStorage.getItem("aregoland_hide_online") !== "false" ? undefined : onlineContacts}
+          hiddenStatusContacts={hiddenStatusContacts}
           contactsVersion={contactsVersion} onRemoveContact={handleRemoveContact}
         />
       )}

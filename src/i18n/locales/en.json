@@ -485,7 +485,18 @@
     "searchContacts": "Search contacts...",
     "noContactsFound": "No contacts found.",
     "noContacts": "No contacts.",
-    "participantAdded": "{{name}} added to space"
+    "participantAdded": "{{name}} added to space",
+    "record": "Record",
+    "recordStart": "Start recording",
+    "recordStop": "Stop recording",
+    "recording": "Recording",
+    "recordConsentTitle": "Record this call?",
+    "recordConsentMessage": "{{name}} wants to record this call. All participants must agree.",
+    "recordConsentAccept": "Agree",
+    "recordConsentReject": "Decline",
+    "recordConsentWaiting": "Waiting for consent…",
+    "recordConsentRejected": "Recording declined",
+    "recordSaved": "Recording saved"
   },
   "qrScreen": {
     "title": "QR Code",

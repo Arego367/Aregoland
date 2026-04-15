@@ -467,7 +467,18 @@
     "searchContacts": "Hae yhteystietoja...",
     "noContactsFound": "Yhteystietoja ei löytynyt.",
     "noContacts": "Ei yhteystietoja.",
-    "participantAdded": "{{name}} lisätty tilaan"
+    "participantAdded": "{{name}} lisätty tilaan",
+    "record": "Record",
+    "recordStart": "Start recording",
+    "recordStop": "Stop recording",
+    "recording": "Recording",
+    "recordConsentTitle": "Record this call?",
+    "recordConsentMessage": "{{name}} wants to record this call. All participants must agree.",
+    "recordConsentAccept": "Agree",
+    "recordConsentReject": "Decline",
+    "recordConsentWaiting": "Waiting for consent…",
+    "recordConsentRejected": "Recording declined",
+    "recordSaved": "Recording saved"
   },
   "qrScreen": {
     "title": "QR-koodi",

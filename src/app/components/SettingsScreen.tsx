@@ -237,7 +237,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [catPickerKey, setCatPickerKey] = useState<keyof PrivacyVisibility | null>(null);
   const [privacyToast, setPrivacyToast] = useState(false);
   const [privacyToastMsg, setPrivacyToastMsg] = useState("");
-  const [showOnlineStatus, setShowOnlineStatus] = useState(() => localStorage.getItem("aregoland_hide_online") !== "true");
+  const [showOnlineStatus, setShowOnlineStatus] = useState(() => localStorage.getItem("aregoland_hide_online") === "false");
   const [blockedList, setBlockedList] = useState<string[]>(() => loadBlocked());
   const availableTabs = useMemo(() => loadTabs(), []);
   const isChildAccount = useMemo(() => {
@@ -636,7 +636,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               </AlertDialog.Portal>
             </AlertDialog.Root>
 
-            <p className="text-center text-xs text-gray-600 mt-4">Version 1.0.0 (Build 2026.01)</p>
+            <p className="text-center text-xs text-gray-600 mt-4">Version: {__GIT_HASH__} — {__BUILD_DATE__}</p>
           </div>
         </div>
       </div>
@@ -770,6 +770,16 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                     const next = !showOnlineStatus;
                     setShowOnlineStatus(next);
                     localStorage.setItem('aregoland_hide_online', next ? 'false' : 'true');
+                    // Live-Toggle via WebSocket senden
+                    const ws = (window as any).__aregoWs;
+                    if (ws && ws.readyState === 1) {
+                      const contacts = loadContacts();
+                      ws.send(JSON.stringify({
+                        type: 'update_presence',
+                        hideOnlineStatus: !next,
+                        watchIds: contacts.map((c: any) => c.aregoId),
+                      }));
+                    }
                   }}
                   className={`relative w-12 h-6 rounded-full transition-colors ${showOnlineStatus ? "bg-green-600" : "bg-gray-600"}`}
                 >

@@ -22,6 +22,8 @@ const cardStatusMap: Record<string, RoadmapStatus> = {
   "calendar/push-reminders.card": "done",
   "calendar/recurring-events.card": "done",
   "calendar/space-layers.card": "done",
+  "calendar/time-blocks.card": "done",
+  "calls/call-recording.card": "done",
   "calls/voice-video": "done",
   "child-safety/child-profiles": "done",
   "child-safety/fsk-system": "done",

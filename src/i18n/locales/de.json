@@ -357,7 +357,7 @@
     "sendFeedback": "Feedback senden",
     "onlineStatus": "Online-Status",
     "showOnlineStatus": "Online-Status anzeigen",
-    "showOnlineStatusDesc": "Wenn aus, erscheinst du für alle als offline",
+    "showOnlineStatusDesc": "Wenn aus, ist dein Status unsichtbar und du siehst auch keine Online-Anzeigen anderer",
     "blockedUsers": "Blockierte Nutzer",
     "noBlockedUsers": "Keine blockierten Nutzer.",
     "unblock": "Aufheben",
@@ -641,7 +641,18 @@
     "searchContacts": "Kontakte suchen...",
     "noContactsFound": "Keine Kontakte gefunden.",
     "noContacts": "Keine Kontakte vorhanden.",
-    "participantAdded": "{{name}} wurde zum Space hinzugefügt"
+    "participantAdded": "{{name}} wurde zum Space hinzugefügt",
+    "record": "Aufnahme",
+    "recordStart": "Aufnahme starten",
+    "recordStop": "Aufnahme beenden",
+    "recording": "Aufnahme läuft",
+    "recordConsentTitle": "Anruf aufnehmen?",
+    "recordConsentMessage": "{{name}} möchte diesen Anruf aufnehmen. Alle Teilnehmer müssen zustimmen.",
+    "recordConsentAccept": "Zustimmen",
+    "recordConsentReject": "Ablehnen",
+    "recordConsentWaiting": "Warte auf Zustimmung…",
+    "recordConsentRejected": "Aufnahme abgelehnt",
+    "recordSaved": "Aufnahme gespeichert"
   },
   "qrScreen": {
     "title": "QR-Code",

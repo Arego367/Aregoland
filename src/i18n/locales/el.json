@@ -467,7 +467,18 @@
     "searchContacts": "Αναζήτηση επαφών...",
     "noContactsFound": "Δεν βρέθηκαν επαφές.",
     "noContacts": "Δεν υπάρχουν επαφές.",
-    "participantAdded": "{{name}} προστέθηκε στον χώρο"
+    "participantAdded": "{{name}} προστέθηκε στον χώρο",
+    "record": "Record",
+    "recordStart": "Start recording",
+    "recordStop": "Stop recording",
+    "recording": "Recording",
+    "recordConsentTitle": "Record this call?",
+    "recordConsentMessage": "{{name}} wants to record this call. All participants must agree.",
+    "recordConsentAccept": "Agree",
+    "recordConsentReject": "Decline",
+    "recordConsentWaiting": "Waiting for consent…",
+    "recordConsentRejected": "Recording declined",
+    "recordSaved": "Recording saved"
   },
   "qrScreen": {
     "title": "Κωδικός QR",

@@ -14,6 +14,7 @@ App-Einstellungen fuer Benachrichtigungen, Sprache, Theme und Privacy.
 - **Benachrichtigungen:** Push-Einstellungen
 - **Sprache:** Auswahl aus 27 verfuegbaren Sprachen
 - **Privacy:** Sichtbarkeit pro Kategorie (Kontakte, Profil, Status)
+- **Online-Status:** Toggle fuer Sichtbarkeit des eigenen Online-Status. Default: versteckt. Gegenseitigkeit: Wer eigenen Status verbirgt, sieht auch keine Online-Anzeigen anderer. Live-Toggle via `update_presence` WebSocket-Nachricht.
 - **Speicher:** Info ueber lokale Datenmenge
 - **Daten exportieren/loeschen:** DSGVO-konforme Datenportabilitaet
 - **FSK-Verifikation:** Altersverifikation aufrufen
@@ -23,6 +24,7 @@ App-Einstellungen fuer Benachrichtigungen, Sprache, Theme und Privacy.
 ## Storage-Keys
 - `aregoland_notifications` — Benachrichtigungs-Einstellungen
 - `aregoland_privacy_visibility` — Privacy pro Kategorie
+- `aregoland_hide_online` — Online-Status verbergen (`"true"` = versteckt, Default: versteckt wenn Key fehlt)
 - `arego_tabs` — Benutzerdefinierte Kontakt-Kategorien
 
 ## Abhaengigkeiten
