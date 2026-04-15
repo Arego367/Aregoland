@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, PhoneOff, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Pencil, Save, ToggleLeft, ToggleRight, Plus, Settings, History, ShieldCheck, Download, AlertTriangle } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
-import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, type LinkedChild } from "@/app/auth/identity";
+import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, registerEudiHash, getEudiHash, type LinkedChild } from "@/app/auth/identity";
 import { deleteContacts, loadBlocked, unblockContact, loadContacts } from "@/app/auth/contacts";
 import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
@@ -140,6 +140,8 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   const [subRefresh, setSubRefresh] = useState(0);
   const [selectedLang, setSelectedLang] = useState(() => LANGUAGES.find(l => l.code === localStorage.getItem('aregoland_language')) || LANGUAGES.find(l => l.code === 'de')!);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  const [fskSelectedLevel, setFskSelectedLevel] = useState<6 | 12 | 16 | 18 | null>(null);
+  const [fskDropdownOpen, setFskDropdownOpen] = useState(false);
   const langDropdownRef = useRef<HTMLDivElement>(null);
   const langLastKey = useRef("");
   const langLastIndex = useRef(-1);
@@ -1473,6 +1475,13 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   // FSK Submenu — "FSK Verifizierung"
   if (activeSubmenu === "fsk") {
     const fsk = loadFsk();
+    const currentEudiHash = getEudiHash();
+    const fskLevels = [
+      { level: 6 as const, dot: "bg-green-400", key: "fskOverview6", descKey: "fskOverview6Desc" },
+      { level: 12 as const, dot: "bg-yellow-400", key: "fskOverview12", descKey: "fskOverview12Desc" },
+      { level: 16 as const, dot: "bg-orange-400", key: "fskOverview16", descKey: "fskOverview16Desc" },
+      { level: 18 as const, dot: "bg-red-400", key: "fskOverview18", descKey: "fskOverview18Desc" },
+    ];
 
     return (
       <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
@@ -1488,36 +1497,39 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-6 max-w-lg mx-auto">
 
-            {/* Aktueller Status */}
+            {/* Aktueller Status — klickbar, oeffnet Dropdown */}
             <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">
               <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">{t('settings.fskCurrentStatus')}</p>
-              <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${fsk?.verified ? 'bg-green-400' : 'bg-orange-400'}`} />
-                <div>
+              <button
+                onClick={() => setFskDropdownOpen(!fskDropdownOpen)}
+                className="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-700/40 hover:bg-gray-700/60 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${fsk?.verified ? 'bg-green-400' : 'bg-orange-400'}`} />
                   <p className={`font-medium ${fsk?.verified ? 'text-green-400' : 'text-orange-400'}`}>
                     FSK {fsk?.level ?? 6} — {fsk?.verified ? t('settings.fskVerified') : t('settings.fskNotVerified')}
                   </p>
                 </div>
-              </div>
-            </div>
+                <ChevronDown size={18} className={`text-gray-400 transition-transform ${fskDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-            {/* FSK-Stufen Uebersicht */}
-            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-              <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">{t('settings.fskOverviewTitle')}</p>
-              {([
-                { level: 6, dot: "bg-green-400", key: "fskOverview6", descKey: "fskOverview6Desc" },
-                { level: 12, dot: "bg-yellow-400", key: "fskOverview12", descKey: "fskOverview12Desc" },
-                { level: 16, dot: "bg-orange-400", key: "fskOverview16", descKey: "fskOverview16Desc" },
-                { level: 18, dot: "bg-red-400", key: "fskOverview18", descKey: "fskOverview18Desc" },
-              ] as const).map(({ level, dot, key, descKey }) => (
-                <div key={level} className={`flex items-start gap-3 p-3 rounded-xl ${fsk?.level === level ? 'bg-white/5 ring-1 ring-white/10' : ''}`}>
-                  <span className={`mt-0.5 shrink-0 inline-block w-2.5 h-2.5 rounded-full ${dot}`} />
-                  <div>
-                    <p className="text-sm font-medium text-gray-200">{t(`settings.${key}`)}</p>
-                    <p className="text-xs text-gray-500">{t(`settings.${descKey}`)}</p>
+              {/* FSK-Stufen Dropdown */}
+              {fskDropdownOpen && <div className="mt-3 space-y-1">
+                {fskLevels.map(({ level, dot, key, descKey }) => (
+                  <div
+                    key={level}
+                    className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${
+                      fsk?.level === level ? 'bg-white/5 ring-1 ring-white/10' : 'hover:bg-white/[0.02]'
+                    }`}
+                  >
+                    <span className={`mt-0.5 shrink-0 inline-block w-2.5 h-2.5 rounded-full ${dot}`} />
+                    <div>
+                      <p className="text-sm font-medium text-gray-200">{t(`settings.${key}`)}</p>
+                      <p className="text-xs text-gray-500">{t(`settings.${descKey}`)}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>}
             </div>
 
             {/* Erklaerung */}
@@ -1531,124 +1543,102 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               </div>
             </div>
 
-            {/* Selbst verifizieren — temporaer (nicht fuer Kind-Konten) */}
-            {!isChildAccount && (
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-400">
-                    <Check size={18} />
-                  </div>
-                  <p className="font-medium">{t('settings.fskSelfVerifyTitle')}</p>
+            {/* EUDI Verifizierung — einheitliche Box */}
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
+                  <ShieldCheck size={18} />
                 </div>
-                <p className="text-xs text-gray-400">Test-Modus: FSK-Stufe frei wählbar (wird durch EUDI ersetzt)</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {([6, 12, 16, 18] as const).map((stufe) => {
-                    const isActive = fsk?.verified && fsk.method === "self" && fsk.level === stufe;
-                    return (
-                      <button
-                        key={stufe}
-                        onClick={() => {
-                          const updated: FskStatus = {
-                            level: stufe,
-                            verified: true,
-                            verifiedAt: new Date().toISOString(),
-                            method: "self",
-                          };
-                          saveFsk(updated);
-                          onFskUpdated?.();
-                          setActiveSubmenu("fsk"); // force re-render
-                        }}
-                        className={`py-3 rounded-xl font-medium text-sm transition-colors ${
-                          isActive
-                            ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
-                            : 'bg-gray-700/60 text-gray-300 hover:bg-gray-600/60'
-                        }`}
-                      >
-                        FSK {stufe}
-                      </button>
-                    );
-                  })}
+                <div>
+                  <p className="font-medium">{t('settings.fskEudiVerifyTitle')}</p>
+                  <p className="text-xs text-gray-500">{t('settings.fskEudiVerifyDesc')}</p>
                 </div>
-                {fsk?.verified && fsk.method === "self" && (
-                  <p className="text-xs text-emerald-400 text-center">Aktiv: FSK {fsk.level}</p>
-                )}
-                <p className="text-xs text-gray-500 text-center">{t('settings.fskSelfVerifyHint')}</p>
               </div>
-            )}
 
-            {/* Kind-Konto: EUDI-Hochstufung */}
-            {isChildAccount && (
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
-                    <Shield size={18} />
-                  </div>
+              {/* Aktueller Hash anzeigen wenn vorhanden */}
+              {currentEudiHash && (
+                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 flex items-center gap-3">
+                  <Check size={16} className="text-green-400 shrink-0" />
                   <div>
-                    <p className="font-medium">{t('settings.childFskUpgradeTitle')}</p>
-                    <p className="text-xs text-gray-500">{t('settings.childFskUpgradeDesc')}</p>
+                    <p className="text-xs text-green-400 font-medium">{t('settings.fskEudiHashActive')}</p>
+                    <p className="text-xs text-gray-400 font-mono mt-0.5">{currentEudiHash}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* EUDI Hash Eingabe */}
+              <div className="space-y-3">
+                <input
+                  id="eudi-hash-input"
+                  type="text"
+                  defaultValue={currentEudiHash ?? ""}
+                  placeholder={t('settings.fskEudiHashPlaceholder')}
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                />
+
+                {/* FSK-Stufe waehlen */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">{t('settings.fskEudiSelectLevel')}</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {([6, 12, 16, 18] as const).map((stufe) => {
+                      const selected = fskSelectedLevel ?? fsk?.level ?? 6;
+                      const isActive = selected === stufe;
+                      return (
+                        <button
+                          key={stufe}
+                          onClick={() => setFskSelectedLevel(stufe)}
+                          className={`py-3 rounded-xl font-medium text-sm transition-colors ${
+                            isActive
+                              ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                              : 'bg-gray-700/60 text-gray-300 hover:bg-gray-600/60'
+                          }`}
+                        >
+                          FSK {stufe}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* EUDI Simulation */}
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 space-y-2">
-                  <p className="text-xs text-blue-300/80 font-medium">{t('settings.childFskUpgradeSimTitle')}</p>
-                  <p className="text-[10px] text-gray-500">{t('settings.childFskUpgradeSimDesc')}</p>
-                  <div className="flex gap-2">
-                    <input
-                      id="eudi-age-input"
-                      type="number"
-                      min={6}
-                      max={99}
-                      placeholder={t('settings.childFskUpgradeSimAge')}
-                      className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
-                    />
-                    <button
-                      onClick={async () => {
-                        const input = document.getElementById('eudi-age-input') as HTMLInputElement;
-                        const age = parseInt(input?.value ?? '0', 10);
-                        if (!age || age < 6 || !identity) return;
-                        try {
-                          const resp = await fetch('/fsk/eudi-upgrade', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ arego_id: identity.aregoId, verified_age: age }),
-                          });
-                          const data = await resp.json();
-                          if (data.ok && data.fsk_stufe) {
-                            const updated: FskStatus = {
-                              level: data.fsk_stufe,
-                              verified: true,
-                              verifiedAt: new Date().toISOString(),
-                              method: 'eudi',
-                            };
-                            saveFsk(updated);
-                            onFskUpdated?.();
-                            // Toast
-                            const el = document.createElement('div');
-                            el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium';
-                            el.textContent = t('settings.childFskUpgradeSuccess', { level: data.fsk_stufe });
-                            document.body.appendChild(el);
-                            setTimeout(() => el.remove(), 3000);
-                            setActiveSubmenu('fsk'); // re-render
-                          } else if (data.message) {
-                            const el = document.createElement('div');
-                            el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium';
-                            el.textContent = t('settings.childFskUpgradeAlready');
-                            document.body.appendChild(el);
-                            setTimeout(() => el.remove(), 3000);
-                          }
-                        } catch (err) {
-                          console.error('EUDI upgrade Fehler:', err);
-                        }
-                      }}
-                      className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm"
-                    >
-                      {t('settings.childFskUpgradeSimConfirm')}
-                    </button>
-                  </div>
-                </div>
+                {/* Bestaetigen */}
+                <button
+                  onClick={() => {
+                    const hashInput = document.getElementById('eudi-hash-input') as HTMLInputElement;
+                    const hash = hashInput?.value?.trim();
+                    if (!hash) return;
+                    const level = (fskSelectedLevel ?? fsk?.level ?? 6) as 6 | 12 | 16 | 18;
+                    // Hash registrieren
+                    registerEudiHash(hash);
+                    // FSK setzen
+                    const updated: FskStatus = {
+                      level,
+                      verified: true,
+                      verifiedAt: new Date().toISOString(),
+                      method: 'eudi',
+                      eudiHash: hash,
+                    };
+                    saveFsk(updated);
+                    onFskUpdated?.();
+                    // Toast
+                    const el = document.createElement('div');
+                    el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-sm font-medium';
+                    el.textContent = t('settings.fskEudiVerifySuccess', { level });
+                    document.body.appendChild(el);
+                    setTimeout(() => el.remove(), 3000);
+                    setActiveSubmenu('fsk'); // re-render
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <ShieldCheck size={18} />
+                  {t('settings.fskEudiVerifyBtn')}
+                </button>
               </div>
-            )}
+
+              {/* EUDI Hinweis */}
+              <p className="text-xs text-gray-500 text-center">
+                {t('settings.fskEudiVerifyHint')}
+              </p>
+            </div>
 
             {/* Kind-Konto Hinweis */}
             {isChildAccount && (
@@ -1658,28 +1648,6 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                   <p className="font-medium">{t('settings.fskChildLocked')}</p>
                   <p className="text-xs text-gray-500 mt-1">{t('settings.fskChildLockedHint')}</p>
                 </div>
-              </div>
-            )}
-
-            {/* Option 1: EUDI Wallet — für Erwachsene (nicht Kind-Konten) */}
-            {!isChildAccount && (
-              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
-                    <Lock size={18} />
-                  </div>
-                  <div>
-                    <p className="font-medium">{t('settings.fskEudiTitle')}</p>
-                    <p className="text-xs text-gray-500">{t('settings.fskEudiDesc')}</p>
-                  </div>
-                </div>
-                <button
-                  disabled
-                  className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {t('settings.fskEudiBtn')}
-                </button>
-                <p className="text-xs text-gray-500 text-center">{t('settings.fskEudiHint')}</p>
               </div>
             )}
 

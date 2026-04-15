@@ -13,6 +13,7 @@ export interface FskStatus {
   verified: boolean;
   verifiedAt: string | null;
   method: "eudi" | "parent" | "self" | null;
+  eudiHash?: string | null;
 }
 
 const STORAGE_KEY = "aregoland_fsk";

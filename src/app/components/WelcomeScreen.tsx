@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from "motion/react";
-import { MessageCircle, ArrowRight, UserPlus, History, Key, ShieldAlert, ChevronLeft, Camera, ScanLine, Loader2, ChevronDown } from "lucide-react";
+import { MessageCircle, ArrowRight, UserPlus, History, ShieldAlert, ChevronLeft, Camera, Loader2, ChevronDown, ShieldCheck, Smartphone } from "lucide-react";
 import { ImageWithFallback } from "@/app/components/ImageWithFallback";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { importFromRecoveryPayload, decodeChildLinkPayload, createChildIdentity } from "@/app/auth/identity";
+import { importFromRecoveryPayload, decodeChildLinkPayload, createChildIdentity, recoverByEudiHash } from "@/app/auth/identity";
 import { saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { Html5Qrcode } from "html5-qrcode";
 import { useTranslation } from 'react-i18next';
@@ -21,7 +21,7 @@ interface WelcomeScreenProps {
 
 export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode }: WelcomeScreenProps) {
   const { t, i18n } = useTranslation();
-  const [view, setView] = useState<"welcome" | "restore" | "restoreScan" | "restoreKey" | "child">("welcome");
+  const [view, setView] = useState<"welcome" | "restore" | "child">("welcome");
   const [langOpen, setLangOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
   const currentLang = LANGUAGES.find(l => l.code === i18n.language) || LANGUAGES[0];
@@ -36,6 +36,10 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
   const [recoveryKey, setRecoveryKey] = useState("");
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [recovering, setRecovering] = useState(false);
+  const [eudiHash, setEudiHash] = useState("");
+  const [eudiError, setEudiError] = useState<string | null>(null);
+  const [eudiRecovering, setEudiRecovering] = useState(false);
+  const [eudiConflict, setEudiConflict] = useState<{ deviceA: string; deviceB: string } | null>(null);
   const [childError, setChildError] = useState<string | null>(null);
   const [childCreating, setChildCreating] = useState(false);
   const [childScanActive, setChildScanActive] = useState(false);
@@ -130,6 +134,29 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
       setRecoveryError("Ungültiger Schlüssel. Bitte prüfe die Eingabe.");
     } finally {
       setRecovering(false);
+    }
+  };
+
+  const handleRecoverWithEudiHash = async () => {
+    if (!eudiHash.trim() || eudiRecovering) return;
+    setEudiError(null);
+    setEudiConflict(null);
+    setEudiRecovering(true);
+    try {
+      const result = await recoverByEudiHash(eudiHash.trim());
+      if (result.found) {
+        if (result.conflict) {
+          setEudiConflict(result.conflict);
+        } else {
+          onGetStarted();
+        }
+      } else {
+        setEudiError(t('welcome.eudiHashNotFound'));
+      }
+    } catch {
+      setEudiError(t('welcome.eudiHashError'));
+    } finally {
+      setEudiRecovering(false);
     }
   };
 
@@ -249,7 +276,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
           </motion.div>
         )}
 
-        {/* ── Restore — Methodenwahl ───────────────────────────────── */}
+        {/* ── Wiederherstellen — EUDI Hash ─────────────────────────── */}
         {view === "restore" && (
           <motion.div
             key="restore"
@@ -260,7 +287,7 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
           >
             <div className="flex items-center gap-4 mb-6">
               <button
-                onClick={() => setView("welcome")}
+                onClick={() => { setView("welcome"); setEudiError(null); setEudiConflict(null); }}
                 className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
               >
                 <ChevronLeft size={28} />
@@ -268,165 +295,99 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
               <h2 className="text-2xl font-bold text-white">{t('welcome.restoreAccount')}</h2>
             </div>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-6">
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-5">
               {/* Info Card */}
               <div className="bg-gray-800/50 backdrop-blur-md border border-gray-700/50 rounded-2xl p-5 space-y-4">
                 <div className="flex items-start gap-3">
                   <div className="p-2 bg-blue-500/20 rounded-lg shrink-0">
-                    <History size={24} className="text-blue-400" />
+                    <ShieldCheck size={24} className="text-blue-400" />
                   </div>
                   <div className="space-y-2">
-                    <p className="text-sm text-gray-300 leading-relaxed" dangerouslySetInnerHTML={{ __html: t('welcome.restoreInfo') }} />
-                    <ul className="text-sm text-gray-400 space-y-2 list-disc pl-4 marker:text-blue-500">
-                      <li>{t('welcome.restoreBullet1')}</li>
-                      <li>{t('welcome.restoreBullet2')}</li>
-                      <li>{t('welcome.restoreBullet3')}</li>
-                    </ul>
+                    <p className="text-sm text-gray-300 leading-relaxed">
+                      {t('welcome.eudiRestoreInfo')}
+                    </p>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      {t('welcome.eudiRestoreHint')}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {/* Warning Card */}
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 flex gap-3">
-                <ShieldAlert size={24} className="text-yellow-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-yellow-200/80 leading-relaxed">
-                  {t('welcome.restoreWarning')}
-                </p>
-              </div>
-            </div>
+              {/* EUDI Hash Eingabe */}
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={eudiHash}
+                  onChange={(e) => { setEudiHash(e.target.value); setEudiError(null); }}
+                  placeholder={t('welcome.eudiHashPlaceholder')}
+                  autoFocus
+                  className="w-full px-4 py-4 rounded-2xl bg-gray-800/80 backdrop-blur-md border border-gray-700 text-white placeholder-gray-500 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                />
 
-            {/* Actions */}
-            <div className="mt-6 space-y-3">
-              <button
-                onClick={() => setView("restoreScan")}
-                className="w-full group bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-600/25 active:scale-98"
-              >
-                <ScanLine size={20} className="shrink-0" />
-                <span>{t('welcome.scanQR')}</span>
-              </button>
-
-              <button
-                onClick={() => { setRecoveryKey(""); setRecoveryError(null); setView("restoreKey"); }}
-                className="w-full group bg-gray-800 hover:bg-gray-700 text-white font-medium py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 border border-gray-700 active:scale-98"
-              >
-                <Key size={20} className="text-gray-400 group-hover:text-white transition-colors" />
-                <span>{t('welcome.enterKey')}</span>
-              </button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── Restore — QR-Code scannen ────────────────────────────── */}
-        {view === "restoreScan" && (
-          <motion.div
-            key="restoreScan"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="z-10 flex flex-col h-full w-full max-w-md pt-8 pb-8 px-6"
-          >
-            <div className="flex items-center gap-4 mb-6">
-              <button
-                onClick={() => setView("restore")}
-                className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
-              >
-                <ChevronLeft size={28} />
-              </button>
-              <h2 className="text-2xl font-bold text-white">{t('welcome.restoreAccount')}</h2>
-            </div>
-
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="relative w-full aspect-[3/4] max-w-[280px] bg-black rounded-3xl overflow-hidden shadow-2xl border border-gray-700">
-                {/* Camera Placeholder */}
-                <div className="absolute inset-0 bg-gray-800 flex flex-col items-center justify-center text-gray-500 gap-4">
-                  <div className="bg-gray-700/50 p-6 rounded-full">
-                    <Camera size={48} className="text-gray-400" />
-                  </div>
-                  <p className="text-sm px-6 text-center">{t('welcome.cameraRequired')}</p>
-                  <button className="text-blue-400 font-medium text-sm hover:underline">{t('welcome.allowAccess')}</button>
-                </div>
-
-                {/* Scan Frame Overlay */}
-                <div className="absolute inset-0 border-[32px] border-black/50 z-10 pointer-events-none" />
-                <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                  <div className="w-44 h-44 border-2 border-white/50 rounded-xl relative">
-                    <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-500 -mt-1 -ml-1 rounded-tl-lg" />
-                    <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-500 -mt-1 -mr-1 rounded-tr-lg" />
-                    <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-500 -mb-1 -ml-1 rounded-bl-lg" />
-                    <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-500 -mb-1 -mr-1 rounded-br-lg" />
-                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)] animate-[scan_2s_ease-in-out_infinite]" />
-                  </div>
-                </div>
+                {eudiError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-sm text-red-400 font-medium"
+                  >
+                    {eudiError}
+                  </motion.p>
+                )}
               </div>
 
-              <p className="text-gray-400 text-center text-sm mt-6 max-w-xs leading-relaxed">
-                {t('welcome.scanRecoveryQR')}
-              </p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── Restore — Schlüssel eingeben ─────────────────────────── */}
-        {view === "restoreKey" && (
-          <motion.div
-            key="restoreKey"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="z-10 flex flex-col h-full w-full max-w-md pt-8 pb-8 px-6"
-          >
-            <div className="flex items-center gap-4 mb-6">
-              <button
-                onClick={() => setView("restore")}
-                className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
-              >
-                <ChevronLeft size={28} />
-              </button>
-              <h2 className="text-2xl font-bold text-white">{t('welcome.restoreAccount')}</h2>
-            </div>
-
-            <div className="flex-1 flex flex-col">
-              <p className="text-sm text-gray-400 mb-4 leading-relaxed">
-                {t('welcome.enterRecoveryKey')}
-              </p>
-
-              <textarea
-                value={recoveryKey}
-                onChange={(e) => { setRecoveryKey(e.target.value); setRecoveryError(null); }}
-                placeholder={t('welcome.recoveryKeyPlaceholder')}
-                rows={6}
-                autoFocus
-                className="w-full px-4 py-3 rounded-2xl bg-gray-800/80 backdrop-blur-md border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono"
-              />
-
-              {recoveryError && (
-                <motion.p
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-3 text-sm text-red-400 font-medium"
+              {/* Konflikt-Anzeige */}
+              {eudiConflict && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 space-y-3"
                 >
-                  {recoveryError}
-                </motion.p>
+                  <div className="flex gap-3">
+                    <ShieldAlert size={20} className="text-yellow-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-yellow-200/80">
+                      {t('welcome.eudiConflictText')}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => { setEudiConflict(null); onGetStarted(); }}
+                      className="bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 px-4 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+                    >
+                      <Smartphone size={16} />
+                      {eudiConflict.deviceA}
+                    </button>
+                    <button
+                      onClick={() => { setEudiConflict(null); onGetStarted(); }}
+                      className="bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-4 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+                    >
+                      <Smartphone size={16} />
+                      {eudiConflict.deviceB}
+                    </button>
+                  </div>
+                </motion.div>
               )}
             </div>
 
-            <button
-              onClick={handleRecoverWithKey}
-              disabled={!recoveryKey.trim() || recovering}
-              className="w-full mt-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-600/25 active:scale-98"
-            >
-              {recovering ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  <span>{t('welcome.recovering')}</span>
-                </>
-              ) : (
-                <>
-                  <Key size={20} />
-                  <span>{t('welcome.restoreAccount')}</span>
-                </>
-              )}
-            </button>
+            {/* Bestaetigen Button */}
+            {!eudiConflict && (
+              <button
+                onClick={handleRecoverWithEudiHash}
+                disabled={!eudiHash.trim() || eudiRecovering}
+                className="w-full mt-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-600/25 active:scale-98"
+              >
+                {eudiRecovering ? (
+                  <>
+                    <Loader2 size={20} className="animate-spin" />
+                    <span>{t('welcome.recovering')}</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={20} />
+                    <span>{t('welcome.restoreAccount')}</span>
+                  </>
+                )}
+              </button>
+            )}
           </motion.div>
         )}
 

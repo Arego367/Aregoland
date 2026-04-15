@@ -5,7 +5,7 @@ import {
   importKeyPairFromJWK,
 } from "./crypto";
 import { initSubscription, loadSubscription } from "./subscription";
-import { initFsk, loadFsk } from "./fsk";
+import { initFsk, loadFsk, saveFsk, type FskStatus } from "./fsk";
 
 export interface UserIdentity {
   aregoId: string;
@@ -175,4 +175,94 @@ export async function createChildIdentity(
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
   return identity;
+}
+
+// ── EUDI Hash ──────────────────────────────────────────────────────────────
+
+const EUDI_HASH_KEY = "aregoland_eudi_hash";
+
+/** Registriert einen EUDI-Hash fuer das aktuelle Konto (Testmodus). */
+export function registerEudiHash(hash: string): void {
+  const normalized = hash.trim();
+  if (!normalized) return;
+  localStorage.setItem(EUDI_HASH_KEY, normalized);
+  // Hash auch im FSK-Status speichern
+  const fsk = loadFsk();
+  if (fsk) {
+    fsk.eudiHash = normalized;
+    saveFsk(fsk);
+  }
+}
+
+/** Gibt den gespeicherten EUDI-Hash zurueck, oder null. */
+export function getEudiHash(): string | null {
+  return localStorage.getItem(EUDI_HASH_KEY);
+}
+
+/**
+ * Stellt ein Konto per EUDI-Hash wieder her (Testmodus).
+ * Sucht server-seitig nach einem registrierten Hash und stellt
+ * AregoID, FSK-Level und Abo-Status wieder her.
+ * Gibt { found: true, conflict?: ... } oder { found: false } zurueck.
+ */
+export async function recoverByEudiHash(hash: string): Promise<{
+  found: boolean;
+  identity?: UserIdentity;
+  fskLevel?: number;
+  conflict?: { deviceA: string; deviceB: string };
+}> {
+  const normalized = hash.trim();
+  if (!normalized) return { found: false };
+
+  try {
+    const resp = await fetch('/eudi/recover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eudi_hash: normalized }),
+    });
+    const data = await resp.json();
+
+    if (data.found && data.identity) {
+      // Identitaet wiederherstellen
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data.identity));
+      localStorage.setItem(EUDI_HASH_KEY, normalized);
+      // FSK wiederherstellen
+      const fskStatus: FskStatus = {
+        level: data.fsk_level ?? 6,
+        verified: true,
+        verifiedAt: new Date().toISOString(),
+        method: 'eudi',
+        eudiHash: normalized,
+      };
+      saveFsk(fskStatus);
+      // Abo wiederherstellen wenn vorhanden
+      if (data.subscription) {
+        localStorage.setItem('aregoland_subscription', JSON.stringify(data.subscription));
+      } else if (!loadSubscription()) {
+        initSubscription();
+      }
+
+      return {
+        found: true,
+        identity: data.identity,
+        fskLevel: data.fsk_level,
+        conflict: data.conflict,
+      };
+    }
+
+    return { found: false };
+  } catch {
+    // Server nicht erreichbar → lokale Suche (Demo-Modus)
+    // Im Testmodus simulieren wir eine erfolgreiche Wiederherstellung
+    // wenn der Hash lokal bereits registriert war
+    const localHash = localStorage.getItem(EUDI_HASH_KEY);
+    if (localHash === normalized) {
+      const identity = loadIdentity();
+      if (identity) {
+        const fsk = loadFsk();
+        return { found: true, identity, fskLevel: fsk?.level ?? 6 };
+      }
+    }
+    return { found: false };
+  }
 }
