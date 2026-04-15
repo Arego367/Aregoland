@@ -21,7 +21,8 @@
     "copied": "Kopioitu",
     "copy": "Kopioi",
     "share": "Jaa",
-    "comingSoon": "{{feature}} tulossa pian"
+    "comingSoon": "{{feature}} tulossa pian",
+    "addNew": "Lisää uusi"
   },
   "tabs": {
     "all": "Kaikki",

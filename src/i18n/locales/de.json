@@ -21,7 +21,8 @@
     "copied": "Kopiert",
     "copy": "Kopieren",
     "share": "Teilen",
-    "comingSoon": "{{feature}} kommt bald"
+    "comingSoon": "{{feature}} kommt bald",
+    "addNew": "Neu hinzufügen"
   },
   "tabs": {
     "all": "Alle",

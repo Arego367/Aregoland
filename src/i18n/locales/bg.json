@@ -21,7 +21,8 @@
     "copied": "Копирано",
     "copy": "Копиране",
     "share": "Споделяне",
-    "comingSoon": "{{feature}} идва скоро"
+    "comingSoon": "{{feature}} идва скоро",
+    "addNew": "Добавяне на нов"
   },
   "tabs": {
     "all": "Всички",

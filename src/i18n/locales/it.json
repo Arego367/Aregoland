@@ -21,7 +21,8 @@
     "copied": "Copiato",
     "copy": "Copia",
     "share": "Condividi",
-    "comingSoon": "{{feature}} in arrivo"
+    "comingSoon": "{{feature}} in arrivo",
+    "addNew": "Aggiungi nuovo"
   },
   "tabs": {
     "all": "Tutti",

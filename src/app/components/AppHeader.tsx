@@ -16,11 +16,13 @@ interface AppHeaderProps {
     label: string;
     onClick: () => void;
   };
+  /** Extra content rendered in the center (e.g. add-new dropdown) */
+  centerExtra?: React.ReactNode;
   /** Extra buttons rendered before the avatar (e.g. search icon, today button) */
   rightExtra?: React.ReactNode;
 }
 
-export default function AppHeader({ title, onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, action, rightExtra }: AppHeaderProps) {
+export default function AppHeader({ title, onBack, onOpenProfile, onOpenQRCode, onOpenSettings, onOpenSupport, action, centerExtra, rightExtra }: AppHeaderProps) {
   const { t } = useTranslation();
 
   return (
@@ -33,7 +35,7 @@ export default function AppHeader({ title, onBack, onOpenProfile, onOpenQRCode, 
         <h1 className="text-lg font-bold text-white truncate">{title}</h1>
       </div>
 
-      {/* Center: Primary action */}
+      {/* Center: Primary action or custom center content */}
       {action && (
         <button onClick={action.onClick}
           className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl max-[480px]:rounded-full max-[480px]:p-2.5 transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center mx-2 shrink-0">
@@ -41,6 +43,7 @@ export default function AppHeader({ title, onBack, onOpenProfile, onOpenQRCode, 
           <span className="max-[480px]:hidden">{action.label}</span>
         </button>
       )}
+      {centerExtra && <div className="mx-2 shrink-0">{centerExtra}</div>}
 
       {/* Right: Extra buttons + Avatar with dropdown */}
       <div className="flex items-center gap-1.5 flex-1 justify-end">

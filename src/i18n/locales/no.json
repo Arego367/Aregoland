@@ -21,7 +21,8 @@
     "copied": "Kopiert",
     "copy": "Kopier",
     "share": "Del",
-    "comingSoon": "{{feature}} kommer snart"
+    "comingSoon": "{{feature}} kommer snart",
+    "addNew": "Legg til ny"
   },
   "tabs": {
     "all": "Alle",

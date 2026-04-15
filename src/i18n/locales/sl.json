@@ -21,7 +21,8 @@
     "copied": "Kopirano",
     "copy": "Kopiraj",
     "share": "Deli",
-    "comingSoon": "{{feature}} prihaja kmalu"
+    "comingSoon": "{{feature}} prihaja kmalu",
+    "addNew": "Dodaj novega"
   },
   "tabs": {
     "all": "Vse",

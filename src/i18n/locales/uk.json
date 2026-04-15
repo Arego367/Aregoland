@@ -21,7 +21,8 @@
     "copied": "Скопійовано",
     "copy": "Копіювати",
     "share": "Поділитися",
-    "comingSoon": "{{feature}} незабаром"
+    "comingSoon": "{{feature}} незабаром",
+    "addNew": "Додати новий"
   },
   "tabs": {
     "all": "Усі",

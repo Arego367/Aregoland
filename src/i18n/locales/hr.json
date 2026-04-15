@@ -21,7 +21,8 @@
     "copied": "Kopirano",
     "copy": "Kopiraj",
     "share": "Podijeli",
-    "comingSoon": "{{feature}} uskoro dolazi"
+    "comingSoon": "{{feature}} uskoro dolazi",
+    "addNew": "Dodaj novi"
   },
   "tabs": {
     "all": "Sve",

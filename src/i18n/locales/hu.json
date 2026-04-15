@@ -21,7 +21,8 @@
     "copied": "Másolva",
     "copy": "Másolás",
     "share": "Megosztás",
-    "comingSoon": "{{feature}} hamarosan érkezik"
+    "comingSoon": "{{feature}} hamarosan érkezik",
+    "addNew": "Új hozzáadása"
   },
   "tabs": {
     "all": "Összes",

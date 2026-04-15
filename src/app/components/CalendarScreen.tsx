@@ -425,7 +425,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         onOpenQRCode={onOpenQRCode}
         onOpenSettings={onOpenSettings}
         onOpenSupport={onOpenSupport}
-        rightExtra={<>
+        centerExtra={
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl max-[480px]:rounded-full max-[480px]:p-2.5 transition-all text-sm font-medium min-w-[44px] min-h-[44px] justify-center shrink-0">
@@ -437,7 +437,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
               <DropdownMenu.Content
                 className="min-w-[200px] bg-gray-800 rounded-xl shadow-2xl p-2 border border-gray-700 z-50"
                 sideOffset={8}
-                align="end"
+                align="center"
               >
                 <DropdownMenu.Item
                   onClick={() => { setEditingEvent(null); setShowForm(true); }}
@@ -463,6 +463,8 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
+        }
+        rightExtra={<>
           {layers.length > 0 && (
             <button onClick={() => setShowLayers(!showLayers)}
               className={`p-2 rounded-full transition-all ${showLayers ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}>

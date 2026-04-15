@@ -21,7 +21,8 @@
     "copied": "Nukopijuota",
     "copy": "Kopijuoti",
     "share": "Dalintis",
-    "comingSoon": "{{feature}} netrukus"
+    "comingSoon": "{{feature}} netrukus",
+    "addNew": "Pridėti naują"
   },
   "tabs": {
     "all": "Visi",

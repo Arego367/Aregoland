@@ -21,7 +21,8 @@
     "copied": "Gekopieerd",
     "copy": "Kopiëren",
     "share": "Delen",
-    "comingSoon": "{{feature}} binnenkort"
+    "comingSoon": "{{feature}} binnenkort",
+    "addNew": "Nieuw toevoegen"
   },
   "tabs": {
     "all": "Alle",

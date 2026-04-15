@@ -21,7 +21,8 @@
     "copied": "Kopeeritud",
     "copy": "Kopeeri",
     "share": "Jaga",
-    "comingSoon": "{{feature}} tuleb peagi"
+    "comingSoon": "{{feature}} tuleb peagi",
+    "addNew": "Lisa uus"
   },
   "tabs": {
     "all": "Kõik",
