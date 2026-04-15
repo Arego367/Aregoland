@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, registerEudiHash, getEudiHash, type LinkedChild } from "@/app/auth/identity";
 import { deleteContacts, loadBlocked, unblockContact, loadContacts } from "@/app/auth/contacts";
 import QRCode from "qrcode";
-import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
+import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, activatePlan, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
 import { loadFsk, saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { signData } from "@/app/auth/crypto";
 import { downloadGdprExport } from "@/app/lib/gdpr-export";
@@ -1412,10 +1412,10 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                       <div className="flex items-center gap-3">
                         <p className="text-amber-400 font-bold">{plan.price},00 {"\u20AC"}</p>
                         <button
-                          disabled
-                          className="bg-gray-700 text-gray-500 text-xs font-medium px-3 py-1.5 rounded-lg cursor-not-allowed"
+                          onClick={() => { activatePlan(plan.type); setSubRefresh(v => v + 1); if (isLocked && onSubscriptionUnlocked) onSubscriptionUnlocked(); }}
+                          className="bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                         >
-                          {t('settings.subPlanCloudBtn')}
+                          {t('settings.subSelectPlan')}
                         </button>
                       </div>
                     </div>

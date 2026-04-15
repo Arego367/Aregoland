@@ -106,6 +106,29 @@ export function hasAccess(sub: Subscription | null): boolean {
   return status === "trial" || status === "active";
 }
 
+/** Aktiviert einen Plan (Platzhalter ohne echte Bezahlung). */
+export function activatePlan(planType: PlanType): Subscription | null {
+  const sub = loadSubscription();
+  if (!sub || !planType) return null;
+
+  const plan = PLANS.find(p => p.type === planType);
+  if (!plan) return null;
+
+  const now = new Date();
+  // Wenn aktuelles Abo noch aktiv ist, vom Ende verlaengern; sonst ab jetzt
+  const start = sub.expiresAt && new Date(sub.expiresAt).getTime() > now.getTime()
+    ? new Date(sub.expiresAt)
+    : now;
+  const expiresAt = new Date(start);
+  expiresAt.setMonth(expiresAt.getMonth() + plan.months);
+
+  sub.status = "active";
+  sub.planType = planType;
+  sub.expiresAt = expiresAt.toISOString();
+  saveSubscription(sub);
+  return sub;
+}
+
 /** Setzt Auto-Verlaengerung. */
 export function setAutoRenew(renew: boolean): void {
   const sub = loadSubscription();
