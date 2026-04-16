@@ -110,6 +110,7 @@ export interface CalendarEvent {
   duration: '15min' | '30min' | '1h' | '2h' | 'allday';
   reminder: 'none' | '10min' | '30min' | '1h' | '1day';
   color: string;       // Tailwind color class prefix, e.g. 'blue', 'purple'
+  address?: string;    // Optional location — shown on a second row in the calendar list
   note?: string;
   rrule?: string;      // RFC 5545 RRULE string, e.g. "FREQ=WEEKLY;INTERVAL=1;COUNT=10"
   exdates?: string[];  // Exception dates (YYYY-MM-DD) excluded from recurrence

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -117,6 +117,269 @@ function getColor(id: string) {
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// ── Row-based Layout Algorithm (ARE-218 v2) ─────────────────────────────────
+
+const MIN_ROW_PX = 24;
+const MAX_ROW_PX = 47;
+
+// WeekView all-day chip strip — heights derived from the rendered layout
+// (`pt-0.5 space-y-0.5` + `text-[9px] py-0.5` chips, optional "+N" overflow).
+// Used to reserve identical chip-area space in every column so row separators
+// stay aligned across the week, and to subtract from the available row-stack
+// height when computing the per-column row plan.
+const WEEK_ALLDAY_TOP_PAD_PX = 2;
+const WEEK_ALLDAY_CHIP_PX = 24;
+const WEEK_ALLDAY_GAP_PX = 2;
+const WEEK_ALLDAY_OVERFLOW_PX = 14;
+const WEEK_ALLDAY_MAX_VISIBLE = 2;
+
+function computeWeekAllDayHeight(count: number): number {
+  if (count <= 0) return 0;
+  const visible = Math.min(WEEK_ALLDAY_MAX_VISIBLE, count);
+  let h = WEEK_ALLDAY_TOP_PAD_PX + visible * WEEK_ALLDAY_CHIP_PX + Math.max(0, visible - 1) * WEEK_ALLDAY_GAP_PX;
+  if (count > WEEK_ALLDAY_MAX_VISIBLE) h += WEEK_ALLDAY_GAP_PX + WEEK_ALLDAY_OVERFLOW_PX;
+  return h;
+}
+
+function toMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+function formatMinuteOfDay(m: number): string {
+  const clamped = Math.max(0, Math.min(24 * 60, Math.round(m)));
+  const h = Math.floor(clamped / 60);
+  const mm = clamped % 60;
+  return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+type RowPlanEntry =
+  | { kind: "free"; startMin: number; endMin: number }
+  | { kind: "event"; event: CalendarEvent; position: "only" | "top" | "bottom" };
+
+interface RowPlan {
+  rows: RowPlanEntry[];
+  droppedAddresses: boolean;
+}
+
+interface PlanBlock {
+  kind: "event" | "free";
+  event?: CalendarEvent;
+  eventRows?: 1 | 2;
+  startMin?: number;
+  endMin?: number;
+  freeRows?: number;
+}
+
+function buildBlocks(
+  timed: { event: CalendarEvent; startMin: number; endMin: number }[],
+  useAddresses: boolean,
+): PlanBlock[] {
+  const blocks: PlanBlock[] = [];
+  let cursor = 0;
+  for (const t of timed) {
+    if (t.startMin > cursor) {
+      blocks.push({ kind: "free", startMin: cursor, endMin: t.startMin, freeRows: 1 });
+    }
+    const hasAddr = useAddresses && !!t.event.address?.trim();
+    blocks.push({ kind: "event", event: t.event, eventRows: hasAddr ? 2 : 1 });
+    cursor = Math.max(cursor, t.endMin);
+  }
+  if (cursor < 24 * 60) {
+    blocks.push({ kind: "free", startMin: cursor, endMin: 24 * 60, freeRows: 1 });
+  }
+  if (blocks.length === 0) {
+    blocks.push({ kind: "free", startMin: 0, endMin: 24 * 60, freeRows: 1 });
+  }
+  return blocks;
+}
+
+function totalRows(blocks: PlanBlock[]): number {
+  return blocks.reduce(
+    (s, b) => s + (b.kind === "event" ? b.eventRows! : b.freeRows!),
+    0,
+  );
+}
+
+function distributeSplits(blocks: PlanBlock[], neededExtras: number): void {
+  if (neededExtras <= 0) return;
+  const freeBlocks = blocks.filter((b) => b.kind === "free");
+  if (freeBlocks.length === 0) return;
+  const totalFreeMin = freeBlocks.reduce((s, b) => s + (b.endMin! - b.startMin!), 0);
+  if (totalFreeMin <= 0) return;
+  let assigned = 0;
+  for (let i = 0; i < freeBlocks.length; i++) {
+    const b = freeBlocks[i];
+    const share = (b.endMin! - b.startMin!) / totalFreeMin;
+    const extra =
+      i === freeBlocks.length - 1
+        ? neededExtras - assigned
+        : Math.round(share * neededExtras);
+    b.freeRows! += Math.max(0, extra);
+    assigned += extra;
+  }
+  // Cap each free block at its minute count (don't split 10min into 30 rows).
+  for (const b of freeBlocks) {
+    const maxSplits = Math.max(1, b.endMin! - b.startMin!);
+    if (b.freeRows! > maxSplits) b.freeRows = maxSplits;
+  }
+}
+
+function computeRowPlan(events: CalendarEvent[], H: number): RowPlan {
+  const timed = events
+    .filter((e) => e.duration !== "allday")
+    .map((e) => {
+      const startMin = toMinutes(e.startTime);
+      const endMin = Math.min(24 * 60, startMin + durationMinutes(e.duration));
+      return { event: e, startMin, endMin };
+    })
+    .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+
+  const effectiveH = Math.max(0, H);
+
+  // Step 1: try with addresses
+  let blocks = buildBlocks(timed, true);
+  let T = totalRows(blocks);
+
+  if (effectiveH > 0) {
+    const targetMin = Math.ceil(effectiveH / MAX_ROW_PX); // need ≥ this many rows so base ≤ MAX
+    const targetMax = Math.max(1, Math.floor(effectiveH / MIN_ROW_PX)); // at most this before rows shrink below MIN
+    const targetT = Math.max(T, Math.min(targetMin, targetMax));
+    distributeSplits(blocks, targetT - T);
+    T = totalRows(blocks);
+  }
+
+  let base = effectiveH > 0 ? effectiveH / Math.max(1, T) : MIN_ROW_PX;
+  let droppedAddresses = false;
+
+  // Step 2: if still too tight (rows would shrink below MIN), drop addresses and re-split
+  if (effectiveH > 0 && base < MIN_ROW_PX) {
+    droppedAddresses = true;
+    blocks = buildBlocks(timed, false);
+    T = totalRows(blocks);
+    const targetMin = Math.ceil(effectiveH / MAX_ROW_PX);
+    const targetMax = Math.max(1, Math.floor(effectiveH / MIN_ROW_PX));
+    const targetT = Math.max(T, Math.min(targetMin, targetMax));
+    distributeSplits(blocks, targetT - T);
+    T = totalRows(blocks);
+    base = effectiveH / Math.max(1, T);
+  }
+
+  const rows: RowPlanEntry[] = [];
+  for (const b of blocks) {
+    if (b.kind === "event") {
+      const n = b.eventRows!;
+      if (n === 1) {
+        rows.push({ kind: "event", event: b.event!, position: "only" });
+      } else {
+        rows.push({ kind: "event", event: b.event!, position: "top" });
+        rows.push({ kind: "event", event: b.event!, position: "bottom" });
+      }
+    } else {
+      const n = Math.max(1, b.freeRows!);
+      const span = (b.endMin! - b.startMin!) / n;
+      for (let i = 0; i < n; i++) {
+        rows.push({
+          kind: "free",
+          startMin: b.startMin! + i * span,
+          endMin: b.startMin! + (i + 1) * span,
+        });
+      }
+    }
+  }
+
+  return { rows, droppedAddresses };
+}
+
+function useElementHeight<T extends HTMLElement>(
+  ref: React.RefObject<T>,
+): number {
+  const [h, setH] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setH(el.getBoundingClientRect().height);
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setH(e.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return h;
+}
+
+interface DayRowStackProps {
+  events: CalendarEvent[];
+  onSelectEvent: (ev: CalendarEvent) => void;
+  height: number;
+  freeLabel: string;
+  density?: "normal" | "compact";
+}
+
+function DayRowStack({
+  events,
+  onSelectEvent,
+  height,
+  freeLabel,
+  density = "normal",
+}: DayRowStackProps) {
+  const plan = useMemo(() => computeRowPlan(events, height), [events, height]);
+  if (height <= 0 || plan.rows.length === 0) return null;
+  const compact = density === "compact";
+
+  return (
+    <div
+      className="w-full h-full grid overflow-hidden"
+      style={{ gridTemplateRows: `repeat(${plan.rows.length}, minmax(0, 1fr))` }}
+    >
+      {plan.rows.map((row, i) => {
+        if (row.kind === "free") {
+          return (
+            <div
+              key={i}
+              className={`flex items-center ${compact ? "px-1.5" : "px-3"} border-t border-gray-800/40 text-gray-500 italic overflow-hidden`}
+              style={{ fontSize: compact ? "10px" : "11px", lineHeight: 1 }}
+            >
+              <span className="truncate">
+                {formatMinuteOfDay(row.startMin)} – {formatMinuteOfDay(row.endMin)} · {freeLabel}
+              </span>
+            </div>
+          );
+        }
+        const ev = row.event;
+        const color = getColor(ev.color);
+        const isTop = row.position === "top" || row.position === "only";
+        const isBottom = row.position === "bottom" || row.position === "only";
+        const cornerClass = `${isTop ? "rounded-t-md" : ""} ${isBottom ? "rounded-b-md mb-0.5" : ""}`;
+        return (
+          <button
+            key={i}
+            onClick={() => onSelectEvent(ev)}
+            className={`flex items-center ${compact ? "px-1.5 gap-1" : "px-2 gap-2"} text-left text-white ${color.bg} ${cornerClass} overflow-hidden focus:outline-none focus:ring-2 focus:ring-white/40`}
+          >
+            {row.position === "top" || row.position === "only" ? (
+              <>
+                {!compact && (
+                  <span className="text-[10px] font-semibold opacity-80 shrink-0 tabular-nums">
+                    {ev.startTime}
+                  </span>
+                )}
+                <span className={`truncate font-semibold ${compact ? "text-[10px]" : "text-xs sm:text-sm"}`}>
+                  {ev.title}
+                </span>
+              </>
+            ) : (
+              <span className={`truncate opacity-90 ${compact ? "text-[9px] pl-1" : "text-[11px] pl-2"}`}>
+                📍 {ev.address}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 // ── Time Blocks ─────────────────────────────────────────────────────────────
@@ -358,7 +621,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         duration: "1h",
         reminder: "none",
         color: mapSpaceColor(se.spaceColor),
-        note: se.location ? `📍 ${se.location}` : undefined,
+        address: se.location,
       };
       const list = m.get(se.date) ?? [];
       list.push(calEv);
@@ -561,7 +824,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
       </AnimatePresence>
 
       {/* View Toggle */}
-      <div className="px-4 pb-2 flex gap-1 bg-gray-900">
+      <div className="px-4 pt-4 pb-2 flex gap-1 bg-gray-900">
         {(["month", "week", "day"] as View[]).map((v) => (
           <button
             key={v}
@@ -599,32 +862,27 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
       {view === "day" ? (
         <div className="flex-1 min-h-0 px-4 pb-4 flex flex-col">
           <DayView
-            date={selectedDate}
             events={eventsMap.get(toDateStr(selectedDate)) ?? []}
             onSelectEvent={setDetailEvent}
-            onAddEvent={() => { setEditingEvent(null); setShowForm(true); }}
-            timeBlocks={timeBlocks}
+          />
+        </div>
+      ) : view === "week" ? (
+        <div className="flex-1 min-h-0 px-4 pb-4 flex flex-col">
+          <WeekView
+            date={selectedDate}
+            todayStr={todayStr}
+            eventsMap={eventsMap}
+            onSelectEvent={setDetailEvent}
           />
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
-          {view === "month" && (
-            <MonthView
-              date={selectedDate}
-              todayStr={todayStr}
-              eventsMap={eventsMap}
-              onSelectDate={(d) => { setSelectedDate(d); setView("day"); }}
-            />
-          )}
-          {view === "week" && (
-            <WeekView
-              date={selectedDate}
-              todayStr={todayStr}
-              eventsMap={eventsMap}
-              onSelectEvent={setDetailEvent}
-              timeBlocks={timeBlocks}
-            />
-          )}
+          <MonthView
+            date={selectedDate}
+            todayStr={todayStr}
+            eventsMap={eventsMap}
+            onSelectDate={(d) => { setSelectedDate(d); setView("day"); }}
+          />
         </div>
       )}
 
@@ -741,23 +999,41 @@ function MonthView({
 // ── Week View ────────────────────────────────────────────────────────────────
 
 function WeekView({
-  date, todayStr, eventsMap, onSelectEvent, timeBlocks,
+  date, todayStr, eventsMap, onSelectEvent,
 }: {
   date: Date; todayStr: string;
   eventsMap: Map<string, CalendarEvent[]>;
   onSelectEvent: (ev: CalendarEvent) => void;
-  timeBlocks: TimeBlock[];
 }) {
   const { t } = useTranslation();
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
   const weekDates = useMemo(() => getWeekDates(date), [date]);
-  const hours = Array.from({ length: 24 }, (_, i) => i); // 00:00 - 23:00
+
+  const rowsAreaRef = useRef<HTMLDivElement>(null);
+  const height = useElementHeight(rowsAreaRef);
+
+  // Reserve identical all-day chip space in every column so row separators stay
+  // aligned across the week (ARE-225). The reservation is the max chip-strip
+  // height across all 7 days; columns with fewer chips render an empty spacer.
+  const perDay = weekDates.map((d) => {
+    const ds = toDateStr(d);
+    const dayEvs = eventsMap.get(ds) ?? [];
+    return {
+      ds,
+      allDay: dayEvs.filter((e) => e.duration === "allday"),
+      timed: dayEvs.filter((e) => e.duration !== "allday"),
+    };
+  });
+  const allDayReservation = perDay.reduce(
+    (max, day) => Math.max(max, computeWeekAllDayHeight(day.allDay.length)),
+    0
+  );
+  const stackHeight = Math.max(0, height - allDayReservation);
 
   return (
-    <div className="overflow-x-auto">
+    <div className="flex flex-col h-full min-h-0">
       {/* Day headers */}
-      <div className="grid grid-cols-[40px_repeat(7,1fr)] sticky top-0 bg-gray-900 z-10">
-        <div />
+      <div className="grid grid-cols-7 shrink-0">
         {weekDates.map((d) => {
           const ds = toDateStr(d);
           const isToday = ds === todayStr;
@@ -772,44 +1048,38 @@ function WeekView({
         })}
       </div>
 
-      {/* Time grid */}
-      <div className="relative">
-        {hours.map((h) => (
-          <div key={h} className="grid grid-cols-[40px_repeat(7,1fr)] h-12 border-t border-gray-800">
-            <div className="text-[10px] text-gray-500 pr-1 text-right -mt-1.5">{`${String(h).padStart(2, "0")}:00`}</div>
-            {weekDates.map((d) => {
-              const ds = toDateStr(d);
-              const dayEvs = eventsMap.get(ds) ?? [];
-              const dow = weekdayMon(d);
-              const blockForHour = timeBlocks.find(
-                (b) => b.daysOfWeek.includes(dow) && parseInt(b.startTime) <= h && parseInt(b.endTime) > h
-              );
-              const matching = dayEvs.filter((ev) => {
-                if (ev.duration === "allday") return false;
-                const [eh] = ev.startTime.split(":").map(Number);
-                return eh === h;
-              });
-              return (
-                <div key={ds} className={`relative border-l border-gray-800/50 ${blockForHour ? TIME_BLOCK_COLOR : ""}`}>
-                  {matching.map((ev) => {
-                    const [, em] = ev.startTime.split(":").map(Number);
-                    const dur = durationMinutes(ev.duration);
-                    const top = (em / 60) * 48;
-                    const height = Math.max((dur / 60) * 48, 16);
-                    return (
-                      <button
-                        key={ev.id}
-                        onClick={() => onSelectEvent(ev)}
-                        className={`absolute inset-x-0.5 rounded text-[9px] font-semibold text-white px-0.5 truncate ${getColor(ev.color).bg} opacity-90 hover:opacity-100`}
-                        style={{ top: `${top}px`, height: `${height}px` }}
-                      >
-                        {ev.title}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
+      {/* Per-day row stacks — same row algorithm per column */}
+      <div ref={rowsAreaRef} className="grid grid-cols-7 flex-1 min-h-0 gap-px">
+        {perDay.map(({ ds, allDay, timed }) => (
+          <div key={ds} className="flex flex-col min-h-0 border-l border-gray-800/40 first:border-l-0">
+            {allDayReservation > 0 && (
+              <div
+                className="shrink-0 px-0.5 pt-0.5 space-y-0.5 overflow-hidden"
+                style={{ height: allDayReservation }}
+              >
+                {allDay.slice(0, WEEK_ALLDAY_MAX_VISIBLE).map((ev) => (
+                  <button
+                    key={ev.id}
+                    onClick={() => onSelectEvent(ev)}
+                    className={`w-full text-left px-1.5 py-0.5 rounded text-[9px] font-semibold text-white truncate ${getColor(ev.color).bg}`}
+                  >
+                    {ev.title}
+                  </button>
+                ))}
+                {allDay.length > WEEK_ALLDAY_MAX_VISIBLE && (
+                  <div className="text-[9px] text-gray-500 text-center">+{allDay.length - WEEK_ALLDAY_MAX_VISIBLE}</div>
+                )}
+              </div>
+            )}
+            <div className="flex-1 min-h-0">
+              <DayRowStack
+                events={timed}
+                onSelectEvent={onSelectEvent}
+                height={stackHeight}
+                freeLabel={t('calendar.free')}
+                density="compact"
+              />
+            </div>
           </div>
         ))}
       </div>
@@ -819,49 +1089,11 @@ function WeekView({
 
 // ── Day View ─────────────────────────────────────────────────────────────────
 
-function endTimeStr(startTime: string, dur: CalendarEvent["duration"]): string {
-  const [h, m] = startTime.split(":").map(Number);
-  const total = h * 60 + m + durationMinutes(dur);
-  const eh = Math.floor(total / 60) % 24;
-  const em = total % 60;
-  return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
-}
-
-type DayBucket =
-  | { kind: "hour"; hour: number }
-  | { kind: "free"; startHour: number; endHour: number };
-
-function computeDayBuckets(timed: CalendarEvent[]): DayBucket[] {
-  const active = new Set<number>();
-  for (const ev of timed) {
-    const [h, m] = ev.startTime.split(":").map(Number);
-    const dur = durationMinutes(ev.duration);
-    const endHour = Math.min(24, Math.max(h + 1, Math.ceil((h * 60 + m + dur) / 60)));
-    for (let i = h; i < endHour; i++) active.add(i);
-  }
-  const buckets: DayBucket[] = [];
-  let i = 0;
-  while (i < 24) {
-    if (active.has(i)) {
-      buckets.push({ kind: "hour", hour: i });
-      i++;
-    } else {
-      let j = i;
-      while (j < 24 && !active.has(j)) j++;
-      buckets.push({ kind: "free", startHour: i, endHour: j });
-      i = j;
-    }
-  }
-  return buckets;
-}
-
 function DayView({
-  date, events, onSelectEvent, onAddEvent, timeBlocks,
+  events, onSelectEvent,
 }: {
-  date: Date; events: CalendarEvent[];
+  events: CalendarEvent[];
   onSelectEvent: (ev: CalendarEvent) => void;
-  onAddEvent: () => void;
-  timeBlocks: TimeBlock[];
 }) {
   const { t } = useTranslation();
   const allDay = events.filter((e) => e.duration === "allday");
@@ -869,30 +1101,9 @@ function DayView({
     () => events.filter((e) => e.duration !== "allday").sort((a, b) => a.startTime.localeCompare(b.startTime)),
     [events]
   );
-  const dow = weekdayMon(date);
 
-  // Single timed event, no all-day → big card mode
-  if (timed.length === 1 && allDay.length === 0) {
-    const ev = timed[0];
-    return <SingleEventDayCard event={ev} onSelect={() => onSelectEvent(ev)} />;
-  }
-
-  // Empty day → placeholder
-  if (timed.length === 0 && allDay.length === 0) {
-    return (
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-3 py-12">
-        <p className="text-sm text-gray-500">{t('calendar.noEvents')}</p>
-        <button
-          onClick={onAddEvent}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-colors min-h-[36px]"
-        >
-          <Plus size={16} /> {t('calendar.newEvent')}
-        </button>
-      </div>
-    );
-  }
-
-  const buckets = computeDayBuckets(timed);
+  const rowsAreaRef = useRef<HTMLDivElement>(null);
+  const height = useElementHeight(rowsAreaRef);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -910,92 +1121,15 @@ function DayView({
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        {buckets.map((b, bi) => {
-          if (b.kind === "free") {
-            const range = `${String(b.startHour).padStart(2, "0")}:00 – ${String(b.endHour).padStart(2, "0")}:00`;
-            return (
-              <div
-                key={bi}
-                className="flex items-center h-6 border-t border-gray-800/60 text-[11px] text-gray-500 italic"
-              >
-                <span className="w-12 shrink-0 pr-2 text-right text-gray-700">·</span>
-                <span>{range} · {t('calendar.free')}</span>
-              </div>
-            );
-          }
-          const h = b.hour;
-          const blockForHour = timeBlocks.find(
-            (tb) => tb.daysOfWeek.includes(dow) && parseInt(tb.startTime) <= h && parseInt(tb.endTime) > h
-          );
-          const startingHere = timed.filter((ev) => parseInt(ev.startTime.split(":")[0]) === h);
-          return (
-            <div
-              key={bi}
-              className={`flex h-[60px] border-t border-gray-800 ${blockForHour ? TIME_BLOCK_COLOR : ""}`}
-            >
-              <div className="w-12 text-[11px] text-gray-500 text-right pr-2 -mt-1.5 flex-shrink-0">
-                {`${String(h).padStart(2, "0")}:00`}
-              </div>
-              <div className="flex-1 relative">
-                {startingHere.map((ev) => {
-                  const em = parseInt(ev.startTime.split(":")[1]);
-                  const dur = durationMinutes(ev.duration);
-                  const top = em;
-                  const height = Math.max(dur, 20);
-                  return (
-                    <button
-                      key={ev.id}
-                      onClick={() => onSelectEvent(ev)}
-                      className={`absolute left-0 right-2 rounded-lg px-3 py-1 text-white text-sm font-semibold ${getColor(ev.color).bg} opacity-90 hover:opacity-100 shadow-lg`}
-                      style={{ top: `${top}px`, height: `${height}px` }}
-                    >
-                      <div className="truncate">{ev.title}</div>
-                      <div className="text-[10px] opacity-80">{ev.startTime}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+      <div ref={rowsAreaRef} className="flex-1 min-h-0">
+        <DayRowStack
+          events={timed}
+          onSelectEvent={onSelectEvent}
+          height={height}
+          freeLabel={t('calendar.free')}
+        />
       </div>
     </div>
-  );
-}
-
-function SingleEventDayCard({ event, onSelect }: { event: CalendarEvent; onSelect: () => void }) {
-  const { t } = useTranslation();
-  const c = getColor(event.color);
-  const timeRange = `${event.startTime} – ${endTimeStr(event.startTime, event.duration)}`;
-  return (
-    <button
-      onClick={onSelect}
-      className={`flex-1 min-h-0 w-full text-left rounded-2xl ${c.bg} text-white shadow-lg flex flex-col p-5 sm:p-6 transition-transform hover:scale-[1.005] focus:outline-none focus:ring-2 focus:ring-white/40`}
-    >
-      <div className="text-xs font-bold uppercase tracking-wider text-white/80 mb-1">{timeRange}</div>
-      <h2 className="text-2xl sm:text-3xl font-bold leading-tight mb-3 break-words">{event.title}</h2>
-      {event.note && (
-        <p className="text-sm sm:text-base text-white/90 whitespace-pre-wrap break-words flex-1 min-h-0 overflow-y-auto">{event.note}</p>
-      )}
-      {event.invitees && event.invitees.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-white/20 shrink-0">
-          <p className="text-[11px] uppercase font-bold text-white/70 mb-1.5">{t('calendar.invitees')}</p>
-          <div className="flex flex-wrap gap-2">
-            {event.invitees.map((inv) => (
-              <span key={inv.aregoId} className="inline-flex items-center gap-1.5 text-xs bg-white/15 rounded-full px-2 py-0.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  inv.status === "accepted" ? "bg-green-300" :
-                  inv.status === "declined" ? "bg-red-300" :
-                  inv.status === "maybe" ? "bg-yellow-300" : "bg-gray-300"
-                }`} />
-                {inv.displayName}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </button>
   );
 }
 
@@ -1045,6 +1179,7 @@ function EventFormModal({
   const [duration, setDuration] = useState<CalendarEvent["duration"]>(initial?.duration ?? "1h");
   const [reminder, setReminder] = useState<CalendarEvent["reminder"]>(initial?.reminder ?? "10min");
   const [color, setColor] = useState(initial?.color ?? "blue");
+  const [address, setAddress] = useState(initial?.address ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
 
   // Recurrence state — derive initial freq from existing rrule
@@ -1090,6 +1225,7 @@ function EventFormModal({
       duration,
       reminder,
       color,
+      address: address.trim() || undefined,
       note: note.trim() || undefined,
       rrule,
       exdates: initial?.exdates,
@@ -1275,6 +1411,15 @@ function EventFormModal({
           </div>
         </div>
 
+        {/* Address */}
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder={t('calendar.addressOptional')}
+          className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+        />
+
         {/* Note */}
         <textarea
           value={note}
@@ -1356,8 +1501,15 @@ function EventDetailModal({
           </div>
         )}
 
+        {event.address && (
+          <div className="flex items-start gap-2 text-sm text-gray-300 mt-3 p-3 rounded-xl bg-gray-800">
+            <span className="shrink-0">📍</span>
+            <span className="whitespace-pre-wrap break-words">{event.address}</span>
+          </div>
+        )}
+
         {event.note && (
-          <p className="text-sm text-gray-300 mt-3 p-3 rounded-xl bg-gray-800">{event.note}</p>
+          <p className="text-sm text-gray-300 mt-3 p-3 rounded-xl bg-gray-800 whitespace-pre-wrap break-words">{event.note}</p>
         )}
 
         {/* Invitees display */}

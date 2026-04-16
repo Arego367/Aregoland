@@ -534,6 +534,7 @@
     "color": "Farbe",
     "notePlaceholder": "Notiz (optional)",
     "noteOptional": "Notiz (optional)",
+    "addressOptional": "Adresse (optional)",
     "createEvent": "Termin erstellen",
     "confirmDelete": "Wirklich entfernen?",
     "allDay": "Ganztägig",
