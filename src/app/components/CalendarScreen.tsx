@@ -972,17 +972,17 @@ function MonthView({
                 <span className={`text-[11px] font-bold text-center mb-0.5 ${isToday ? "text-blue-400" : "text-gray-300"}`}>
                   {cell.getDate()}
                 </span>
-                <div className="flex flex-col gap-px flex-1 min-w-0">
+                <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                   {visible.map((ev) => (
                     <div
                       key={ev.id}
-                      className={`${getColor(ev.color).bg} rounded px-0.5 py-px truncate text-[8px] leading-tight font-semibold text-white`}
+                      className={`${getColor(ev.color).bg} rounded px-1 py-1 truncate text-[11px] leading-none font-semibold text-white`}
                     >
-                      {ev.duration === "allday" ? ev.title : `${ev.startTime} ${ev.title}`}
+                      {ev.title}
                     </div>
                   ))}
                   {overflow > 0 && (
-                    <span className="text-[8px] text-gray-500 font-bold text-center leading-tight">
+                    <span className="text-[10px] text-gray-500 font-bold text-center leading-none">
                       {t('calendar.moreEvents', { count: overflow })}
                     </span>
                   )}
