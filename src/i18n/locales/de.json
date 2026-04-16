@@ -533,6 +533,7 @@
     "reminder": "Erinnerung",
     "color": "Farbe",
     "notePlaceholder": "Notiz (optional)",
+    "noteOptional": "Notiz (optional)",
     "createEvent": "Termin erstellen",
     "confirmDelete": "Wirklich entfernen?",
     "allDay": "Ganztägig",

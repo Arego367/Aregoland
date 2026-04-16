@@ -385,6 +385,7 @@
     "reminder": "Reminder",
     "color": "Color",
     "notePlaceholder": "Note (optional)",
+    "noteOptional": "Note (optional)",
     "createEvent": "Create Event",
     "confirmDelete": "Really remove?",
     "allDay": "All Day",
