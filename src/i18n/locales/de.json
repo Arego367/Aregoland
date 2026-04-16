@@ -614,7 +614,9 @@
     "bufferNamePlaceholder": "z.B. Weg zur Arbeit",
     "priorityHint": "Die Reihenfolge bestimmt, welche Termine Vorrang haben.",
     "from": "Von",
-    "to": "Bis"
+    "to": "Bis",
+    "free": "frei",
+    "noEvents": "Keine Termine"
   },
   "call": {
     "micOn": "Mikrofon an",

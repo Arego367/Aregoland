@@ -596,33 +596,37 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {view === "month" && (
-          <MonthView
-            date={selectedDate}
-            todayStr={todayStr}
-            eventsMap={eventsMap}
-            onSelectDate={(d) => { setSelectedDate(d); setView("day"); }}
-          />
-        )}
-        {view === "week" && (
-          <WeekView
-            date={selectedDate}
-            todayStr={todayStr}
-            eventsMap={eventsMap}
-            onSelectEvent={setDetailEvent}
-            timeBlocks={timeBlocks}
-          />
-        )}
-        {view === "day" && (
+      {view === "day" ? (
+        <div className="flex-1 min-h-0 px-4 pb-4 flex flex-col">
           <DayView
             date={selectedDate}
             events={eventsMap.get(toDateStr(selectedDate)) ?? []}
             onSelectEvent={setDetailEvent}
+            onAddEvent={() => { setEditingEvent(null); setShowForm(true); }}
             timeBlocks={timeBlocks}
           />
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+          {view === "month" && (
+            <MonthView
+              date={selectedDate}
+              todayStr={todayStr}
+              eventsMap={eventsMap}
+              onSelectDate={(d) => { setSelectedDate(d); setView("day"); }}
+            />
+          )}
+          {view === "week" && (
+            <WeekView
+              date={selectedDate}
+              todayStr={todayStr}
+              eventsMap={eventsMap}
+              onSelectEvent={setDetailEvent}
+              timeBlocks={timeBlocks}
+            />
+          )}
+        </div>
+      )}
 
       {/* Event Form Modal */}
       <AnimatePresence>
@@ -747,7 +751,7 @@ function WeekView({
   const { t } = useTranslation();
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
   const weekDates = useMemo(() => getWeekDates(date), [date]);
-  const hours = Array.from({ length: 16 }, (_, i) => i + 6); // 06:00 - 21:00
+  const hours = Array.from({ length: 24 }, (_, i) => i); // 00:00 - 23:00
 
   return (
     <div className="overflow-x-auto">
@@ -815,28 +819,85 @@ function WeekView({
 
 // ── Day View ─────────────────────────────────────────────────────────────────
 
+function endTimeStr(startTime: string, dur: CalendarEvent["duration"]): string {
+  const [h, m] = startTime.split(":").map(Number);
+  const total = h * 60 + m + durationMinutes(dur);
+  const eh = Math.floor(total / 60) % 24;
+  const em = total % 60;
+  return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+}
+
+type DayBucket =
+  | { kind: "hour"; hour: number }
+  | { kind: "free"; startHour: number; endHour: number };
+
+function computeDayBuckets(timed: CalendarEvent[]): DayBucket[] {
+  const active = new Set<number>();
+  for (const ev of timed) {
+    const [h, m] = ev.startTime.split(":").map(Number);
+    const dur = durationMinutes(ev.duration);
+    const endHour = Math.min(24, Math.max(h + 1, Math.ceil((h * 60 + m + dur) / 60)));
+    for (let i = h; i < endHour; i++) active.add(i);
+  }
+  const buckets: DayBucket[] = [];
+  let i = 0;
+  while (i < 24) {
+    if (active.has(i)) {
+      buckets.push({ kind: "hour", hour: i });
+      i++;
+    } else {
+      let j = i;
+      while (j < 24 && !active.has(j)) j++;
+      buckets.push({ kind: "free", startHour: i, endHour: j });
+      i = j;
+    }
+  }
+  return buckets;
+}
+
 function DayView({
-  date, events, onSelectEvent, timeBlocks,
+  date, events, onSelectEvent, onAddEvent, timeBlocks,
 }: {
   date: Date; events: CalendarEvent[];
   onSelectEvent: (ev: CalendarEvent) => void;
+  onAddEvent: () => void;
   timeBlocks: TimeBlock[];
 }) {
-  const hours = Array.from({ length: 18 }, (_, i) => i + 5); // 05:00 - 22:00
+  const { t } = useTranslation();
   const allDay = events.filter((e) => e.duration === "allday");
-  const timed = events.filter((e) => e.duration !== "allday");
-  const containerRef = useRef<HTMLDivElement>(null);
+  const timed = useMemo(
+    () => events.filter((e) => e.duration !== "allday").sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [events]
+  );
+  const dow = weekdayMon(date);
 
-  // Scroll to 8:00 on mount
-  useEffect(() => {
-    containerRef.current?.scrollTo({ top: 3 * 60, behavior: "smooth" });
-  }, [date]);
+  // Single timed event, no all-day → big card mode
+  if (timed.length === 1 && allDay.length === 0) {
+    const ev = timed[0];
+    return <SingleEventDayCard event={ev} onSelect={() => onSelectEvent(ev)} />;
+  }
+
+  // Empty day → placeholder
+  if (timed.length === 0 && allDay.length === 0) {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-3 py-12">
+        <p className="text-sm text-gray-500">{t('calendar.noEvents')}</p>
+        <button
+          onClick={onAddEvent}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-colors min-h-[36px]"
+        >
+          <Plus size={16} /> {t('calendar.newEvent')}
+        </button>
+      </div>
+    );
+  }
+
+  const buckets = computeDayBuckets(timed);
 
   return (
-    <div ref={containerRef} className="overflow-y-auto max-h-[calc(100vh-220px)]">
-      {/* All-day events */}
+    <div className="flex-1 min-h-0 flex flex-col">
       {allDay.length > 0 && (
-        <div className="mb-2 space-y-1">
+        <div className="mb-2 space-y-1 shrink-0">
           {allDay.map((ev) => (
             <button
               key={ev.id}
@@ -849,28 +910,38 @@ function DayView({
         </div>
       )}
 
-      {/* Timed grid */}
-      <div className="relative">
-        {hours.map((h) => {
-          const dow = weekdayMon(date);
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {buckets.map((b, bi) => {
+          if (b.kind === "free") {
+            const range = `${String(b.startHour).padStart(2, "0")}:00 – ${String(b.endHour).padStart(2, "0")}:00`;
+            return (
+              <div
+                key={bi}
+                className="flex items-center h-6 border-t border-gray-800/60 text-[11px] text-gray-500 italic"
+              >
+                <span className="w-12 shrink-0 pr-2 text-right text-gray-700">·</span>
+                <span>{range} · {t('calendar.free')}</span>
+              </div>
+            );
+          }
+          const h = b.hour;
           const blockForHour = timeBlocks.find(
-            (b) => b.daysOfWeek.includes(dow) && parseInt(b.startTime) <= h && parseInt(b.endTime) > h
+            (tb) => tb.daysOfWeek.includes(dow) && parseInt(tb.startTime) <= h && parseInt(tb.endTime) > h
           );
+          const startingHere = timed.filter((ev) => parseInt(ev.startTime.split(":")[0]) === h);
           return (
-          <div key={h} className={`flex h-[60px] border-t border-gray-800 ${blockForHour ? TIME_BLOCK_COLOR : ""}`}>
-            <div className="w-12 text-[11px] text-gray-500 text-right pr-2 -mt-1.5 flex-shrink-0">
-              {`${String(h).padStart(2, "0")}:00`}
-            </div>
-            <div className="flex-1 relative">
-              {timed
-                .filter((ev) => {
-                  const [eh] = ev.startTime.split(":").map(Number);
-                  return eh === h;
-                })
-                .map((ev) => {
-                  const [, em] = ev.startTime.split(":").map(Number);
+            <div
+              key={bi}
+              className={`flex h-[60px] border-t border-gray-800 ${blockForHour ? TIME_BLOCK_COLOR : ""}`}
+            >
+              <div className="w-12 text-[11px] text-gray-500 text-right pr-2 -mt-1.5 flex-shrink-0">
+                {`${String(h).padStart(2, "0")}:00`}
+              </div>
+              <div className="flex-1 relative">
+                {startingHere.map((ev) => {
+                  const em = parseInt(ev.startTime.split(":")[1]);
                   const dur = durationMinutes(ev.duration);
-                  const top = em; // 1px per minute
+                  const top = em;
                   const height = Math.max(dur, 20);
                   return (
                     <button
@@ -884,12 +955,47 @@ function DayView({
                     </button>
                   );
                 })}
+              </div>
             </div>
-          </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function SingleEventDayCard({ event, onSelect }: { event: CalendarEvent; onSelect: () => void }) {
+  const { t } = useTranslation();
+  const c = getColor(event.color);
+  const timeRange = `${event.startTime} – ${endTimeStr(event.startTime, event.duration)}`;
+  return (
+    <button
+      onClick={onSelect}
+      className={`flex-1 min-h-0 w-full text-left rounded-2xl ${c.bg} text-white shadow-lg flex flex-col p-5 sm:p-6 transition-transform hover:scale-[1.005] focus:outline-none focus:ring-2 focus:ring-white/40`}
+    >
+      <div className="text-xs font-bold uppercase tracking-wider text-white/80 mb-1">{timeRange}</div>
+      <h2 className="text-2xl sm:text-3xl font-bold leading-tight mb-3 break-words">{event.title}</h2>
+      {event.note && (
+        <p className="text-sm sm:text-base text-white/90 whitespace-pre-wrap break-words flex-1 min-h-0 overflow-y-auto">{event.note}</p>
+      )}
+      {event.invitees && event.invitees.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-white/20 shrink-0">
+          <p className="text-[11px] uppercase font-bold text-white/70 mb-1.5">{t('calendar.invitees')}</p>
+          <div className="flex flex-wrap gap-2">
+            {event.invitees.map((inv) => (
+              <span key={inv.aregoId} className="inline-flex items-center gap-1.5 text-xs bg-white/15 rounded-full px-2 py-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  inv.status === "accepted" ? "bg-green-300" :
+                  inv.status === "declined" ? "bg-red-300" :
+                  inv.status === "maybe" ? "bg-yellow-300" : "bg-gray-300"
+                }`} />
+                {inv.displayName}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </button>
   );
 }
 

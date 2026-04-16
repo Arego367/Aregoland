@@ -466,7 +466,9 @@
     "bufferNamePlaceholder": "e.g. Commute",
     "priorityHint": "The order determines which appointments take priority.",
     "from": "From",
-    "to": "To"
+    "to": "To",
+    "free": "free",
+    "noEvents": "No events"
   },
   "call": {
     "micOn": "Microphone on",

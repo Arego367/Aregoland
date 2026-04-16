@@ -47,13 +47,14 @@ const cardStatusMap: Record<string, RoadmapStatus> = {
   "p2p-network/signaling": "done",
   "p2p-network/webrtc": "done",
   "spaces/channel-role-transparency": "wip",
+  "spaces/moderator-multi-room": "wip",
   "spaces/moderator-self-exclusion": "wip",
   "spaces/no-access-default": "wip",
   "spaces/privacy-by-design-subrooms": "wip",
   "spaces/role-permissions-extended": "wip",
-  "spaces/subroom-gossip-sync": "wip",
   "spaces/space-management": "done",
   "spaces/space-sync": "done",
+  "spaces/subroom-gossip-sync": "wip",
 };
 
 export default cardStatusMap;
