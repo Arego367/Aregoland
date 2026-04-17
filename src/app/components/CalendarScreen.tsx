@@ -1097,8 +1097,8 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
       {showYearPicker && view === "month" && (() => {
         const currentYear = new Date().getFullYear();
         const selectedYear = selectedDate.getFullYear();
-        const startYear = currentYear - 50;
-        const endYear = currentYear + 20;
+        const startYear = 1;
+        const endYear = 9999;
         const years: number[] = [];
         for (let y = startYear; y <= endYear; y++) years.push(y);
         return (
