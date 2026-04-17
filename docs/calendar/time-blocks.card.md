@@ -36,9 +36,10 @@ Timer-Icon klicken → TimeBlockEditor Modal → Bloecke hinzufuegen/bearbeiten/
 | Feld | Typ | Beschreibung |
 |------|-----|-------------|
 | enabled | boolean | Nicht-stören aktiv |
-| allowedMessagers | string[] | Kontakt-IDs die anschreiben duerfen |
-| allowedCallers | string[] | Kontakt-IDs die anrufen duerfen |
+| allowedContacts | string[] | Kontakt-IDs oder Listen-IDs (list:family etc.) die durchkommen duerfen |
 | notificationMode | DndNotificationMode | 'silent' / 'vibration' / 'normal' |
+| allowedMessagers? | string[] | Legacy — wird bei Migration nach allowedContacts zusammengefuehrt |
+| allowedCallers? | string[] | Legacy — wird bei Migration nach allowedContacts zusammengefuehrt |
 
 ## Block-Typen & Farben
 | Typ | Farbe | Beschreibung |
@@ -53,17 +54,16 @@ Timer-Icon klicken → TimeBlockEditor Modal → Bloecke hinzufuegen/bearbeiten/
 - Modal mit bestehenden Bloecken (aufklappbar zur Bearbeitung, drag-sortierbar, loeschbar) und Hinzufuegen-Formular
 - Klick auf Block klappt Bearbeitungs-Formular auf (alle Felder editierbar + Speichern-Button)
 - Nicht-stören: Aufklappbare Pill pro Zeitblock ("Nicht stören Aus/Aktiv")
-  - Wer darf anschreiben? (Whitelist, kommagetrennt)
-  - Wer darf anrufen? (Whitelist, kommagetrennt)
+  - "Wer darf mich erreichen?" — Kontakte-Picker mit Tags/Pills (Einzelkontakte + Listen)
   - Benachrichtigungsmodus: Stumm / Vibration / Normal
 - Wochentag-Selector, Zeitbereich, Unterbrechbar-Toggle, Puffer vor/nach
 
 ## Abhaengigkeiten
 - @dnd-kit (drag & drop)
-- lucide-react Icons (BellOff, Bell, Phone, MessageSquare, etc.)
+- lucide-react Icons (BellOff, Bell, Users, etc.)
 
 ## Einschraenkungen
 - Keine Ueberlappungs-Pruefung
 - Verfuegbarkeits-Sharing (opt-in fuer andere) noch nicht implementiert
 - Keine Vorlagen/Templates fuer typische Wochenplaene
-- Kontakt-Whitelist aktuell als Freitext (kommagetrennt), kein Kontakt-Picker
+- Legacy-Daten (allowedMessagers/allowedCallers) werden automatisch nach allowedContacts migriert

@@ -150,9 +150,11 @@ export type DndNotificationMode = 'silent' | 'vibration' | 'normal';
 
 export interface DoNotDisturbSettings {
   enabled: boolean;
-  allowedMessagers: string[];   // Kontakt-IDs die anschreiben dürfen
-  allowedCallers: string[];     // Kontakt-IDs die anrufen dürfen
+  allowedContacts: string[];    // Kontakt-IDs/Listen-IDs die durchkommen dürfen
   notificationMode: DndNotificationMode; // Stumm / Vibration / Normal
+  // Legacy — wird bei Migration nach allowedContacts zusammengeführt
+  allowedMessagers?: string[];
+  allowedCallers?: string[];
 }
 
 export interface TimeBlock {

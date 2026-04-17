@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical, Settings, ChevronDown, ChevronUp, Tag, Save, BellOff, Bell, Phone, MessageSquare } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical, Settings, ChevronDown, ChevronUp, Tag, Save, BellOff, Bell, Users } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
-import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer, CalendarLabel, CalendarEventDefaults, DoNotDisturbSettings, DndNotificationMode } from "@/app/types";
+import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer, CalendarLabel, CalendarEventDefaults, DoNotDisturbSettings, DndNotificationMode, Tab, Contact } from "@/app/types";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -430,20 +430,30 @@ function DayRowStack({
 
 const TIME_BLOCKS_KEY = "arego_calendar_time_blocks";
 
+/** Migrate legacy DND: merge allowedMessagers + allowedCallers → allowedContacts */
+function migrateDnd(dnd?: DoNotDisturbSettings): DoNotDisturbSettings | undefined {
+  if (!dnd) return undefined;
+  if (dnd.allowedContacts !== undefined && !dnd.allowedMessagers && !dnd.allowedCallers) return dnd;
+  const merged = new Set([...(dnd.allowedMessagers ?? []), ...(dnd.allowedCallers ?? [])]);
+  return { enabled: dnd.enabled, allowedContacts: [...merged], notificationMode: dnd.notificationMode };
+}
+
 /** Migrate old TimeBlock format (single dayOfWeek, type-based) to new format */
 function migrateTimeBlock(b: TimeBlock & { dayOfWeek?: number; type?: TimeBlockType }): TimeBlock {
-  if (b.daysOfWeek && b.name !== undefined && b.priority !== undefined) return b;
-  return {
-    id: b.id,
-    name: b.name ?? (b.type === "work" ? "Arbeit" : b.type === "interruptible" ? "Unterbrechbar" : b.type === "buffer" ? "Puffer" : "Verfügbar"),
-    daysOfWeek: b.daysOfWeek ?? (b.dayOfWeek !== undefined ? [b.dayOfWeek] : [0]),
-    startTime: b.startTime,
-    endTime: b.endTime,
-    isInterruptible: b.isInterruptible ?? (b.type === "interruptible"),
-    priority: b.priority ?? 0,
-    bufferBefore: b.bufferBefore,
-    bufferAfter: b.bufferAfter,
-  };
+  const base: TimeBlock = (b.daysOfWeek && b.name !== undefined && b.priority !== undefined)
+    ? b
+    : {
+        id: b.id,
+        name: b.name ?? (b.type === "work" ? "Arbeit" : b.type === "interruptible" ? "Unterbrechbar" : b.type === "buffer" ? "Puffer" : "Verfügbar"),
+        daysOfWeek: b.daysOfWeek ?? (b.dayOfWeek !== undefined ? [b.dayOfWeek] : [0]),
+        startTime: b.startTime,
+        endTime: b.endTime,
+        isInterruptible: b.isInterruptible ?? (b.type === "interruptible"),
+        priority: b.priority ?? 0,
+        bufferBefore: b.bufferBefore,
+        bufferAfter: b.bufferAfter,
+      };
+  return { ...base, doNotDisturb: migrateDnd(base.doNotDisturb) };
 }
 
 function loadTimeBlocks(): TimeBlock[] {
@@ -2364,6 +2374,47 @@ function EventDetailModal({
 
 const WEEKDAY_INDICES = [0, 1, 2, 3, 4, 5, 6]; // Mon-Sun
 
+// ── Contact/List helpers for DND picker ───────────────────────────────────
+
+const DEFAULT_TABS: Tab[] = [
+  { id: "all", label: "Alle" },
+  { id: "family", label: "Familie" },
+  { id: "friends", label: "Freunde" },
+  { id: "work", label: "Arbeit" },
+  { id: "child", label: "Kinder" },
+  { id: "other", label: "Sonstige" },
+];
+
+function loadTabs(): Tab[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem('arego_tabs') ?? '');
+    if (Array.isArray(saved) && saved.length > 0) return saved;
+  } catch { /* ignore */ }
+  return DEFAULT_TABS;
+}
+
+interface PickerEntry {
+  id: string;
+  label: string;
+  kind: 'contact' | 'list';
+}
+
+function loadPickerEntries(): PickerEntry[] {
+  const savedCats: Record<string, string[]> = (() => { try { return JSON.parse(localStorage.getItem('arego_contact_categories') ?? '{}'); } catch { return {}; } })();
+  const contacts: PickerEntry[] = loadContacts().map((c) => ({
+    id: c.aregoId,
+    label: c.displayName,
+    kind: 'contact' as const,
+  }));
+  const tabs = loadTabs().filter(t => t.id !== 'all' && !t.hidden);
+  const lists: PickerEntry[] = tabs.map((t) => ({
+    id: `list:${t.id}`,
+    label: t.label,
+    kind: 'list' as const,
+  }));
+  return [...lists, ...contacts];
+}
+
 // ── Do-Not-Disturb Settings Sub-Form ──────────────────────────────────────
 
 function DndSettingsForm({
@@ -2374,40 +2425,96 @@ function DndSettingsForm({
   inputClass: string;
 }) {
   const { t } = useTranslation();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const entries = useMemo(() => loadPickerEntries(), []);
+
   const modes: { value: DndNotificationMode; label: string }[] = [
     { value: 'silent', label: t('calendar.dndSilent') },
     { value: 'vibration', label: t('calendar.dndVibration') },
     { value: 'normal', label: t('calendar.dndNormal') },
   ];
 
+  const selected = dnd.allowedContacts ?? [];
+  const toggleEntry = (id: string) => {
+    const next = selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id];
+    onChange({ ...dnd, allowedContacts: next });
+  };
+  const removeEntry = (id: string) => {
+    onChange({ ...dnd, allowedContacts: selected.filter(x => x !== id) });
+  };
+
+  const labelFor = (id: string) => entries.find(e => e.id === id)?.label ?? id;
+  const kindFor = (id: string) => entries.find(e => e.id === id)?.kind ?? 'contact';
+
+  const filtered = entries.filter(e =>
+    !pickerSearch || e.label.toLowerCase().includes(pickerSearch.toLowerCase())
+  );
+
   return (
     <div className="space-y-3 mt-2">
-      {/* Wer darf anschreiben */}
+      {/* Wer darf mich erreichen? — Contact/List Picker */}
       <div>
         <label className="text-xs text-gray-500 mb-1 flex items-center gap-1.5">
-          <MessageSquare size={12} /> {t('calendar.dndAllowedMessagers')}
+          <Users size={12} /> {t('calendar.dndAllowedContacts')}
         </label>
-        <input
-          type="text"
-          value={dnd.allowedMessagers.join(', ')}
-          onChange={(e) => onChange({ ...dnd, allowedMessagers: e.target.value ? e.target.value.split(',').map(s => s.trim()).filter(Boolean) : [] })}
-          placeholder={t('calendar.dndContactsPlaceholder')}
-          className={inputClass}
-        />
-      </div>
 
-      {/* Wer darf anrufen */}
-      <div>
-        <label className="text-xs text-gray-500 mb-1 flex items-center gap-1.5">
-          <Phone size={12} /> {t('calendar.dndAllowedCallers')}
-        </label>
-        <input
-          type="text"
-          value={dnd.allowedCallers.join(', ')}
-          onChange={(e) => onChange({ ...dnd, allowedCallers: e.target.value ? e.target.value.split(',').map(s => s.trim()).filter(Boolean) : [] })}
-          placeholder={t('calendar.dndContactsPlaceholder')}
-          className={inputClass}
-        />
+        {/* Selected tags/pills */}
+        <div
+          className={`min-h-[38px] flex flex-wrap gap-1.5 p-1.5 rounded-lg border border-gray-700 bg-gray-800 cursor-pointer ${pickerOpen ? 'border-purple-500' : ''}`}
+          onClick={() => setPickerOpen(!pickerOpen)}
+        >
+          {selected.length === 0 && (
+            <span className="text-xs text-gray-500 px-1 py-1">{t('calendar.dndContactsPlaceholder')}</span>
+          )}
+          {selected.map((id) => (
+            <span key={id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+              kindFor(id) === 'list' ? 'bg-purple-600/30 text-purple-300' : 'bg-blue-600/30 text-blue-300'
+            }`}>
+              {kindFor(id) === 'list' && <Users size={10} />}
+              {labelFor(id)}
+              <button onClick={(e) => { e.stopPropagation(); removeEntry(id); }} className="hover:text-white ml-0.5">
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+        </div>
+
+        {/* Dropdown picker */}
+        {pickerOpen && (
+          <div className="mt-1 rounded-lg border border-gray-700 bg-gray-900 overflow-hidden max-h-48 flex flex-col">
+            <input
+              type="text"
+              value={pickerSearch}
+              onChange={(e) => setPickerSearch(e.target.value)}
+              placeholder={t('calendar.dndContactsPlaceholder')}
+              className="w-full bg-gray-800 border-b border-gray-700 px-2 py-1.5 text-xs text-white outline-none"
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="overflow-y-auto flex-1">
+              {filtered.length === 0 && (
+                <p className="text-xs text-gray-500 text-center py-3">—</p>
+              )}
+              {filtered.map((e) => {
+                const isSelected = selected.includes(e.id);
+                return (
+                  <button
+                    key={e.id}
+                    onClick={(ev) => { ev.stopPropagation(); toggleEntry(e.id); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${
+                      isSelected ? 'bg-purple-600/20 text-purple-300' : 'text-gray-300 hover:bg-gray-800'
+                    }`}
+                  >
+                    {e.kind === 'list' && <Users size={12} className="text-purple-400 shrink-0" />}
+                    <span className="flex-1 truncate">{e.label}</span>
+                    {isSelected && <Check size={12} className="text-purple-400 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Benachrichtigungsmodus */}
@@ -2457,7 +2564,7 @@ function SortableBlockItem({
   const [editBufferAfter, setEditBufferAfter] = useState(block.bufferAfter?.minutes?.toString() ?? "");
   const [editBufferAfterName, setEditBufferAfterName] = useState(block.bufferAfter?.name ?? "");
   const [editDnd, setEditDnd] = useState<DoNotDisturbSettings>(
-    block.doNotDisturb ?? { enabled: false, allowedMessagers: [], allowedCallers: [], notificationMode: 'silent' }
+    block.doNotDisturb ?? { enabled: false, allowedContacts: [], notificationMode: 'silent' }
   );
   const [showDnd, setShowDnd] = useState(editDnd.enabled);
 
@@ -2641,7 +2748,7 @@ function TimeBlockEditor({
   const [addBufferBeforeName, setAddBufferBeforeName] = useState("");
   const [addBufferAfter, setAddBufferAfter] = useState("");
   const [addBufferAfterName, setAddBufferAfterName] = useState("");
-  const [addDnd, setAddDnd] = useState<DoNotDisturbSettings>({ enabled: false, allowedMessagers: [], allowedCallers: [], notificationMode: 'silent' });
+  const [addDnd, setAddDnd] = useState<DoNotDisturbSettings>({ enabled: false, allowedContacts: [], notificationMode: 'silent' });
   const [addShowDnd, setAddShowDnd] = useState(false);
 
   const sensors = useSensors(
@@ -2672,7 +2779,7 @@ function TimeBlockEditor({
     setAddName(""); setAddDays([]); setAddStart("09:00"); setAddEnd("17:00");
     setAddInterruptible(false); setAddBufferBefore(""); setAddBufferBeforeName("");
     setAddBufferAfter(""); setAddBufferAfterName("");
-    setAddDnd({ enabled: false, allowedMessagers: [], allowedCallers: [], notificationMode: 'silent' });
+    setAddDnd({ enabled: false, allowedContacts: [], notificationMode: 'silent' });
     setAddShowDnd(false);
   };
 
