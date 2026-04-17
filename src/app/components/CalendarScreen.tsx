@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical, Settings } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
@@ -410,7 +410,7 @@ function loadDaysConfig(): DaysConfig {
     const raw = JSON.parse(localStorage.getItem(DAYS_CONFIG_KEY) ?? "null");
     if (raw && typeof raw.count === "number" && Array.isArray(raw.selectedDays)) {
       return {
-        count: Math.max(1, Math.min(5, raw.count)),
+        count: Math.max(1, Math.min(7, raw.count)),
         selectedDays: raw.selectedDays.length > 0 ? raw.selectedDays : [0],
       };
     }
@@ -570,8 +570,10 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
   const [invitations, setInvitations] = useState<ReceivedInvitation[]>(loadInvitations);
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>(loadTimeBlocks);
   const [showBlockEditor, setShowBlockEditor] = useState(false);
+  const [showDaysTabMenu, setShowDaysTabMenu] = useState(false);
   const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
+  const WEEKDAYS_FULL = t('calendar.weekdaysFull', { returnObjects: true }) as string[];
 
   // Persist
   useEffect(() => { saveEvents(events); }, [events]);
@@ -885,41 +887,127 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         )}
       </AnimatePresence>
 
-      {/* View Toggle */}
-      <div className="px-4 pt-4 pb-2 flex gap-1 bg-gray-900">
-        {(["month", "days"] as View[]).map((v) => (
+      {/* View Toggle + Navigation (combined row) */}
+      <div className="px-4 pt-4 pb-2 flex items-center gap-1 bg-gray-900">
+        {/* Monat tab */}
+        <button
+          onClick={() => { setView("month"); setShowDaysTabMenu(false); }}
+          className={`py-1.5 px-3 text-xs font-bold rounded-full transition-colors ${
+            view === "month" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+          }`}
+        >
+          {t('calendar.month')}
+        </button>
+
+        {/* Tage tab — double-tap: first tap switches view, second tap opens settings */}
+        <div className="relative">
           <button
-            key={v}
-            onClick={() => setView(v)}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-full transition-colors ${
-              view === v ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+            onClick={() => {
+              if (view !== "days") {
+                setView("days");
+                setShowDaysTabMenu(false);
+              } else {
+                setShowDaysTabMenu(!showDaysTabMenu);
+              }
+            }}
+            className={`py-1.5 px-3 text-xs font-bold rounded-full transition-colors flex items-center gap-1 ${
+              view === "days" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
             }`}
           >
-            {v === "month" ? t('calendar.month') : t('calendar.days')}
+            {t('calendar.days')}
+            {view === "days" && <Settings size={12} />}
           </button>
-        ))}
-      </div>
 
-      {/* Navigation */}
-      <div className="px-4 pb-2 flex items-center justify-between bg-gray-900">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-gray-800">
-          <ChevronLeft size={20} />
+          {/* Settings dropdown (day count + weekday picker) */}
+          {showDaysTabMenu && (
+            <div className="absolute top-full left-0 mt-1 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 p-2 z-50 min-w-[200px]">
+              {/* Day count selection */}
+              <div className="text-[10px] font-bold text-gray-500 uppercase px-2 pb-1">{t('calendar.daysCount')}</div>
+              <div className="flex flex-wrap gap-1 px-1 pb-2">
+                {[1, 2, 3, 4, 5, 7].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => {
+                      const cfg = { ...daysConfig, count: n };
+                      setDaysConfig(cfg);
+                      saveDaysConfig(cfg);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                      daysConfig.count === n
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+
+              {/* Weekday selection — only for multi-day */}
+              {daysConfig.count > 1 && (
+                <>
+                  <div className="border-t border-gray-700 my-1" />
+                  <div className="text-[10px] font-bold text-gray-500 uppercase px-2 pb-1">{t('calendar.daysWhich')}</div>
+                  {WEEKDAYS_FULL.map((name, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        const next = daysConfig.selectedDays.includes(i)
+                          ? daysConfig.selectedDays.filter((d) => d !== i)
+                          : [...daysConfig.selectedDays, i].sort((a, b) => a - b);
+                        if (next.length > 0) {
+                          const cfg = { ...daysConfig, selectedDays: next };
+                          setDaysConfig(cfg);
+                          saveDaysConfig(cfg);
+                        }
+                      }}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        daysConfig.selectedDays.includes(i)
+                          ? "bg-blue-600/20 text-blue-400"
+                          : "text-gray-400 hover:text-white hover:bg-gray-700"
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                        daysConfig.selectedDays.includes(i) ? "bg-blue-600 border-blue-600" : "border-gray-600"
+                      }`}>
+                        {daysConfig.selectedDays.includes(i) && <span className="text-white text-[10px] font-bold">✓</span>}
+                      </div>
+                      {name}
+                    </button>
+                  ))}
+                </>
+              )}
+
+              <button
+                onClick={() => setShowDaysTabMenu(false)}
+                className="w-full mt-1 py-1.5 text-[11px] font-bold text-gray-500 hover:text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Navigation arrows + date */}
+        <button onClick={() => navigate(-1)} className="p-1.5 rounded-full hover:bg-gray-800">
+          <ChevronLeft size={18} />
         </button>
-        <span className="text-sm font-bold text-gray-200">
+        <span className="text-sm font-bold text-gray-200 whitespace-nowrap">
           {view === "month"
             ? `${MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`
             : (() => {
-                const anchor = daysAnchor ?? new Date();
-                const vis = computeRollingDates(anchor, daysConfig.count, daysConfig.selectedDays);
+                const a = daysAnchor ?? new Date();
+                const vis = computeRollingDates(a, daysConfig.count, daysConfig.selectedDays);
                 if (vis.length === 0) return "";
                 const first = vis[0];
-                if (daysConfig.count === 1) return `${first.getDate()}. ${MONTHS[first.getMonth()]} ${first.getFullYear()}`;
-                const last = vis[vis.length - 1];
-                return `${first.getDate()}. ${MONTHS[first.getMonth()].slice(0, 3)} – ${last.getDate()}. ${MONTHS[last.getMonth()].slice(0, 3)} ${last.getFullYear()}`;
+                return `${t('calendar.daysFrom')} ${first.getDate()}. ${MONTHS[first.getMonth()].slice(0, 3)}.`;
               })()}
         </span>
-        <button onClick={() => navigate(1)} className="p-2 rounded-full hover:bg-gray-800">
-          <ChevronRight size={20} />
+        <button onClick={() => navigate(1)} className="p-1.5 rounded-full hover:bg-gray-800">
+          <ChevronRight size={18} />
         </button>
       </div>
 
@@ -929,7 +1017,6 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
           <DaysView
             anchor={daysAnchor}
             config={daysConfig}
-            onConfigChange={(cfg) => { setDaysConfig(cfg); saveDaysConfig(cfg); }}
             todayStr={todayStr}
             eventsMap={eventsMap}
             onSelectEvent={setDetailEvent}
@@ -1094,11 +1181,10 @@ function MonthView({
 // ── Days View (replaces old Week View) ──────────────────────────────────────
 
 function DaysView({
-  anchor, config, onConfigChange, todayStr, eventsMap, onSelectEvent, onClickFreeSlot,
+  anchor, config, todayStr, eventsMap, onSelectEvent, onClickFreeSlot,
 }: {
   anchor: Date | null;
   config: DaysConfig;
-  onConfigChange: (cfg: DaysConfig) => void;
   todayStr: string;
   eventsMap: Map<string, CalendarEvent[]>;
   onSelectEvent: (ev: CalendarEvent) => void;
@@ -1106,10 +1192,7 @@ function DaysView({
 }) {
   const { t } = useTranslation();
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
-  const WEEKDAYS_FULL = t('calendar.weekdaysFull', { returnObjects: true }) as string[];
   const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
-  const [showDayPicker, setShowDayPicker] = useState(false);
-
   const visibleDates = useMemo(
     () => computeRollingDates(anchor ?? new Date(), config.count, config.selectedDays),
     [anchor, config.count, config.selectedDays],
@@ -1118,73 +1201,8 @@ function DaysView({
   const containerRef = useRef<HTMLDivElement>(null);
   const containerHeight = useElementHeight(containerRef);
 
-  const toggleDay = (dayIdx: number) => {
-    const next = config.selectedDays.includes(dayIdx)
-      ? config.selectedDays.filter((d) => d !== dayIdx)
-      : [...config.selectedDays, dayIdx].sort((a, b) => a - b);
-    // At least one day must be selected
-    if (next.length > 0) onConfigChange({ ...config, selectedDays: next });
-  };
-
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Config bar */}
-      <div className="shrink-0 flex items-center gap-2 pb-2 flex-wrap">
-        {/* Dropdown 1: How many days */}
-        <select
-          value={config.count}
-          onChange={(e) => onConfigChange({ ...config, count: Number(e.target.value) })}
-          className="bg-gray-800 text-gray-200 text-xs font-bold rounded-lg px-2 py-1.5 border border-gray-700 focus:outline-none focus:border-blue-500"
-        >
-          <option value={1}>1 {t('calendar.day')}</option>
-          {[2, 3, 4, 5].map((n) => (
-            <option key={n} value={n}>{n} {t('calendar.days')}</option>
-          ))}
-        </select>
-
-        {/* Dropdown 2: Which weekdays (multi-select toggle) — hidden for 1-day view */}
-        {config.count > 1 && (
-        <div className="relative">
-          <button
-            onClick={() => setShowDayPicker(!showDayPicker)}
-            className="bg-gray-800 text-gray-200 text-xs font-bold rounded-lg px-2 py-1.5 border border-gray-700 hover:border-gray-600 transition-colors"
-          >
-            {config.selectedDays.length === 7
-              ? t('calendar.daysWhich')
-              : config.selectedDays.map((d) => WEEKDAYS_SHORT[d]).join(", ")}
-          </button>
-          {showDayPicker && (
-            <div className="absolute top-full left-0 mt-1 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 p-2 z-50 min-w-[180px]">
-              {WEEKDAYS_FULL.map((name, i) => (
-                <button
-                  key={i}
-                  onClick={() => toggleDay(i)}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    config.selectedDays.includes(i)
-                      ? "bg-blue-600/20 text-blue-400"
-                      : "text-gray-400 hover:text-white hover:bg-gray-700"
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
-                    config.selectedDays.includes(i) ? "bg-blue-600 border-blue-600" : "border-gray-600"
-                  }`}>
-                    {config.selectedDays.includes(i) && <span className="text-white text-[10px] font-bold">✓</span>}
-                  </div>
-                  {name}
-                </button>
-              ))}
-              <button
-                onClick={() => setShowDayPicker(false)}
-                className="w-full mt-1 py-1.5 text-[11px] font-bold text-gray-500 hover:text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                {t('common.close')}
-              </button>
-            </div>
-          )}
-        </div>
-        )}
-      </div>
-
       {/* Horizontal column layout */}
       <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {/* Column headers row */}

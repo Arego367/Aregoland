@@ -473,6 +473,7 @@
     "noEvents": "No events",
     "daysCount": "How many days?",
     "daysWhich": "Which days?",
+    "daysFrom": "from",
     "weekdaysFull": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
   },
   "call": {
