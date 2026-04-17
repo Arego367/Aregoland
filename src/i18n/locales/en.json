@@ -504,7 +504,21 @@
     "saveAsDefault": "Save as Default",
     "defaultsSaved": "Defaults saved",
     "customRecurrenceValue": "Every {{value}} {{unit}}",
-    "selectYear": "Select year"
+    "selectYear": "Select year",
+    "birthdays": "Birthdays",
+    "bdEdit": "Edit Birthday",
+    "bdImport": "From Contacts",
+    "bdManual": "Manual",
+    "bdSearchContacts": "Search contacts…",
+    "bdNoContacts": "No contacts with birthday found",
+    "bdSelectAll": "Select all",
+    "bdImportBtn": "Import {{count}} birthday(s)",
+    "bdName": "Name",
+    "bdNamePlaceholder": "e.g. John Doe",
+    "bdCreate": "Add Birthday",
+    "bdAddReminder": "Add reminder",
+    "bdRem1week": "1 week before",
+    "bdExisting": "Saved Birthdays"
   },
   "call": {
     "micOn": "Microphone on",

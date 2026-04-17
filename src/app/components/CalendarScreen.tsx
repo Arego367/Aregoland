@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical, Settings, ChevronDown, ChevronUp, Tag, Save, BellOff, Bell, Users } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical, Settings, ChevronDown, ChevronUp, Tag, Save, BellOff, Bell, Users, Cake, Import, PenLine } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
-import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer, CalendarLabel, CalendarEventDefaults, DoNotDisturbSettings, DndNotificationMode, Tab, Contact } from "@/app/types";
+import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer, CalendarLabel, CalendarEventDefaults, DoNotDisturbSettings, DndNotificationMode, Tab, Contact, CalendarBirthday, BirthdayReminder, BirthdayReminderPreset } from "@/app/types";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -13,6 +13,7 @@ import { expandRecurrence, buildRRule, rruleLabel } from "@/app/lib/rrule";
 import { scheduleReminder as scheduleSWReminder, cancelReminder, checkReminders } from "@/app/lib/reminder-scheduler";
 import { loadInvitations, invitationsToEvents, updateRsvp, type ReceivedInvitation } from "@/app/lib/calendar-invitations";
 import { loadContacts, type StoredContact } from "@/app/auth/contacts";
+import { MOCK_CONTACTS } from "@/app/data/contacts";
 
 // ── Persistence ──────────────────────────────────────────────────────────────
 
@@ -65,6 +66,26 @@ function loadDefaults(): CalendarEventDefaults {
 function saveDefaults(defaults: CalendarEventDefaults) {
   localStorage.setItem(DEFAULTS_KEY, JSON.stringify(defaults));
 }
+
+// ── Birthday Persistence ────────────────────────────────────────────────────
+
+const BIRTHDAYS_KEY = "arego_calendar_birthdays";
+
+function loadBirthdays(): CalendarBirthday[] {
+  try {
+    const raw = localStorage.getItem(BIRTHDAYS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveBirthdays(birthdays: CalendarBirthday[]) {
+  localStorage.setItem(BIRTHDAYS_KEY, JSON.stringify(birthdays));
+}
+
+const DEFAULT_BIRTHDAY_REMINDERS: BirthdayReminder[] = [
+  { preset: '1week' },
+  { preset: '1day' },
+];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -650,6 +671,9 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
   const [invitations, setInvitations] = useState<ReceivedInvitation[]>(loadInvitations);
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>(loadTimeBlocks);
   const [showBlockEditor, setShowBlockEditor] = useState(false);
+  const [birthdays, setBirthdays] = useState<CalendarBirthday[]>(loadBirthdays);
+  const [showBirthdayForm, setShowBirthdayForm] = useState(false);
+  const [editingBirthday, setEditingBirthday] = useState<CalendarBirthday | null>(null);
   const [showDaysTabMenu, setShowDaysTabMenu] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
   const yearPickerRef = useRef<HTMLDivElement>(null);
@@ -773,6 +797,26 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
     return m;
   }, [events, expansionRange, layers, spaceEvents, invitations]);
 
+  // Build a map of date-string -> birthdays for the visible range
+  const birthdaysMap = useMemo(() => {
+    const m = new Map<string, CalendarBirthday[]>();
+    if (birthdays.length === 0) return m;
+    // Determine year range from expansion range
+    const startYear = parseInt(expansionRange.start.slice(0, 4), 10);
+    const endYear = parseInt(expansionRange.end.slice(0, 4), 10);
+    for (const bd of birthdays) {
+      for (let y = startYear; y <= endYear; y++) {
+        const ds = `${y}-${bd.date}`; // bd.date is MM-DD
+        if (ds >= expansionRange.start && ds <= expansionRange.end) {
+          const list = m.get(ds) ?? [];
+          list.push(bd);
+          m.set(ds, list);
+        }
+      }
+    }
+    return m;
+  }, [birthdays, expansionRange]);
+
   const searchResults = useMemo(() => {
     if (!calSearchQuery.trim()) return [];
     const q = calSearchQuery.toLowerCase().trim();
@@ -802,6 +846,39 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
     setEvents((prev) => prev.filter((e) => e.id !== id));
     cancelReminder(id);
     setDetailEvent(null);
+  }, []);
+
+  const saveBirthdayEntry = useCallback((bd: CalendarBirthday) => {
+    setBirthdays((prev) => {
+      const exists = prev.findIndex((b) => b.id === bd.id);
+      const next = exists >= 0 ? [...prev.slice(0, exists), bd, ...prev.slice(exists + 1)] : [...prev, bd];
+      saveBirthdays(next);
+      return next;
+    });
+    setShowBirthdayForm(false);
+    setEditingBirthday(null);
+  }, []);
+
+  const saveBirthdayBatch = useCallback((bds: CalendarBirthday[]) => {
+    setBirthdays((prev) => {
+      const existingIds = new Set(prev.map(b => b.id));
+      const newOnes = bds.filter(b => !existingIds.has(b.id));
+      // Also skip duplicates by contactId
+      const existingContactIds = new Set(prev.filter(b => b.contactId).map(b => b.contactId));
+      const filtered = newOnes.filter(b => !b.contactId || !existingContactIds.has(b.contactId));
+      const next = [...prev, ...filtered];
+      saveBirthdays(next);
+      return next;
+    });
+    setShowBirthdayForm(false);
+  }, []);
+
+  const deleteBirthday = useCallback((id: string) => {
+    setBirthdays((prev) => {
+      const next = prev.filter((b) => b.id !== id);
+      saveBirthdays(next);
+      return next;
+    });
   }, []);
 
   const goToday = () => {
@@ -871,6 +948,13 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
                 >
                   <Timer size={18} />
                   <span className="font-medium">{t('calendar.timeBlocks')}</span>
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  onClick={() => { setEditingBirthday(null); setShowBirthdayForm(true); }}
+                  className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-pink-600 hover:text-white outline-none cursor-pointer transition-colors"
+                >
+                  <Cake size={18} />
+                  <span className="font-medium">{t('calendar.birthdays')}</span>
                 </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
@@ -1156,6 +1240,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             config={daysConfig}
             todayStr={todayStr}
             eventsMap={eventsMap}
+            birthdaysMap={birthdaysMap}
             onSelectEvent={setDetailEvent}
             onClickFreeSlot={(dateStr, startMin) => {
               const hour = Math.floor(startMin / 60);
@@ -1173,6 +1258,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             date={selectedDate}
             todayStr={todayStr}
             eventsMap={eventsMap}
+            birthdaysMap={birthdaysMap}
             onSelectDate={(d) => switchToDayView(d)}
           />
         </div>
@@ -1198,6 +1284,20 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             blocks={timeBlocks}
             onSave={(blocks) => { setTimeBlocks(blocks); saveTimeBlocks(blocks); setShowBlockEditor(false); }}
             onClose={() => setShowBlockEditor(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Birthday Form Modal */}
+      <AnimatePresence>
+        {showBirthdayForm && (
+          <BirthdayFormModal
+            initial={editingBirthday}
+            existingBirthdays={birthdays}
+            onSave={saveBirthdayEntry}
+            onSaveBatch={saveBirthdayBatch}
+            onDelete={deleteBirthday}
+            onClose={() => { setShowBirthdayForm(false); setEditingBirthday(null); }}
           />
         )}
       </AnimatePresence>
@@ -1234,10 +1334,11 @@ const MONTH_OVERFLOW_H = 14;
 const MONTH_CELL_PAD = 4;
 
 function MonthView({
-  date, todayStr, eventsMap, onSelectDate,
+  date, todayStr, eventsMap, birthdaysMap, onSelectDate,
 }: {
   date: Date; todayStr: string;
   eventsMap: Map<string, CalendarEvent[]>;
+  birthdaysMap: Map<string, CalendarBirthday[]>;
   onSelectDate: (d: Date) => void;
 }) {
   const { t } = useTranslation();
@@ -1275,6 +1376,8 @@ function MonthView({
             const ds = toDateStr(cell);
             const isToday = ds === todayStr;
             const dayEvents = eventsMap.get(ds) ?? [];
+            const dayBirthdays = birthdaysMap.get(ds) ?? [];
+            const hasBirthday = dayBirthdays.length > 0;
             // Check if all events fit without overflow
             const allFit = dayEvents.length <= Math.floor((rowHeight - MONTH_CELL_PAD - MONTH_DATE_H) / MONTH_EVENT_H);
             const limit = allFit ? dayEvents.length : maxVisible;
@@ -1284,14 +1387,23 @@ function MonthView({
               <button
                 key={ci}
                 onClick={() => onSelectDate(cell)}
-                className={`flex flex-col items-stretch p-0.5 rounded-lg transition-colors ${
-                  isToday ? "bg-blue-600/20 ring-1 ring-blue-500" : "hover:bg-gray-800"
+                className={`flex flex-col items-stretch p-0.5 rounded-lg transition-colors relative ${
+                  isToday ? "bg-blue-600/20 ring-1 ring-blue-500"
+                    : hasBirthday ? "bg-pink-500/10" : "hover:bg-gray-800"
                 }`}
               >
-                <span className={`text-[11px] font-bold text-center mb-0.5 ${isToday ? "text-blue-400" : "text-gray-300"}`}>
+                <span className={`text-[11px] font-bold text-center mb-0.5 ${isToday ? "text-blue-400" : hasBirthday ? "text-pink-300" : "text-gray-300"}`}>
                   {cell.getDate()}
                 </span>
                 <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                  {dayBirthdays.map((bd) => (
+                    <div
+                      key={`bd-${bd.id}`}
+                      className="bg-pink-500/20 border border-pink-500/30 rounded px-1 py-1 truncate text-[11px] leading-none font-semibold text-pink-300"
+                    >
+                      {bd.name}
+                    </div>
+                  ))}
                   {visible.map((ev) => (
                     <div
                       key={ev.id}
@@ -1319,12 +1431,13 @@ function MonthView({
 // ── Days View (replaces old Week View) ──────────────────────────────────────
 
 function DaysView({
-  anchor, config, todayStr, eventsMap, onSelectEvent, onClickFreeSlot,
+  anchor, config, todayStr, eventsMap, birthdaysMap, onSelectEvent, onClickFreeSlot,
 }: {
   anchor: Date | null;
   config: DaysConfig;
   todayStr: string;
   eventsMap: Map<string, CalendarEvent[]>;
+  birthdaysMap: Map<string, CalendarBirthday[]>;
   onSelectEvent: (ev: CalendarEvent) => void;
   onClickFreeSlot?: (dateStr: string, startMin: number, endMin: number) => void;
 }) {
@@ -1362,6 +1475,31 @@ function DaysView({
             );
           })}
         </div>
+
+        {/* Birthday banner row */}
+        {visibleDates.some((d) => (birthdaysMap.get(toDateStr(d)) ?? []).length > 0) && (
+          <div className="shrink-0 flex flex-row border-b border-pink-500/20 bg-pink-500/5">
+            {visibleDates.map((d) => {
+              const ds = toDateStr(d);
+              const dayBds = birthdaysMap.get(ds) ?? [];
+              return (
+                <div key={ds} className="flex-1 min-w-0 px-0.5 py-0.5 border-r border-gray-800/40 last:border-r-0">
+                  {dayBds.map((bd) => {
+                    const age = bd.year ? (d.getFullYear() - bd.year) : null;
+                    return (
+                      <div
+                        key={bd.id}
+                        className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-semibold text-pink-300 bg-pink-500/20 border border-pink-500/30 truncate mb-0.5"
+                      >
+                        {bd.name}{age !== null ? ` (${age})` : ''}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* All-day row (if any day has all-day events) */}
         {visibleDates.some((d) => (eventsMap.get(toDateStr(d)) ?? []).some((e) => e.duration === "allday")) && (
@@ -2950,6 +3088,395 @@ function TimeBlockEditor({
           className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 transition-colors">
           {t('common.save')}
         </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── Birthday Form Modal ─────────────────────────────────────────────────────
+
+function parseBirthdayDE(str: string): { day: number; month: number; year?: number } | null {
+  const parts = str.split('.');
+  if (parts.length < 2) return null;
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const year = parts[2] ? parseInt(parts[2], 10) : undefined;
+  if (isNaN(day) || isNaN(month) || day < 1 || day > 31 || month < 1 || month > 12) return null;
+  return { day, month, year: year && !isNaN(year) ? year : undefined };
+}
+
+function birthdayToMMDD(day: number, month: number): string {
+  return `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function BirthdayFormModal({
+  initial, existingBirthdays, onSave, onSaveBatch, onDelete, onClose,
+}: {
+  initial: CalendarBirthday | null;
+  existingBirthdays: CalendarBirthday[];
+  onSave: (bd: CalendarBirthday) => void;
+  onSaveBatch: (bds: CalendarBirthday[]) => void;
+  onDelete: (id: string) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const isEdit = !!initial;
+  const [tab, setTab] = useState<'import' | 'manual'>(isEdit ? 'manual' : 'import');
+
+  // Manual entry state
+  const [name, setName] = useState(initial?.name ?? '');
+  const [dateStr, setDateStr] = useState(() => {
+    if (!initial) return '';
+    // Convert MM-DD + optional year to HTML date input format
+    const [mm, dd] = initial.date.split('-');
+    if (initial.year) return `${initial.year}-${mm}-${dd}`;
+    return `2000-${mm}-${dd}`; // placeholder year for date input
+  });
+  const [note, setNote] = useState(initial?.note ?? '');
+  const [reminders, setReminders] = useState<BirthdayReminder[]>(initial?.reminders ?? [...DEFAULT_BIRTHDAY_REMINDERS]);
+
+  // Import state
+  const contactsWithBirthday = useMemo(() => {
+    const existingContactIds = new Set(existingBirthdays.filter(b => b.contactId).map(b => b.contactId));
+    return MOCK_CONTACTS
+      .filter(c => c.type === 'individual' && c.birthday && !existingContactIds.has(c.id))
+      .map(c => {
+        const parsed = parseBirthdayDE(c.birthday!);
+        return parsed ? { contact: c, parsed } : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+  }, [existingBirthdays]);
+
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [importFilter, setImportFilter] = useState('');
+  const tabs = useMemo(() => loadTabs().filter(t => t.id !== 'all' && !t.hidden), []);
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+
+  const filteredContacts = useMemo(() => {
+    let list = contactsWithBirthday;
+    if (filterCategory !== 'all') {
+      list = list.filter(x => x.contact.categories.includes(filterCategory));
+    }
+    if (importFilter.trim()) {
+      const q = importFilter.toLowerCase();
+      list = list.filter(x => x.contact.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [contactsWithBirthday, filterCategory, importFilter]);
+
+  const toggleContact = (id: string) => {
+    setSelectedContactIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedContactIds(new Set(filteredContacts.map(x => x.contact.id)));
+  };
+
+  const handleImport = () => {
+    const bds: CalendarBirthday[] = [];
+    for (const { contact, parsed } of contactsWithBirthday) {
+      if (!selectedContactIds.has(contact.id)) continue;
+      bds.push({
+        id: crypto.randomUUID(),
+        name: contact.name,
+        date: birthdayToMMDD(parsed.day, parsed.month),
+        year: parsed.year,
+        contactId: contact.id,
+        reminders: [...DEFAULT_BIRTHDAY_REMINDERS],
+      });
+    }
+    if (bds.length > 0) onSaveBatch(bds);
+  };
+
+  const handleManualSave = () => {
+    if (!name.trim() || !dateStr) return;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return;
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const year = d.getFullYear();
+    onSave({
+      id: initial?.id ?? crypto.randomUUID(),
+      name: name.trim(),
+      date: `${mm}-${dd}`,
+      year: year > 1900 ? year : undefined,
+      contactId: initial?.contactId,
+      note: note.trim() || undefined,
+      reminders,
+    });
+  };
+
+  const addReminder = () => {
+    setReminders(prev => [...prev, { preset: '1day' }]);
+  };
+
+  const removeReminder = (idx: number) => {
+    setReminders(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateReminder = (idx: number, r: BirthdayReminder) => {
+    setReminders(prev => prev.map((old, i) => i === idx ? r : old));
+  };
+
+  const inputClass = "w-full px-3 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-colors";
+
+  const REMINDER_PRESETS: { value: BirthdayReminderPreset; label: string }[] = [
+    { value: 'none', label: t('calendar.remNone') },
+    { value: '1day', label: t('calendar.rem1day') },
+    { value: '1week', label: t('calendar.bdRem1week') },
+    { value: 'custom', label: t('calendar.remCustom') },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 25 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg bg-gray-900 rounded-t-3xl border-t border-gray-700 p-6 max-h-[85vh] overflow-y-auto"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <Cake size={20} className="text-pink-400" />
+            {isEdit ? t('calendar.bdEdit') : t('calendar.birthdays')}
+          </h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-800"><X size={20} /></button>
+        </div>
+
+        {/* Tab switcher (only for new entries) */}
+        {!isEdit && (
+          <div className="flex gap-1 mb-4 bg-gray-800 rounded-xl p-1">
+            <button
+              onClick={() => setTab('import')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                tab === 'import' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Import size={14} />
+              {t('calendar.bdImport')}
+            </button>
+            <button
+              onClick={() => setTab('manual')}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                tab === 'manual' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <PenLine size={14} />
+              {t('calendar.bdManual')}
+            </button>
+          </div>
+        )}
+
+        {/* Import Tab */}
+        {tab === 'import' && !isEdit && (
+          <div className="space-y-3">
+            {/* Filter row */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={importFilter}
+                onChange={(e) => setImportFilter(e.target.value)}
+                placeholder={t('calendar.bdSearchContacts')}
+                className={`${inputClass} flex-1`}
+              />
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="px-3 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
+              >
+                <option value="all">{t('calendar.dndAllLists')}</option>
+                {tabs.map(tab => (
+                  <option key={tab.id} value={tab.id}>{tab.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Contact list */}
+            <div className="max-h-[40vh] overflow-y-auto space-y-1">
+              {filteredContacts.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-6">{t('calendar.bdNoContacts')}</p>
+              ) : (
+                <>
+                  <button
+                    onClick={selectAll}
+                    className="text-xs text-pink-400 hover:text-pink-300 font-medium mb-1"
+                  >
+                    {t('calendar.bdSelectAll')}
+                  </button>
+                  {filteredContacts.map(({ contact, parsed }) => {
+                    const selected = selectedContactIds.has(contact.id);
+                    return (
+                      <button
+                        key={contact.id}
+                        onClick={() => toggleContact(contact.id)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left ${
+                          selected ? 'bg-pink-600/20 ring-1 ring-pink-500' : 'bg-gray-800 hover:bg-gray-750'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                          selected ? 'border-pink-500 bg-pink-500' : 'border-gray-600'
+                        }`}>
+                          {selected && <Check size={12} className="text-white" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-100 truncate">{contact.name}</p>
+                          <p className="text-xs text-gray-400">
+                            {String(parsed.day).padStart(2, '0')}.{String(parsed.month).padStart(2, '0')}.
+                            {parsed.year ?? '????'}
+                          </p>
+                        </div>
+                        <Cake size={16} className="text-pink-400 shrink-0" />
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+
+            {/* Import button */}
+            <button
+              onClick={handleImport}
+              disabled={selectedContactIds.size === 0}
+              className="w-full py-3 rounded-xl bg-pink-600 text-white font-bold text-sm hover:bg-pink-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {t('calendar.bdImportBtn', { count: selectedContactIds.size })}
+            </button>
+          </div>
+        )}
+
+        {/* Manual Tab */}
+        {(tab === 'manual' || isEdit) && (
+          <div className="space-y-3">
+            {/* Name */}
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bdName')}</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('calendar.bdNamePlaceholder')}
+                className={inputClass}
+                autoFocus
+              />
+            </div>
+
+            {/* Date */}
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.date')}</label>
+              <input
+                type="date"
+                value={dateStr}
+                onChange={(e) => setDateStr(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+
+            {/* Note */}
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.noteOptional')}</label>
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={t('calendar.notePlaceholder')}
+                className={inputClass}
+              />
+            </div>
+
+            {/* Reminders */}
+            <div>
+              <label className="text-xs text-gray-500 mb-1 flex items-center gap-1.5">
+                <Bell size={12} /> {t('calendar.reminder')}
+              </label>
+              <div className="space-y-2">
+                {reminders.map((r, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <select
+                      value={r.preset}
+                      onChange={(e) => updateReminder(idx, { ...r, preset: e.target.value as BirthdayReminderPreset })}
+                      className="flex-1 px-3 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
+                    >
+                      {REMINDER_PRESETS.map(p => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                    {r.preset === 'custom' && (
+                      <input
+                        type="number"
+                        min={1}
+                        value={r.customMinutes ?? 60}
+                        onChange={(e) => updateReminder(idx, { ...r, customMinutes: parseInt(e.target.value, 10) || 60 })}
+                        className="w-20 px-2 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
+                      />
+                    )}
+                    <button onClick={() => removeReminder(idx)} className="p-1.5 rounded-full hover:bg-gray-800 text-gray-500 hover:text-red-400">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={addReminder}
+                  className="text-xs text-pink-400 hover:text-pink-300 font-medium"
+                >
+                  + {t('calendar.bdAddReminder')}
+                </button>
+              </div>
+            </div>
+
+            {/* Existing birthdays list (when not editing) */}
+            {!isEdit && existingBirthdays.length > 0 && (
+              <div className="border-t border-gray-700 pt-3 mt-3">
+                <label className="text-xs text-gray-500 mb-2 block font-bold uppercase">{t('calendar.bdExisting')}</label>
+                <div className="space-y-1 max-h-[20vh] overflow-y-auto">
+                  {existingBirthdays.map(bd => (
+                    <div key={bd.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-800/50">
+                      <Cake size={14} className="text-pink-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-200 truncate">{bd.name}</p>
+                        <p className="text-xs text-gray-500">{bd.date.split('-').reverse().join('.')}{bd.year ? `.${bd.year}` : ''}</p>
+                      </div>
+                      <button onClick={() => onDelete(bd.id)} className="p-1.5 rounded-full hover:bg-gray-700 text-gray-500 hover:text-red-400">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Save / Delete buttons */}
+            <div className="flex gap-2 pt-1">
+              {isEdit && (
+                <button
+                  onClick={() => { onDelete(initial!.id); onClose(); }}
+                  className="px-4 py-3 rounded-xl bg-red-600/20 text-red-400 font-bold text-sm hover:bg-red-600/30 transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+              <button
+                onClick={handleManualSave}
+                disabled={!name.trim() || !dateStr}
+                className="flex-1 py-3 rounded-xl bg-pink-600 text-white font-bold text-sm hover:bg-pink-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isEdit ? t('common.save') : t('calendar.bdCreate')}
+              </button>
+            </div>
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );

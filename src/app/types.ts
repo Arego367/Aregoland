@@ -247,4 +247,23 @@ export interface DayPlanEntry {
   status?: TimetableEntryStatus;
 }
 
+// ── Calendar Birthday types ──
+
+export type BirthdayReminderPreset = 'none' | '1day' | '1week' | 'custom';
+
+export interface BirthdayReminder {
+  preset: BirthdayReminderPreset;
+  customMinutes?: number; // Used when preset === 'custom'
+}
+
+export interface CalendarBirthday {
+  id: string;
+  name: string;
+  date: string;          // MM-DD (recurring each year)
+  year?: number;         // Birth year (optional, for age calculation)
+  contactId?: string;    // Link to contact (optional, for imported birthdays)
+  note?: string;
+  reminders: BirthdayReminder[];
+}
+
 export type { UserIdentity } from "@/app/auth/identity";

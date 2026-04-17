@@ -8,7 +8,8 @@ export const MOCK_CONTACTS: Contact[] = [
     type: "individual",
     avatar: "https://images.unsplash.com/photo-1497881807663-38b9a95b7192?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaGlsZCUyMHBvcnRyYWl0fGVufDF8fHx8MTc3MDIxMjA3NHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
     status: "Online vor 2 Std.",
-    ageRating: 12
+    ageRating: 12,
+    birthday: "30.06.2014"
   },
   {
     id: "2",
@@ -37,7 +38,8 @@ export const MOCK_CONTACTS: Contact[] = [
     type: "individual",
     avatar: "https://images.unsplash.com/photo-1496672254107-b07a26403885?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzZW5pb3IlMjB3b21hbiUyMHBvcnRyYWl0fGVufDF8fHx8MTc3MDEyNjY4OXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
     phone: "+49 555 123456",
-    address: "Gartenweg 5, München"
+    address: "Gartenweg 5, München",
+    birthday: "22.08.1952"
   },
   // Added from Chat List
   {
@@ -56,6 +58,7 @@ export const MOCK_CONTACTS: Contact[] = [
     categories: ["friends"],
     type: "individual",
     avatar: "https://images.unsplash.com/photo-1599566147214-ce487862ea4f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwb3J0cmFpdCUyMHBlcnNvbiUyMGZhY2UlMjBhdmF0YXJ8ZW58MXx8fHwxNzY5NzQyNTE4fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    birthday: "07.11.1993"
   },
   {
     id: "7",

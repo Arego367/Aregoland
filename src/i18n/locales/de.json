@@ -652,7 +652,21 @@
     "saveAsDefault": "Als Standard speichern",
     "defaultsSaved": "Standardwerte gespeichert",
     "customRecurrenceValue": "Alle {{value}} {{unit}}",
-    "selectYear": "Jahr wählen"
+    "selectYear": "Jahr wählen",
+    "birthdays": "Geburtstage",
+    "bdEdit": "Geburtstag bearbeiten",
+    "bdImport": "Aus Kontakten",
+    "bdManual": "Manuell",
+    "bdSearchContacts": "Kontakte suchen…",
+    "bdNoContacts": "Keine Kontakte mit Geburtstag gefunden",
+    "bdSelectAll": "Alle auswählen",
+    "bdImportBtn": "{{count}} Geburtstag(e) importieren",
+    "bdName": "Name",
+    "bdNamePlaceholder": "z.B. Max Mustermann",
+    "bdCreate": "Geburtstag hinzufügen",
+    "bdAddReminder": "Erinnerung hinzufügen",
+    "bdRem1week": "1 Woche vorher",
+    "bdExisting": "Gespeicherte Geburtstage"
   },
   "call": {
     "micOn": "Mikrofon an",
