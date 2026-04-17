@@ -987,6 +987,15 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
 
 // ── Month View ───────────────────────────────────────────────────────────────
 
+/** Height of the date number label area (px). */
+const MONTH_DATE_H = 18;
+/** Height of one event pill including gap (px). */
+const MONTH_EVENT_H = 18;
+/** Height of the "+X more" overflow label (px). */
+const MONTH_OVERFLOW_H = 14;
+/** Cell vertical padding (px). */
+const MONTH_CELL_PAD = 4;
+
 function MonthView({
   date, todayStr, eventsMap, onSelectDate,
 }: {
@@ -997,7 +1006,21 @@ function MonthView({
   const { t } = useTranslation();
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
   const grid = useMemo(() => getMonthGrid(date.getFullYear(), date.getMonth()), [date]);
-  const MAX_VISIBLE = 2;
+
+  // Measure row height to compute max visible events
+  const rowRef = useRef<HTMLDivElement>(null);
+  const rowHeight = useElementHeight(rowRef);
+
+  const maxVisible = useMemo(() => {
+    if (rowHeight <= 0) return 2; // fallback before measurement
+    const available = rowHeight - MONTH_CELL_PAD - MONTH_DATE_H;
+    if (available <= 0) return 0;
+    // Reserve space for the overflow label if we might need it
+    const withOverflow = Math.floor((available - MONTH_OVERFLOW_H) / MONTH_EVENT_H);
+    const withoutOverflow = Math.floor(available / MONTH_EVENT_H);
+    // If all events of the busiest day fit without overflow, use that
+    return Math.max(1, withOverflow > 0 ? withOverflow : withoutOverflow);
+  }, [rowHeight]);
 
   return (
     <div className="flex flex-col h-full">
@@ -1009,14 +1032,17 @@ function MonthView({
       </div>
       {/* Days */}
       {grid.map((row, ri) => (
-        <div key={ri} className="grid grid-cols-7 gap-px flex-1">
+        <div key={ri} ref={ri === 0 ? rowRef : undefined} className="grid grid-cols-7 gap-px flex-1">
           {row.map((cell, ci) => {
             if (!cell) return <div key={ci} />;
             const ds = toDateStr(cell);
             const isToday = ds === todayStr;
             const dayEvents = eventsMap.get(ds) ?? [];
-            const visible = dayEvents.slice(0, MAX_VISIBLE);
-            const overflow = dayEvents.length - MAX_VISIBLE;
+            // Check if all events fit without overflow
+            const allFit = dayEvents.length <= Math.floor((rowHeight - MONTH_CELL_PAD - MONTH_DATE_H) / MONTH_EVENT_H);
+            const limit = allFit ? dayEvents.length : maxVisible;
+            const visible = dayEvents.slice(0, limit);
+            const overflow = dayEvents.length - limit;
             return (
               <button
                 key={ci}
