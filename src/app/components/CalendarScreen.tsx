@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical, Settings, ChevronDown, Tag, Save } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical, Settings, ChevronDown, ChevronUp, Tag, Save, BellOff, Bell, Phone, MessageSquare } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
-import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer, CalendarLabel, CalendarEventDefaults } from "@/app/types";
+import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer, CalendarLabel, CalendarEventDefaults, DoNotDisturbSettings, DndNotificationMode } from "@/app/types";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -2364,38 +2364,256 @@ function EventDetailModal({
 
 const WEEKDAY_INDICES = [0, 1, 2, 3, 4, 5, 6]; // Mon-Sun
 
-// ── Sortable Block Item (Drag & Drop) ──────────────────────────────────────
+// ── Do-Not-Disturb Settings Sub-Form ──────────────────────────────────────
+
+function DndSettingsForm({
+  dnd, onChange, inputClass,
+}: {
+  dnd: DoNotDisturbSettings;
+  onChange: (dnd: DoNotDisturbSettings) => void;
+  inputClass: string;
+}) {
+  const { t } = useTranslation();
+  const modes: { value: DndNotificationMode; label: string }[] = [
+    { value: 'silent', label: t('calendar.dndSilent') },
+    { value: 'vibration', label: t('calendar.dndVibration') },
+    { value: 'normal', label: t('calendar.dndNormal') },
+  ];
+
+  return (
+    <div className="space-y-3 mt-2">
+      {/* Wer darf anschreiben */}
+      <div>
+        <label className="text-xs text-gray-500 mb-1 flex items-center gap-1.5">
+          <MessageSquare size={12} /> {t('calendar.dndAllowedMessagers')}
+        </label>
+        <input
+          type="text"
+          value={dnd.allowedMessagers.join(', ')}
+          onChange={(e) => onChange({ ...dnd, allowedMessagers: e.target.value ? e.target.value.split(',').map(s => s.trim()).filter(Boolean) : [] })}
+          placeholder={t('calendar.dndContactsPlaceholder')}
+          className={inputClass}
+        />
+      </div>
+
+      {/* Wer darf anrufen */}
+      <div>
+        <label className="text-xs text-gray-500 mb-1 flex items-center gap-1.5">
+          <Phone size={12} /> {t('calendar.dndAllowedCallers')}
+        </label>
+        <input
+          type="text"
+          value={dnd.allowedCallers.join(', ')}
+          onChange={(e) => onChange({ ...dnd, allowedCallers: e.target.value ? e.target.value.split(',').map(s => s.trim()).filter(Boolean) : [] })}
+          placeholder={t('calendar.dndContactsPlaceholder')}
+          className={inputClass}
+        />
+      </div>
+
+      {/* Benachrichtigungsmodus */}
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">{t('calendar.dndNotificationMode')}</label>
+        <div className="flex gap-1.5">
+          {modes.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => onChange({ ...dnd, notificationMode: m.value })}
+              className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                dnd.notificationMode === m.value ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sortable Block Item (Drag & Drop + Expandable Edit) ─────────────────
 
 function SortableBlockItem({
-  block, index, weekdays, onRemove,
+  block, index, weekdays, weekdayIndices, onRemove, onUpdate, inputClass,
 }: {
-  block: TimeBlock; index: number; weekdays: string[];
+  block: TimeBlock; index: number; weekdays: string[]; weekdayIndices: number[];
   onRemove: (id: string) => void;
+  onUpdate: (updated: TimeBlock) => void;
+  inputClass: string;
 }) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: block.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const [expanded, setExpanded] = useState(false);
+
+  // Local edit state — initialized from block, synced on save
+  const [editName, setEditName] = useState(block.name);
+  const [editDays, setEditDays] = useState<number[]>([...block.daysOfWeek]);
+  const [editStart, setEditStart] = useState(block.startTime);
+  const [editEnd, setEditEnd] = useState(block.endTime);
+  const [editInterruptible, setEditInterruptible] = useState(block.isInterruptible);
+  const [editBufferBefore, setEditBufferBefore] = useState(block.bufferBefore?.minutes?.toString() ?? "");
+  const [editBufferBeforeName, setEditBufferBeforeName] = useState(block.bufferBefore?.name ?? "");
+  const [editBufferAfter, setEditBufferAfter] = useState(block.bufferAfter?.minutes?.toString() ?? "");
+  const [editBufferAfterName, setEditBufferAfterName] = useState(block.bufferAfter?.name ?? "");
+  const [editDnd, setEditDnd] = useState<DoNotDisturbSettings>(
+    block.doNotDisturb ?? { enabled: false, allowedMessagers: [], allowedCallers: [], notificationMode: 'silent' }
+  );
+  const [showDnd, setShowDnd] = useState(editDnd.enabled);
+
+  const toggleEditDay = (d: number) => {
+    setEditDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
+  };
+
+  const saveEdit = () => {
+    if (!editName.trim() || editDays.length === 0) return;
+    onUpdate({
+      ...block,
+      name: editName.trim(),
+      daysOfWeek: [...editDays].sort((a, b) => a - b),
+      startTime: editStart,
+      endTime: editEnd,
+      isInterruptible: editInterruptible,
+      bufferBefore: editBufferBefore ? { minutes: parseInt(editBufferBefore), name: editBufferBeforeName.trim() || undefined } : undefined,
+      bufferAfter: editBufferAfter ? { minutes: parseInt(editBufferAfter), name: editBufferAfterName.trim() || undefined } : undefined,
+      doNotDisturb: showDnd ? { ...editDnd, enabled: true } : undefined,
+    });
+    setExpanded(false);
+  };
 
   return (
-    <div ref={setNodeRef} style={style} className={`flex items-center gap-2 p-3 rounded-xl border ${TIME_BLOCK_COLOR}`}>
-      <button {...attributes} {...listeners} className="p-1 text-gray-500 hover:text-gray-300 cursor-grab touch-none">
-        <GripVertical size={14} />
-      </button>
-      <div className="text-sm font-bold text-gray-400 w-5 text-center">{index + 1}.</div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium">
-          {block.name} | {formatDays(block.daysOfWeek, weekdays)} {block.startTime}–{block.endTime} | {block.isInterruptible ? t('calendar.interruptibleYes') : t('calendar.interruptibleNo')}
-        </div>
-        {(block.bufferBefore || block.bufferAfter) && (
-          <div className="text-xs text-gray-400 mt-0.5">
-            {block.bufferBefore && <span>{t('calendar.bufferBefore')}: {block.bufferBefore.minutes} min{block.bufferBefore.name ? ` (${block.bufferBefore.name})` : ""} </span>}
-            {block.bufferAfter && <span>{t('calendar.bufferAfter')}: {block.bufferAfter.minutes} min{block.bufferAfter.name ? ` (${block.bufferAfter.name})` : ""}</span>}
+    <div ref={setNodeRef} style={style} className={`rounded-xl border ${TIME_BLOCK_COLOR} overflow-hidden`}>
+      {/* Collapsed header */}
+      <div className="flex items-center gap-2 p-3 cursor-pointer" onClick={() => setExpanded(!expanded)}>
+        <button {...attributes} {...listeners} className="p-1 text-gray-500 hover:text-gray-300 cursor-grab touch-none" onClick={(e) => e.stopPropagation()}>
+          <GripVertical size={14} />
+        </button>
+        <div className="text-sm font-bold text-gray-400 w-5 text-center">{index + 1}.</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium">
+            {block.name} | {formatDays(block.daysOfWeek, weekdays)} {block.startTime}–{block.endTime} | {block.isInterruptible ? t('calendar.interruptibleYes') : t('calendar.interruptibleNo')}
           </div>
-        )}
+          {(block.bufferBefore || block.bufferAfter) && (
+            <div className="text-xs text-gray-400 mt-0.5">
+              {block.bufferBefore && <span>{t('calendar.bufferBefore')}: {block.bufferBefore.minutes} min{block.bufferBefore.name ? ` (${block.bufferBefore.name})` : ""} </span>}
+              {block.bufferAfter && <span>{t('calendar.bufferAfter')}: {block.bufferAfter.minutes} min{block.bufferAfter.name ? ` (${block.bufferAfter.name})` : ""}</span>}
+            </div>
+          )}
+          {block.doNotDisturb?.enabled && (
+            <div className="text-xs text-purple-400 mt-0.5 flex items-center gap-1"><BellOff size={10} /> {t('calendar.dndActive')}</div>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {expanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
+          <button onClick={(e) => { e.stopPropagation(); onRemove(block.id); }} className="p-1 text-gray-500 hover:text-red-400">
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
-      <button onClick={() => onRemove(block.id)} className="p-1 text-gray-500 hover:text-red-400">
-        <Trash2 size={14} />
-      </button>
+
+      {/* Expanded edit form */}
+      {expanded && (
+        <div className="border-t border-gray-700/50 p-4 space-y-3">
+          {/* Name */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{t('calendar.blockName')}</label>
+            <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)}
+              placeholder={t('calendar.blockNamePlaceholder')} className={inputClass} />
+          </div>
+
+          {/* Weekday chips */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{t('calendar.days')}</label>
+            <div className="flex flex-wrap gap-1.5">
+              {weekdayIndices.map((i) => (
+                <button key={i} onClick={() => toggleEditDay(i)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                    editDays.includes(i) ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+                  }`}>
+                  {weekdays[i]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Time range */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.from')}</label>
+              <input type="time" value={editStart} onChange={(e) => setEditStart(e.target.value)} className={inputClass} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.to')}</label>
+              <input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className={inputClass} />
+            </div>
+          </div>
+
+          {/* Interruptible toggle */}
+          <div className="flex items-center justify-between">
+            <label className="text-sm text-gray-300">{t('calendar.interruptible')}</label>
+            <button onClick={() => setEditInterruptible(!editInterruptible)}
+              className={`w-10 h-6 rounded-full transition-colors relative ${editInterruptible ? "bg-blue-600" : "bg-gray-700"}`}>
+              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${editInterruptible ? "left-[18px]" : "left-0.5"}`} />
+            </button>
+          </div>
+
+          {/* Buffer before */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferBefore')} (min)</label>
+              <input type="number" min="0" value={editBufferBefore} onChange={(e) => setEditBufferBefore(e.target.value)}
+                placeholder="0" className={inputClass} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
+              <input type="text" value={editBufferBeforeName} onChange={(e) => setEditBufferBeforeName(e.target.value)}
+                placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
+            </div>
+          </div>
+
+          {/* Buffer after */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferAfter')} (min)</label>
+              <input type="number" min="0" value={editBufferAfter} onChange={(e) => setEditBufferAfter(e.target.value)}
+                placeholder="0" className={inputClass} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
+              <input type="text" value={editBufferAfterName} onChange={(e) => setEditBufferAfterName(e.target.value)}
+                placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
+            </div>
+          </div>
+
+          {/* Do Not Disturb — collapsible pill */}
+          <div className="rounded-xl border border-gray-700/50 overflow-hidden">
+            <button
+              onClick={() => { setShowDnd(!showDnd); if (!showDnd) setEditDnd(prev => ({ ...prev, enabled: true })); }}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors ${
+                showDnd ? "bg-purple-600/20 text-purple-300" : "bg-gray-800/50 text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                {showDnd ? <BellOff size={14} /> : <Bell size={14} />}
+                {t('calendar.dndLabel')} {showDnd ? t('calendar.dndActive') : t('calendar.dndOff')}
+              </span>
+              {showDnd ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {showDnd && (
+              <div className="px-3 pb-3 bg-gray-800/30">
+                <DndSettingsForm dnd={editDnd} onChange={setEditDnd} inputClass={inputClass} />
+              </div>
+            )}
+          </div>
+
+          {/* Save button */}
+          <button onClick={saveEdit}
+            disabled={!editName.trim() || editDays.length === 0}
+            className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold transition-colors flex items-center justify-center gap-2">
+            <Save size={14} /> {t('common.save')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -2423,6 +2641,8 @@ function TimeBlockEditor({
   const [addBufferBeforeName, setAddBufferBeforeName] = useState("");
   const [addBufferAfter, setAddBufferAfter] = useState("");
   const [addBufferAfterName, setAddBufferAfterName] = useState("");
+  const [addDnd, setAddDnd] = useState<DoNotDisturbSettings>({ enabled: false, allowedMessagers: [], allowedCallers: [], notificationMode: 'silent' });
+  const [addShowDnd, setAddShowDnd] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -2446,11 +2666,18 @@ function TimeBlockEditor({
       priority: editing.length,
       bufferBefore: addBufferBefore ? { minutes: parseInt(addBufferBefore), name: addBufferBeforeName.trim() || undefined } : undefined,
       bufferAfter: addBufferAfter ? { minutes: parseInt(addBufferAfter), name: addBufferAfterName.trim() || undefined } : undefined,
+      doNotDisturb: addShowDnd ? { ...addDnd, enabled: true } : undefined,
     };
     setEditing([...editing, newBlock]);
     setAddName(""); setAddDays([]); setAddStart("09:00"); setAddEnd("17:00");
     setAddInterruptible(false); setAddBufferBefore(""); setAddBufferBeforeName("");
     setAddBufferAfter(""); setAddBufferAfterName("");
+    setAddDnd({ enabled: false, allowedMessagers: [], allowedCallers: [], notificationMode: 'silent' });
+    setAddShowDnd(false);
+  };
+
+  const updateBlock = (updated: TimeBlock) => {
+    setEditing(editing.map((b) => b.id === updated.id ? updated : b));
   };
 
   const removeBlock = (id: string) => {
@@ -2499,7 +2726,7 @@ function TimeBlockEditor({
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={editing.map((b) => b.id)} strategy={verticalListSortingStrategy}>
               {editing.map((b, i) => (
-                <SortableBlockItem key={b.id} block={b} index={i} weekdays={WEEKDAYS_SHORT} onRemove={removeBlock} />
+                <SortableBlockItem key={b.id} block={b} index={i} weekdays={WEEKDAYS_SHORT} weekdayIndices={WEEKDAY_INDICES} onRemove={removeBlock} onUpdate={updateBlock} inputClass={inputClass} />
               ))}
             </SortableContext>
           </DndContext>
@@ -2582,6 +2809,27 @@ function TimeBlockEditor({
               <input type="text" value={addBufferAfterName} onChange={(e) => setAddBufferAfterName(e.target.value)}
                 placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
             </div>
+          </div>
+
+          {/* Do Not Disturb — collapsible pill for new block */}
+          <div className="rounded-xl border border-gray-700/50 overflow-hidden">
+            <button
+              onClick={() => { setAddShowDnd(!addShowDnd); if (!addShowDnd) setAddDnd(prev => ({ ...prev, enabled: true })); }}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors ${
+                addShowDnd ? "bg-purple-600/20 text-purple-300" : "bg-gray-800/50 text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                {addShowDnd ? <BellOff size={14} /> : <Bell size={14} />}
+                {t('calendar.dndLabel')} {addShowDnd ? t('calendar.dndActive') : t('calendar.dndOff')}
+              </span>
+              {addShowDnd ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {addShowDnd && (
+              <div className="px-3 pb-3 bg-gray-800/30">
+                <DndSettingsForm dnd={addDnd} onChange={setAddDnd} inputClass={inputClass} />
+              </div>
+            )}
           </div>
 
           <button onClick={addBlock}

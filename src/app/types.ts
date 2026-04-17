@@ -146,6 +146,15 @@ export interface TimeBlockBuffer {
   name?: string;      // optionaler Name (z.B. "Weg zur Arbeit")
 }
 
+export type DndNotificationMode = 'silent' | 'vibration' | 'normal';
+
+export interface DoNotDisturbSettings {
+  enabled: boolean;
+  allowedMessagers: string[];   // Kontakt-IDs die anschreiben dürfen
+  allowedCallers: string[];     // Kontakt-IDs die anrufen dürfen
+  notificationMode: DndNotificationMode; // Stumm / Vibration / Normal
+}
+
 export interface TimeBlock {
   id: string;
   name: string;             // Freier Name (z.B. "Arbeit", "Pilates")
@@ -156,6 +165,7 @@ export interface TimeBlock {
   priority: number;         // Sortier-Reihenfolge (niedriger = höhere Priorität)
   bufferBefore?: TimeBlockBuffer;
   bufferAfter?: TimeBlockBuffer;
+  doNotDisturb?: DoNotDisturbSettings;
   // Legacy support
   type?: TimeBlockType;
   dayOfWeek?: number;
