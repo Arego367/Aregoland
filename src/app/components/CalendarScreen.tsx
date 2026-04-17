@@ -91,16 +91,6 @@ function getMonthGrid(year: number, month: number): (Date | null)[][] {
   return rows;
 }
 
-function getWeekDates(d: Date): Date[] {
-  const mon = new Date(d);
-  mon.setDate(mon.getDate() - weekdayMon(mon));
-  return Array.from({ length: 7 }, (_, i) => {
-    const day = new Date(mon);
-    day.setDate(mon.getDate() + i);
-    return day;
-  });
-}
-
 function durationMinutes(dur: CalendarEvent["duration"]): number {
   switch (dur) {
     case "15min": return 15;
@@ -123,25 +113,6 @@ function generateId(): string {
 
 const MIN_ROW_PX = 24;
 const MAX_ROW_PX = 47;
-
-// WeekView all-day chip strip — heights derived from the rendered layout
-// (`pt-0.5 space-y-0.5` + `text-[9px] py-0.5` chips, optional "+N" overflow).
-// Used to reserve identical chip-area space in every column so row separators
-// stay aligned across the week, and to subtract from the available row-stack
-// height when computing the per-column row plan.
-const WEEK_ALLDAY_TOP_PAD_PX = 2;
-const WEEK_ALLDAY_CHIP_PX = 24;
-const WEEK_ALLDAY_GAP_PX = 2;
-const WEEK_ALLDAY_OVERFLOW_PX = 14;
-const WEEK_ALLDAY_MAX_VISIBLE = 2;
-
-function computeWeekAllDayHeight(count: number): number {
-  if (count <= 0) return 0;
-  const visible = Math.min(WEEK_ALLDAY_MAX_VISIBLE, count);
-  let h = WEEK_ALLDAY_TOP_PAD_PX + visible * WEEK_ALLDAY_CHIP_PX + Math.max(0, visible - 1) * WEEK_ALLDAY_GAP_PX;
-  if (count > WEEK_ALLDAY_MAX_VISIBLE) h += WEEK_ALLDAY_GAP_PX + WEEK_ALLDAY_OVERFLOW_PX;
-  return h;
-}
 
 function toMinutes(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -420,6 +391,63 @@ function saveTimeBlocks(blocks: TimeBlock[]) {
 
 const TIME_BLOCK_COLOR = "bg-blue-500/10 border-blue-500/20";
 
+// ── Days-View Config Persistence ────────────────────────────────────────────
+
+const DAYS_CONFIG_KEY = "arego_calendar_days_config";
+
+interface DaysConfig {
+  count: number;          // 2–5
+  selectedDays: number[]; // 0=Mo … 6=So (subset)
+}
+
+const DEFAULT_DAYS_CONFIG: DaysConfig = { count: 3, selectedDays: [0, 1, 2, 3, 4, 5, 6] };
+
+function loadDaysConfig(): DaysConfig {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DAYS_CONFIG_KEY) ?? "null");
+    if (raw && typeof raw.count === "number" && Array.isArray(raw.selectedDays)) {
+      return {
+        count: Math.max(2, Math.min(5, raw.count)),
+        selectedDays: raw.selectedDays.length > 0 ? raw.selectedDays : [0],
+      };
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_DAYS_CONFIG;
+}
+
+function saveDaysConfig(cfg: DaysConfig) {
+  localStorage.setItem(DAYS_CONFIG_KEY, JSON.stringify(cfg));
+}
+
+/** Compute the N next selected-weekday dates starting from `anchor`.
+ *  `selectedDays` uses Mon=0 convention. */
+function computeRollingDates(anchor: Date, count: number, selectedDays: number[]): Date[] {
+  if (selectedDays.length === 0) return [];
+  const set = new Set(selectedDays);
+  const dates: Date[] = [];
+  const d = new Date(anchor);
+  // If anchor day itself is not selected, still start searching from anchor
+  for (let safety = 0; dates.length < count && safety < 400; safety++) {
+    if (set.has(weekdayMon(d))) dates.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
+/** Compute N previous selected-weekday dates ending before `anchor` (reverse). */
+function computeRollingDatesBefore(anchor: Date, count: number, selectedDays: number[]): Date[] {
+  if (selectedDays.length === 0) return [];
+  const set = new Set(selectedDays);
+  const dates: Date[] = [];
+  const d = new Date(anchor);
+  d.setDate(d.getDate() - 1); // start before anchor
+  for (let safety = 0; dates.length < count && safety < 400; safety++) {
+    if (set.has(weekdayMon(d))) dates.push(new Date(d));
+    d.setDate(d.getDate() - 1);
+  }
+  return dates.reverse();
+}
+
 /** Format days array as compact string: Mo–Fr, Di, etc. */
 function formatDays(days: number[], weekdays: string[]): string {
   if (days.length === 0) return "";
@@ -503,7 +531,7 @@ function mapSpaceColor(spaceColor: string): string {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-type View = "month" | "week" | "day";
+type View = "month" | "days" | "day";
 
 interface CalendarScreenProps {
   onBack: () => void;
@@ -518,6 +546,8 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
   const [events, setEvents] = useState<CalendarEvent[]>(loadEvents);
   const [view, setView] = useState<View>("month");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [daysConfig, setDaysConfig] = useState<DaysConfig>(loadDaysConfig);
+  const [daysAnchor, setDaysAnchor] = useState<Date | null>(null); // null = rolling from today
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
@@ -578,20 +608,22 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
     const d = new Date(selectedDate);
     if (view === "month") {
       const start = new Date(d.getFullYear(), d.getMonth(), 1);
-      start.setDate(start.getDate() - 7); // pad for prev month overflow
+      start.setDate(start.getDate() - 7);
       const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-      end.setDate(end.getDate() + 7); // pad for next month overflow
+      end.setDate(end.getDate() + 7);
       return { start: toDateStr(start), end: toDateStr(end) };
-    } else if (view === "week") {
-      const mon = new Date(d);
-      mon.setDate(mon.getDate() - weekdayMon(mon));
-      const sun = new Date(mon);
-      sun.setDate(mon.getDate() + 6);
-      return { start: toDateStr(mon), end: toDateStr(sun) };
+    } else if (view === "days") {
+      // Pad generously: rolling days may span weeks when weekdays are skipped
+      const anchor = daysAnchor ?? new Date();
+      const start = new Date(anchor);
+      start.setDate(start.getDate() - 30);
+      const end = new Date(anchor);
+      end.setDate(end.getDate() + 60);
+      return { start: toDateStr(start), end: toDateStr(end) };
     } else {
       return { start: toDateStr(d), end: toDateStr(d) };
     }
-  }, [selectedDate, view]);
+  }, [selectedDate, view, daysAnchor, daysConfig]);
 
   const eventsMap = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
@@ -667,14 +699,38 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
     setDetailEvent(null);
   }, []);
 
-  const goToday = () => setSelectedDate(new Date());
+  const goToday = () => {
+    setSelectedDate(new Date());
+    setDaysAnchor(null); // reset to rolling mode
+  };
 
   const navigate = (dir: -1 | 1) => {
     const d = new Date(selectedDate);
-    if (view === "month") d.setMonth(d.getMonth() + dir);
-    else if (view === "week") d.setDate(d.getDate() + 7 * dir);
-    else d.setDate(d.getDate() + dir);
-    setSelectedDate(d);
+    if (view === "month") {
+      d.setMonth(d.getMonth() + dir);
+      setSelectedDate(d);
+    } else if (view === "days") {
+      // Compute current visible dates, then shift anchor
+      const anchor = daysAnchor ?? new Date();
+      if (dir === 1) {
+        // Forward: next batch starts after last visible date
+        const visible = computeRollingDates(anchor, daysConfig.count, daysConfig.selectedDays);
+        if (visible.length > 0) {
+          const next = new Date(visible[visible.length - 1]);
+          next.setDate(next.getDate() + 1);
+          setDaysAnchor(next);
+        }
+      } else {
+        // Backward: previous batch ends before current anchor
+        const prev = computeRollingDatesBefore(anchor, daysConfig.count, daysConfig.selectedDays);
+        if (prev.length > 0) {
+          setDaysAnchor(prev[0]);
+        }
+      }
+    } else {
+      d.setDate(d.getDate() + dir);
+      setSelectedDate(d);
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -825,7 +881,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
 
       {/* View Toggle */}
       <div className="px-4 pt-4 pb-2 flex gap-1 bg-gray-900">
-        {(["month", "week", "day"] as View[]).map((v) => (
+        {(["month", "days", "day"] as View[]).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -833,7 +889,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
               view === v ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
             }`}
           >
-            {v === "month" ? t('calendar.month') : v === "week" ? t('calendar.week') : t('calendar.day')}
+            {v === "month" ? t('calendar.month') : v === "days" ? t('calendar.days') : t('calendar.day')}
           </button>
         ))}
       </div>
@@ -846,10 +902,14 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         <span className="text-sm font-bold text-gray-200">
           {view === "month"
             ? `${MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`
-            : view === "week"
+            : view === "days"
             ? (() => {
-                const wk = getWeekDates(selectedDate);
-                return `${wk[0].getDate()}. ${MONTHS[wk[0].getMonth()].slice(0, 3)} - ${wk[6].getDate()}. ${MONTHS[wk[6].getMonth()].slice(0, 3)} ${wk[6].getFullYear()}`;
+                const anchor = daysAnchor ?? new Date();
+                const vis = computeRollingDates(anchor, daysConfig.count, daysConfig.selectedDays);
+                if (vis.length === 0) return "";
+                const first = vis[0];
+                const last = vis[vis.length - 1];
+                return `${first.getDate()}. ${MONTHS[first.getMonth()].slice(0, 3)} – ${last.getDate()}. ${MONTHS[last.getMonth()].slice(0, 3)} ${last.getFullYear()}`;
               })()
             : `${selectedDate.getDate()}. ${MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`}
         </span>
@@ -866,10 +926,12 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             onSelectEvent={setDetailEvent}
           />
         </div>
-      ) : view === "week" ? (
+      ) : view === "days" ? (
         <div className="flex-1 min-h-0 px-4 pb-4 flex flex-col">
-          <WeekView
-            date={selectedDate}
+          <DaysView
+            anchor={daysAnchor}
+            config={daysConfig}
+            onConfigChange={(cfg) => { setDaysConfig(cfg); saveDaysConfig(cfg); }}
             todayStr={todayStr}
             eventsMap={eventsMap}
             onSelectEvent={setDetailEvent}
@@ -996,92 +1058,155 @@ function MonthView({
   );
 }
 
-// ── Week View ────────────────────────────────────────────────────────────────
+// ── Days View (replaces old Week View) ──────────────────────────────────────
 
-function WeekView({
-  date, todayStr, eventsMap, onSelectEvent,
+function DaysView({
+  anchor, config, onConfigChange, todayStr, eventsMap, onSelectEvent,
 }: {
-  date: Date; todayStr: string;
+  anchor: Date | null;
+  config: DaysConfig;
+  onConfigChange: (cfg: DaysConfig) => void;
+  todayStr: string;
   eventsMap: Map<string, CalendarEvent[]>;
   onSelectEvent: (ev: CalendarEvent) => void;
 }) {
   const { t } = useTranslation();
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
-  const weekDates = useMemo(() => getWeekDates(date), [date]);
+  const WEEKDAYS_FULL = t('calendar.weekdaysFull', { returnObjects: true }) as string[];
+  const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
+  const [showDayPicker, setShowDayPicker] = useState(false);
 
-  const rowsAreaRef = useRef<HTMLDivElement>(null);
-  const height = useElementHeight(rowsAreaRef);
-
-  // Reserve identical all-day chip space in every column so row separators stay
-  // aligned across the week (ARE-225). The reservation is the max chip-strip
-  // height across all 7 days; columns with fewer chips render an empty spacer.
-  const perDay = weekDates.map((d) => {
-    const ds = toDateStr(d);
-    const dayEvs = eventsMap.get(ds) ?? [];
-    return {
-      ds,
-      allDay: dayEvs.filter((e) => e.duration === "allday"),
-      timed: dayEvs.filter((e) => e.duration !== "allday"),
-    };
-  });
-  const allDayReservation = perDay.reduce(
-    (max, day) => Math.max(max, computeWeekAllDayHeight(day.allDay.length)),
-    0
+  const visibleDates = useMemo(
+    () => computeRollingDates(anchor ?? new Date(), config.count, config.selectedDays),
+    [anchor, config.count, config.selectedDays],
   );
-  const stackHeight = Math.max(0, height - allDayReservation);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const containerHeight = useElementHeight(containerRef);
+
+  // Height per day section = total available / number of visible days
+  const sectionHeight = visibleDates.length > 0
+    ? Math.max(0, containerHeight / visibleDates.length)
+    : 0;
+
+  const toggleDay = (dayIdx: number) => {
+    const next = config.selectedDays.includes(dayIdx)
+      ? config.selectedDays.filter((d) => d !== dayIdx)
+      : [...config.selectedDays, dayIdx].sort((a, b) => a - b);
+    // At least one day must be selected
+    if (next.length > 0) onConfigChange({ ...config, selectedDays: next });
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Day headers */}
-      <div className="grid grid-cols-7 shrink-0">
-        {weekDates.map((d) => {
+      {/* Config bar */}
+      <div className="shrink-0 flex items-center gap-2 pb-2 flex-wrap">
+        {/* Dropdown 1: How many days */}
+        <select
+          value={config.count}
+          onChange={(e) => onConfigChange({ ...config, count: Number(e.target.value) })}
+          className="bg-gray-800 text-gray-200 text-xs font-bold rounded-lg px-2 py-1.5 border border-gray-700 focus:outline-none focus:border-blue-500"
+        >
+          {[2, 3, 4, 5].map((n) => (
+            <option key={n} value={n}>{n} {t('calendar.days')}</option>
+          ))}
+        </select>
+
+        {/* Dropdown 2: Which weekdays (multi-select toggle) */}
+        <div className="relative">
+          <button
+            onClick={() => setShowDayPicker(!showDayPicker)}
+            className="bg-gray-800 text-gray-200 text-xs font-bold rounded-lg px-2 py-1.5 border border-gray-700 hover:border-gray-600 transition-colors"
+          >
+            {config.selectedDays.length === 7
+              ? t('calendar.daysWhich')
+              : config.selectedDays.map((d) => WEEKDAYS_SHORT[d]).join(", ")}
+          </button>
+          {showDayPicker && (
+            <div className="absolute top-full left-0 mt-1 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 p-2 z-50 min-w-[180px]">
+              {WEEKDAYS_FULL.map((name, i) => (
+                <button
+                  key={i}
+                  onClick={() => toggleDay(i)}
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    config.selectedDays.includes(i)
+                      ? "bg-blue-600/20 text-blue-400"
+                      : "text-gray-400 hover:text-white hover:bg-gray-700"
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                    config.selectedDays.includes(i) ? "bg-blue-600 border-blue-600" : "border-gray-600"
+                  }`}>
+                    {config.selectedDays.includes(i) && <span className="text-white text-[10px] font-bold">✓</span>}
+                  </div>
+                  {name}
+                </button>
+              ))}
+              <button
+                onClick={() => setShowDayPicker(false)}
+                className="w-full mt-1 py-1.5 text-[11px] font-bold text-gray-500 hover:text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Stacked day sections */}
+      <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        {visibleDates.map((d) => {
           const ds = toDateStr(d);
           const isToday = ds === todayStr;
+          const dayEvs = eventsMap.get(ds) ?? [];
+          const allDay = dayEvs.filter((e) => e.duration === "allday");
+          const timed = dayEvs.filter((e) => e.duration !== "allday").sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+          // Reserve some height for the header + all-day chips
+          const headerH = 28; // date header
+          const allDayH = allDay.length > 0 ? allDay.length * 28 + 4 : 0;
+          const stackH = Math.max(0, sectionHeight - headerH - allDayH);
+
           return (
-            <div key={ds} className={`text-center py-1 ${isToday ? "text-blue-400" : "text-gray-400"}`}>
-              <div className="text-[10px] font-bold">{WEEKDAYS_SHORT[weekdayMon(d)]}</div>
-              <div className={`text-sm font-bold w-7 h-7 mx-auto flex items-center justify-center rounded-full ${isToday ? "bg-blue-600 text-white" : ""}`}>
-                {d.getDate()}
+            <div
+              key={ds}
+              className="shrink-0 flex flex-col border-b border-gray-800/60 last:border-b-0 overflow-hidden"
+              style={{ height: sectionHeight }}
+            >
+              {/* Date header */}
+              <div className={`shrink-0 flex items-center gap-2 px-1 py-0.5 ${isToday ? "text-blue-400" : "text-gray-400"}`}>
+                <span className={`text-xs font-bold ${isToday ? "bg-blue-600 text-white px-1.5 py-0.5 rounded-full" : ""}`}>
+                  {WEEKDAYS_SHORT[weekdayMon(d)]}, {d.getDate()}. {MONTHS[d.getMonth()].slice(0, 3)}
+                </span>
+              </div>
+
+              {/* All-day events */}
+              {allDay.length > 0 && (
+                <div className="shrink-0 px-1 space-y-0.5">
+                  {allDay.map((ev) => (
+                    <button
+                      key={ev.id}
+                      onClick={() => onSelectEvent(ev)}
+                      className={`w-full text-left px-2 py-1 rounded text-xs font-semibold text-white truncate ${getColor(ev.color).bg}`}
+                    >
+                      {ev.title}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Timed events row stack */}
+              <div className="flex-1 min-h-0">
+                <DayRowStack
+                  events={timed}
+                  onSelectEvent={onSelectEvent}
+                  height={stackH}
+                  freeLabel={t('calendar.free')}
+                />
               </div>
             </div>
           );
         })}
-      </div>
-
-      {/* Per-day row stacks — same row algorithm per column */}
-      <div ref={rowsAreaRef} className="grid grid-cols-7 flex-1 min-h-0 gap-px">
-        {perDay.map(({ ds, allDay, timed }) => (
-          <div key={ds} className="flex flex-col min-h-0 border-l border-gray-800/40 first:border-l-0">
-            {allDayReservation > 0 && (
-              <div
-                className="shrink-0 px-0.5 pt-0.5 space-y-0.5 overflow-hidden"
-                style={{ height: allDayReservation }}
-              >
-                {allDay.slice(0, WEEK_ALLDAY_MAX_VISIBLE).map((ev) => (
-                  <button
-                    key={ev.id}
-                    onClick={() => onSelectEvent(ev)}
-                    className={`w-full text-left px-1.5 py-0.5 rounded text-[9px] font-semibold text-white truncate ${getColor(ev.color).bg}`}
-                  >
-                    {ev.title}
-                  </button>
-                ))}
-                {allDay.length > WEEK_ALLDAY_MAX_VISIBLE && (
-                  <div className="text-[9px] text-gray-500 text-center">+{allDay.length - WEEK_ALLDAY_MAX_VISIBLE}</div>
-                )}
-              </div>
-            )}
-            <div className="flex-1 min-h-0">
-              <DayRowStack
-                events={timed}
-                onSelectEvent={onSelectEvent}
-                height={stackHeight}
-                freeLabel={t('calendar.free')}
-                density="compact"
-              />
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );

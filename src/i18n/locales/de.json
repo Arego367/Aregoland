@@ -618,7 +618,10 @@
     "from": "Von",
     "to": "Bis",
     "free": "frei",
-    "noEvents": "Keine Termine"
+    "noEvents": "Keine Termine",
+    "daysCount": "Wie viele Tage?",
+    "daysWhich": "Welche Tage?",
+    "weekdaysFull": ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
   },
   "call": {
     "micOn": "Mikrofon an",

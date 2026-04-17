@@ -470,7 +470,10 @@
     "from": "From",
     "to": "To",
     "free": "free",
-    "noEvents": "No events"
+    "noEvents": "No events",
+    "daysCount": "How many days?",
+    "daysWhich": "Which days?",
+    "weekdaysFull": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
   },
   "call": {
     "micOn": "Microphone on",
