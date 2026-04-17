@@ -396,7 +396,7 @@ const TIME_BLOCK_COLOR = "bg-blue-500/10 border-blue-500/20";
 const DAYS_CONFIG_KEY = "arego_calendar_days_config";
 
 interface DaysConfig {
-  count: number;          // 2–5
+  count: number;          // 1–5
   selectedDays: number[]; // 0=Mo … 6=So (subset)
 }
 
@@ -407,7 +407,7 @@ function loadDaysConfig(): DaysConfig {
     const raw = JSON.parse(localStorage.getItem(DAYS_CONFIG_KEY) ?? "null");
     if (raw && typeof raw.count === "number" && Array.isArray(raw.selectedDays)) {
       return {
-        count: Math.max(2, Math.min(5, raw.count)),
+        count: Math.max(1, Math.min(5, raw.count)),
         selectedDays: raw.selectedDays.length > 0 ? raw.selectedDays : [0],
       };
     }
@@ -531,7 +531,7 @@ function mapSpaceColor(spaceColor: string): string {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-type View = "month" | "days" | "day";
+type View = "month" | "days";
 
 interface CalendarScreenProps {
   onBack: () => void;
@@ -545,6 +545,13 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
   const { t } = useTranslation();
   const [events, setEvents] = useState<CalendarEvent[]>(loadEvents);
   const [view, setView] = useState<View>("month");
+  const switchToDayView = (d: Date) => {
+    const cfg: DaysConfig = { ...daysConfig, count: 1 };
+    setDaysConfig(cfg);
+    saveDaysConfig(cfg);
+    setDaysAnchor(d);
+    setView("days");
+  };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [daysConfig, setDaysConfig] = useState<DaysConfig>(loadDaysConfig);
   const [daysAnchor, setDaysAnchor] = useState<Date | null>(null); // null = rolling from today
@@ -709,11 +716,10 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
     if (view === "month") {
       d.setMonth(d.getMonth() + dir);
       setSelectedDate(d);
-    } else if (view === "days") {
-      // Compute current visible dates, then shift anchor
+    } else {
+      // days view (including count=1)
       const anchor = daysAnchor ?? new Date();
       if (dir === 1) {
-        // Forward: next batch starts after last visible date
         const visible = computeRollingDates(anchor, daysConfig.count, daysConfig.selectedDays);
         if (visible.length > 0) {
           const next = new Date(visible[visible.length - 1]);
@@ -721,15 +727,11 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
           setDaysAnchor(next);
         }
       } else {
-        // Backward: previous batch ends before current anchor
         const prev = computeRollingDatesBefore(anchor, daysConfig.count, daysConfig.selectedDays);
         if (prev.length > 0) {
           setDaysAnchor(prev[0]);
         }
       }
-    } else {
-      d.setDate(d.getDate() + dir);
-      setSelectedDate(d);
     }
   };
 
@@ -826,7 +828,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
                       <button key={ev.id}
                         onClick={() => {
                           setSelectedDate(new Date(y, m - 1, d));
-                          setView("day");
+                          switchToDayView(new Date(y, m - 1, d));
                           setCalSearchOpen(false);
                           setCalSearchQuery("");
                         }}
@@ -881,7 +883,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
 
       {/* View Toggle */}
       <div className="px-4 pt-4 pb-2 flex gap-1 bg-gray-900">
-        {(["month", "days", "day"] as View[]).map((v) => (
+        {(["month", "days"] as View[]).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -889,7 +891,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
               view === v ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
             }`}
           >
-            {v === "month" ? t('calendar.month') : v === "days" ? t('calendar.days') : t('calendar.day')}
+            {v === "month" ? t('calendar.month') : t('calendar.days')}
           </button>
         ))}
       </div>
@@ -902,16 +904,15 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         <span className="text-sm font-bold text-gray-200">
           {view === "month"
             ? `${MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`
-            : view === "days"
-            ? (() => {
+            : (() => {
                 const anchor = daysAnchor ?? new Date();
                 const vis = computeRollingDates(anchor, daysConfig.count, daysConfig.selectedDays);
                 if (vis.length === 0) return "";
                 const first = vis[0];
+                if (daysConfig.count === 1) return `${first.getDate()}. ${MONTHS[first.getMonth()]} ${first.getFullYear()}`;
                 const last = vis[vis.length - 1];
                 return `${first.getDate()}. ${MONTHS[first.getMonth()].slice(0, 3)} – ${last.getDate()}. ${MONTHS[last.getMonth()].slice(0, 3)} ${last.getFullYear()}`;
-              })()
-            : `${selectedDate.getDate()}. ${MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`}
+              })()}
         </span>
         <button onClick={() => navigate(1)} className="p-2 rounded-full hover:bg-gray-800">
           <ChevronRight size={20} />
@@ -919,14 +920,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
       </div>
 
       {/* Content */}
-      {view === "day" ? (
-        <div className="flex-1 min-h-0 px-4 pb-4 flex flex-col">
-          <DayView
-            events={eventsMap.get(toDateStr(selectedDate)) ?? []}
-            onSelectEvent={setDetailEvent}
-          />
-        </div>
-      ) : view === "days" ? (
+      {view === "days" ? (
         <div className="flex-1 min-h-0 px-4 pb-4 flex flex-col">
           <DaysView
             anchor={daysAnchor}
@@ -943,7 +937,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             date={selectedDate}
             todayStr={todayStr}
             eventsMap={eventsMap}
-            onSelectDate={(d) => { setSelectedDate(d); setView("day"); }}
+            onSelectDate={(d) => switchToDayView(d)}
           />
         </div>
       )}
@@ -1102,12 +1096,14 @@ function DaysView({
           onChange={(e) => onConfigChange({ ...config, count: Number(e.target.value) })}
           className="bg-gray-800 text-gray-200 text-xs font-bold rounded-lg px-2 py-1.5 border border-gray-700 focus:outline-none focus:border-blue-500"
         >
+          <option value={1}>1 {t('calendar.day')}</option>
           {[2, 3, 4, 5].map((n) => (
             <option key={n} value={n}>{n} {t('calendar.days')}</option>
           ))}
         </select>
 
-        {/* Dropdown 2: Which weekdays (multi-select toggle) */}
+        {/* Dropdown 2: Which weekdays (multi-select toggle) — hidden for 1-day view */}
+        {config.count > 1 && (
         <div className="relative">
           <button
             onClick={() => setShowDayPicker(!showDayPicker)}
@@ -1146,6 +1142,7 @@ function DaysView({
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Horizontal column layout */}
@@ -1212,58 +1209,12 @@ function DaysView({
                   onSelectEvent={onSelectEvent}
                   height={stackH}
                   freeLabel={t('calendar.free')}
-                  density="compact"
+                  density={config.count === 1 ? "normal" : "compact"}
                 />
               </div>
             );
           })}
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Day View ─────────────────────────────────────────────────────────────────
-
-function DayView({
-  events, onSelectEvent,
-}: {
-  events: CalendarEvent[];
-  onSelectEvent: (ev: CalendarEvent) => void;
-}) {
-  const { t } = useTranslation();
-  const allDay = events.filter((e) => e.duration === "allday");
-  const timed = useMemo(
-    () => events.filter((e) => e.duration !== "allday").sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    [events]
-  );
-
-  const rowsAreaRef = useRef<HTMLDivElement>(null);
-  const height = useElementHeight(rowsAreaRef);
-
-  return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      {allDay.length > 0 && (
-        <div className="mb-2 space-y-1 shrink-0">
-          {allDay.map((ev) => (
-            <button
-              key={ev.id}
-              onClick={() => onSelectEvent(ev)}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-white ${getColor(ev.color).bg}`}
-            >
-              {ev.title}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div ref={rowsAreaRef} className="flex-1 min-h-0">
-        <DayRowStack
-          events={timed}
-          onSelectEvent={onSelectEvent}
-          height={height}
-          freeLabel={t('calendar.free')}
-        />
       </div>
     </div>
   );
