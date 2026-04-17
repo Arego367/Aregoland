@@ -449,7 +449,8 @@
     "blockBuffer": "Buffer",
     "blockAvailable": "Available",
     "from": "From",
-    "to": "To"
+    "to": "To",
+    "selectYear": "Pasirinkite metus"
   },
   "call": {
     "micOn": "Mikrofonas įjungtas",

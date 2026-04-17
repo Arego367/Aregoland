@@ -448,7 +448,8 @@
     "blockBuffer": "Buffer",
     "blockAvailable": "Disponible",
     "from": "Desde",
-    "to": "Hasta"
+    "to": "Hasta",
+    "selectYear": "Seleccionar año"
   },
   "call": {
     "micOn": "Micrófono activado",

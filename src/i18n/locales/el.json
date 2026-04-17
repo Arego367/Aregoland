@@ -448,7 +448,8 @@
     "blockBuffer": "Buffer",
     "blockAvailable": "Available",
     "from": "From",
-    "to": "To"
+    "to": "To",
+    "selectYear": "Επιλέξτε έτος"
   },
   "call": {
     "micOn": "Μικρόφωνο ενεργό",

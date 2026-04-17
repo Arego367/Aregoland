@@ -463,7 +463,7 @@ function loadDaysConfig(): DaysConfig {
     const raw = JSON.parse(localStorage.getItem(DAYS_CONFIG_KEY) ?? "null");
     if (raw && typeof raw.count === "number" && Array.isArray(raw.selectedDays)) {
       return {
-        count: Math.max(1, Math.min(7, raw.count)),
+        count: Math.max(1, Math.min(5, raw.count)),
         selectedDays: raw.selectedDays.length > 0 ? raw.selectedDays : [0],
       };
     }
@@ -624,12 +624,24 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>(loadTimeBlocks);
   const [showBlockEditor, setShowBlockEditor] = useState(false);
   const [showDaysTabMenu, setShowDaysTabMenu] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const yearPickerRef = useRef<HTMLDivElement>(null);
   const MONTHS = t('calendar.months', { returnObjects: true }) as string[];
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
   const WEEKDAYS_FULL = t('calendar.weekdaysFull', { returnObjects: true }) as string[];
 
   // Persist
   useEffect(() => { saveEvents(events); }, [events]);
+
+  // Auto-scroll year picker to selected year
+  useEffect(() => {
+    if (showYearPicker && yearPickerRef.current) {
+      const selectedBtn = yearPickerRef.current.querySelector('[data-selected-year="true"]');
+      if (selectedBtn) {
+        selectedBtn.scrollIntoView({ block: "center", behavior: "instant" });
+      }
+    }
+  }, [showYearPicker]);
 
   // Sync layers with available spaces
   const spaceEvents = useMemo(() => loadSpaceEvents(), [events]); // re-derive when events change (forces refresh)
@@ -944,7 +956,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
       <div className="px-4 pt-4 pb-2 flex items-center gap-1 bg-gray-900">
         {/* Monat tab */}
         <button
-          onClick={() => { setView("month"); setShowDaysTabMenu(false); }}
+          onClick={() => { setView("month"); setShowDaysTabMenu(false); setShowYearPicker(false); }}
           className={`py-1.5 px-3 text-xs font-bold rounded-full transition-colors ${
             view === "month" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
           }`}
@@ -977,7 +989,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
               {/* Day count selection */}
               <div className="text-[10px] font-bold text-gray-500 uppercase px-2 pb-1">{t('calendar.daysCount')}</div>
               <div className="flex flex-wrap gap-1 px-1 pb-2">
-                {[1, 2, 3, 4, 5, 7].map((n) => (
+                {[1, 2, 3, 4, 5].map((n) => (
                   <button
                     key={n}
                     onClick={() => {
@@ -1050,7 +1062,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
         </button>
         <span className="text-sm font-bold text-gray-200 whitespace-nowrap">
           {view === "month"
-            ? `${MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`
+            ? <>{MONTHS[selectedDate.getMonth()]} <button onClick={() => setShowYearPicker(!showYearPicker)} className="inline text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors">{selectedDate.getFullYear()}</button></>
             : (() => {
                 const a = daysAnchor ?? new Date();
                 const vis = computeRollingDates(a, daysConfig.count, daysConfig.selectedDays);
@@ -1063,6 +1075,51 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
           <ChevronRight size={18} />
         </button>
       </div>
+
+      {/* Year Picker Grid */}
+      {showYearPicker && view === "month" && (() => {
+        const currentYear = new Date().getFullYear();
+        const selectedYear = selectedDate.getFullYear();
+        const startYear = currentYear - 50;
+        const endYear = currentYear + 20;
+        const years: number[] = [];
+        for (let y = startYear; y <= endYear; y++) years.push(y);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowYearPicker(false)}>
+            <div
+              ref={yearPickerRef}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl p-4 max-h-[60vh] w-[280px] overflow-y-auto"
+            >
+              <div className="text-xs font-bold text-gray-400 uppercase mb-3 text-center">{t('calendar.selectYear', 'Jahr wählen')}</div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {years.map((y) => (
+                  <button
+                    key={y}
+                    data-selected-year={y === selectedYear ? "true" : undefined}
+                    onClick={() => {
+                      const newDate = y === currentYear
+                        ? new Date(y, new Date().getMonth(), 1)
+                        : new Date(y, 0, 1);
+                      setSelectedDate(newDate);
+                      setShowYearPicker(false);
+                    }}
+                    className={`py-2 px-1 rounded-lg text-xs font-bold transition-colors ${
+                      y === selectedYear
+                        ? "bg-blue-600 text-white"
+                        : y === currentYear
+                          ? "bg-gray-700 text-blue-400 ring-1 ring-blue-500"
+                          : "bg-gray-700/50 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    {y}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Content */}
       {view === "days" ? (

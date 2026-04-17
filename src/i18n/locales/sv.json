@@ -448,7 +448,8 @@
     "blockBuffer": "Buffer",
     "blockAvailable": "Available",
     "from": "From",
-    "to": "To"
+    "to": "To",
+    "selectYear": "Välj år"
   },
   "call": {
     "micOn": "Mikrofon på",

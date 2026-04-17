@@ -448,7 +448,8 @@
     "blockBuffer": "Tampon",
     "blockAvailable": "Disponible",
     "from": "De",
-    "to": "À"
+    "to": "À",
+    "selectYear": "Choisir l'année"
   },
   "call": {
     "micOn": "Micro activé",

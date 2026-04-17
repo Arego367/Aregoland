@@ -491,7 +491,8 @@
     "noLabel": "No Label",
     "saveAsDefault": "Save as Default",
     "defaultsSaved": "Defaults saved",
-    "customRecurrenceValue": "Every {{value}} {{unit}}"
+    "customRecurrenceValue": "Every {{value}} {{unit}}",
+    "selectYear": "Select year"
   },
   "call": {
     "micOn": "Microphone on",

@@ -639,7 +639,8 @@
     "noLabel": "Kein Label",
     "saveAsDefault": "Als Standard speichern",
     "defaultsSaved": "Standardwerte gespeichert",
-    "customRecurrenceValue": "Alle {{value}} {{unit}}"
+    "customRecurrenceValue": "Alle {{value}} {{unit}}",
+    "selectYear": "Jahr wählen"
   },
   "call": {
     "micOn": "Mikrofon an",
