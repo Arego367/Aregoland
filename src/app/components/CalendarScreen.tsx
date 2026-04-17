@@ -284,6 +284,7 @@ function useElementHeight<T extends HTMLElement>(
 interface DayRowStackProps {
   events: CalendarEvent[];
   onSelectEvent: (ev: CalendarEvent) => void;
+  onClickFreeSlot?: (startMin: number, endMin: number) => void;
   height: number;
   freeLabel: string;
   density?: "normal" | "compact";
@@ -292,6 +293,7 @@ interface DayRowStackProps {
 function DayRowStack({
   events,
   onSelectEvent,
+  onClickFreeSlot,
   height,
   freeLabel,
   density = "normal",
@@ -308,15 +310,16 @@ function DayRowStack({
       {plan.rows.map((row, i) => {
         if (row.kind === "free") {
           return (
-            <div
+            <button
               key={i}
-              className={`flex items-center ${compact ? "px-1.5" : "px-3"} border-t border-gray-800/40 text-gray-500 italic overflow-hidden`}
+              onClick={() => onClickFreeSlot?.(row.startMin, row.endMin)}
+              className={`flex items-center ${compact ? "px-1.5" : "px-3"} border-t border-gray-800/40 text-gray-500 italic overflow-hidden text-left hover:bg-gray-800/40 transition-colors cursor-pointer`}
               style={{ fontSize: compact ? "10px" : "11px", lineHeight: 1 }}
             >
               <span className="truncate">
                 {formatMinuteOfDay(row.startMin)} – {formatMinuteOfDay(row.endMin)} · {freeLabel}
               </span>
-            </div>
+            </button>
           );
         }
         const ev = row.event;
@@ -557,6 +560,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
   const [daysAnchor, setDaysAnchor] = useState<Date | null>(null); // null = rolling from today
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [formDefaultStartTime, setFormDefaultStartTime] = useState<string | undefined>(undefined);
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
   const [calSearchOpen, setCalSearchOpen] = useState(false);
   const [calSearchQuery, setCalSearchQuery] = useState("");
@@ -761,7 +765,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
                 align="center"
               >
                 <DropdownMenu.Item
-                  onClick={() => { setEditingEvent(null); setShowForm(true); }}
+                  onClick={() => { setEditingEvent(null); setFormDefaultStartTime(undefined); setShowForm(true); }}
                   className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
                 >
                   <CalendarPlus size={18} />
@@ -929,6 +933,14 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             todayStr={todayStr}
             eventsMap={eventsMap}
             onSelectEvent={setDetailEvent}
+            onClickFreeSlot={(dateStr, startMin) => {
+              const hour = Math.floor(startMin / 60);
+              const roundedTime = `${String(hour).padStart(2, "0")}:00`;
+              setSelectedDate(new Date(dateStr + "T00:00:00"));
+              setFormDefaultStartTime(roundedTime);
+              setEditingEvent(null);
+              setShowForm(true);
+            }}
           />
         </div>
       ) : (
@@ -948,8 +960,9 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
           <EventFormModal
             initial={editingEvent}
             defaultDate={toDateStr(selectedDate)}
+            defaultStartTime={formDefaultStartTime}
             onSave={addOrUpdateEvent}
-            onClose={() => { setShowForm(false); setEditingEvent(null); }}
+            onClose={() => { setShowForm(false); setEditingEvent(null); setFormDefaultStartTime(undefined); }}
           />
         )}
       </AnimatePresence>
@@ -971,7 +984,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
           <EventDetailModal
             event={detailEvent}
             onClose={() => setDetailEvent(null)}
-            onEdit={() => { setEditingEvent(detailEvent); setDetailEvent(null); setShowForm(true); }}
+            onEdit={() => { setEditingEvent(detailEvent); setDetailEvent(null); setFormDefaultStartTime(undefined); setShowForm(true); }}
             onDelete={() => deleteEvent(detailEvent.id)}
             onRsvp={(eventId, status) => {
               updateRsvp(eventId, status);
@@ -1081,7 +1094,7 @@ function MonthView({
 // ── Days View (replaces old Week View) ──────────────────────────────────────
 
 function DaysView({
-  anchor, config, onConfigChange, todayStr, eventsMap, onSelectEvent,
+  anchor, config, onConfigChange, todayStr, eventsMap, onSelectEvent, onClickFreeSlot,
 }: {
   anchor: Date | null;
   config: DaysConfig;
@@ -1089,6 +1102,7 @@ function DaysView({
   todayStr: string;
   eventsMap: Map<string, CalendarEvent[]>;
   onSelectEvent: (ev: CalendarEvent) => void;
+  onClickFreeSlot?: (dateStr: string, startMin: number, endMin: number) => void;
 }) {
   const { t } = useTranslation();
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
@@ -1233,6 +1247,7 @@ function DaysView({
                 <DayRowStack
                   events={timed}
                   onSelectEvent={onSelectEvent}
+                  onClickFreeSlot={onClickFreeSlot ? (startMin, endMin) => onClickFreeSlot(ds, startMin, endMin) : undefined}
                   height={stackH}
                   freeLabel={t('calendar.free')}
                   density={config.count === 1 ? "normal" : "compact"}
@@ -1278,17 +1293,18 @@ function DayEventList({ events, label, onSelect }: { events: CalendarEvent[]; la
 // ── Event Form Modal ─────────────────────────────────────────────────────────
 
 function EventFormModal({
-  initial, defaultDate, onSave, onClose,
+  initial, defaultDate, defaultStartTime, onSave, onClose,
 }: {
   initial: CalendarEvent | null;
   defaultDate: string;
+  defaultStartTime?: string;
   onSave: (ev: CalendarEvent) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [date, setDate] = useState(initial?.date ?? defaultDate);
-  const [startTime, setStartTime] = useState(initial?.startTime ?? "09:00");
+  const [startTime, setStartTime] = useState(initial?.startTime ?? defaultStartTime ?? "09:00");
   const [duration, setDuration] = useState<CalendarEvent["duration"]>(initial?.duration ?? "1h");
   const [reminder, setReminder] = useState<CalendarEvent["reminder"]>(initial?.reminder ?? "10min");
   const [color, setColor] = useState(initial?.color ?? "blue");
