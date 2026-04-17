@@ -1084,11 +1084,6 @@ function DaysView({
   const containerRef = useRef<HTMLDivElement>(null);
   const containerHeight = useElementHeight(containerRef);
 
-  // Time axis hours (6–23 for a practical range)
-  const HOUR_START = 6;
-  const HOUR_END = 23;
-  const HOURS = useMemo(() => Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i), []);
-
   const toggleDay = (dayIdx: number) => {
     const next = config.selectedDays.includes(dayIdx)
       ? config.selectedDays.filter((d) => d !== dayIdx)
@@ -1157,8 +1152,6 @@ function DaysView({
       <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {/* Column headers row */}
         <div className="shrink-0 flex flex-row">
-          {/* Time axis header spacer */}
-          <div className="shrink-0 w-9" />
           {/* Day column headers */}
           {visibleDates.map((d) => {
             const ds = toDateStr(d);
@@ -1180,7 +1173,6 @@ function DaysView({
         {/* All-day row (if any day has all-day events) */}
         {visibleDates.some((d) => (eventsMap.get(toDateStr(d)) ?? []).some((e) => e.duration === "allday")) && (
           <div className="shrink-0 flex flex-row border-b border-gray-800/60">
-            <div className="shrink-0 w-9" />
             {visibleDates.map((d) => {
               const ds = toDateStr(d);
               const allDay = (eventsMap.get(ds) ?? []).filter((e) => e.duration === "allday");
@@ -1203,19 +1195,6 @@ function DaysView({
 
         {/* Time grid + day columns */}
         <div className="flex-1 min-h-0 flex flex-row overflow-y-auto">
-          {/* Fixed time axis */}
-          <div className="shrink-0 w-9 relative">
-            {HOURS.map((h) => (
-              <div
-                key={h}
-                className="absolute right-1 text-[9px] text-gray-500 leading-none -translate-y-1/2"
-                style={{ top: `${((h - HOUR_START) / (HOUR_END - HOUR_START + 1)) * 100}%` }}
-              >
-                {String(h).padStart(2, "0")}
-              </div>
-            ))}
-          </div>
-
           {/* Day columns with timed events */}
           {visibleDates.map((d) => {
             const ds = toDateStr(d);
