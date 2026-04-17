@@ -11,12 +11,13 @@ function parseDate(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
-function reminderOffsetMs(reminder: CalendarEvent["reminder"]): number {
+function reminderOffsetMs(reminder: CalendarEvent["reminder"], customMinutes?: number): number {
   switch (reminder) {
     case "10min": return 10 * 60_000;
     case "30min": return 30 * 60_000;
     case "1h": return 60 * 60_000;
     case "1day": return 24 * 60 * 60_000;
+    case "custom": return (customMinutes ?? 0) * 60_000;
     default: return 0;
   }
 }
@@ -41,7 +42,7 @@ export async function scheduleReminder(ev: CalendarEvent): Promise<void> {
   const [h, m] = ev.startTime.split(":").map(Number);
   const eventDate = parseDate(ev.date);
   eventDate.setHours(h, m, 0, 0);
-  const fireAt = eventDate.getTime() - reminderOffsetMs(ev.reminder);
+  const fireAt = eventDate.getTime() - reminderOffsetMs(ev.reminder, ev.customReminderMinutes);
 
   if (fireAt <= Date.now()) return; // Already past
 
@@ -175,7 +176,7 @@ function fallbackSchedule(ev: CalendarEvent): void {
   const [h, m] = ev.startTime.split(":").map(Number);
   const eventDate = parseDate(ev.date);
   eventDate.setHours(h, m, 0, 0);
-  const fireAt = eventDate.getTime() - reminderOffsetMs(ev.reminder);
+  const fireAt = eventDate.getTime() - reminderOffsetMs(ev.reminder, ev.customReminderMinutes);
   const delay = fireAt - Date.now();
   if (delay <= 0 || delay > 24 * 60 * 60_000) return;
   setTimeout(() => {

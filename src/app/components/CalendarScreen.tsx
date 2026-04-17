@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical, Settings } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, X, Trash2, Edit2, Clock, CalendarPlus, Search, Repeat, Layers, UserPlus, Check, XCircle, HelpCircle, Timer, GripVertical, Settings, ChevronDown, Tag, Save } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
-import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer } from "@/app/types";
+import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer, CalendarLabel, CalendarEventDefaults } from "@/app/types";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -27,6 +27,43 @@ function loadEvents(): CalendarEvent[] {
 
 function saveEvents(events: CalendarEvent[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+}
+
+// ── Labels Persistence ──────────────────────────────────────────────────────
+
+const LABELS_KEY = "arego_calendar_labels";
+
+function loadLabels(): CalendarLabel[] {
+  try {
+    const raw = localStorage.getItem(LABELS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveLabels(labels: CalendarLabel[]) {
+  localStorage.setItem(LABELS_KEY, JSON.stringify(labels));
+}
+
+// ── Event Defaults Persistence ──────────────────────────────────────────────
+
+const DEFAULTS_KEY = "arego_calendar_event_defaults";
+
+const INITIAL_DEFAULTS: CalendarEventDefaults = {
+  duration: "1h",
+  reminder: "10min",
+  recurrence: "none",
+  color: "blue",
+};
+
+function loadDefaults(): CalendarEventDefaults {
+  try {
+    const raw = localStorage.getItem(DEFAULTS_KEY);
+    return raw ? { ...INITIAL_DEFAULTS, ...JSON.parse(raw) } : INITIAL_DEFAULTS;
+  } catch { return INITIAL_DEFAULTS; }
+}
+
+function saveDefaults(defaults: CalendarEventDefaults) {
+  localStorage.setItem(DEFAULTS_KEY, JSON.stringify(defaults));
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -101,8 +138,23 @@ function durationMinutes(dur: CalendarEvent["duration"]): number {
   }
 }
 
-function getColor(id: string) {
+function getColor(id: string): { id: string; bg: string; dot: string; ring: string; hex?: string } {
+  if (id.startsWith("#")) {
+    return { id, bg: "", dot: "", ring: "", hex: id };
+  }
   return COLORS.find((c) => c.id === id) ?? COLORS[0];
+}
+
+/** Get inline style for hex colors or empty object for Tailwind colors */
+function colorStyle(id: string): React.CSSProperties {
+  if (id.startsWith("#")) return { backgroundColor: id };
+  return {};
+}
+
+/** Get CSS class for color - returns Tailwind class or empty string for hex */
+function colorBgClass(id: string): string {
+  if (id.startsWith("#")) return "";
+  return getColor(id).bg;
 }
 
 function generateId(): string {
@@ -331,7 +383,8 @@ function DayRowStack({
           <button
             key={i}
             onClick={() => onSelectEvent(ev)}
-            className={`flex items-center ${compact ? "px-1.5 gap-1" : "px-2 gap-2"} text-left text-white ${color.bg} ${cornerClass} overflow-hidden focus:outline-none focus:ring-2 focus:ring-white/40`}
+            className={`flex items-center ${compact ? "px-1.5 gap-1" : "px-2 gap-2"} text-left text-white ${colorBgClass(ev.color)} ${cornerClass} overflow-hidden focus:outline-none focus:ring-2 focus:ring-white/40`}
+            style={colorStyle(ev.color)}
           >
             {row.position === "top" || row.position === "only" ? (
               <>
@@ -1158,7 +1211,8 @@ function MonthView({
                   {visible.map((ev) => (
                     <div
                       key={ev.id}
-                      className={`${getColor(ev.color).bg} rounded px-1 py-1 truncate text-[11px] leading-none font-semibold text-white`}
+                      className={`${colorBgClass(ev.color)} rounded px-1 py-1 truncate text-[11px] leading-none font-semibold text-white`}
+                      style={colorStyle(ev.color)}
                     >
                       {ev.title}
                     </div>
@@ -1237,7 +1291,8 @@ function DaysView({
                     <button
                       key={ev.id}
                       onClick={() => onSelectEvent(ev)}
-                      className={`w-full text-left px-1.5 py-0.5 rounded text-[10px] font-semibold text-white truncate ${getColor(ev.color).bg} mb-0.5`}
+                      className={`w-full text-left px-1.5 py-0.5 rounded text-[10px] font-semibold text-white truncate ${colorBgClass(ev.color)} mb-0.5`}
+                      style={colorStyle(ev.color)}
                     >
                       {ev.title}
                     </button>
@@ -1294,7 +1349,7 @@ function DayEventList({ events, label, onSelect }: { events: CalendarEvent[]; la
             onClick={() => onSelect(ev)}
             className="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-800 hover:bg-gray-750 transition-colors text-left"
           >
-            <div className={`w-1 h-10 rounded-full ${getColor(ev.color).bg}`} />
+            <div className={`w-1 h-10 rounded-full ${colorBgClass(ev.color)}`} style={colorStyle(ev.color)} />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-100 truncate">{ev.title}</p>
               <p className="text-xs text-gray-400">
@@ -1304,6 +1359,161 @@ function DayEventList({ events, label, onSelect }: { events: CalendarEvent[]; la
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── Reminder unit helpers ────────────────────────────────────────────────────
+
+type ReminderUnit = 'minutes' | 'hours' | 'days' | 'weeks';
+
+function reminderUnitKey(unit: ReminderUnit): string {
+  return `calendar.unit${unit.charAt(0).toUpperCase()}${unit.slice(1)}`;
+}
+
+function toCustomReminderMinutes(value: number, unit: ReminderUnit): number {
+  switch (unit) {
+    case 'minutes': return value;
+    case 'hours': return value * 60;
+    case 'days': return value * 60 * 24;
+    case 'weeks': return value * 60 * 24 * 7;
+  }
+}
+
+function fromCustomReminderMinutes(minutes: number): { value: number; unit: ReminderUnit } {
+  if (minutes >= 10080 && minutes % 10080 === 0) return { value: minutes / 10080, unit: 'weeks' };
+  if (minutes >= 1440 && minutes % 1440 === 0) return { value: minutes / 1440, unit: 'days' };
+  if (minutes >= 60 && minutes % 60 === 0) return { value: minutes / 60, unit: 'hours' };
+  return { value: minutes, unit: 'minutes' };
+}
+
+// ── Recurrence unit helpers ─────────────────────────────────────────────────
+
+type RecurrenceUnit = 'days' | 'weeks' | 'months' | 'years';
+
+function recurrenceUnitToFreq(unit: RecurrenceUnit): RecurrenceFreq {
+  switch (unit) {
+    case 'days': return 'DAILY';
+    case 'weeks': return 'WEEKLY';
+    case 'months': return 'MONTHLY';
+    case 'years': return 'YEARLY';
+  }
+}
+
+function freqToRecurrenceUnit(freq: RecurrenceFreq): RecurrenceUnit {
+  switch (freq) {
+    case 'DAILY': return 'days';
+    case 'WEEKLY': return 'weeks';
+    case 'MONTHLY': return 'months';
+    case 'YEARLY': return 'years';
+  }
+}
+
+function recurrenceUnitKey(unit: RecurrenceUnit): string {
+  return `calendar.unit${unit.charAt(0).toUpperCase()}${unit.slice(1)}`;
+}
+
+// ── Reminder label helper ───────────────────────────────────────────────────
+
+function reminderSummary(
+  reminder: CalendarEvent["reminder"],
+  customMinutes: number | undefined,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  if (reminder === "custom" && customMinutes) {
+    const { value, unit } = fromCustomReminderMinutes(customMinutes);
+    return t('calendar.customReminderValue', { value, unit: t(reminderUnitKey(unit)) });
+  }
+  const found = REMINDERS.find((r) => r.value === reminder);
+  return found ? t(found.labelKey) : t('calendar.remNone');
+}
+
+// ── Recurrence label helper ─────────────────────────────────────────────────
+
+function recurrenceSummary(
+  recurrence: RecurrenceFreq | "none" | "custom",
+  customInterval: number | undefined,
+  customUnit: RecurrenceUnit | undefined,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  if (recurrence === "custom" && customInterval && customUnit) {
+    return t('calendar.customRecurrenceValue', { value: customInterval, unit: t(recurrenceUnitKey(customUnit)) });
+  }
+  const found = RECURRENCES.find((r) => r.value === recurrence);
+  return found ? t(found.labelKey) : t('calendar.recurNone');
+}
+
+// ── Color/label summary helper ──────────────────────────────────────────────
+
+function colorLabelSummary(
+  color: string,
+  label: string | undefined,
+  t: (key: string) => string,
+): string {
+  if (label) return label;
+  if (color.startsWith("#")) return color;
+  const found = COLORS.find((c) => c.id === color);
+  return found ? found.id.charAt(0).toUpperCase() + found.id.slice(1) : t('calendar.color');
+}
+
+// ── Pill Section Component ──────────────────────────────────────────────────
+
+type PillSection = 'reminder' | 'recurrence' | 'colorLabel';
+
+function SectionPill({
+  label,
+  summary,
+  isOpen,
+  onToggle,
+  colorDot,
+  children,
+}: {
+  label: string;
+  summary: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  colorDot?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-3">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-colors ${
+          isOpen ? "bg-gray-700 border border-gray-600" : "bg-gray-800 border border-gray-700 hover:bg-gray-750"
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {colorDot && (
+            <span
+              className={`w-3 h-3 rounded-full shrink-0 ${colorDot.startsWith("#") ? "" : getColor(colorDot).bg}`}
+              style={colorDot.startsWith("#") ? { backgroundColor: colorDot } : undefined}
+            />
+          )}
+          <span className="text-gray-400 font-bold shrink-0">{label}</span>
+          <span className="text-white truncate">{summary}</span>
+        </div>
+        <ChevronDown
+          size={16}
+          className={`text-gray-500 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="pt-3 px-1">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1320,22 +1530,53 @@ function EventFormModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const defaults = useMemo(() => loadDefaults(), []);
+
   const [title, setTitle] = useState(initial?.title ?? "");
   const [date, setDate] = useState(initial?.date ?? defaultDate);
   const [startTime, setStartTime] = useState(initial?.startTime ?? defaultStartTime ?? "09:00");
-  const [duration, setDuration] = useState<CalendarEvent["duration"]>(initial?.duration ?? "1h");
-  const [reminder, setReminder] = useState<CalendarEvent["reminder"]>(initial?.reminder ?? "10min");
-  const [color, setColor] = useState(initial?.color ?? "blue");
+  const [duration, setDuration] = useState<CalendarEvent["duration"]>(initial?.duration ?? defaults.duration);
+  const [reminder, setReminder] = useState<CalendarEvent["reminder"]>(initial?.reminder ?? defaults.reminder);
+  const [customReminderValue, setCustomReminderValue] = useState<number>(() => {
+    const mins = initial?.customReminderMinutes ?? defaults.customReminderMinutes;
+    return mins ? fromCustomReminderMinutes(mins).value : 15;
+  });
+  const [customReminderUnit, setCustomReminderUnit] = useState<ReminderUnit>(() => {
+    const mins = initial?.customReminderMinutes ?? defaults.customReminderMinutes;
+    return mins ? fromCustomReminderMinutes(mins).unit : 'minutes';
+  });
+  const [color, setColor] = useState(initial?.color ?? defaults.color);
+  const [labelText, setLabelText] = useState(initial?.label ?? defaults.label ?? "");
   const [address, setAddress] = useState(initial?.address ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
 
-  // Recurrence state — derive initial freq from existing rrule
+  // Recurrence state
   const initialFreq = (() => {
-    if (!initial?.rrule) return "none" as const;
+    if (!initial?.rrule) return (defaults.recurrence ?? "none") as RecurrenceFreq | "none" | "custom";
     const match = initial.rrule.match(/FREQ=(\w+)/);
-    return (match?.[1] as RecurrenceFreq) ?? ("none" as const);
+    const interval = initial.rrule.match(/INTERVAL=(\d+)/);
+    const freq = match?.[1] as RecurrenceFreq | undefined;
+    if (freq && interval && parseInt(interval[1]) > 1) return "custom" as const;
+    return (freq ?? "none") as RecurrenceFreq | "none";
   })();
-  const [recurrence, setRecurrence] = useState<RecurrenceFreq | "none">(initialFreq);
+  const [recurrence, setRecurrence] = useState<RecurrenceFreq | "none" | "custom">(initialFreq);
+  const [customRecInterval, setCustomRecInterval] = useState<number>(() => {
+    if (initial?.rrule) {
+      const match = initial.rrule.match(/INTERVAL=(\d+)/);
+      if (match) return parseInt(match[1]);
+    }
+    return defaults.customRecurrenceInterval ?? 2;
+  });
+  const [customRecUnit, setCustomRecUnit] = useState<RecurrenceUnit>(() => {
+    if (initial?.rrule) {
+      const match = initial.rrule.match(/FREQ=(\w+)/);
+      if (match) return freqToRecurrenceUnit(match[1] as RecurrenceFreq);
+    }
+    return defaults.customRecurrenceUnit ?? 'days';
+  });
+
+  // Labels
+  const [labels, setLabels] = useState<CalendarLabel[]>(() => loadLabels());
 
   // Invitees
   const contacts = useMemo(() => loadContacts(), []);
@@ -1344,15 +1585,77 @@ function EventFormModal({
   );
   const [showInviteePicker, setShowInviteePicker] = useState(false);
 
+  // Accordion state — only one pill open at a time
+  const [openSection, setOpenSection] = useState<PillSection | null>(null);
+  const toggleSection = (section: PillSection) => {
+    setOpenSection((prev) => (prev === section ? null : section));
+  };
+
+  // Defaults saved flash
+  const [showDefaultsSaved, setShowDefaultsSaved] = useState(false);
+
   const toggleInvitee = (aregoId: string) => {
     setSelectedInvitees((prev) =>
       prev.includes(aregoId) ? prev.filter((id) => id !== aregoId) : [...prev, aregoId]
     );
   };
 
+  const handleSaveDefaults = () => {
+    const newDefaults: CalendarEventDefaults = {
+      duration,
+      reminder,
+      customReminderMinutes: reminder === 'custom' ? toCustomReminderMinutes(customReminderValue, customReminderUnit) : undefined,
+      recurrence: recurrence === 'custom' ? 'none' : recurrence,
+      customRecurrenceInterval: recurrence === 'custom' ? customRecInterval : undefined,
+      customRecurrenceUnit: recurrence === 'custom' ? customRecUnit : undefined,
+      color,
+      label: labelText.trim() || undefined,
+    };
+    saveDefaults(newDefaults);
+    setShowDefaultsSaved(true);
+    setTimeout(() => setShowDefaultsSaved(false), 2000);
+  };
+
+  const handleSaveLabel = () => {
+    if (!labelText.trim()) return;
+    const existing = labels.find((l) => l.name.toLowerCase() === labelText.trim().toLowerCase());
+    if (existing) {
+      // Update color of existing label
+      const updated = labels.map((l) => l.id === existing.id ? { ...l, color } : l);
+      setLabels(updated);
+      saveLabels(updated);
+    } else {
+      const newLabel: CalendarLabel = { id: generateId(), name: labelText.trim(), color };
+      const updated = [...labels, newLabel];
+      setLabels(updated);
+      saveLabels(updated);
+    }
+  };
+
+  const handleSelectLabel = (label: CalendarLabel) => {
+    setLabelText(label.name);
+    setColor(label.color);
+  };
+
+  const handleDeleteLabel = (labelId: string) => {
+    const updated = labels.filter((l) => l.id !== labelId);
+    setLabels(updated);
+    saveLabels(updated);
+  };
+
   const handleSave = () => {
     if (!title.trim()) return;
-    const rrule = recurrence !== "none" ? buildRRule({ freq: recurrence }) : undefined;
+    let rrule: string | undefined;
+    if (recurrence === "custom") {
+      rrule = buildRRule({ freq: recurrenceUnitToFreq(customRecUnit), interval: customRecInterval });
+    } else if (recurrence !== "none") {
+      rrule = buildRRule({ freq: recurrence });
+    }
+    const customReminderMinutes = reminder === 'custom'
+      ? toCustomReminderMinutes(customReminderValue, customReminderUnit)
+      : undefined;
+    // Auto-save label if new
+    if (labelText.trim()) handleSaveLabel();
     const invitees: EventInvitee[] | undefined = selectedInvitees.length > 0
       ? selectedInvitees.map((id) => {
           const existing = initial?.invitees?.find((i) => i.aregoId === id);
@@ -1371,7 +1674,9 @@ function EventFormModal({
       startTime,
       duration,
       reminder,
+      customReminderMinutes,
       color,
+      label: labelText.trim() || undefined,
       address: address.trim() || undefined,
       note: note.trim() || undefined,
       rrule,
@@ -1452,10 +1757,16 @@ function EventFormModal({
           </div>
         </div>
 
-        {/* Reminder */}
-        <div className="mb-4">
-          <label className="text-xs text-gray-500 font-bold mb-2 block">{t('calendar.reminder')}</label>
-          <div className="flex flex-wrap gap-2">
+        {/* ── Collapsible Pill Sections ─────────────────────────────────── */}
+
+        {/* Reminder Pill */}
+        <SectionPill
+          label={t('calendar.reminder')}
+          summary={reminderSummary(reminder, reminder === 'custom' ? toCustomReminderMinutes(customReminderValue, customReminderUnit) : undefined, t)}
+          isOpen={openSection === 'reminder'}
+          onToggle={() => toggleSection('reminder')}
+        >
+          <div className="flex flex-wrap gap-2 mb-3">
             {REMINDERS.map((r) => (
               <button
                 key={r.value}
@@ -1467,13 +1778,47 @@ function EventFormModal({
                 {t(r.labelKey)}
               </button>
             ))}
+            <button
+              onClick={() => setReminder('custom')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                reminder === 'custom' ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+              }`}
+            >
+              {t('calendar.remCustom')}
+            </button>
           </div>
-        </div>
+          {reminder === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={customReminderValue}
+                onChange={(e) => setCustomReminderValue(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-20 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark]"
+              />
+              <select
+                value={customReminderUnit}
+                onChange={(e) => setCustomReminderUnit(e.target.value as ReminderUnit)}
+                className="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+              >
+                <option value="minutes">{t('calendar.unitMinutes')}</option>
+                <option value="hours">{t('calendar.unitHours')}</option>
+                <option value="days">{t('calendar.unitDays')}</option>
+                <option value="weeks">{t('calendar.unitWeeks')}</option>
+              </select>
+            </div>
+          )}
+        </SectionPill>
 
-        {/* Recurrence */}
-        <div className="mb-4">
-          <label className="text-xs text-gray-500 font-bold mb-2 block">{t('calendar.recurrence')}</label>
-          <div className="flex flex-wrap gap-2">
+        {/* Recurrence Pill */}
+        <SectionPill
+          label={t('calendar.recurrence')}
+          summary={recurrenceSummary(recurrence, customRecInterval, customRecUnit, t)}
+          isOpen={openSection === 'recurrence'}
+          onToggle={() => toggleSection('recurrence')}
+        >
+          <div className="flex flex-wrap gap-2 mb-3">
             {RECURRENCES.map((r) => (
               <button
                 key={r.value}
@@ -1485,8 +1830,111 @@ function EventFormModal({
                 {t(r.labelKey)}
               </button>
             ))}
+            <button
+              onClick={() => setRecurrence('custom')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                recurrence === 'custom' ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+              }`}
+            >
+              {t('calendar.recurCustom')}
+            </button>
           </div>
-        </div>
+          {recurrence === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={customRecInterval}
+                onChange={(e) => setCustomRecInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-20 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark]"
+              />
+              <select
+                value={customRecUnit}
+                onChange={(e) => setCustomRecUnit(e.target.value as RecurrenceUnit)}
+                className="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+              >
+                <option value="days">{t('calendar.unitDays')}</option>
+                <option value="weeks">{t('calendar.unitWeeks')}</option>
+                <option value="months">{t('calendar.unitMonths')}</option>
+                <option value="years">{t('calendar.unitYears')}</option>
+              </select>
+            </div>
+          )}
+        </SectionPill>
+
+        {/* Color & Label Pill */}
+        <SectionPill
+          label={t('calendar.colorAndLabel')}
+          summary={colorLabelSummary(color, labelText.trim() || undefined, t)}
+          isOpen={openSection === 'colorLabel'}
+          onToggle={() => toggleSection('colorLabel')}
+          colorDot={color}
+        >
+          {/* Color picker: preset colors + free hex input */}
+          <div className="flex items-center gap-3 mb-3">
+            {COLORS.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setColor(c.id)}
+                className={`w-8 h-8 rounded-full ${c.bg} transition-all ${
+                  color === c.id ? `ring-2 ${c.ring} ring-offset-2 ring-offset-gray-900 scale-110` : "opacity-60 hover:opacity-100"
+                }`}
+              />
+            ))}
+            <div className="relative">
+              <input
+                type="color"
+                value={color.startsWith("#") ? color : "#3b82f6"}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-8 h-8 rounded-full cursor-pointer border-0 p-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
+                title="Colorpicker"
+              />
+              {color.startsWith("#") && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-gray-900" />
+              )}
+            </div>
+          </div>
+
+          {/* Label name */}
+          <input
+            type="text"
+            value={labelText}
+            onChange={(e) => setLabelText(e.target.value)}
+            placeholder={t('calendar.labelNamePlaceholder')}
+            className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+          />
+
+          {/* Saved labels */}
+          {labels.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-500 font-bold mb-1.5">{t('calendar.savedLabels')}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {labels.map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => handleSelectLabel(l)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                      labelText === l.name ? "bg-gray-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                    }`}
+                  >
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${l.color.startsWith("#") ? "" : getColor(l.color).bg}`}
+                      style={l.color.startsWith("#") ? { backgroundColor: l.color } : undefined}
+                    />
+                    {l.name}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteLabel(l.id); }}
+                      className="ml-0.5 text-gray-500 hover:text-red-400"
+                    >
+                      <X size={10} />
+                    </button>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </SectionPill>
 
         {/* Invitees */}
         {contacts.length > 0 && (
@@ -1542,22 +1990,6 @@ function EventFormModal({
           </div>
         )}
 
-        {/* Color */}
-        <div className="mb-4">
-          <label className="text-xs text-gray-500 font-bold mb-2 block">{t('calendar.color')}</label>
-          <div className="flex gap-3">
-            {COLORS.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setColor(c.id)}
-                className={`w-8 h-8 rounded-full ${c.bg} transition-all ${
-                  color === c.id ? `ring-2 ${c.ring} ring-offset-2 ring-offset-gray-900 scale-110` : "opacity-60 hover:opacity-100"
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
         {/* Address */}
         <input
           type="text"
@@ -1573,16 +2005,34 @@ function EventFormModal({
           onChange={(e) => setNote(e.target.value)}
           placeholder={t('calendar.noteOptional')}
           rows={2}
-          className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6 resize-none"
+          className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 resize-none"
         />
 
-        {/* Save */}
+        {/* Save Event */}
         <button
           onClick={handleSave}
           disabled={!title.trim()}
-          className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed mb-3"
         >
           {initial ? t('common.save') : t('calendar.createEvent')}
+        </button>
+
+        {/* Save as Default */}
+        <button
+          onClick={handleSaveDefaults}
+          className="w-full py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-gray-300 font-medium text-xs hover:bg-gray-750 hover:text-white transition-colors flex items-center justify-center gap-2"
+        >
+          {showDefaultsSaved ? (
+            <>
+              <Check size={14} className="text-green-400" />
+              <span className="text-green-400">{t('calendar.defaultsSaved')}</span>
+            </>
+          ) : (
+            <>
+              <Save size={14} />
+              {t('calendar.saveAsDefault')}
+            </>
+          )}
         </button>
       </motion.div>
     </motion.div>
@@ -1622,7 +2072,7 @@ function EventDetailModal({
         className="w-full max-w-sm bg-gray-900 rounded-3xl border border-gray-700 p-6 shadow-2xl"
       >
         {/* Color bar */}
-        <div className={`w-full h-1.5 rounded-full ${c.bg} mb-4`} />
+        <div className={`w-full h-1.5 rounded-full ${colorBgClass(event.color)} mb-4`} style={colorStyle(event.color)} />
 
         <h2 className="text-xl font-bold text-white mb-1">{event.title}</h2>
         <p className="text-sm text-gray-400 mb-4">
@@ -1637,7 +2087,14 @@ function EventDetailModal({
 
         {event.reminder !== "none" && (
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
-            <span>{t('calendar.reminderLabel', { label: t(REMINDERS.find((r) => r.value === event.reminder)?.labelKey ?? '') })}</span>
+            <span>{t('calendar.reminderLabel', { label: reminderSummary(event.reminder, event.customReminderMinutes, t) })}</span>
+          </div>
+        )}
+
+        {event.label && (
+          <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+            <Tag size={14} />
+            <span>{event.label}</span>
           </div>
         )}
 

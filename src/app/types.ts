@@ -108,14 +108,33 @@ export interface CalendarEvent {
   date: string;        // ISO date string YYYY-MM-DD
   startTime: string;   // HH:mm
   duration: '15min' | '30min' | '1h' | '2h' | 'allday';
-  reminder: 'none' | '10min' | '30min' | '1h' | '1day';
-  color: string;       // Tailwind color class prefix, e.g. 'blue', 'purple'
+  reminder: 'none' | '10min' | '30min' | '1h' | '1day' | 'custom';
+  customReminderMinutes?: number;  // Used when reminder === 'custom'
+  color: string;       // Tailwind color ID (e.g. 'blue') or hex color (e.g. '#ff5500')
+  label?: string;      // Optional label name (e.g. "Arbeit", "Familie")
   address?: string;    // Optional location — shown on a second row in the calendar list
   note?: string;
   rrule?: string;      // RFC 5545 RRULE string, e.g. "FREQ=WEEKLY;INTERVAL=1;COUNT=10"
   exdates?: string[];  // Exception dates (YYYY-MM-DD) excluded from recurrence
   invitees?: EventInvitee[];  // Invited contacts with RSVP status
   organizerAregoId?: string;  // Who created/owns this event
+}
+
+export interface CalendarLabel {
+  id: string;
+  name: string;
+  color: string;       // Hex color, e.g. '#ff5500'
+}
+
+export interface CalendarEventDefaults {
+  duration: CalendarEvent['duration'];
+  reminder: CalendarEvent['reminder'];
+  customReminderMinutes?: number;
+  recurrence: RecurrenceFreq | 'none';
+  customRecurrenceInterval?: number;
+  customRecurrenceUnit?: 'days' | 'weeks' | 'months' | 'years';
+  color: string;
+  label?: string;
 }
 
 export type TimeBlockType = 'work' | 'interruptible' | 'buffer' | 'available';
