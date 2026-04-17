@@ -780,13 +780,6 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
                   <Timer size={18} />
                   <span className="font-medium">{t('calendar.timeBlocks')}</span>
                 </DropdownMenu.Item>
-                <DropdownMenu.Item
-                  onClick={() => { setCalSearchOpen(!calSearchOpen); if (!calSearchOpen) { setCalSearchQuery(""); setTimeout(() => calSearchRef.current?.focus(), 100); } }}
-                  className="group flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-blue-600 hover:text-white outline-none cursor-pointer transition-colors"
-                >
-                  <Search size={18} />
-                  <span className="font-medium">{t('common.search')}</span>
-                </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
@@ -800,6 +793,13 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
           )}
           <button onClick={goToday} className="px-3 py-1.5 text-xs font-bold rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
             {t('calendar.today')}
+          </button>
+          <button
+            onClick={() => { setCalSearchOpen(!calSearchOpen); if (!calSearchOpen) { setCalSearchQuery(""); setTimeout(() => calSearchRef.current?.focus(), 100); } }}
+            className={`p-2 rounded-full transition-all min-w-[44px] min-h-[44px] flex items-center justify-center ${calSearchOpen ? "text-blue-400 bg-blue-500/10" : "text-gray-400 hover:text-white hover:bg-white/10"}`}
+            aria-label={t('common.search')}
+          >
+            <Search size={20} />
           </button>
         </>}
       />
