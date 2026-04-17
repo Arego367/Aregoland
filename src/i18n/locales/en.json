@@ -382,6 +382,8 @@
     "date": "Date",
     "time": "Time",
     "duration": "Duration",
+    "endTime": "Until",
+    "endTimeCustom": "Custom",
     "reminder": "Reminder",
     "color": "Color",
     "notePlaceholder": "Note (optional)",

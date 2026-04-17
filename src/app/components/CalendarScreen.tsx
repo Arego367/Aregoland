@@ -128,14 +128,31 @@ function getMonthGrid(year: number, month: number): (Date | null)[][] {
   return rows;
 }
 
-function durationMinutes(dur: CalendarEvent["duration"]): number {
+function durationMinutes(dur: CalendarEvent["duration"], customMinutes?: number): number {
   switch (dur) {
     case "15min": return 15;
     case "30min": return 30;
     case "1h": return 60;
     case "2h": return 120;
     case "allday": return 0;
+    case "custom": return customMinutes ?? 60;
   }
+}
+
+/** Add minutes to a HH:mm time string and return the result as HH:mm */
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const total = Math.min(h * 60 + m + minutes, 24 * 60 - 1);
+  const rh = Math.floor(total / 60);
+  const rm = total % 60;
+  return `${String(rh).padStart(2, "0")}:${String(rm).padStart(2, "0")}`;
+}
+
+/** Convert start + end time strings to duration in minutes */
+function timeDiffMinutes(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  return Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
 }
 
 function getColor(id: string): { id: string; bg: string; dot: string; ring: string; hex?: string } {
@@ -255,7 +272,7 @@ function computeRowPlan(events: CalendarEvent[], H: number): RowPlan {
     .filter((e) => e.duration !== "allday")
     .map((e) => {
       const startMin = toMinutes(e.startTime);
-      const endMin = Math.min(24 * 60, startMin + durationMinutes(e.duration));
+      const endMin = Math.min(24 * 60, startMin + durationMinutes(e.duration, e.customDurationMinutes));
       return { event: e, startMin, endMin };
     })
     .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
@@ -1410,7 +1427,7 @@ function DayEventList({ events, label, onSelect }: { events: CalendarEvent[]; la
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-100 truncate">{ev.title}</p>
               <p className="text-xs text-gray-400">
-                {ev.duration === "allday" ? t('calendar.allDay') : t('calendar.atTime', { time: ev.startTime })}
+                {ev.duration === "allday" ? t('calendar.allDay') : `${ev.startTime} – ${addMinutesToTime(ev.startTime, durationMinutes(ev.duration, ev.customDurationMinutes))}`}
               </p>
             </div>
           </button>
@@ -1593,6 +1610,15 @@ function EventFormModal({
   const [date, setDate] = useState(initial?.date ?? defaultDate);
   const [startTime, setStartTime] = useState(initial?.startTime ?? defaultStartTime ?? "09:00");
   const [duration, setDuration] = useState<CalendarEvent["duration"]>(initial?.duration ?? defaults.duration);
+  const [customDurationMinutes, setCustomDurationMinutes] = useState<number>(initial?.customDurationMinutes ?? 60);
+  const [customEndTimeInput, setCustomEndTimeInput] = useState<string>(() =>
+    initial?.duration === "custom" && initial.customDurationMinutes
+      ? addMinutesToTime(initial.startTime, initial.customDurationMinutes)
+      : ""
+  );
+  const [showEndDropdown, setShowEndDropdown] = useState(false);
+  const [showCustomEndInput, setShowCustomEndInput] = useState(false);
+  const endDropdownRef = useRef<HTMLDivElement>(null);
   const [reminder, setReminder] = useState<CalendarEvent["reminder"]>(initial?.reminder ?? defaults.reminder);
   const [customReminderValue, setCustomReminderValue] = useState<number>(() => {
     const mins = initial?.customReminderMinutes ?? defaults.customReminderMinutes;
@@ -1648,6 +1674,18 @@ function EventFormModal({
     setOpenSection((prev) => (prev === section ? null : section));
   };
 
+  // Close end-time dropdown on outside click
+  useEffect(() => {
+    if (!showEndDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (endDropdownRef.current && !endDropdownRef.current.contains(e.target as Node)) {
+        setShowEndDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showEndDropdown]);
+
   // Defaults saved flash
   const [showDefaultsSaved, setShowDefaultsSaved] = useState(false);
 
@@ -1660,6 +1698,7 @@ function EventFormModal({
   const handleSaveDefaults = () => {
     const newDefaults: CalendarEventDefaults = {
       duration,
+      customDurationMinutes: duration === 'custom' ? customDurationMinutes : undefined,
       reminder,
       customReminderMinutes: reminder === 'custom' ? toCustomReminderMinutes(customReminderValue, customReminderUnit) : undefined,
       recurrence: recurrence === 'custom' ? 'none' : recurrence,
@@ -1730,6 +1769,7 @@ function EventFormModal({
       date,
       startTime,
       duration,
+      customDurationMinutes: duration === "custom" ? customDurationMinutes : undefined,
       reminder,
       customReminderMinutes,
       color,
@@ -1773,8 +1813,8 @@ function EventFormModal({
           className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
         />
 
-        {/* Date + Time */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        {/* Date + Time + Bis (End) */}
+        <div className="grid grid-cols-3 gap-2 mb-4">
           <div>
             <label className="text-xs text-gray-500 font-bold mb-1 block">{t('calendar.date')}</label>
             <input
@@ -1794,23 +1834,97 @@ function EventFormModal({
               className="w-full px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 [color-scheme:dark]"
             />
           </div>
-        </div>
-
-        {/* Duration */}
-        <div className="mb-4">
-          <label className="text-xs text-gray-500 font-bold mb-2 block">{t('calendar.duration')}</label>
-          <div className="flex flex-wrap gap-2">
-            {DURATIONS.map((d) => (
+          <div className="relative" ref={endDropdownRef}>
+            <label className="text-xs text-gray-500 font-bold mb-1 block">{t('calendar.endTime')}</label>
+            {showCustomEndInput ? (
+              <input
+                type="time"
+                autoFocus
+                value={customEndTimeInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustomEndTimeInput(val);
+                  if (val) {
+                    const mins = timeDiffMinutes(startTime, val);
+                    if (mins > 0) {
+                      setDuration("custom");
+                      setCustomDurationMinutes(mins);
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  if (!customEndTimeInput || timeDiffMinutes(startTime, customEndTimeInput) <= 0) {
+                    setShowCustomEndInput(false);
+                  }
+                }}
+                className="w-full px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark]"
+              />
+            ) : (
               <button
-                key={d.value}
-                onClick={() => setDuration(d.value)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                  duration === d.value ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
-                }`}
+                type="button"
+                onClick={() => setShowEndDropdown((p) => !p)}
+                className="w-full px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between"
               >
-                {t(d.labelKey)}
+                <span className={duration === "allday" ? "" : "tabular-nums"}>
+                  {duration === "allday"
+                    ? t('calendar.allDay')
+                    : addMinutesToTime(startTime, durationMinutes(duration, customDurationMinutes))}
+                </span>
+                <ChevronDown size={14} className="text-gray-400 shrink-0 ml-1" />
               </button>
-            ))}
+            )}
+            {showEndDropdown && (
+              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden">
+                {[
+                  { dur: "15min" as const, label: "+15 Min", mins: 15 },
+                  { dur: "30min" as const, label: "+30 Min", mins: 30 },
+                  { dur: "1h" as const, label: "+1 Std", mins: 60 },
+                  { dur: "2h" as const, label: "+2 Std", mins: 120 },
+                ].map((opt) => (
+                  <button
+                    key={opt.dur}
+                    type="button"
+                    onClick={() => {
+                      setDuration(opt.dur);
+                      setShowEndDropdown(false);
+                      setShowCustomEndInput(false);
+                    }}
+                    className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-700 flex items-center justify-between ${
+                      duration === opt.dur ? "text-blue-400 font-bold" : "text-gray-300"
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    <span className="text-gray-500 tabular-nums">{addMinutesToTime(startTime, opt.mins)}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDuration("allday");
+                    setShowEndDropdown(false);
+                    setShowCustomEndInput(false);
+                  }}
+                  className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-700 ${
+                    duration === "allday" ? "text-blue-400 font-bold" : "text-gray-300"
+                  }`}
+                >
+                  {t('calendar.allDay')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEndDropdown(false);
+                    setShowCustomEndInput(true);
+                    setCustomEndTimeInput(addMinutesToTime(startTime, durationMinutes(duration, customDurationMinutes)));
+                  }}
+                  className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-700 border-t border-gray-700 ${
+                    duration === "custom" ? "text-blue-400 font-bold" : "text-gray-300"
+                  }`}
+                >
+                  {t('calendar.endTimeCustom')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2139,7 +2253,11 @@ function EventDetailModal({
 
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
           <Clock size={14} />
-          <span>{t(DURATIONS.find((d) => d.value === event.duration)?.labelKey ?? '')}</span>
+          <span>
+            {event.duration === "allday"
+              ? t('calendar.allDay')
+              : `${event.startTime} – ${addMinutesToTime(event.startTime, durationMinutes(event.duration, event.customDurationMinutes))}`}
+          </span>
         </div>
 
         {event.reminder !== "none" && (

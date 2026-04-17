@@ -530,6 +530,8 @@
     "date": "Datum",
     "time": "Uhrzeit",
     "duration": "Dauer",
+    "endTime": "Bis",
+    "endTimeCustom": "Eigene",
     "reminder": "Erinnerung",
     "color": "Farbe",
     "notePlaceholder": "Notiz (optional)",

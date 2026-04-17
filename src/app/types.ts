@@ -107,7 +107,8 @@ export interface CalendarEvent {
   title: string;
   date: string;        // ISO date string YYYY-MM-DD
   startTime: string;   // HH:mm
-  duration: '15min' | '30min' | '1h' | '2h' | 'allday';
+  duration: '15min' | '30min' | '1h' | '2h' | 'allday' | 'custom';
+  customDurationMinutes?: number;  // Used when duration === 'custom' (manual end time)
   reminder: 'none' | '10min' | '30min' | '1h' | '1day' | 'custom';
   customReminderMinutes?: number;  // Used when reminder === 'custom'
   color: string;       // Tailwind color ID (e.g. 'blue') or hex color (e.g. '#ff5500')
@@ -128,6 +129,7 @@ export interface CalendarLabel {
 
 export interface CalendarEventDefaults {
   duration: CalendarEvent['duration'];
+  customDurationMinutes?: number;
   reminder: CalendarEvent['reminder'];
   customReminderMinutes?: number;
   recurrence: RecurrenceFreq | 'none';
