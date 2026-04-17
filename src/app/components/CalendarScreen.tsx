@@ -1084,10 +1084,10 @@ function DaysView({
   const containerRef = useRef<HTMLDivElement>(null);
   const containerHeight = useElementHeight(containerRef);
 
-  // Height per day section = total available / number of visible days
-  const sectionHeight = visibleDates.length > 0
-    ? Math.max(0, containerHeight / visibleDates.length)
-    : 0;
+  // Time axis hours (6–23 for a practical range)
+  const HOUR_START = 6;
+  const HOUR_END = 23;
+  const HOURS = useMemo(() => Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i), []);
 
   const toggleDay = (dayIdx: number) => {
     const next = config.selectedDays.includes(dayIdx)
@@ -1153,60 +1153,92 @@ function DaysView({
         </div>
       </div>
 
-      {/* Stacked day sections */}
+      {/* Horizontal column layout */}
       <div ref={containerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {visibleDates.map((d) => {
-          const ds = toDateStr(d);
-          const isToday = ds === todayStr;
-          const dayEvs = eventsMap.get(ds) ?? [];
-          const allDay = dayEvs.filter((e) => e.duration === "allday");
-          const timed = dayEvs.filter((e) => e.duration !== "allday").sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-          // Reserve some height for the header + all-day chips
-          const headerH = 28; // date header
-          const allDayH = allDay.length > 0 ? allDay.length * 28 + 4 : 0;
-          const stackH = Math.max(0, sectionHeight - headerH - allDayH);
-
-          return (
-            <div
-              key={ds}
-              className="shrink-0 flex flex-col border-b border-gray-800/60 last:border-b-0 overflow-hidden"
-              style={{ height: sectionHeight }}
-            >
-              {/* Date header */}
-              <div className={`shrink-0 flex items-center gap-2 px-1 py-0.5 ${isToday ? "text-blue-400" : "text-gray-400"}`}>
-                <span className={`text-xs font-bold ${isToday ? "bg-blue-600 text-white px-1.5 py-0.5 rounded-full" : ""}`}>
-                  {WEEKDAYS_SHORT[weekdayMon(d)]}, {d.getDate()}. {MONTHS[d.getMonth()].slice(0, 3)}
+        {/* Column headers row */}
+        <div className="shrink-0 flex flex-row">
+          {/* Time axis header spacer */}
+          <div className="shrink-0 w-9" />
+          {/* Day column headers */}
+          {visibleDates.map((d) => {
+            const ds = toDateStr(d);
+            const isToday = ds === todayStr;
+            return (
+              <div
+                key={ds}
+                className={`flex-1 min-w-0 flex flex-col items-center py-1 ${isToday ? "text-blue-400" : "text-gray-400"}`}
+              >
+                <span className="text-[10px] font-medium uppercase">{WEEKDAYS_SHORT[weekdayMon(d)]}</span>
+                <span className={`text-sm font-bold leading-tight ${isToday ? "bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center" : ""}`}>
+                  {d.getDate()}
                 </span>
               </div>
+            );
+          })}
+        </div>
 
-              {/* All-day events */}
-              {allDay.length > 0 && (
-                <div className="shrink-0 px-1 space-y-0.5">
+        {/* All-day row (if any day has all-day events) */}
+        {visibleDates.some((d) => (eventsMap.get(toDateStr(d)) ?? []).some((e) => e.duration === "allday")) && (
+          <div className="shrink-0 flex flex-row border-b border-gray-800/60">
+            <div className="shrink-0 w-9" />
+            {visibleDates.map((d) => {
+              const ds = toDateStr(d);
+              const allDay = (eventsMap.get(ds) ?? []).filter((e) => e.duration === "allday");
+              return (
+                <div key={ds} className="flex-1 min-w-0 px-0.5 py-0.5 border-r border-gray-800/40 last:border-r-0">
                   {allDay.map((ev) => (
                     <button
                       key={ev.id}
                       onClick={() => onSelectEvent(ev)}
-                      className={`w-full text-left px-2 py-1 rounded text-xs font-semibold text-white truncate ${getColor(ev.color).bg}`}
+                      className={`w-full text-left px-1.5 py-0.5 rounded text-[10px] font-semibold text-white truncate ${getColor(ev.color).bg} mb-0.5`}
                     >
                       {ev.title}
                     </button>
                   ))}
                 </div>
-              )}
+              );
+            })}
+          </div>
+        )}
 
-              {/* Timed events row stack */}
-              <div className="flex-1 min-h-0">
+        {/* Time grid + day columns */}
+        <div className="flex-1 min-h-0 flex flex-row overflow-y-auto">
+          {/* Fixed time axis */}
+          <div className="shrink-0 w-9 relative">
+            {HOURS.map((h) => (
+              <div
+                key={h}
+                className="absolute right-1 text-[9px] text-gray-500 leading-none -translate-y-1/2"
+                style={{ top: `${((h - HOUR_START) / (HOUR_END - HOUR_START + 1)) * 100}%` }}
+              >
+                {String(h).padStart(2, "0")}
+              </div>
+            ))}
+          </div>
+
+          {/* Day columns with timed events */}
+          {visibleDates.map((d) => {
+            const ds = toDateStr(d);
+            const dayEvs = eventsMap.get(ds) ?? [];
+            const timed = dayEvs.filter((e) => e.duration !== "allday").sort((a, b) => a.startTime.localeCompare(b.startTime));
+            const stackH = Math.max(0, containerHeight - 56);
+
+            return (
+              <div
+                key={ds}
+                className="flex-1 min-w-0 border-r border-gray-800/40 last:border-r-0 min-h-0"
+              >
                 <DayRowStack
                   events={timed}
                   onSelectEvent={onSelectEvent}
                   height={stackH}
                   freeLabel={t('calendar.free')}
+                  density="compact"
                 />
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
