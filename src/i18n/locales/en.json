@@ -518,7 +518,9 @@
     "bdCreate": "Add Birthday",
     "bdAddReminder": "Add reminder",
     "bdRem1week": "1 week before",
-    "bdExisting": "Saved Birthdays"
+    "bdExisting": "Saved Birthdays",
+    "remMultiple": "reminders",
+    "tbRem5min": "5 min before"
   },
   "call": {
     "micOn": "Microphone on",

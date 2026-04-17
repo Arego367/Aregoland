@@ -4,15 +4,15 @@
  * and fires notifications even when the app tab is closed.
  */
 
-import type { CalendarEvent } from "@/app/types";
+import type { CalendarEvent, EventReminder, EventReminderPreset } from "@/app/types";
 
 function parseDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
-function reminderOffsetMs(reminder: CalendarEvent["reminder"], customMinutes?: number): number {
-  switch (reminder) {
+function presetOffsetMs(preset: EventReminderPreset, customMinutes?: number): number {
+  switch (preset) {
     case "10min": return 10 * 60_000;
     case "30min": return 30 * 60_000;
     case "1h": return 60 * 60_000;
@@ -22,46 +22,70 @@ function reminderOffsetMs(reminder: CalendarEvent["reminder"], customMinutes?: n
   }
 }
 
+function reminderOffsetMs(reminder: CalendarEvent["reminder"], customMinutes?: number): number {
+  return presetOffsetMs(reminder, customMinutes);
+}
+
 async function getSW(): Promise<ServiceWorker | null> {
   if (!("serviceWorker" in navigator)) return null;
   const reg = await navigator.serviceWorker.ready;
   return reg.active;
 }
 
-/** Schedule a reminder via the Service Worker */
+/** Schedule reminders via the Service Worker (supports multiple reminders) */
 export async function scheduleReminder(ev: CalendarEvent): Promise<void> {
-  if (ev.reminder === "none" || ev.duration === "allday") return;
+  if (ev.duration === "allday") return;
+
+  // Collect all reminder entries: prefer new reminders array, fallback to legacy single
+  const reminders: EventReminder[] =
+    ev.reminders && ev.reminders.length > 0
+      ? ev.reminders
+      : ev.reminder !== "none"
+        ? [{ preset: ev.reminder, customMinutes: ev.customReminderMinutes }]
+        : [];
+
+  if (reminders.length === 0) return;
 
   const sw = await getSW();
-  if (!sw) {
-    // Fallback: use setTimeout (existing behavior for no-SW environments)
-    fallbackSchedule(ev);
-    return;
-  }
-
   const [h, m] = ev.startTime.split(":").map(Number);
   const eventDate = parseDate(ev.date);
   eventDate.setHours(h, m, 0, 0);
-  const fireAt = eventDate.getTime() - reminderOffsetMs(ev.reminder, ev.customReminderMinutes);
+  const eventMs = eventDate.getTime();
 
-  if (fireAt <= Date.now()) return; // Already past
+  for (let i = 0; i < reminders.length; i++) {
+    const r = reminders[i];
+    if (r.preset === 'none') continue;
+    const fireAt = eventMs - presetOffsetMs(r.preset, r.customMinutes);
+    if (fireAt <= Date.now()) continue;
 
-  sw.postMessage({
-    type: "SCHEDULE_REMINDER",
-    reminder: {
-      eventId: ev.id,
-      title: `Termin: ${ev.title}`,
-      body: `${ev.startTime} Uhr`,
-      fireAt,
-    },
-  });
+    const reminderId = reminders.length === 1 ? ev.id : `${ev.id}:r${i}`;
+
+    if (!sw) {
+      fallbackScheduleSingle(ev.title, ev.startTime, fireAt);
+      continue;
+    }
+
+    sw.postMessage({
+      type: "SCHEDULE_REMINDER",
+      reminder: {
+        eventId: reminderId,
+        title: `Termin: ${ev.title}`,
+        body: `${ev.startTime} Uhr`,
+        fireAt,
+      },
+    });
+  }
 }
 
-/** Cancel a scheduled reminder */
+/** Cancel all scheduled reminders for an event (including multi-reminder variants) */
 export async function cancelReminder(eventId: string): Promise<void> {
   const sw = await getSW();
   if (!sw) return;
+  // Cancel main id + up to 10 sub-ids (r0..r9)
   sw.postMessage({ type: "CANCEL_REMINDER", eventId });
+  for (let i = 0; i < 10; i++) {
+    sw.postMessage({ type: "CANCEL_REMINDER", eventId: `${eventId}:r${i}` });
+  }
 }
 
 /** Tell the SW to check for due reminders now */
@@ -171,18 +195,14 @@ function fallbackSlotSchedule(slot: SlotReminderInfo, fireAt: number): void {
   }, delay);
 }
 
-/** Fallback for environments without SW support */
-function fallbackSchedule(ev: CalendarEvent): void {
-  const [h, m] = ev.startTime.split(":").map(Number);
-  const eventDate = parseDate(ev.date);
-  eventDate.setHours(h, m, 0, 0);
-  const fireAt = eventDate.getTime() - reminderOffsetMs(ev.reminder, ev.customReminderMinutes);
+/** Fallback for a single reminder in environments without SW support */
+function fallbackScheduleSingle(title: string, startTime: string, fireAt: number): void {
   const delay = fireAt - Date.now();
   if (delay <= 0 || delay > 24 * 60 * 60_000) return;
   setTimeout(() => {
     if (Notification.permission === "granted") {
-      new Notification(`Termin: ${ev.title}`, {
-        body: `${ev.startTime} Uhr`,
+      new Notification(`Termin: ${title}`, {
+        body: `${startTime} Uhr`,
         icon: "/favicon.ico",
       });
     }

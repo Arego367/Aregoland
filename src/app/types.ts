@@ -102,6 +102,13 @@ export interface EventInvitee {
   status: InviteStatus;
 }
 
+export type EventReminderPreset = 'none' | '10min' | '30min' | '1h' | '1day' | 'custom';
+
+export interface EventReminder {
+  preset: EventReminderPreset;
+  customMinutes?: number; // Used when preset === 'custom'
+}
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -109,8 +116,9 @@ export interface CalendarEvent {
   startTime: string;   // HH:mm
   duration: '15min' | '30min' | '1h' | '2h' | 'allday' | 'custom';
   customDurationMinutes?: number;  // Used when duration === 'custom' (manual end time)
-  reminder: 'none' | '10min' | '30min' | '1h' | '1day' | 'custom';
-  customReminderMinutes?: number;  // Used when reminder === 'custom'
+  reminder: EventReminderPreset;   // Legacy single reminder (kept for backward compat)
+  customReminderMinutes?: number;  // Legacy: used when reminder === 'custom'
+  reminders?: EventReminder[];     // New: array of reminders (overrides single reminder when present)
   color: string;       // Tailwind color ID (e.g. 'blue') or hex color (e.g. '#ff5500')
   label?: string;      // Optional label name (e.g. "Arbeit", "Familie")
   address?: string;    // Optional location — shown on a second row in the calendar list
@@ -157,6 +165,11 @@ export interface DoNotDisturbSettings {
   allowedCallers?: string[];
 }
 
+export interface TimeBlockReminder {
+  preset: 'none' | '5min' | '10min' | '30min' | '1h' | 'custom';
+  customMinutes?: number;
+}
+
 export interface TimeBlock {
   id: string;
   name: string;             // Freier Name (z.B. "Arbeit", "Pilates")
@@ -168,6 +181,7 @@ export interface TimeBlock {
   bufferBefore?: TimeBlockBuffer;
   bufferAfter?: TimeBlockBuffer;
   doNotDisturb?: DoNotDisturbSettings;
+  reminders?: TimeBlockReminder[];
   // Legacy support
   type?: TimeBlockType;
   dayOfWeek?: number;

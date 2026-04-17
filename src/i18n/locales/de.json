@@ -666,7 +666,9 @@
     "bdCreate": "Geburtstag hinzufügen",
     "bdAddReminder": "Erinnerung hinzufügen",
     "bdRem1week": "1 Woche vorher",
-    "bdExisting": "Gespeicherte Geburtstage"
+    "bdExisting": "Gespeicherte Geburtstage",
+    "remMultiple": "Erinnerungen",
+    "tbRem5min": "5 Min vorher"
   },
   "call": {
     "micOn": "Mikrofon an",
