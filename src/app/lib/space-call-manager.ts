@@ -783,6 +783,9 @@ export class SpaceCallManager {
     // Teilnehmer unter 4 → zurueck zu Mesh
     console.log('[SpaceCallManager] SFU→Mesh Rueckwechsel');
 
+    // Verbleibende Teilnehmer merken bevor SFU aufgeraeumt wird
+    const remainingPeers = Array.from(this.sfuRemoteStreams.keys());
+
     // LiveKit trennen
     if (this.livekitRoom) {
       this.livekitRoom.disconnect();
@@ -791,10 +794,14 @@ export class SpaceCallManager {
     this.sfuRemoteStreams.clear();
     this.setMode('mesh');
 
-    // Neue Mesh-Verbindungen zu verbleibenden Teilnehmern
-    // Der Server sendet die aktuelle Teilnehmer-Liste im participant_left Event nicht direkt,
-    // daher muessen bestehende Peers ueber SDP neu verbunden werden.
-    // Dies passiert automatisch wenn participant_joined Events kommen.
+    // Mesh-Verbindungen zu verbleibenden Teilnehmern aktiv aufbauen
+    for (const peerId of remainingPeers) {
+      if (peerId === this.myAregoId) continue;
+      if (peerId === msg.aregoId) continue; // der gerade gegangen ist
+      if (!this.meshPeers.has(peerId)) {
+        await this.createMeshOffer(peerId);
+      }
+    }
   }
 
   // ── Mesh: Peer-Cleanup ────────────────────────────────────────────────
