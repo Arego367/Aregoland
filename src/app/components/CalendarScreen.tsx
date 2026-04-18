@@ -388,6 +388,7 @@ interface DayRowStackProps {
   height: number;
   freeLabel: string;
   density?: "normal" | "compact";
+  timeBlocks?: TimeBlock[];
 }
 
 function DayRowStack({
@@ -397,16 +398,73 @@ function DayRowStack({
   height,
   freeLabel,
   density = "normal",
+  timeBlocks,
 }: DayRowStackProps) {
   const plan = useMemo(() => computeRowPlan(events, height), [events, height]);
+
+  // Compute time-block grid overlays
+  const tbOverlays = useMemo(() => {
+    if (!timeBlocks || timeBlocks.length === 0 || plan.rows.length === 0) return [];
+    // Build time range for each row
+    const rowTimes: { startMin: number; endMin: number }[] = [];
+    for (let i = 0; i < plan.rows.length; i++) {
+      const row = plan.rows[i];
+      if (row.kind === "free") {
+        rowTimes.push({ startMin: row.startMin, endMin: row.endMin });
+      } else {
+        const ev = row.event;
+        const evStart = toMinutes(ev.startTime);
+        const evEnd = Math.min(24 * 60, evStart + durationMinutes(ev.duration, ev.customDurationMinutes));
+        if (row.position === "only") {
+          rowTimes.push({ startMin: evStart, endMin: evEnd });
+        } else if (row.position === "top") {
+          rowTimes.push({ startMin: evStart, endMin: (evStart + evEnd) / 2 });
+        } else {
+          rowTimes.push({ startMin: (evStart + evEnd) / 2, endMin: evEnd });
+        }
+      }
+    }
+    // For each timeBlock, find overlapping row range
+    return timeBlocks.map((tb) => {
+      const tbStart = toMinutes(tb.startTime);
+      const tbEnd = toMinutes(tb.endTime);
+      let firstRow = -1;
+      let lastRow = -1;
+      for (let r = 0; r < rowTimes.length; r++) {
+        if (rowTimes[r].endMin > tbStart && rowTimes[r].startMin < tbEnd) {
+          if (firstRow === -1) firstRow = r;
+          lastRow = r;
+        }
+      }
+      if (firstRow === -1) return null;
+      return { tb, gridRowStart: firstRow + 1, gridRowEnd: lastRow + 2 };
+    }).filter(Boolean) as { tb: TimeBlock; gridRowStart: number; gridRowEnd: number }[];
+  }, [timeBlocks, plan.rows]);
+
   if (height <= 0 || plan.rows.length === 0) return null;
   const compact = density === "compact";
 
   return (
     <div
-      className="w-full h-full grid overflow-hidden"
+      className="w-full h-full grid overflow-hidden relative"
       style={{ gridTemplateRows: `repeat(${plan.rows.length}, minmax(0, 1fr))` }}
     >
+      {/* TimeBlock background layers */}
+      {tbOverlays.map((ov) => (
+        <div
+          key={ov.tb.id}
+          className="bg-blue-500/8 border-l-2 border-blue-500/30 pointer-events-none"
+          style={{
+            gridRow: `${ov.gridRowStart} / ${ov.gridRowEnd}`,
+            gridColumn: "1 / -1",
+            zIndex: 0,
+          }}
+        >
+          <span className="text-[8px] text-blue-400/60 font-medium px-1 truncate block leading-tight mt-0.5">
+            {ov.tb.name}
+          </span>
+        </div>
+      ))}
       {plan.rows.map((row, i) => {
         if (row.kind === "free") {
           return (
@@ -414,7 +472,7 @@ function DayRowStack({
               key={i}
               onClick={() => onClickFreeSlot?.(row.startMin, row.endMin)}
               className={`flex items-center ${compact ? "px-1.5" : "px-3"} border-t border-gray-800/40 text-gray-500 italic overflow-hidden text-left hover:bg-gray-800/40 transition-colors cursor-pointer`}
-              style={{ fontSize: compact ? "10px" : "11px", lineHeight: 1 }}
+              style={{ fontSize: compact ? "10px" : "11px", lineHeight: 1, zIndex: 1 }}
             >
               <span className="truncate">
                 {formatMinuteOfDay(row.startMin)} – {formatMinuteOfDay(row.endMin)} · {freeLabel}
@@ -432,7 +490,7 @@ function DayRowStack({
             key={i}
             onClick={() => onSelectEvent(ev)}
             className={`flex items-center ${compact ? "px-1.5 gap-1" : "px-2 gap-2"} text-left text-white ${colorBgClass(ev.color)} ${cornerClass} overflow-hidden focus:outline-none focus:ring-2 focus:ring-white/40`}
-            style={colorStyle(ev.color)}
+            style={{ ...colorStyle(ev.color), zIndex: 1 }}
           >
             {row.position === "top" || row.position === "only" ? (
               <>
@@ -1251,6 +1309,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             todayStr={todayStr}
             eventsMap={eventsMap}
             birthdaysMap={birthdaysMap}
+            timeBlocks={timeBlocks}
             onSelectEvent={setDetailEvent}
             onClickFreeSlot={(dateStr, startMin) => {
               const hour = Math.floor(startMin / 60);
@@ -1441,7 +1500,7 @@ function MonthView({
 // ── Days View (replaces old Week View) ──────────────────────────────────────
 
 function DaysView({
-  anchor, config, todayStr, eventsMap, birthdaysMap, onSelectEvent, onClickFreeSlot,
+  anchor, config, todayStr, eventsMap, birthdaysMap, onSelectEvent, onClickFreeSlot, timeBlocks,
 }: {
   anchor: Date | null;
   config: DaysConfig;
@@ -1450,6 +1509,7 @@ function DaysView({
   birthdaysMap: Map<string, CalendarBirthday[]>;
   onSelectEvent: (ev: CalendarEvent) => void;
   onClickFreeSlot?: (dateStr: string, startMin: number, endMin: number) => void;
+  timeBlocks?: TimeBlock[];
 }) {
   const { t } = useTranslation();
   const WEEKDAYS_SHORT = t('calendar.weekdaysShort', { returnObjects: true }) as string[];
@@ -1543,6 +1603,8 @@ function DaysView({
             const dayEvs = eventsMap.get(ds) ?? [];
             const timed = dayEvs.filter((e) => e.duration !== "allday").sort((a, b) => a.startTime.localeCompare(b.startTime));
             const stackH = Math.max(0, containerHeight - 56);
+            const dayOfWeek = weekdayMon(d);
+            const dayTbs = timeBlocks?.filter((tb) => tb.daysOfWeek.includes(dayOfWeek));
 
             return (
               <div
@@ -1556,6 +1618,7 @@ function DaysView({
                   height={stackH}
                   freeLabel={t('calendar.free')}
                   density={config.count === 1 ? "normal" : "compact"}
+                  timeBlocks={dayTbs}
                 />
               </div>
             );
@@ -3008,6 +3071,7 @@ function TimeBlockEditor({
   const [addDnd, setAddDnd] = useState<DoNotDisturbSettings>({ enabled: false, allowedContacts: [], notificationMode: 'silent' });
   const [addShowDnd, setAddShowDnd] = useState(false);
   const [addReminders, setAddReminders] = useState<TimeBlockReminder[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -3039,7 +3103,7 @@ function TimeBlockEditor({
     setAddInterruptible(false); setAddBufferBefore(""); setAddBufferBeforeName("");
     setAddBufferAfter(""); setAddBufferAfterName("");
     setAddDnd({ enabled: false, allowedContacts: [], notificationMode: 'silent' });
-    setAddShowDnd(false); setAddReminders([]);
+    setAddShowDnd(false); setAddReminders([]); setShowAddForm(false);
   };
 
   const updateBlock = (updated: TimeBlock) => {
@@ -3101,9 +3165,22 @@ function TimeBlockEditor({
           <p className="text-xs text-gray-500 text-center mb-4">{t('calendar.priorityHint')}</p>
         )}
 
-        {/* Add new block */}
+        {/* Add new block — collapsible */}
+        {!showAddForm ? (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="w-full py-3 rounded-2xl border border-dashed border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 text-sm font-bold transition-colors mb-4"
+          >
+            + {t('calendar.addTimeBlock')}
+          </button>
+        ) : (
         <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3 mb-4">
-          <p className="text-xs text-gray-500 font-bold uppercase">{t('calendar.addTimeBlock')}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-500 font-bold uppercase">{t('calendar.addTimeBlock')}</p>
+            <button onClick={() => setShowAddForm(false)} className="p-1 rounded-full hover:bg-gray-700 text-gray-500 hover:text-gray-300">
+              <X size={14} />
+            </button>
+          </div>
 
           {/* Name */}
           <div>
@@ -3255,6 +3332,7 @@ function TimeBlockEditor({
             + {t('calendar.addTimeBlock')}
           </button>
         </div>
+        )}
 
         <button onClick={() => onSave(editing)}
           className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 transition-colors">
