@@ -170,6 +170,30 @@ function durationMinutes(dur: CalendarEvent["duration"], customMinutes?: number)
   }
 }
 
+/** Auto-format raw time input to HH:mm on blur.
+ *  "9" → "09:00", "930" → "09:30", "14:5" → "14:05", "1430" → "14:30" */
+function formatTimeInput(raw: string): string {
+  const s = raw.replace(/[^0-9:]/g, "");
+  if (!s) return "";
+  if (s.includes(":")) {
+    const [hStr, mStr] = s.split(":");
+    const h = Math.min(23, parseInt(hStr || "0", 10));
+    const m = Math.min(59, parseInt(mStr || "0", 10));
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+  const n = parseInt(s, 10);
+  if (s.length <= 2) {
+    const h = Math.min(23, n);
+    return `${String(h).padStart(2, "0")}:00`;
+  }
+  // 3-4 digits: first 1-2 = hours, rest = minutes
+  const mStr = s.slice(-2);
+  const hStr = s.slice(0, -2);
+  const h = Math.min(23, parseInt(hStr, 10));
+  const m = Math.min(59, parseInt(mStr, 10));
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 /** Add minutes to a HH:mm time string and return the result as HH:mm */
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(":").map(Number);
@@ -1933,7 +1957,6 @@ function EventFormModal({
       : ""
   );
   const [showEndDropdown, setShowEndDropdown] = useState(false);
-  const [showCustomEndInput, setShowCustomEndInput] = useState(false);
   const endDropdownRef = useRef<HTMLDivElement>(null);
   // Multiple reminders state
   const [eventReminders, setEventReminders] = useState<EventReminder[]>(() => {
@@ -2155,52 +2178,62 @@ function EventFormModal({
           <div>
             <label className="text-xs text-gray-500 font-bold mb-1 block">{t('calendar.time')}</label>
             <input
-              type="time"
+              type="text"
+              inputMode="numeric"
+              placeholder="hh:mm"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
+              onBlur={(e) => {
+                const formatted = formatTimeInput(e.target.value);
+                if (formatted) setStartTime(formatted);
+              }}
               disabled={duration === "allday"}
-              className="w-full px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 [color-scheme:dark]"
+              className="w-full px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 tabular-nums"
             />
           </div>
           <div className="relative" ref={endDropdownRef}>
             <label className="text-xs text-gray-500 font-bold mb-1 block">{t('calendar.endTime')}</label>
-            {showCustomEndInput ? (
+            <div className="flex items-center">
               <input
-                type="time"
-                autoFocus
-                value={customEndTimeInput}
+                type="text"
+                inputMode="numeric"
+                placeholder="hh:mm"
+                value={duration === "allday"
+                  ? t('calendar.allDay')
+                  : customEndTimeInput || addMinutesToTime(startTime, durationMinutes(duration, customDurationMinutes))}
                 onChange={(e) => {
                   const val = e.target.value;
                   setCustomEndTimeInput(val);
-                  if (val) {
-                    const mins = timeDiffMinutes(startTime, val);
+                }}
+                onBlur={(e) => {
+                  const formatted = formatTimeInput(e.target.value);
+                  if (formatted) {
+                    setCustomEndTimeInput(formatted);
+                    const mins = timeDiffMinutes(startTime, formatted);
                     if (mins > 0) {
                       setDuration("custom");
                       setCustomDurationMinutes(mins);
                     }
+                  } else {
+                    setCustomEndTimeInput("");
                   }
                 }}
-                onBlur={() => {
-                  if (!customEndTimeInput || timeDiffMinutes(startTime, customEndTimeInput) <= 0) {
-                    setShowCustomEndInput(false);
+                onFocus={() => {
+                  if (!customEndTimeInput && duration !== "allday") {
+                    setCustomEndTimeInput(addMinutesToTime(startTime, durationMinutes(duration, customDurationMinutes)));
                   }
                 }}
-                className="w-full px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark]"
+                disabled={duration === "allday"}
+                className="w-full px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 tabular-nums"
               />
-            ) : (
               <button
                 type="button"
                 onClick={() => setShowEndDropdown((p) => !p)}
-                className="w-full px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between"
+                className="ml-1 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 shrink-0"
               >
-                <span className={duration === "allday" ? "" : "tabular-nums"}>
-                  {duration === "allday"
-                    ? t('calendar.allDay')
-                    : addMinutesToTime(startTime, durationMinutes(duration, customDurationMinutes))}
-                </span>
-                <ChevronDown size={14} className="text-gray-400 shrink-0 ml-1" />
+                <ChevronDown size={14} />
               </button>
-            )}
+            </div>
             {showEndDropdown && (
               <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden">
                 {[
@@ -2214,8 +2247,8 @@ function EventFormModal({
                     type="button"
                     onClick={() => {
                       setDuration(opt.dur);
+                      setCustomEndTimeInput("");
                       setShowEndDropdown(false);
-                      setShowCustomEndInput(false);
                     }}
                     className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-700 flex items-center justify-between ${
                       duration === opt.dur ? "text-blue-400 font-bold" : "text-gray-300"
@@ -2229,27 +2262,14 @@ function EventFormModal({
                   type="button"
                   onClick={() => {
                     setDuration("allday");
+                    setCustomEndTimeInput("");
                     setShowEndDropdown(false);
-                    setShowCustomEndInput(false);
                   }}
                   className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-700 ${
                     duration === "allday" ? "text-blue-400 font-bold" : "text-gray-300"
                   }`}
                 >
                   {t('calendar.allDay')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEndDropdown(false);
-                    setShowCustomEndInput(true);
-                    setCustomEndTimeInput(addMinutesToTime(startTime, durationMinutes(duration, customDurationMinutes)));
-                  }}
-                  className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-700 border-t border-gray-700 ${
-                    duration === "custom" ? "text-blue-400 font-bold" : "text-gray-300"
-                  }`}
-                >
-                  {t('calendar.endTimeCustom')}
                 </button>
               </div>
             )}
