@@ -2870,8 +2870,8 @@ function SortableBlockItem({
     block.doNotDisturb ?? { enabled: false, allowedContacts: [], notificationMode: 'silent' }
   );
   const [showDnd, setShowDnd] = useState(editDnd.enabled);
-  const [showReminders, setShowReminders] = useState(editReminders.length > 0);
   const [editReminders, setEditReminders] = useState<TimeBlockReminder[]>(block.reminders ?? []);
+  const [showReminders, setShowReminders] = useState(editReminders.length > 0);
 
   const toggleEditDay = (d: number) => {
     setEditDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
