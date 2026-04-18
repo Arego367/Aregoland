@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, PhoneOff, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Pencil, Save, ToggleLeft, ToggleRight, Plus, Settings, History, ShieldCheck, Download, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Shield, ChevronRight, Smartphone, LogOut, LayoutGrid, MessageCircle, Calendar, CreditCard, Check, Trash2, Baby, UserPlus, Lock, QrCode, X, Copy, Volume2, VolumeX, Phone, PhoneOff, BellRing, BellOff, Eye, EyeOff, Database, MessageSquare, Users, FileText, ChevronDown, HardDrive, MapPin, Link as LinkIcon, Ban, Globe, HeartHandshake, Clock, Camera, Pencil, Save, ToggleLeft, ToggleRight, Plus, Settings, History, ShieldCheck, Download, AlertTriangle, Cloud, Upload, RefreshCw, Loader2 } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { deleteIdentity, loadIdentity, createChildLinkPayload, decodeChildLinkPayload, setKindStatus, registerEudiHash, getEudiHash, type LinkedChild } from "@/app/auth/identity";
@@ -10,7 +10,7 @@ import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setA
 import { loadFsk, saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { signData } from "@/app/auth/crypto";
 import { downloadGdprExport } from "@/app/lib/gdpr-export";
-import { getBackupPreview, getBackupScenario, createEncryptedBackup, downloadBackup, readBackupFile, decryptBackup, restoreBackup, type BackupFileInfo } from "@/app/lib/backup";
+import { getBackupPreview, getBackupScenario, createEncryptedBackup, downloadBackup, readBackupFile, decryptBackup, restoreBackup, uploadCloudBackup, getCloudBackupStatus, type BackupFileInfo, type CloudBackupStatus } from "@/app/lib/backup";
 import { Html5Qrcode } from "html5-qrcode";
 import { getLiveKitNodeUrl, setLiveKitNodeUrl } from "@/app/lib/call-manager";
 
@@ -2688,9 +2688,44 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
   const [importSuccess, setImportSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Cloud-Backup State (ARE-307)
+  const [cloudStatus, setCloudStatus] = useState<CloudBackupStatus | null>(null);
+  const [cloudUploading, setCloudUploading] = useState(false);
+  const [cloudSuccess, setCloudSuccess] = useState(false);
+  const [cloudError, setCloudError] = useState('');
+
   const preview = useMemo(() => getBackupPreview(), []);
   const scenario = getBackupScenario();
   const eudiHash = localStorage.getItem('aregoland_eudi_hash') ?? '';
+
+  // Cloud-Status laden
+  useEffect(() => {
+    if (scenario === 'A' && preview.aregoId) {
+      getCloudBackupStatus(preview.aregoId).then(setCloudStatus).catch(() => {});
+    }
+  }, [scenario, preview.aregoId]);
+
+  const handleCloudBackup = async () => {
+    setCloudUploading(true);
+    setCloudError('');
+    setCloudSuccess(false);
+    try {
+      const result = await uploadCloudBackup(false);
+      if (result.ok) {
+        setCloudSuccess(true);
+        // Status neu laden
+        if (preview.aregoId) {
+          getCloudBackupStatus(preview.aregoId).then(setCloudStatus).catch(() => {});
+        }
+      } else {
+        setCloudError(result.error === 'abo_required' ? t('settings.cloudBackupAboRequired') : t('settings.cloudBackupFailed'));
+      }
+    } catch {
+      setCloudError(t('settings.cloudBackupFailed'));
+    } finally {
+      setCloudUploading(false);
+    }
+  };
 
   const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
@@ -3012,6 +3047,48 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
             <ChevronRight size={16} className="text-gray-500" />
           </button>
         </div>
+
+        {/* Cloud-Backup (ARE-307) — nur für Szenario A mit Abo */}
+        {scenario === 'A' && cloudStatus?.cloud_enabled && (
+          <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Cloud size={18} className="text-cyan-400" />
+              <div className="flex-1">
+                <span className="text-sm font-medium block">{t('settings.cloudBackup')}</span>
+                <span className="text-xs text-gray-500">{t('settings.cloudBackupDesc')}</span>
+              </div>
+            </div>
+
+            {cloudStatus.has_backup && cloudStatus.backup_updated_at && (
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <Check size={14} className="text-green-400" />
+                <span>{t('settings.cloudBackupLastAt', { date: new Date(cloudStatus.backup_updated_at).toLocaleString() })}</span>
+              </div>
+            )}
+
+            {cloudSuccess && (
+              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-center">
+                <p className="text-sm text-green-300">{t('settings.cloudBackupSuccess')}</p>
+              </div>
+            )}
+
+            {cloudError && <p className="text-xs text-red-400">{cloudError}</p>}
+
+            <button
+              onClick={handleCloudBackup}
+              disabled={cloudUploading}
+              className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+            >
+              {cloudUploading ? (
+                <><Loader2 size={16} className="animate-spin" /> {t('settings.cloudBackupUploading')}</>
+              ) : (
+                <><Upload size={16} /> {t('settings.cloudBackupNow')}</>
+              )}
+            </button>
+
+            <p className="text-xs text-gray-500">{t('settings.cloudBackupAutoHint')}</p>
+          </div>
+        )}
 
         {/* Szenario-Info */}
         {scenario === 'A' && (

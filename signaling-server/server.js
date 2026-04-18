@@ -61,7 +61,7 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import initSqlJs from 'sql.js';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { testConnection as testStorage } from './storage.js';
+import { testConnection as testStorage, uploadFile, getFileUrl, deleteFile } from './storage.js';
 
 const PORT = process.env.PORT || 3001;
 const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -171,6 +171,9 @@ async function initDb() {
   try { db.run(`ALTER TABLE user_auth ADD COLUMN max_call_participants INTEGER NOT NULL DEFAULT 2`); } catch {}
   // Migration: EUDI-Hash Spalte für Wiederherstellungssystem (ARE-305)
   try { db.run(`ALTER TABLE user_auth ADD COLUMN eudi_hash TEXT DEFAULT NULL`); } catch {}
+  // Migration: Cloud-Backup Spalten (ARE-307)
+  try { db.run(`ALTER TABLE user_auth ADD COLUMN backup_s3_key TEXT DEFAULT NULL`); } catch {}
+  try { db.run(`ALTER TABLE user_auth ADD COLUMN backup_updated_at TEXT DEFAULT NULL`); } catch {}
 
   // Verwalter-Audit-Log (nur Metadaten, keine Hashes — CR-1)
   db.run(`
@@ -380,6 +383,21 @@ function readBody(req) {
     let body = '';
     req.on('data', c => { body += c; if (body.length > 8192) reject(new Error('too large')); });
     req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
+
+/** Binären Body lesen (max 10 MB für Backup-Dateien). */
+function readBinaryBody(req, maxBytes = 10 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let totalLen = 0;
+    req.on('data', c => {
+      totalLen += c.length;
+      if (totalLen > maxBytes) { req.destroy(); reject(new Error('too large')); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }
@@ -1889,6 +1907,190 @@ const server = createServer(async (req, res) => {
         max_call_participants: maxCallParticipants ?? 2,
         conflict,
       }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /backup/upload — Verschlüsseltes Backup in Hetzner Object Storage hochladen (ARE-307) ──
+  if (req.method === 'POST' && req.url === '/backup/upload') {
+    try {
+      // Arego-ID und EUDI-Hash aus Headern lesen
+      const aregoId = req.headers['x-arego-id'];
+      const eudiHash = req.headers['x-eudi-hash'];
+      if (!aregoId || !eudiHash) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'x-arego-id und x-eudi-hash Header erforderlich' }));
+        return;
+      }
+
+      // EUDI-Hash verifizieren — muss zum Arego-ID passen
+      const authRows = db.exec(
+        `SELECT eudi_hash, abo_status, abo_gueltig_bis FROM user_auth WHERE arego_id = ?`,
+        [aregoId]
+      );
+      if (!authRows.length || !authRows[0].values.length) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'arego_id_not_found' }));
+        return;
+      }
+      const [storedHash, aboStatus, aboGueltigBis] = authRows[0].values[0];
+      if (!storedHash || storedHash !== eudiHash.trim()) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'eudi_hash_mismatch' }));
+        return;
+      }
+
+      // Abo prüfen — nur aktive Abos dürfen Cloud-Backup nutzen
+      const hasAbo = aboStatus === 'active' || aboStatus === 'trial';
+      const aboExpired = aboGueltigBis && new Date(aboGueltigBis).getTime() < Date.now();
+      if (!hasAbo || (aboStatus === 'active' && aboExpired)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'abo_required' }));
+        return;
+      }
+
+      // Binären Body lesen (verschlüsselte .arego-Datei)
+      const buffer = await readBinaryBody(req);
+
+      // S3-Key: backups/{eudi-hash-prefix}/{arego-id}.arego
+      const prefix = eudiHash.trim().substring(0, 8);
+      const s3Key = `backups/${prefix}/${aregoId}.arego`;
+
+      await uploadFile(s3Key, buffer, 'application/octet-stream');
+
+      // Backup-Metadaten in DB speichern
+      db.run(`UPDATE user_auth SET backup_s3_key = ?, backup_updated_at = ? WHERE arego_id = ?`,
+        [s3Key, new Date().toISOString(), aregoId]);
+      persistDb();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, size: buffer.length }));
+    } catch (err) {
+      console.error('[Backup Upload] Fehler:', err.message);
+      if (err.message === 'too large') {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'backup_too_large' }));
+      } else {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'upload_failed' }));
+      }
+    }
+    return;
+  }
+
+  // ── POST /backup/download — Backup aus Hetzner laden (nach EUDI-Verifikation) (ARE-307) ──
+  if (req.method === 'POST' && req.url === '/backup/download') {
+    try {
+      const body = await readBody(req);
+      const { eudi_hash } = JSON.parse(body);
+      if (!eudi_hash) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'eudi_hash erforderlich' }));
+        return;
+      }
+      const normalized = eudi_hash.trim();
+
+      // Nutzer per EUDI-Hash suchen
+      const rows = db.exec(
+        `SELECT arego_id, backup_s3_key, backup_updated_at FROM user_auth WHERE eudi_hash = ?`,
+        [normalized]
+      );
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ found: false }));
+        return;
+      }
+      const [aregoId, s3Key, backupUpdatedAt] = rows[0].values[0];
+      if (!s3Key) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ found: true, arego_id: aregoId, has_backup: false }));
+        return;
+      }
+
+      // Presigned URL erzeugen (1 Stunde gültig)
+      const url = await getFileUrl(s3Key);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        found: true,
+        arego_id: aregoId,
+        has_backup: true,
+        backup_url: url,
+        backup_updated_at: backupUpdatedAt,
+      }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── GET /backup/status/:aregoId — Backup-Status prüfen (ARE-307) ──
+  if (req.method === 'GET' && req.url?.startsWith('/backup/status/')) {
+    try {
+      const aregoId = decodeURIComponent(req.url.split('/backup/status/')[1]);
+      if (!aregoId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'arego_id erforderlich' }));
+        return;
+      }
+
+      const rows = db.exec(
+        `SELECT backup_s3_key, backup_updated_at, abo_status, abo_gueltig_bis FROM user_auth WHERE arego_id = ?`,
+        [aregoId]
+      );
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ has_backup: false, cloud_enabled: false }));
+        return;
+      }
+      const [s3Key, backupUpdatedAt, aboStatus, aboGueltigBis] = rows[0].values[0];
+      const hasAbo = aboStatus === 'active' || aboStatus === 'trial';
+      const aboExpired = aboGueltigBis && new Date(aboGueltigBis).getTime() < Date.now();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        has_backup: !!s3Key,
+        backup_updated_at: backupUpdatedAt || null,
+        cloud_enabled: hasAbo && !aboExpired,
+      }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /contacts/online — Online-Status von Kontakten prüfen (ARE-307) ──
+  if (req.method === 'POST' && req.url === '/contacts/online') {
+    try {
+      const body = await readBody(req);
+      const { arego_id, contact_ids } = JSON.parse(body);
+      if (!arego_id || !Array.isArray(contact_ids)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'arego_id und contact_ids erforderlich' }));
+        return;
+      }
+
+      const online = [];
+      for (const cid of contact_ids.slice(0, 100)) {
+        if (typeof cid !== 'string') continue;
+        const sockets = onlineUsers.get(cid);
+        if (sockets && sockets.size > 0) {
+          // Display-Name aus user_directory laden
+          const dirRows = db.exec(
+            `SELECT display_name FROM user_directory WHERE arego_id = ?`,
+            [cid]
+          );
+          const displayName = dirRows.length && dirRows[0].values.length
+            ? dirRows[0].values[0][0] || cid
+            : cid;
+          online.push({ id: cid, displayName });
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ online }));
     } catch {
       res.writeHead(400); res.end();
     }

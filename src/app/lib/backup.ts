@@ -420,3 +420,164 @@ export function getBackupScenario(): BackupScenario {
   // Szenario C wird im UI behandelt wenn Nutzer kein Passwort eingibt
   return 'B';
 }
+
+// ── ARE-307 Phase 3: Cloud-Backup via Hetzner Object Storage ────────────────
+
+const SIGNALING_HTTP = (import.meta as any).env?.VITE_SIGNALING_HTTP_URL ?? '';
+
+export interface CloudBackupStatus {
+  has_backup: boolean;
+  backup_updated_at: string | null;
+  cloud_enabled: boolean;
+}
+
+/** Cloud-Backup-Status für den aktuellen Nutzer abfragen. */
+export async function getCloudBackupStatus(aregoId: string): Promise<CloudBackupStatus> {
+  const res = await fetch(`${SIGNALING_HTTP}/backup/status/${encodeURIComponent(aregoId)}`);
+  if (!res.ok) return { has_backup: false, backup_updated_at: null, cloud_enabled: false };
+  return res.json();
+}
+
+/** Verschlüsseltes Backup in die Cloud hochladen (nur Szenario A — EUDI + Abo). */
+export async function uploadCloudBackup(includeChats: boolean): Promise<{ ok: boolean; error?: string; size?: number }> {
+  const eudiHash = localStorage.getItem('aregoland_eudi_hash');
+  if (!eudiHash) return { ok: false, error: 'no_eudi' };
+
+  const identity = localStorage.getItem('aregoland_identity');
+  let aregoId = '';
+  try { aregoId = identity ? JSON.parse(identity).aregoId ?? '' : ''; } catch { /* */ }
+  if (!aregoId) return { ok: false, error: 'no_identity' };
+
+  // Backup erstellen (mit EUDI verschlüsselt)
+  const data = await createEncryptedBackup(eudiHash, includeChats, 'eudi');
+
+  // Hochladen
+  const res = await fetch(`${SIGNALING_HTTP}/backup/upload`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'X-Arego-Id': aregoId,
+      'X-Eudi-Hash': eudiHash,
+    },
+    body: data,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: 'unknown' }));
+    return { ok: false, error: body.error ?? 'upload_failed' };
+  }
+
+  const result = await res.json();
+  // Letzten Upload-Zeitstempel lokal speichern
+  localStorage.setItem('aregoland_cloud_backup_at', new Date().toISOString());
+  return { ok: true, size: result.size };
+}
+
+/** Cloud-Backup herunterladen und wiederherstellen (via EUDI-Hash). */
+export async function downloadAndRestoreCloudBackup(
+  eudiHash: string,
+): Promise<{ ok: boolean; aregoId?: string; restored?: string[]; error?: string }> {
+  // 1. Presigned URL vom Server holen
+  const infoRes = await fetch(`${SIGNALING_HTTP}/backup/download`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eudi_hash: eudiHash }),
+  });
+  if (!infoRes.ok) return { ok: false, error: 'server_error' };
+
+  const info = await infoRes.json();
+  if (!info.found) return { ok: false, error: 'not_found' };
+  if (!info.has_backup) return { ok: false, error: 'no_backup', aregoId: info.arego_id };
+
+  // 2. Backup-Datei von Hetzner herunterladen
+  const fileRes = await fetch(info.backup_url);
+  if (!fileRes.ok) return { ok: false, error: 'download_failed' };
+
+  const buffer = await fileRes.arrayBuffer();
+  const fileInfo = readBackupFile(buffer);
+  if (!fileInfo.valid) return { ok: false, error: 'invalid_file' };
+
+  // 3. Entschlüsseln (EUDI + Arego-ID)
+  const data = await decryptBackup(fileInfo, eudiHash, info.arego_id);
+  if (!data) return { ok: false, error: 'decrypt_failed' };
+
+  // 4. Wiederherstellen
+  const { restored } = restoreBackup(data);
+  return { ok: true, aregoId: info.arego_id, restored };
+}
+
+/** Auto-Backup: Prüft ob ein Cloud-Backup nötig ist und führt es aus. */
+export async function autoBackupIfNeeded(): Promise<void> {
+  // Nur für Szenario A (EUDI vorhanden)
+  if (getBackupScenario() !== 'A') return;
+
+  const identity = localStorage.getItem('aregoland_identity');
+  let aregoId = '';
+  try { aregoId = identity ? JSON.parse(identity).aregoId ?? '' : ''; } catch { /* */ }
+  if (!aregoId) return;
+
+  // Prüfen ob Cloud-Backup aktiviert ist (Abo-Nutzer)
+  try {
+    const status = await getCloudBackupStatus(aregoId);
+    if (!status.cloud_enabled) return;
+
+    // Nur wenn letztes Backup > 24h alt oder gar keins existiert
+    const lastBackup = localStorage.getItem('aregoland_cloud_backup_at');
+    if (lastBackup) {
+      const hoursSince = (Date.now() - new Date(lastBackup).getTime()) / (1000 * 60 * 60);
+      if (hoursSince < 24) return;
+    }
+
+    // Backup im Hintergrund erstellen und hochladen
+    await uploadCloudBackup(false); // Chats nicht einschließen (zu groß für Auto-Backup)
+    console.log('[CloudBackup] Auto-Backup erfolgreich');
+  } catch (err) {
+    console.warn('[CloudBackup] Auto-Backup fehlgeschlagen:', err);
+  }
+}
+
+/** Online-Kontakte nach Wiederherstellung abfragen. */
+export async function fetchOnlineContacts(aregoId: string): Promise<{ id: string; displayName: string }[]> {
+  // Kontakte aus localStorage laden
+  const chatsRaw = localStorage.getItem('aregoland_chats');
+  if (!chatsRaw) return [];
+
+  try {
+    const chats = JSON.parse(chatsRaw);
+    if (!Array.isArray(chats)) return [];
+
+    // Kontakt-IDs sammeln
+    const contactIds = chats
+      .map((c: { peerId?: string }) => c.peerId)
+      .filter((id: string | undefined): id is string => !!id && id !== aregoId);
+
+    if (!contactIds.length) return [];
+
+    // Online-Status vom Server abfragen
+    const res = await fetch(`${SIGNALING_HTTP}/contacts/online`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ arego_id: aregoId, contact_ids: contactIds }),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.online ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Space-IDs nach Wiederherstellung überprüfen und ggf. wiederherstellen. */
+export function getRestoredSpaces(): { id: string; name: string }[] {
+  try {
+    const spacesRaw = localStorage.getItem('aregoland_spaces');
+    if (!spacesRaw) return [];
+    const spaces = JSON.parse(spacesRaw);
+    if (!Array.isArray(spaces)) return [];
+    return spaces
+      .filter((s: { id?: string; name?: string }) => s.id && s.name)
+      .map((s: { id: string; name: string }) => ({ id: s.id, name: s.name }));
+  } catch {
+    return [];
+  }
+}

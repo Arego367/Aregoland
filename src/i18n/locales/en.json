@@ -74,7 +74,19 @@
     "parentKeyRequired": "Please enter the link code.",
     "invalidParentKey": "Invalid or expired code.",
     "childCreateError": "Error creating child account.",
-    "createChildAccount": "Create child account"
+    "createChildAccount": "Create child account",
+    "cloudBackupRestore": "Restore from cloud backup",
+    "cloudBackupRestoreDesc": "Load all data from your last cloud backup.",
+    "cloudBackupNotFound": "No account found with this EUDI hash.",
+    "cloudBackupNone": "No cloud backup available. Use file restore instead.",
+    "cloudBackupError": "Error loading cloud backup.",
+    "cloudBackupRestored": "Data successfully restored from cloud!",
+    "onlineContactsTitle": "{{count}} contacts online",
+    "onlineContactsHint": "These contacts are currently active in Aregoland and can reach you directly.",
+    "restoredSpacesTitle": "{{count}} spaces restored",
+    "restoredSpacesHint": "Your spaces will automatically reconnect when you open them.",
+    "moreSpaces": "more spaces",
+    "continueToApp": "Continue to Aregoland"
   },
   "registration": {
     "createAccount": "Create Account",
@@ -416,7 +428,16 @@
     "backupImportRestored": "{{count}} categories restored.",
     "backupImportReloadNeeded": "The app will reload to apply the changes.",
     "backupItems": "{{count}} items",
-    "backupSize": "{{size}}"
+    "backupSize": "{{size}}",
+    "cloudBackup": "Cloud Backup",
+    "cloudBackupDesc": "Automatic encrypted backup in the cloud (Hetzner, DE).",
+    "cloudBackupNow": "Back up now",
+    "cloudBackupUploading": "Uploading...",
+    "cloudBackupSuccess": "Cloud backup created successfully!",
+    "cloudBackupFailed": "Cloud backup failed. Please try again later.",
+    "cloudBackupAboRequired": "Cloud backup is only available with an active subscription.",
+    "cloudBackupLastAt": "Last backup: {{date}}",
+    "cloudBackupAutoHint": "Your backup is automatically updated every 24 hours."
   },
   "calendar": {
     "title": "Calendar",

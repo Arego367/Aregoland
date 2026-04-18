@@ -1,9 +1,9 @@
 import { motion, AnimatePresence } from "motion/react";
-import { MessageCircle, ArrowRight, UserPlus, History, ShieldAlert, ChevronLeft, Camera, Loader2, ChevronDown, ShieldCheck, Smartphone, HardDrive, Lock, Check } from "lucide-react";
+import { MessageCircle, ArrowRight, UserPlus, History, ShieldAlert, ChevronLeft, Camera, Loader2, ChevronDown, ShieldCheck, Smartphone, HardDrive, Lock, Check, Cloud, Users } from "lucide-react";
 import { ImageWithFallback } from "@/app/components/ImageWithFallback";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { importFromRecoveryPayload, decodeChildLinkPayload, createChildIdentity, recoverByEudiHash } from "@/app/auth/identity";
-import { readBackupFile, decryptBackup, restoreBackup, type BackupFileInfo } from "@/app/lib/backup";
+import { readBackupFile, decryptBackup, restoreBackup, downloadAndRestoreCloudBackup, fetchOnlineContacts, getRestoredSpaces, type BackupFileInfo } from "@/app/lib/backup";
 import { saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { Html5Qrcode } from "html5-qrcode";
 import { useTranslation } from 'react-i18next';
@@ -336,6 +336,9 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                 )}
               </div>
 
+              {/* ── Cloud-Wiederherstellung (ARE-307) ── */}
+              <CloudRestoreSection t={t} eudiHash={eudiHash} onRestored={onGetStarted} />
+
               {/* ── Backup-Datei Import ── */}
               <BackupFileImport t={t} onRestored={onGetStarted} />
 
@@ -483,6 +486,138 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
           &copy; 2026 Aregoland Inc.
         </motion.div>
       )}
+    </div>
+  );
+}
+
+// ── Cloud-Wiederherstellung (ARE-307) ──────────────────────────────────────
+
+function CloudRestoreSection({ t, eudiHash, onRestored }: { t: (k: string, o?: Record<string, unknown>) => string; eudiHash: string; onRestored: () => void }) {
+  const [restoring, setRestoring] = useState(false);
+  const [error, setError] = useState('');
+  const [onlineContacts, setOnlineContacts] = useState<{ id: string; displayName: string }[] | null>(null);
+  const [restoredSpaces, setRestoredSpaces] = useState<{ id: string; name: string }[]>([]);
+  const [showPostRestore, setShowPostRestore] = useState(false);
+
+  const handleCloudRestore = async () => {
+    if (!eudiHash.trim()) return;
+    setRestoring(true);
+    setError('');
+    try {
+      const result = await downloadAndRestoreCloudBackup(eudiHash.trim());
+      if (!result.ok) {
+        if (result.error === 'not_found') setError(t('welcome.cloudBackupNotFound'));
+        else if (result.error === 'no_backup') setError(t('welcome.cloudBackupNone'));
+        else if (result.error === 'decrypt_failed') setError(t('settings.backupImportFailed'));
+        else setError(t('welcome.cloudBackupError'));
+        return;
+      }
+
+      // Post-Restore: Online-Kontakte und Spaces laden
+      const [contacts, spaces] = await Promise.all([
+        result.aregoId ? fetchOnlineContacts(result.aregoId) : Promise.resolve([]),
+        Promise.resolve(getRestoredSpaces()),
+      ]);
+
+      if (contacts.length > 0 || spaces.length > 0) {
+        setOnlineContacts(contacts);
+        setRestoredSpaces(spaces);
+        setShowPostRestore(true);
+      } else {
+        onRestored();
+      }
+    } catch {
+      setError(t('welcome.cloudBackupError'));
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  if (showPostRestore) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-4"
+      >
+        {/* Erfolg */}
+        <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 text-center space-y-1">
+          <Check size={24} className="text-green-400 mx-auto" />
+          <p className="text-sm font-medium text-green-300">{t('welcome.cloudBackupRestored')}</p>
+        </div>
+
+        {/* Online-Kontakte */}
+        {onlineContacts && onlineContacts.length > 0 && (
+          <div className="bg-gray-800/50 backdrop-blur-md border border-gray-700/50 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Users size={16} className="text-cyan-400" />
+              <span className="text-sm font-medium">{t('welcome.onlineContactsTitle', { count: onlineContacts.length })}</span>
+            </div>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {onlineContacts.map(c => (
+                <div key={c.id} className="flex items-center gap-2 text-sm">
+                  <div className="w-2 h-2 rounded-full bg-green-400" />
+                  <span className="text-gray-300">{c.displayName}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">{t('welcome.onlineContactsHint')}</p>
+          </div>
+        )}
+
+        {/* Wiederhergestellte Spaces */}
+        {restoredSpaces.length > 0 && (
+          <div className="bg-gray-800/50 backdrop-blur-md border border-gray-700/50 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <HardDrive size={16} className="text-purple-400" />
+              <span className="text-sm font-medium">{t('welcome.restoredSpacesTitle', { count: restoredSpaces.length })}</span>
+            </div>
+            <div className="space-y-1.5">
+              {restoredSpaces.slice(0, 5).map(s => (
+                <div key={s.id} className="flex items-center gap-2 text-sm">
+                  <Check size={14} className="text-green-400" />
+                  <span className="text-gray-300">{s.name}</span>
+                </div>
+              ))}
+              {restoredSpaces.length > 5 && (
+                <p className="text-xs text-gray-500">+{restoredSpaces.length - 5} {t('welcome.moreSpaces')}</p>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">{t('welcome.restoredSpacesHint')}</p>
+          </div>
+        )}
+
+        {/* Weiter-Button */}
+        <button
+          onClick={onRestored}
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+        >
+          <ArrowRight size={18} />
+          <span>{t('welcome.continueToApp')}</span>
+        </button>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Cloud-Backup Button */}
+      <button
+        onClick={handleCloudRestore}
+        disabled={!eudiHash.trim() || restoring}
+        className="w-full flex items-center gap-3 p-4 bg-cyan-500/10 backdrop-blur-md border border-cyan-500/30 rounded-2xl hover:bg-cyan-500/20 transition-colors disabled:opacity-40"
+      >
+        <div className="p-2 bg-cyan-500/20 rounded-lg">
+          <Cloud size={20} className="text-cyan-400" />
+        </div>
+        <div className="text-left flex-1">
+          <span className="text-sm font-medium text-white block">{t('welcome.cloudBackupRestore')}</span>
+          <span className="text-xs text-gray-500">{t('welcome.cloudBackupRestoreDesc')}</span>
+        </div>
+        {restoring && <Loader2 size={18} className="text-cyan-400 animate-spin" />}
+      </button>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );
 }

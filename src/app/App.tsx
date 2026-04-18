@@ -483,6 +483,14 @@ export default function App() {
     }
   }, []);
 
+  // Cloud Auto-Backup beim Start (ARE-307)
+  useEffect(() => {
+    if (!identity) return;
+    import("@/app/lib/backup").then(({ autoBackupIfNeeded }) => {
+      autoBackupIfNeeded().catch(() => {});
+    });
+  }, [identity?.aregoId]);
+
   // Beta-Willkommens-Toast nach Login anzeigen (einmalig)
   useEffect(() => {
     if (identity && sessionStorage.getItem('aregoland_beta_welcome_seen') !== 'true') {

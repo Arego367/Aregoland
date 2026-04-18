@@ -75,7 +75,19 @@
     "parentKeyRequired": "Bitte gib den Verknüpfungscode ein.",
     "invalidParentKey": "Ungültiger oder abgelaufener Code.",
     "childCreateError": "Fehler beim Erstellen des Kind-Kontos.",
-    "createChildAccount": "Kind-Konto erstellen"
+    "createChildAccount": "Kind-Konto erstellen",
+    "cloudBackupRestore": "Cloud-Backup wiederherstellen",
+    "cloudBackupRestoreDesc": "Alle Daten aus deinem letzten Cloud-Backup laden.",
+    "cloudBackupNotFound": "Kein Konto mit diesem EUDI-Hash gefunden.",
+    "cloudBackupNone": "Kein Cloud-Backup vorhanden. Nutze die Datei-Wiederherstellung.",
+    "cloudBackupError": "Fehler beim Laden des Cloud-Backups.",
+    "cloudBackupRestored": "Daten erfolgreich aus der Cloud wiederhergestellt!",
+    "onlineContactsTitle": "{{count}} Kontakte online",
+    "onlineContactsHint": "Diese Kontakte sind gerade in Aregoland aktiv und können dich direkt erreichen.",
+    "restoredSpacesTitle": "{{count}} Spaces wiederhergestellt",
+    "restoredSpacesHint": "Deine Spaces werden beim nächsten Öffnen automatisch verbunden.",
+    "moreSpaces": "weitere Spaces",
+    "continueToApp": "Weiter zu Aregoland"
   },
   "registration": {
     "createAccount": "Konto erstellen",
@@ -564,7 +576,16 @@
     "backupImportRestored": "{{count}} Kategorien wiederhergestellt.",
     "backupImportReloadNeeded": "Die App wird neu geladen, um die Änderungen zu übernehmen.",
     "backupItems": "{{count}} Einträge",
-    "backupSize": "{{size}}"
+    "backupSize": "{{size}}",
+    "cloudBackup": "Cloud-Backup",
+    "cloudBackupDesc": "Automatisches verschlüsseltes Backup in der Cloud (Hetzner, DE).",
+    "cloudBackupNow": "Jetzt sichern",
+    "cloudBackupUploading": "Wird hochgeladen...",
+    "cloudBackupSuccess": "Cloud-Backup erfolgreich erstellt!",
+    "cloudBackupFailed": "Cloud-Backup fehlgeschlagen. Bitte versuche es später erneut.",
+    "cloudBackupAboRequired": "Cloud-Backup ist nur mit aktivem Abo verfügbar.",
+    "cloudBackupLastAt": "Letztes Backup: {{date}}",
+    "cloudBackupAutoHint": "Dein Backup wird automatisch alle 24 Stunden aktualisiert."
   },
   "calendar": {
     "title": "Kalender",
