@@ -49,6 +49,7 @@ export interface P2PIncomingMessage {
 // ── TURN Credential-Generierung (HMAC-SHA1, time-limited) ────────────────────
 
 const TURN_SECRET = (import.meta as any).env?.VITE_TURN_SECRET as string | undefined;
+const TURN_HOST = (import.meta as any).env?.VITE_TURN_HOST as string | undefined;
 const TURN_TTL = 60 * 60; // 1h gültig (DSGVO Auflage 3)
 
 async function generateTurnCredentials(): Promise<{ username: string; credential: string }> {
@@ -70,12 +71,12 @@ export async function buildIceServers(): Promise<RTCIceServer[]> {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
   ];
-  if (TURN_SECRET) {
+  if (TURN_SECRET && TURN_HOST) {
     const { username, credential } = await generateTurnCredentials();
     servers.push(
-      { urls: 'turn:46.225.115.51:3478', username, credential },
-      { urls: 'turn:46.225.115.51:3478?transport=tcp', username, credential },
-      { urls: 'turns:46.225.115.51:5349', username, credential },
+      { urls: `turn:${TURN_HOST}:3478`, username, credential },
+      { urls: `turn:${TURN_HOST}:3478?transport=tcp`, username, credential },
+      { urls: `turns:${TURN_HOST}:5349`, username, credential },
     );
   }
   return servers;
@@ -87,7 +88,8 @@ const SIGNALING_URL =
   (import.meta as any).env?.VITE_SIGNALING_URL ??
   `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws-signal`;
 
-const RECONNECT_DELAY = 5_000;
+const RECONNECT_BASE_DELAY = 5_000;
+const RECONNECT_MAX_DELAY = 30_000;
 
 // ── Interner Verbindungstyp ──────────────────────────────────────────────────
 
@@ -102,6 +104,7 @@ interface Conn {
   identityPayload?: string;
   destroyed: boolean;
   reconnectTimer?: ReturnType<typeof setTimeout>;
+  reconnectAttempts: number;
 }
 
 // ── Manager ──────────────────────────────────────────────────────────────────
@@ -392,6 +395,7 @@ export class P2PManager {
       error: null,
       identityPayload: this.globalIdentityPayload,
       destroyed: false,
+      reconnectAttempts: 0,
     };
     this.conns.set(roomId, conn);
     this.boot(conn);
@@ -487,14 +491,16 @@ export class P2PManager {
         if (c.destroyed) return;
         this.teardownPeer(c);
         this.setStatus(c, 'disconnected');
-        // Automatisch reconnecten
+        // Automatisch reconnecten mit Exponential Backoff
+        const delay = Math.min(RECONNECT_BASE_DELAY * 2 ** c.reconnectAttempts, RECONNECT_MAX_DELAY);
+        c.reconnectAttempts++;
         c.reconnectTimer = setTimeout(() => {
           if (!c.destroyed) {
             c.ws = null;
             this.setStatus(c, 'connecting');
             this.boot(c);
           }
-        }, RECONNECT_DELAY);
+        }, delay);
       };
     } catch {
       this.setStatus(c, 'error', 'WebRTC konnte nicht gestartet werden');
@@ -526,7 +532,7 @@ export class P2PManager {
     pc.onconnectionstatechange = () => {
       if (c.destroyed) return;
       const s = pc.connectionState;
-      if (s === 'connected') this.setStatus(c, 'connected');
+      if (s === 'connected') { c.reconnectAttempts = 0; this.setStatus(c, 'connected'); }
       if (s === 'disconnected' || s === 'failed') {
         this.teardownPeer(c);
         this.setStatus(c, 'waiting');
@@ -555,7 +561,7 @@ export class P2PManager {
     c.channel = ch;
 
     ch.onopen = () => {
-      if (!c.destroyed) this.setStatus(c, 'connected');
+      if (!c.destroyed) { c.reconnectAttempts = 0; this.setStatus(c, 'connected'); }
       // Identitäts-Handshake → gegenseitiger Kontakt-Austausch
       const sendIdHandshake = async () => {
         if (!c.sessionKey || !c.identityPayload || ch.readyState !== 'open') return;

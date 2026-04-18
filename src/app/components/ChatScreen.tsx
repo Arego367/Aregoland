@@ -13,6 +13,7 @@ import { CallManager, type CallState, type CallType } from '@/app/lib/call-manag
 import { useCallRecording } from '@/app/hooks/useCallRecording';
 import { ContactDetailModal } from './ContactDetailModal';
 import { blockContact, isBlocked } from "@/app/auth/contacts";
+import { loadIdentity } from "@/app/auth/identity";
 import AddParticipantSheet from './AddParticipantSheet';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
@@ -266,6 +267,12 @@ export default function ChatScreen({
   const callManagerRef = useRef<CallManager | null>(null);
   if (!callManagerRef.current) callManagerRef.current = new CallManager();
   const cm = callManagerRef.current;
+
+  // Arego-IDs fuer Glare-Resolution setzen
+  useEffect(() => {
+    const identity = loadIdentity();
+    if (identity) cm.setAregoIds(identity.aregoId, chatId);
+  }, [cm, chatId]);
 
   // Stable ref für sendCallSignal
   const sendCallSignalRef = useRef(sendCallSignal);

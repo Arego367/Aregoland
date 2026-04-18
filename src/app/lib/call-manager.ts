@@ -56,6 +56,8 @@ export class CallManager {
   private ringTimer: ReturnType<typeof setTimeout> | null = null;
   private sendSignal: SendSignalFn | null = null;
   private pendingIceCandidates: RTCIceCandidateInit[] = [];
+  private localAregoId: string | null = null;
+  private peerAregoId: string | null = null;
 
   private stateChangeCb: StateChangeCb | null = null;
   private streamsChangeCb: StreamsChangeCb | null = null;
@@ -64,6 +66,12 @@ export class CallManager {
 
   onStateChange(cb: StateChangeCb) { this.stateChangeCb = cb; }
   onStreamsChange(cb: StreamsChangeCb) { this.streamsChangeCb = cb; }
+
+  /** Arego-IDs fuer Glare-Resolution setzen (niedrigere ID = Caller gewinnt). */
+  setAregoIds(localId: string, peerId: string) {
+    this.localAregoId = localId;
+    this.peerAregoId = peerId;
+  }
 
   // ── Getter ──────────────────────────────────────────────────────────────
 
@@ -172,7 +180,25 @@ export class CallManager {
   }
 
   private async handleOffer(signal: CallSignal): Promise<void> {
-    if (this.state !== 'idle') {
+    if (this.state === 'ringing' && this.localAregoId && this.peerAregoId) {
+      // Glare: beide Seiten rufen gleichzeitig an.
+      // Niedrigere Arego-ID gewinnt als Caller, hoehere wird Callee.
+      if (this.localAregoId < this.peerAregoId) {
+        // Wir sind Caller — eigenen Offer behalten, eingehenden Offer ignorieren
+        console.log('[CallManager] Glare-Resolution: Wir sind Caller (niedrigere ID), Offer ignoriert');
+        return;
+      }
+      // Wir sind Callee — eigenen Call abbrechen, eingehenden Offer annehmen
+      console.log('[CallManager] Glare-Resolution: Wir sind Callee (hoehere ID), eigenen Call abbrechen');
+      this.clearRingTimeout();
+      this.media.cleanup();
+      this.pc?.close();
+      this.pc = null;
+      this.remoteStream = null;
+      this.cameraUnavailable = false;
+      this.pendingIceCandidates = [];
+      this.state = 'idle'; // direkt setzen ohne Callback (kein ended-Flicker)
+    } else if (this.state !== 'idle') {
       console.warn('[CallManager] Offer ignoriert — bereits im State:', this.state);
       // Busy → automatisch hangup senden
       this.sendSignal?.({ _t: 'call', action: 'hangup', callType: signal.callType });
