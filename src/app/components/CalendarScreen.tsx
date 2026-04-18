@@ -441,15 +441,15 @@ function DayRowStack({
     }).filter(Boolean) as { tb: TimeBlock; gridRowStart: number; gridRowEnd: number }[];
   }, [timeBlocks, plan.rows]);
 
-  // Determine which row indices fall inside a time-block overlay
-  const rowsInsideTb = useMemo(() => {
-    const set = new Set<number>();
+  // Map each row index to its covering TimeBlock (if any)
+  const rowTimeBlock = useMemo(() => {
+    const map = new Map<number, TimeBlock>();
     for (const ov of tbOverlays) {
       for (let r = ov.gridRowStart - 1; r < ov.gridRowEnd - 1; r++) {
-        set.add(r);
+        map.set(r, ov.tb);
       }
     }
-    return set;
+    return map;
   }, [tbOverlays]);
 
   if (height <= 0 || plan.rows.length === 0) return null;
@@ -460,36 +460,32 @@ function DayRowStack({
       className="w-full h-full grid overflow-hidden relative"
       style={{ gridTemplateRows: `repeat(${plan.rows.length}, minmax(0, 1fr))` }}
     >
-      {/* TimeBlock background layers — absolutely positioned so they don't affect grid track sizing */}
-      {tbOverlays.map((ov) => {
-        const totalRows = plan.rows.length;
-        const topPct = ((ov.gridRowStart - 1) / totalRows) * 100;
-        const bottomPct = ((ov.gridRowEnd - 1) / totalRows) * 100;
-        return (
-          <div
-            key={ov.tb.id}
-            className="absolute left-0 right-0 bg-blue-500/8 border-l-2 border-blue-500/30 pointer-events-none"
-            style={{
-              top: `${topPct}%`,
-              height: `${bottomPct - topPct}%`,
-              zIndex: 2,
-            }}
-          >
-            <span className="text-[8px] text-blue-400/60 font-medium px-1 truncate block leading-tight mt-0.5">
-              {ov.tb.name}
-            </span>
-          </div>
-        );
-      })}
       {plan.rows.map((row, i) => {
+        const tb = rowTimeBlock.get(i);
         if (row.kind === "free") {
-          const insideTb = rowsInsideTb.has(i);
+          if (tb) {
+            // Row inside a time block — show block background + name
+            const interruptible = tb.isInterruptible;
+            return (
+              <button
+                key={i}
+                onClick={interruptible ? () => onClickFreeSlot?.(row.startMin, row.endMin) : undefined}
+                className={`flex items-center ${compact ? "px-1.5" : "px-3"} border-t border-blue-500/15 overflow-hidden text-left transition-colors ${interruptible ? "bg-blue-500/10 text-blue-400/70 hover:bg-blue-500/18 cursor-pointer" : "bg-blue-500/8 text-blue-400/50 cursor-not-allowed opacity-80"}`}
+                style={{ fontSize: compact ? "10px" : "11px", lineHeight: 1 }}
+                disabled={!interruptible}
+              >
+                <span className="truncate">
+                  {formatMinuteOfDay(row.startMin)} – {formatMinuteOfDay(row.endMin)} · {tb.name}
+                </span>
+              </button>
+            );
+          }
           return (
             <button
               key={i}
-              onClick={insideTb ? undefined : () => onClickFreeSlot?.(row.startMin, row.endMin)}
-              className={`flex items-center ${compact ? "px-1.5" : "px-3"} ${insideTb ? "" : "border-t border-gray-800/40 text-gray-500 italic hover:bg-gray-800/40 cursor-pointer"} overflow-hidden text-left transition-colors`}
-              style={{ fontSize: compact ? "10px" : "11px", lineHeight: 1, zIndex: insideTb ? 0 : 1, visibility: insideTb ? "hidden" as const : "visible" as const }}
+              onClick={() => onClickFreeSlot?.(row.startMin, row.endMin)}
+              className={`flex items-center ${compact ? "px-1.5" : "px-3"} border-t border-gray-800/40 text-gray-500 italic hover:bg-gray-800/40 cursor-pointer overflow-hidden text-left transition-colors`}
+              style={{ fontSize: compact ? "10px" : "11px", lineHeight: 1 }}
             >
               <span className="truncate">
                 {formatMinuteOfDay(row.startMin)} – {formatMinuteOfDay(row.endMin)} · {freeLabel}
@@ -498,34 +494,36 @@ function DayRowStack({
           );
         }
         const ev = row.event;
-        const color = getColor(ev.color);
         const isTop = row.position === "top" || row.position === "only";
         const isBottom = row.position === "bottom" || row.position === "only";
         const cornerClass = `${isTop ? "rounded-t-md" : ""} ${isBottom ? "rounded-b-md mb-0.5" : ""}`;
+        // Event row — if inside a time block, show block background behind event
+        const tbBg = tb ? "bg-blue-500/8" : "";
         return (
-          <button
-            key={i}
-            onClick={() => onSelectEvent(ev)}
-            className={`flex items-center ${compact ? "px-1.5 gap-1" : "px-2 gap-2"} text-left text-white ${colorBgClass(ev.color)} ${cornerClass} overflow-hidden focus:outline-none focus:ring-2 focus:ring-white/40`}
-            style={{ ...colorStyle(ev.color), zIndex: 1 }}
-          >
-            {row.position === "top" || row.position === "only" ? (
-              <>
-                {!compact && (
-                  <span className="text-[10px] font-semibold opacity-80 shrink-0 tabular-nums">
-                    {ev.startTime}
+          <div key={i} className={`relative ${tbBg}`}>
+            <button
+              onClick={() => onSelectEvent(ev)}
+              className={`w-full h-full flex items-center ${compact ? "px-1.5 gap-1" : "px-2 gap-2"} text-left text-white ${colorBgClass(ev.color)} ${cornerClass} overflow-hidden focus:outline-none focus:ring-2 focus:ring-white/40`}
+              style={{ ...colorStyle(ev.color), zIndex: 1 }}
+            >
+              {row.position === "top" || row.position === "only" ? (
+                <>
+                  {!compact && (
+                    <span className="text-[10px] font-semibold opacity-80 shrink-0 tabular-nums">
+                      {ev.startTime}
+                    </span>
+                  )}
+                  <span className={`truncate font-semibold ${compact ? "text-[10px]" : "text-xs sm:text-sm"}`}>
+                    {ev.title}
                   </span>
-                )}
-                <span className={`truncate font-semibold ${compact ? "text-[10px]" : "text-xs sm:text-sm"}`}>
-                  {ev.title}
+                </>
+              ) : (
+                <span className={`truncate opacity-90 ${compact ? "text-[9px] pl-1" : "text-[11px] pl-2"}`}>
+                  📍 {ev.address}
                 </span>
-              </>
-            ) : (
-              <span className={`truncate opacity-90 ${compact ? "text-[9px] pl-1" : "text-[11px] pl-2"}`}>
-                📍 {ev.address}
-              </span>
-            )}
-          </button>
+              )}
+            </button>
+          </div>
         );
       })}
     </div>
