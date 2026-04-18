@@ -20,6 +20,19 @@ export interface AcquireResult {
   cameraUnavailable: boolean;
 }
 
+/**
+ * Audio-Constraints fuer VoIP-Qualitaet:
+ * - echoCancellation: verhindert Rueckkopplung bei Lautsprecher-Nutzung
+ * - noiseSuppression: filtert Hintergrundgeraeusche (Tastatur, Luefter)
+ * - autoGainControl: false — verhindert AGC-Pumpen bei Gruppencalls,
+ *   wo wechselnde Sprecher sonst Lautstaerke-Spruenge verursachen
+ */
+const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: false,
+};
+
 export class MediaStreamManager {
   private stream: MediaStream | null = null;
   private currentFacingMode: 'user' | 'environment' = 'user';
@@ -39,17 +52,17 @@ export class MediaStreamManager {
       try {
         console.log('[MediaStreamManager] getUserMedia — audio + video');
         this.stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: AUDIO_CONSTRAINTS,
           video: { facingMode: this.currentFacingMode },
         });
       } catch (videoErr) {
         console.warn('[MediaStreamManager] Kamera nicht verfügbar, Fallback auf Audio:', videoErr);
-        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
         cameraUnavailable = true;
       }
     } else {
       console.log('[MediaStreamManager] getUserMedia — audio only');
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
     }
 
     console.log(
