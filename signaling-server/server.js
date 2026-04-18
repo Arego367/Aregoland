@@ -169,6 +169,8 @@ async function initDb() {
   // Migration: Kinderschutz Phase 1 — Anruf-Einstellungen
   try { db.run(`ALTER TABLE user_auth ADD COLUMN calls_enabled INTEGER NOT NULL DEFAULT 1`); } catch {}
   try { db.run(`ALTER TABLE user_auth ADD COLUMN max_call_participants INTEGER NOT NULL DEFAULT 2`); } catch {}
+  // Migration: EUDI-Hash Spalte für Wiederherstellungssystem (ARE-305)
+  try { db.run(`ALTER TABLE user_auth ADD COLUMN eudi_hash TEXT DEFAULT NULL`); } catch {}
 
   // Verwalter-Audit-Log (nur Metadaten, keine Hashes — CR-1)
   db.run(`
@@ -1768,6 +1770,125 @@ const server = createServer(async (req, res) => {
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, changed: true, fsk_stufe: newFsk, detached: newFsk >= 18 && verwalter.length > 0 }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /eudi/register — EUDI-Hash mit Arego-ID verknüpfen (ARE-305) ──────
+  if (req.method === 'POST' && req.url === '/eudi/register') {
+    try {
+      const body = await readBody(req);
+      const { arego_id, eudi_hash } = JSON.parse(body);
+      if (!arego_id || !eudi_hash) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'arego_id und eudi_hash erforderlich' }));
+        return;
+      }
+      const normalized = eudi_hash.trim();
+
+      // Prüfen ob dieser Hash bereits einem anderen Nutzer zugeordnet ist
+      const existing = db.exec(
+        `SELECT arego_id FROM user_auth WHERE eudi_hash = ? AND arego_id != ?`,
+        [normalized, arego_id]
+      );
+      if (existing.length && existing[0].values.length) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'eudi_hash_conflict', existing_arego_id: existing[0].values[0][0] }));
+        return;
+      }
+
+      // Hash speichern (user_auth Eintrag muss existieren)
+      const rows = db.exec(`SELECT arego_id FROM user_auth WHERE arego_id = ?`, [arego_id]);
+      if (!rows.length || !rows[0].values.length) {
+        // Nutzer hat noch keinen user_auth Eintrag — anlegen
+        const now = new Date().toISOString();
+        db.run(
+          `INSERT INTO user_auth (arego_id, eudi_hash, letzter_heartbeat) VALUES (?, ?, ?)`,
+          [arego_id, normalized, now]
+        );
+      } else {
+        db.run(`UPDATE user_auth SET eudi_hash = ? WHERE arego_id = ?`, [normalized, arego_id]);
+      }
+      persistDb();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(400); res.end();
+    }
+    return;
+  }
+
+  // ── POST /eudi/recover — Konto via EUDI-Hash wiederherstellen (ARE-305) ────
+  if (req.method === 'POST' && req.url === '/eudi/recover') {
+    try {
+      const body = await readBody(req);
+      const { eudi_hash } = JSON.parse(body);
+      if (!eudi_hash) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'eudi_hash erforderlich' }));
+        return;
+      }
+      const normalized = eudi_hash.trim();
+
+      // Nutzer anhand EUDI-Hash suchen
+      const rows = db.exec(
+        `SELECT arego_id, abo_status, abo_gueltig_bis, fsk_stufe, verwalter_1, verwalter_2,
+                calls_enabled, max_call_participants
+         FROM user_auth WHERE eudi_hash = ?`,
+        [normalized]
+      );
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ found: false }));
+        return;
+      }
+      const [aregoId, aboStatus, aboGueltigBis, fskStufe, v1, v2, callsEnabled, maxCallParticipants] = rows[0].values[0];
+
+      // Profildaten aus user_directory laden (falls vorhanden)
+      const dirRows = db.exec(
+        `SELECT display_name, first_name, last_name, nickname, public_key_jwk
+         FROM user_directory WHERE arego_id = ?`,
+        [aregoId]
+      );
+      const profile = dirRows.length && dirRows[0].values.length
+        ? { displayName: dirRows[0].values[0][0], firstName: dirRows[0].values[0][1],
+            lastName: dirRows[0].values[0][2], nickname: dirRows[0].values[0][3],
+            publicKeyJwk: dirRows[0].values[0][4] ? JSON.parse(dirRows[0].values[0][4]) : null }
+        : null;
+
+      // Abo-Info aufbereiten
+      const subscription = (aboStatus && aboStatus !== 'none')
+        ? { status: aboStatus, gueltig_bis: aboGueltigBis }
+        : null;
+
+      // Konflikt-Erkennung: prüfen ob Nutzer gerade online ist (anderes Gerät)
+      const isOnline = onlineUsers.has(aregoId) && onlineUsers.get(aregoId).size > 0;
+      const conflict = isOnline
+        ? { deviceA: 'Aktuelles Gerät', deviceB: 'Anderes Gerät (online)' }
+        : undefined;
+
+      // Heartbeat aktualisieren
+      db.run(`UPDATE user_auth SET letzter_heartbeat = ? WHERE arego_id = ?`,
+        [new Date().toISOString(), aregoId]);
+      persistDb();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        found: true,
+        arego_id: aregoId,
+        fsk_level: fskStufe,
+        subscription,
+        profile,
+        ist_kind: !!(v1 || v2),
+        verwalter_1: v1,
+        verwalter_2: v2,
+        calls_enabled: !!callsEnabled,
+        max_call_participants: maxCallParticipants ?? 2,
+        conflict,
+      }));
     } catch {
       res.writeHead(400); res.end();
     }

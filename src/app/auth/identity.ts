@@ -181,8 +181,8 @@ export async function createChildIdentity(
 
 const EUDI_HASH_KEY = "aregoland_eudi_hash";
 
-/** Registriert einen EUDI-Hash fuer das aktuelle Konto (Testmodus). */
-export function registerEudiHash(hash: string): void {
+/** Registriert einen EUDI-Hash fuer das aktuelle Konto und synchronisiert mit Server. */
+export async function registerEudiHash(hash: string): Promise<void> {
   const normalized = hash.trim();
   if (!normalized) return;
   localStorage.setItem(EUDI_HASH_KEY, normalized);
@@ -192,6 +192,19 @@ export function registerEudiHash(hash: string): void {
     fsk.eudiHash = normalized;
     saveFsk(fsk);
   }
+  // Hash auf Server speichern (ARE-305)
+  const identity = loadIdentity();
+  if (identity) {
+    try {
+      await fetch('/eudi/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ arego_id: identity.aregoId, eudi_hash: normalized }),
+      });
+    } catch {
+      // Server nicht erreichbar — Hash ist lokal gespeichert, wird beim nächsten Heartbeat synchronisiert
+    }
+  }
 }
 
 /** Gibt den gespeicherten EUDI-Hash zurueck, oder null. */
@@ -200,10 +213,13 @@ export function getEudiHash(): string | null {
 }
 
 /**
- * Stellt ein Konto per EUDI-Hash wieder her (Testmodus).
+ * Stellt ein Konto per EUDI-Hash wieder her.
  * Sucht server-seitig nach einem registrierten Hash und stellt
  * AregoID, FSK-Level und Abo-Status wieder her.
- * Gibt { found: true, conflict?: ... } oder { found: false } zurueck.
+ *
+ * Wichtig: Der Server speichert keine privaten Schlüssel. Bei EUDI-Recovery
+ * wird eine neue Identität mit dem gleichen Arego-ID generiert. Der Nutzer
+ * behält seine Arego-ID, Kontakte und Spaces — aber braucht ein neues Schlüsselpaar.
  */
 export async function recoverByEudiHash(hash: string): Promise<{
   found: boolean;
@@ -222,10 +238,37 @@ export async function recoverByEudiHash(hash: string): Promise<{
     });
     const data = await resp.json();
 
-    if (data.found && data.identity) {
-      // Identitaet wiederherstellen
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data.identity));
+    if (data.found && data.arego_id) {
+      // Konflikt zuerst prüfen — bei Konflikt noch keine Wiederherstellung
+      if (data.conflict) {
+        return { found: true, fskLevel: data.fsk_level, conflict: data.conflict };
+      }
+
+      // Neues Schlüsselpaar generieren, alte Arego-ID beibehalten
+      const keyPair = await generateIdentityKeyPair();
+      const { publicKeyJwk, privateKeyJwk } = await exportKeyPairAsJWK(keyPair);
+
+      const displayName = data.profile?.displayName || data.arego_id;
+      const identity: UserIdentity = {
+        aregoId: data.arego_id,
+        displayName,
+        publicKeyJwk,
+        privateKeyJwk,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Identität lokal speichern
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
       localStorage.setItem(EUDI_HASH_KEY, normalized);
+
+      // Kind-Status wiederherstellen
+      if (data.ist_kind && (data.verwalter_1 || data.verwalter_2)) {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+        stored.ist_kind = true;
+        stored.verwalter = [data.verwalter_1, data.verwalter_2].filter(Boolean);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      }
+
       // FSK wiederherstellen
       const fskStatus: FskStatus = {
         level: data.fsk_level ?? 6,
@@ -235,26 +278,29 @@ export async function recoverByEudiHash(hash: string): Promise<{
         eudiHash: normalized,
       };
       saveFsk(fskStatus);
+
       // Abo wiederherstellen wenn vorhanden
       if (data.subscription) {
-        localStorage.setItem('aregoland_subscription', JSON.stringify(data.subscription));
+        const sub = {
+          status: data.subscription.status === 'active' ? 'active' : data.subscription.status,
+          gueltigBis: data.subscription.gueltig_bis,
+          plan: 'basic',
+        };
+        localStorage.setItem('aregoland_subscription', JSON.stringify(sub));
       } else if (!loadSubscription()) {
         initSubscription();
       }
 
       return {
         found: true,
-        identity: data.identity,
+        identity,
         fskLevel: data.fsk_level,
-        conflict: data.conflict,
       };
     }
 
     return { found: false };
   } catch {
     // Server nicht erreichbar → lokale Suche (Demo-Modus)
-    // Im Testmodus simulieren wir eine erfolgreiche Wiederherstellung
-    // wenn der Hash lokal bereits registriert war
     const localHash = localStorage.getItem(EUDI_HASH_KEY);
     if (localHash === normalized) {
       const identity = loadIdentity();
