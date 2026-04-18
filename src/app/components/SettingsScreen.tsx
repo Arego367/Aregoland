@@ -10,6 +10,7 @@ import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setA
 import { loadFsk, saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { signData } from "@/app/auth/crypto";
 import { downloadGdprExport } from "@/app/lib/gdpr-export";
+import { getBackupPreview, getBackupScenario, createEncryptedBackup, downloadBackup, readBackupFile, decryptBackup, restoreBackup, type BackupFileInfo } from "@/app/lib/backup";
 import { Html5Qrcode } from "html5-qrcode";
 import { getLiveKitNodeUrl, setLiveKitNodeUrl } from "@/app/lib/call-manager";
 
@@ -135,7 +136,7 @@ const LANGUAGES = [
 
 
 export default function SettingsScreen({ onBack, onResetAccount, subscriptionLocked, onSubscriptionUnlocked, onFskUpdated }: SettingsScreenProps) {
-  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "subscription" | "family" | "notifications" | "fsk">(subscriptionLocked ? "subscription" : "main");
+  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "subscription" | "family" | "notifications" | "fsk" | "backup">(subscriptionLocked ? "subscription" : "main");
   const [voucherCode, setVoucherCode] = useState("");
   const [subRefresh, setSubRefresh] = useState(0);
   const [selectedLang, setSelectedLang] = useState(() => LANGUAGES.find(l => l.code === localStorage.getItem('aregoland_language')) || LANGUAGES.find(l => l.code === 'de')!);
@@ -558,6 +559,19 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                        <p className="text-xs text-orange-400">{t('settings.fskNotVerified')}</p>
                      )}
                    </div>
+                 </div>
+                 <ChevronRight size={20} className="text-gray-500" />
+               </button>
+
+               <button
+                 onClick={() => setActiveSubmenu("backup")}
+                 className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+               >
+                 <div className="flex items-center gap-3">
+                   <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400">
+                     <HardDrive size={20} />
+                   </div>
+                   <span className="font-medium">{t('settings.backup')}</span>
                  </div>
                  <ChevronRight size={20} className="text-gray-500" />
                </button>
@@ -1289,6 +1303,11 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
         </div>
       </div>
     );
+  }
+
+  // Backup Submenu — "Backup & Wiederherstellung"
+  if (activeSubmenu === "backup") {
+    return <BackupSubmenu onBack={() => setActiveSubmenu("main")} t={t} />;
   }
 
   // Subscription Submenu — "Abo & Zahlung"
@@ -2649,4 +2668,370 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
 
   // Fallback
   return null;
+}
+
+// ── Backup Submenu ────────────────────────────────────────────────────────────
+
+function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opts?: Record<string, unknown>) => string }) {
+  const [mode, setMode] = useState<'menu' | 'export' | 'import'>('menu');
+  const [includeChats, setIncludeChats] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState(false);
+  const [importFile, setImportFile] = useState<BackupFileInfo | null>(null);
+  const [importKey, setImportKey] = useState('');
+  const [importAregoId, setImportAregoId] = useState('');
+  const [importError, setImportError] = useState('');
+  const [decrypting, setDecrypting] = useState(false);
+  const [importSuccess, setImportSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const preview = useMemo(() => getBackupPreview(), []);
+  const scenario = getBackupScenario();
+  const eudiHash = localStorage.getItem('aregoland_eudi_hash') ?? '';
+
+  const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+  const handleExport = async () => {
+    const encMethod = scenario === 'A' ? 'eudi' : 'password';
+
+    if (encMethod === 'password') {
+      if (password.length < 8) {
+        setPasswordError(t('settings.backupPasswordTooShort'));
+        return;
+      }
+      if (password !== passwordConfirm) {
+        setPasswordError(t('settings.backupPasswordMismatch'));
+        return;
+      }
+    }
+
+    setPasswordError('');
+    setCreating(true);
+    try {
+      const secret = encMethod === 'eudi' ? eudiHash : password;
+      const data = await createEncryptedBackup(secret, includeChats, encMethod);
+      downloadBackup(data, preview.aregoId);
+      setCreated(true);
+    } catch (err) {
+      console.error('[Backup] Export error:', err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError('');
+    setImportSuccess(false);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const info = readBackupFile(reader.result as ArrayBuffer);
+      if (!info.valid) {
+        setImportError(t('settings.backupImportInvalidFile'));
+        setImportFile(null);
+      } else {
+        setImportFile(info);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleDecrypt = async () => {
+    if (!importFile) return;
+    if (!importKey.trim()) return;
+    if (!importAregoId.trim()) return;
+
+    setDecrypting(true);
+    setImportError('');
+    try {
+      const data = await decryptBackup(importFile, importKey.trim(), importAregoId.trim());
+      if (!data) {
+        setImportError(t('settings.backupImportFailed'));
+        return;
+      }
+      const { restored } = restoreBackup(data);
+      setImportSuccess(true);
+      setTimeout(() => window.location.reload(), 2000);
+    } catch {
+      setImportError(t('settings.backupImportFailed'));
+    } finally {
+      setDecrypting(false);
+    }
+  };
+
+  // ── Export-Ansicht ──
+  if (mode === 'export') {
+    return (
+      <div className="flex flex-col h-full bg-gray-900 text-white">
+        <div className="flex items-center gap-3 p-4 border-b border-gray-700/50">
+          <button onClick={() => { setMode('menu'); setCreated(false); }} className="p-2 hover:bg-gray-800 rounded-xl"><ArrowLeft size={20} /></button>
+          <h2 className="text-lg font-bold">{t('settings.backupExport')}</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Vorschau */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.backupPreview')}</h3>
+            <p className="text-xs text-gray-400 px-2">{t('settings.backupPreviewDesc')}</p>
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden divide-y divide-gray-700/50">
+              {preview.categories.filter(c => c.key !== 'chats').map(cat => (
+                <div key={cat.key} className="flex items-center justify-between p-3 px-4">
+                  <span className="text-sm">{t(`settings.${cat.label}`)}</span>
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <span>{t('settings.backupItems', { count: cat.count })}</span>
+                    <span className="font-mono">{formatSize(cat.sizeBytes)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Chats opt-in */}
+          <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-2">
+            <button onClick={() => setIncludeChats(!includeChats)} className="w-full flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <MessageSquare size={16} className="text-gray-400" />
+                <span className="text-sm font-medium">{t('settings.backupIncludeChats')}</span>
+              </div>
+              {includeChats ? <ToggleRight size={24} className="text-blue-400" /> : <ToggleLeft size={24} className="text-gray-500" />}
+            </button>
+            <p className="text-xs text-gray-500 pl-7">{t('settings.backupIncludeChatsHint')}</p>
+            {includeChats && (() => {
+              const chatCat = preview.categories.find(c => c.key === 'chats');
+              return chatCat ? (
+                <div className="flex items-center justify-between pl-7 text-xs text-gray-500">
+                  <span>{t('settings.backupItems', { count: chatCat.count })}</span>
+                  <span className="font-mono">{formatSize(chatCat.sizeBytes)}</span>
+                </div>
+              ) : null;
+            })()}
+          </div>
+
+          {/* Verschlüsselungsmethode */}
+          {scenario === 'A' ? (
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 space-y-1">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={16} className="text-blue-400" />
+                <span className="text-sm font-medium text-blue-300">{t('settings.backupEncryptionEudi')}</span>
+              </div>
+              <p className="text-xs text-blue-400/70">{t('settings.backupEncryptionEudiDesc')}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-1">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={16} className="text-amber-400" />
+                  <span className="text-sm font-medium text-amber-300">{t('settings.backupNoEudiWarning')}</span>
+                </div>
+                <p className="text-xs text-amber-400/70">{t('settings.backupNoEudiWarningStrong')}</p>
+              </div>
+              <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Lock size={16} className="text-gray-400" />
+                  <span className="text-sm font-medium">{t('settings.backupEncryptionPassword')}</span>
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); setPasswordError(''); }}
+                  placeholder={t('settings.backupPasswordPlaceholder')}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-2.5 text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
+                <input
+                  type="password"
+                  value={passwordConfirm}
+                  onChange={e => { setPasswordConfirm(e.target.value); setPasswordError(''); }}
+                  placeholder={t('settings.backupPasswordConfirm')}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-2.5 text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
+                {passwordError && <p className="text-xs text-red-400">{passwordError}</p>}
+              </div>
+            </div>
+          )}
+
+          {/* Erstellen-Button */}
+          {created ? (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 text-center space-y-1">
+              <Check size={24} className="text-green-400 mx-auto" />
+              <p className="text-sm font-medium text-green-300">{t('settings.backupCreated')}</p>
+              <p className="text-xs text-green-400/70">{t('settings.backupFileHint')}</p>
+            </div>
+          ) : (
+            <button
+              onClick={handleExport}
+              disabled={creating || (scenario !== 'A' && password.length < 8)}
+              className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              {creating ? (
+                <><span className="animate-spin">&#9696;</span> {t('settings.backupCreating')}</>
+              ) : (
+                <><Download size={18} /> {t('settings.backupExport')}</>
+              )}
+            </button>
+          )}
+
+          <p className="text-xs text-gray-500 text-center px-4">{t('settings.backupFileHint')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Import-Ansicht ──
+  if (mode === 'import') {
+    return (
+      <div className="flex flex-col h-full bg-gray-900 text-white">
+        <div className="flex items-center gap-3 p-4 border-b border-gray-700/50">
+          <button onClick={() => { setMode('menu'); setImportFile(null); setImportError(''); setImportSuccess(false); }} className="p-2 hover:bg-gray-800 rounded-xl"><ArrowLeft size={20} /></button>
+          <h2 className="text-lg font-bold">{t('settings.backupImportTitle')}</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <p className="text-sm text-gray-400">{t('settings.backupImportDesc')}</p>
+
+          {importSuccess ? (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 text-center space-y-2">
+              <Check size={24} className="text-green-400 mx-auto" />
+              <p className="text-sm font-medium text-green-300">{t('settings.backupImportSuccess')}</p>
+              <p className="text-xs text-green-400/70">{t('settings.backupImportReloadNeeded')}</p>
+            </div>
+          ) : (
+            <>
+              {/* Datei-Auswahl */}
+              <input ref={fileInputRef} type="file" accept=".arego" onChange={handleFileSelect} className="hidden" />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full bg-gray-800/50 border-2 border-dashed border-gray-600 hover:border-blue-500 rounded-2xl p-6 text-center transition-colors"
+              >
+                <Download size={24} className="text-gray-400 mx-auto mb-2 rotate-180" />
+                <span className="text-sm text-gray-400">{t('settings.backupImportSelectFile')}</span>
+              </button>
+
+              {importFile && (
+                <div className="space-y-3">
+                  {/* Verschlüsselungsinfo */}
+                  <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Lock size={16} className="text-gray-400" />
+                      <span className="text-sm font-medium">
+                        {importFile.encryptionMethod === 'eudi' ? t('settings.backupEncryptionEudi') : t('settings.backupEncryptionPassword')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Arego-ID Eingabe */}
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">{t('settings.backupImportEnterAregoId')}</label>
+                    <input
+                      type="text"
+                      value={importAregoId}
+                      onChange={e => setImportAregoId(e.target.value)}
+                      placeholder="AC-XXXX-XXXXXXXX"
+                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-2.5 text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Schlüssel/Passwort Eingabe */}
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      {importFile.encryptionMethod === 'eudi' ? t('settings.backupImportEnterEudi') : t('settings.backupImportEnterPassword')}
+                    </label>
+                    <input
+                      type={importFile.encryptionMethod === 'eudi' ? 'text' : 'password'}
+                      value={importKey}
+                      onChange={e => { setImportKey(e.target.value); setImportError(''); }}
+                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-2.5 text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Warnung */}
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3">
+                    <p className="text-xs text-amber-400">{t('settings.backupImportRestoreWarning')}</p>
+                  </div>
+
+                  {importError && <p className="text-xs text-red-400 text-center">{importError}</p>}
+
+                  {/* Entschlüsseln-Button */}
+                  <button
+                    onClick={handleDecrypt}
+                    disabled={decrypting || !importKey.trim() || !importAregoId.trim()}
+                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    {decrypting ? (
+                      <><span className="animate-spin">&#9696;</span> {t('settings.backupImportDecrypting')}</>
+                    ) : (
+                      <><Lock size={18} /> {t('settings.backupImportDecrypt')}</>
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Menü-Ansicht ──
+  return (
+    <div className="flex flex-col h-full bg-gray-900 text-white">
+      <div className="flex items-center gap-3 p-4 border-b border-gray-700/50">
+        <button onClick={onBack} className="p-2 hover:bg-gray-800 rounded-xl"><ArrowLeft size={20} /></button>
+        <h2 className="text-lg font-bold">{t('settings.backup')}</h2>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <p className="text-sm text-gray-400">{t('settings.backupDesc')}</p>
+
+        <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden divide-y divide-gray-700/50">
+          <button
+            onClick={() => setMode('export')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Download size={18} className="text-blue-400" />
+              <div className="text-left">
+                <span className="text-sm font-medium block">{t('settings.backupExport')}</span>
+                <span className="text-xs text-gray-500">{t('settings.backupDesc')}</span>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-gray-500" />
+          </button>
+
+          <button
+            onClick={() => setMode('import')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Download size={18} className="text-green-400 rotate-180" />
+              <div className="text-left">
+                <span className="text-sm font-medium block">{t('settings.backupImport')}</span>
+                <span className="text-xs text-gray-500">{t('settings.backupImportDesc')}</span>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Szenario-Info */}
+        {scenario === 'A' && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4 space-y-1">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={16} className="text-blue-400" />
+              <span className="text-sm font-medium text-blue-300">{t('settings.backupEncryptionEudi')}</span>
+            </div>
+            <p className="text-xs text-blue-400/70">{t('settings.backupEncryptionEudiDesc')}</p>
+          </div>
+        )}
+        {scenario === 'B' && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-1">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-amber-400" />
+              <span className="text-sm font-medium text-amber-300">{t('settings.backupNoEudiWarning')}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

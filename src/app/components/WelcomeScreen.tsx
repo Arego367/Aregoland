@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from "motion/react";
-import { MessageCircle, ArrowRight, UserPlus, History, ShieldAlert, ChevronLeft, Camera, Loader2, ChevronDown, ShieldCheck, Smartphone } from "lucide-react";
+import { MessageCircle, ArrowRight, UserPlus, History, ShieldAlert, ChevronLeft, Camera, Loader2, ChevronDown, ShieldCheck, Smartphone, HardDrive, Lock, Check } from "lucide-react";
 import { ImageWithFallback } from "@/app/components/ImageWithFallback";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { importFromRecoveryPayload, decodeChildLinkPayload, createChildIdentity, recoverByEudiHash } from "@/app/auth/identity";
+import { readBackupFile, decryptBackup, restoreBackup, type BackupFileInfo } from "@/app/lib/backup";
 import { saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { Html5Qrcode } from "html5-qrcode";
 import { useTranslation } from 'react-i18next';
@@ -335,6 +336,9 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
                 )}
               </div>
 
+              {/* ── Backup-Datei Import ── */}
+              <BackupFileImport t={t} onRestored={onGetStarted} />
+
               {/* Konflikt-Anzeige */}
               {eudiConflict && (
                 <motion.div
@@ -477,6 +481,138 @@ export default function WelcomeScreen({ onGetStarted, onShowQRCode, onScanQRCode
            className="absolute bottom-8 z-10 text-gray-500 text-xs font-medium"
         >
           &copy; 2026 Aregoland Inc.
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// ── Backup-Datei Import (inline in Restore-Ansicht) ───────────────────────
+
+function BackupFileImport({ t, onRestored }: { t: (k: string, o?: Record<string, unknown>) => string; onRestored: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [file, setFile] = useState<BackupFileInfo | null>(null);
+  const [importKey, setImportKey] = useState('');
+  const [importAregoId, setImportAregoId] = useState('');
+  const [error, setError] = useState('');
+  const [decrypting, setDecrypting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setError('');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const info = readBackupFile(reader.result as ArrayBuffer);
+      if (!info.valid) {
+        setError(t('settings.backupImportInvalidFile'));
+        setFile(null);
+      } else {
+        setFile(info);
+      }
+    };
+    reader.readAsArrayBuffer(f);
+  };
+
+  const handleDecrypt = async () => {
+    if (!file || !importKey.trim() || !importAregoId.trim()) return;
+    setDecrypting(true);
+    setError('');
+    try {
+      const data = await decryptBackup(file, importKey.trim(), importAregoId.trim());
+      if (!data) {
+        setError(t('settings.backupImportFailed'));
+        return;
+      }
+      restoreBackup(data);
+      setSuccess(true);
+      setTimeout(() => onRestored(), 1500);
+    } catch {
+      setError(t('settings.backupImportFailed'));
+    } finally {
+      setDecrypting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Divider */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-gray-700" />
+        <span className="text-xs text-gray-500 uppercase">{t('common.or') || 'oder'}</span>
+        <div className="flex-1 h-px bg-gray-700" />
+      </div>
+
+      {/* Backup-Datei Button */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-3 p-4 bg-gray-800/50 backdrop-blur-md border border-gray-700/50 rounded-2xl hover:bg-gray-800 transition-colors"
+      >
+        <div className="p-2 bg-cyan-500/20 rounded-lg">
+          <HardDrive size={20} className="text-cyan-400" />
+        </div>
+        <div className="text-left flex-1">
+          <span className="text-sm font-medium text-white block">{t('settings.backupImport')}</span>
+          <span className="text-xs text-gray-500">{t('settings.backupImportDesc')}</span>
+        </div>
+        <ChevronDown size={16} className={`text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {expanded && (
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3 overflow-hidden">
+          {success ? (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 text-center space-y-1">
+              <Check size={24} className="text-green-400 mx-auto" />
+              <p className="text-sm font-medium text-green-300">{t('settings.backupImportSuccess')}</p>
+            </div>
+          ) : (
+            <>
+              <input ref={fileRef} type="file" accept=".arego" onChange={handleFile} className="hidden" />
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="w-full border-2 border-dashed border-gray-600 hover:border-cyan-500 rounded-2xl p-4 text-center transition-colors"
+              >
+                <HardDrive size={20} className="text-gray-400 mx-auto mb-1" />
+                <span className="text-sm text-gray-400">{t('settings.backupImportSelectFile')}</span>
+              </button>
+
+              {file && (
+                <div className="space-y-3">
+                  <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-3 flex items-center gap-2">
+                    <Lock size={14} className="text-gray-400" />
+                    <span className="text-xs text-gray-400">
+                      {file.encryptionMethod === 'eudi' ? t('settings.backupEncryptionEudi') : t('settings.backupEncryptionPassword')}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    value={importAregoId}
+                    onChange={e => setImportAregoId(e.target.value)}
+                    placeholder="AC-XXXX-XXXXXXXX"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type={file.encryptionMethod === 'eudi' ? 'text' : 'password'}
+                    value={importKey}
+                    onChange={e => { setImportKey(e.target.value); setError(''); }}
+                    placeholder={file.encryptionMethod === 'eudi' ? 'EUDI Hash' : t('settings.backupPasswordPlaceholder')}
+                    className="w-full px-4 py-3 rounded-xl bg-gray-800/80 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {error && <p className="text-xs text-red-400">{error}</p>}
+                  <button
+                    onClick={handleDecrypt}
+                    disabled={decrypting || !importKey.trim() || !importAregoId.trim()}
+                    className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    {decrypting ? <Loader2 size={18} className="animate-spin" /> : <Lock size={18} />}
+                    <span>{decrypting ? t('settings.backupImportDecrypting') : t('settings.backupImportDecrypt')}</span>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </motion.div>
       )}
     </div>
