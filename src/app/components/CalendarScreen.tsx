@@ -1744,6 +1744,27 @@ function multiReminderSummary(
   return `${reminders.length} ${t('calendar.remMultiple')}`;
 }
 
+const TB_REMINDER_LABELS: Record<string, string> = {
+  none: 'calendar.remNone', '5min': 'calendar.tbRem5min', '10min': 'calendar.rem10min',
+  '30min': 'calendar.rem30min', '1h': 'calendar.rem1h', custom: 'calendar.remCustom',
+};
+
+function tbReminderSummary(
+  reminders: TimeBlockReminder[],
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  if (reminders.length === 0) return t('calendar.remNone');
+  if (reminders.length === 1) {
+    const r = reminders[0];
+    if (r.preset === 'custom' && r.customMinutes) {
+      const { value, unit } = fromCustomReminderMinutes(r.customMinutes);
+      return t('calendar.customReminderValue', { value, unit: t(reminderUnitKey(unit)) });
+    }
+    return t(TB_REMINDER_LABELS[r.preset] ?? 'calendar.remNone');
+  }
+  return `${reminders.length} ${t('calendar.remMultiple')}`;
+}
+
 // ── Recurrence label helper ─────────────────────────────────────────────────
 
 function recurrenceSummary(
@@ -2834,6 +2855,7 @@ function SortableBlockItem({
     block.doNotDisturb ?? { enabled: false, allowedContacts: [], notificationMode: 'silent' }
   );
   const [showDnd, setShowDnd] = useState(editDnd.enabled);
+  const [showReminders, setShowReminders] = useState(editReminders.length > 0);
   const [editReminders, setEditReminders] = useState<TimeBlockReminder[]>(block.reminders ?? []);
 
   const toggleEditDay = (d: number) => {
@@ -2982,55 +3004,66 @@ function SortableBlockItem({
             )}
           </div>
 
-          {/* Reminders */}
-          <div>
-            <label className="text-xs text-gray-500 mb-1 flex items-center gap-1.5">
-              <Bell size={12} /> {t('calendar.reminder')}
-            </label>
-            <div className="space-y-2">
-              {editReminders.map((r, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <select
-                    value={r.preset}
-                    onChange={(e) => {
-                      const next = [...editReminders];
-                      next[idx] = { ...r, preset: e.target.value as TimeBlockReminder['preset'] };
-                      setEditReminders(next);
-                    }}
-                    className="flex-1 px-3 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
-                  >
-                    <option value="5min">{t('calendar.tbRem5min')}</option>
-                    <option value="10min">{t('calendar.rem10min')}</option>
-                    <option value="30min">{t('calendar.rem30min')}</option>
-                    <option value="1h">{t('calendar.rem1h')}</option>
-                    <option value="custom">{t('calendar.remCustom')}</option>
-                  </select>
-                  {r.preset === 'custom' && (
-                    <input
-                      type="number"
-                      min={1}
-                      value={r.customMinutes ?? 15}
+          {/* Reminders — collapsible pill */}
+          <div className="rounded-xl border border-gray-700/50 overflow-hidden">
+            <button
+              onClick={() => setShowReminders(!showReminders)}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors ${
+                showReminders ? "bg-blue-600/20 text-blue-300" : "bg-gray-800/50 text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Bell size={14} />
+                {t('calendar.reminder')} · {tbReminderSummary(editReminders, t)}
+              </span>
+              {showReminders ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {showReminders && (
+              <div className="px-3 pb-3 pt-2 bg-gray-800/30 space-y-2">
+                {editReminders.map((r, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <select
+                      value={r.preset}
                       onChange={(e) => {
                         const next = [...editReminders];
-                        next[idx] = { ...r, customMinutes: parseInt(e.target.value, 10) || 15 };
+                        next[idx] = { ...r, preset: e.target.value as TimeBlockReminder['preset'] };
                         setEditReminders(next);
                       }}
-                      className="w-20 px-2 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
-                    />
-                  )}
-                  <button onClick={() => setEditReminders(prev => prev.filter((_, i) => i !== idx))}
-                    className="p-1.5 rounded-full hover:bg-gray-800 text-gray-500 hover:text-red-400">
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => setEditReminders(prev => [...prev, { preset: '10min' }])}
-                className="text-xs text-blue-400 hover:text-blue-300 font-medium"
-              >
-                + {t('calendar.bdAddReminder')}
-              </button>
-            </div>
+                      className="flex-1 px-3 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
+                    >
+                      <option value="5min">{t('calendar.tbRem5min')}</option>
+                      <option value="10min">{t('calendar.rem10min')}</option>
+                      <option value="30min">{t('calendar.rem30min')}</option>
+                      <option value="1h">{t('calendar.rem1h')}</option>
+                      <option value="custom">{t('calendar.remCustom')}</option>
+                    </select>
+                    {r.preset === 'custom' && (
+                      <input
+                        type="number"
+                        min={1}
+                        value={r.customMinutes ?? 15}
+                        onChange={(e) => {
+                          const next = [...editReminders];
+                          next[idx] = { ...r, customMinutes: parseInt(e.target.value, 10) || 15 };
+                          setEditReminders(next);
+                        }}
+                        className="w-20 px-2 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
+                      />
+                    )}
+                    <button onClick={() => setEditReminders(prev => prev.filter((_, i) => i !== idx))}
+                      className="p-1.5 rounded-full hover:bg-gray-800 text-gray-500 hover:text-red-400">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setEditReminders(prev => [...prev, { preset: '10min' }])}
+                  className="text-xs text-blue-400 hover:text-blue-300 font-medium"
+                >
+                  + {t('calendar.bdAddReminder')}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Save button */}
@@ -3070,6 +3103,7 @@ function TimeBlockEditor({
   const [addBufferAfterName, setAddBufferAfterName] = useState("");
   const [addDnd, setAddDnd] = useState<DoNotDisturbSettings>({ enabled: false, allowedContacts: [], notificationMode: 'silent' });
   const [addShowDnd, setAddShowDnd] = useState(false);
+  const [addShowReminders, setAddShowReminders] = useState(false);
   const [addReminders, setAddReminders] = useState<TimeBlockReminder[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -3275,55 +3309,66 @@ function TimeBlockEditor({
             )}
           </div>
 
-          {/* Reminders */}
-          <div>
-            <label className="text-xs text-gray-500 mb-1 flex items-center gap-1.5">
-              <Bell size={12} /> {t('calendar.reminder')}
-            </label>
-            <div className="space-y-2">
-              {addReminders.map((r, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <select
-                    value={r.preset}
-                    onChange={(e) => {
-                      const next = [...addReminders];
-                      next[idx] = { ...r, preset: e.target.value as TimeBlockReminder['preset'] };
-                      setAddReminders(next);
-                    }}
-                    className="flex-1 px-3 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
-                  >
-                    <option value="5min">{t('calendar.tbRem5min')}</option>
-                    <option value="10min">{t('calendar.rem10min')}</option>
-                    <option value="30min">{t('calendar.rem30min')}</option>
-                    <option value="1h">{t('calendar.rem1h')}</option>
-                    <option value="custom">{t('calendar.remCustom')}</option>
-                  </select>
-                  {r.preset === 'custom' && (
-                    <input
-                      type="number"
-                      min={1}
-                      value={r.customMinutes ?? 15}
+          {/* Reminders — collapsible pill */}
+          <div className="rounded-xl border border-gray-700/50 overflow-hidden">
+            <button
+              onClick={() => setAddShowReminders(!addShowReminders)}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors ${
+                addShowReminders ? "bg-blue-600/20 text-blue-300" : "bg-gray-800/50 text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Bell size={14} />
+                {t('calendar.reminder')} · {tbReminderSummary(addReminders, t)}
+              </span>
+              {addShowReminders ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {addShowReminders && (
+              <div className="px-3 pb-3 pt-2 bg-gray-800/30 space-y-2">
+                {addReminders.map((r, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <select
+                      value={r.preset}
                       onChange={(e) => {
                         const next = [...addReminders];
-                        next[idx] = { ...r, customMinutes: parseInt(e.target.value, 10) || 15 };
+                        next[idx] = { ...r, preset: e.target.value as TimeBlockReminder['preset'] };
                         setAddReminders(next);
                       }}
-                      className="w-20 px-2 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
-                    />
-                  )}
-                  <button onClick={() => setAddReminders(prev => prev.filter((_, i) => i !== idx))}
-                    className="p-1.5 rounded-full hover:bg-gray-800 text-gray-500 hover:text-red-400">
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => setAddReminders(prev => [...prev, { preset: '10min' }])}
-                className="text-xs text-blue-400 hover:text-blue-300 font-medium"
-              >
-                + {t('calendar.bdAddReminder')}
-              </button>
-            </div>
+                      className="flex-1 px-3 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
+                    >
+                      <option value="5min">{t('calendar.tbRem5min')}</option>
+                      <option value="10min">{t('calendar.rem10min')}</option>
+                      <option value="30min">{t('calendar.rem30min')}</option>
+                      <option value="1h">{t('calendar.rem1h')}</option>
+                      <option value="custom">{t('calendar.remCustom')}</option>
+                    </select>
+                    {r.preset === 'custom' && (
+                      <input
+                        type="number"
+                        min={1}
+                        value={r.customMinutes ?? 15}
+                        onChange={(e) => {
+                          const next = [...addReminders];
+                          next[idx] = { ...r, customMinutes: parseInt(e.target.value, 10) || 15 };
+                          setAddReminders(next);
+                        }}
+                        className="w-20 px-2 py-2 bg-gray-800 rounded-lg text-sm text-white border border-gray-700 outline-none"
+                      />
+                    )}
+                    <button onClick={() => setAddReminders(prev => prev.filter((_, i) => i !== idx))}
+                      className="p-1.5 rounded-full hover:bg-gray-800 text-gray-500 hover:text-red-400">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setAddReminders(prev => [...prev, { preset: '10min' }])}
+                  className="text-xs text-blue-400 hover:text-blue-300 font-medium"
+                >
+                  + {t('calendar.bdAddReminder')}
+                </button>
+              </div>
+            )}
           </div>
 
           <button onClick={addBlock}
