@@ -85,6 +85,7 @@ export class SpaceCallManager {
 
   // E2EE: gemeinsamer Schluessel fuer Mesh (Insertable Streams)
   private e2eeKey: CryptoKey | null = null;
+  private e2eeWorkers: Worker[] = [];
 
   // Screen Sharing
   private screenStream: MediaStream | null = null;
@@ -326,7 +327,9 @@ export class SpaceCallManager {
 
   private async createMeshOffer(peerId: string) {
     const iceServers = await buildIceServers();
-    const pc = new RTCPeerConnection({ iceServers });
+    const pcConfig: RTCConfiguration & { encodedInsertableStreams?: boolean } = { iceServers };
+    if (this.e2eeKey) pcConfig.encodedInsertableStreams = true;
+    const pc = new RTCPeerConnection(pcConfig);
     const remoteStream = new MediaStream();
 
     const meshPeer: MeshPeer = {
@@ -371,7 +374,9 @@ export class SpaceCallManager {
     if (sdpType === 'offer') {
       // Incoming Offer — erstelle Answer
       const iceServers = await buildIceServers();
-      const pc = new RTCPeerConnection({ iceServers });
+      const pcConfig: RTCConfiguration & { encodedInsertableStreams?: boolean } = { iceServers };
+      if (this.e2eeKey) pcConfig.encodedInsertableStreams = true;
+      const pc = new RTCPeerConnection(pcConfig);
       const remoteStream = new MediaStream();
 
       const meshPeer: MeshPeer = {
@@ -492,27 +497,109 @@ export class SpaceCallManager {
 
   // ── E2EE: Insertable Streams (Mesh-Modus) ────────────────────────────
 
-  private setupInsertableStreams(pc: RTCPeerConnection, key: CryptoKey) {
-    // Insertable Streams API fuer sender und receiver
-    // Nutzt RTCRtpScriptTransform wenn verfuegbar, sonst createEncodedStreams
+  private async setupInsertableStreams(pc: RTCPeerConnection, key: CryptoKey) {
+    const rawKey = await crypto.subtle.exportKey('raw', key);
     const senders = pc.getSenders();
     const receivers = pc.getReceivers();
 
-    // Fuer Sender: Frames verschluesseln
-    for (const sender of senders) {
-      if ('transform' in sender && typeof RTCRtpScriptTransform !== 'undefined') {
-        // Moderne API — ScriptTransform (Worker-basiert)
-        // Fuer Aregoland: einfache XOR-basierte Frame-Verschluesselung
-        // (Vollstaendige AES-Verschluesselung kommt in spaeterer Phase)
-        console.log('[SpaceCallManager] E2EE: Insertable Streams Setup fuer Sender');
-      }
-    }
+    const useScriptTransform =
+      typeof RTCRtpScriptTransform !== 'undefined';
 
-    // Fuer Receiver: Frames entschluesseln
-    for (const receiver of receivers) {
-      if ('transform' in receiver && typeof RTCRtpScriptTransform !== 'undefined') {
-        console.log('[SpaceCallManager] E2EE: Insertable Streams Setup fuer Receiver');
+    if (useScriptTransform) {
+      // Moderne API: RTCRtpScriptTransform (Chrome 110+, Firefox 117+, Safari 15.4+)
+      for (const sender of senders) {
+        if (!sender.track) continue;
+        const worker = new Worker(
+          new URL('./e2ee-worker.ts', import.meta.url),
+          { type: 'module' },
+        );
+        worker.postMessage({ type: 'setKey', keyData: rawKey });
+        (sender as any).transform = new RTCRtpScriptTransform(worker, { operation: 'encrypt' });
+        this.e2eeWorkers.push(worker);
       }
+
+      for (const receiver of receivers) {
+        const worker = new Worker(
+          new URL('./e2ee-worker.ts', import.meta.url),
+          { type: 'module' },
+        );
+        worker.postMessage({ type: 'setKey', keyData: rawKey });
+        (receiver as any).transform = new RTCRtpScriptTransform(worker, { operation: 'decrypt' });
+        this.e2eeWorkers.push(worker);
+      }
+
+      console.log('[SpaceCallManager] E2EE: RTCRtpScriptTransform aktiv (%d sender, %d receiver)', senders.length, receivers.length);
+    } else {
+      // Legacy API: createEncodedStreams (Chrome 86-109, encodedInsertableStreams: true)
+      const IV_LENGTH = 12;
+      let frameCounter = 0;
+
+      for (const sender of senders) {
+        if (!sender.track) continue;
+        const senderStreams = (sender as any).createEncodedStreams?.();
+        if (!senderStreams) continue;
+
+        const encryptTransform = new TransformStream({
+          async transform(frame: any, controller: any) {
+            try {
+              const iv = new Uint8Array(IV_LENGTH);
+              const view = new DataView(iv.buffer);
+              view.setUint32(0, frameCounter++);
+              crypto.getRandomValues(iv.subarray(4));
+
+              const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv },
+                key,
+                frame.data,
+              );
+
+              const result = new ArrayBuffer(IV_LENGTH + encrypted.byteLength);
+              const out = new Uint8Array(result);
+              out.set(iv, 0);
+              out.set(new Uint8Array(encrypted), IV_LENGTH);
+
+              frame.data = result;
+              controller.enqueue(frame);
+            } catch {
+              controller.enqueue(frame);
+            }
+          },
+        });
+
+        senderStreams.readable.pipeThrough(encryptTransform).pipeTo(senderStreams.writable);
+      }
+
+      for (const receiver of receivers) {
+        const receiverStreams = (receiver as any).createEncodedStreams?.();
+        if (!receiverStreams) continue;
+
+        const decryptTransform = new TransformStream({
+          async transform(frame: any, controller: any) {
+            const data = new Uint8Array(frame.data);
+            if (data.byteLength < IV_LENGTH + 16) {
+              controller.enqueue(frame);
+              return;
+            }
+            try {
+              const iv = data.slice(0, IV_LENGTH);
+              const ciphertext = data.slice(IV_LENGTH);
+              const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv },
+                key,
+                ciphertext,
+              );
+              frame.data = decrypted;
+              controller.enqueue(frame);
+            } catch {
+              // Auth-Fehler: Frame droppen (manipuliert oder falscher Key)
+            }
+          },
+        });
+
+        receiverStreams.readable.pipeThrough(decryptTransform).pipeTo(receiverStreams.writable);
+      }
+
+      console.log('[SpaceCallManager] E2EE: createEncodedStreams aktiv (%d sender, %d receiver)', senders.length, receivers.length);
     }
   }
 
@@ -717,6 +804,12 @@ export class SpaceCallManager {
       peer.pc.close();
     }
     this.meshPeers.clear();
+
+    // E2EE-Worker terminieren
+    for (const w of this.e2eeWorkers) {
+      w.terminate();
+    }
+    this.e2eeWorkers = [];
   }
 
   // ── Call verlassen ────────────────────────────────────────────────────
