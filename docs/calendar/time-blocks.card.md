@@ -9,7 +9,7 @@ Jeder Zeitblock kann individuelle Nicht-stören-Einstellungen haben.
 `aktiv`
 
 ## Code-Anker
-- **Typen:** `src/app/types.ts` — `TimeBlock`, `TimeBlockType`, `DoNotDisturbSettings`, `DndNotificationMode`
+- **Typen:** `src/app/types.ts` — `TimeBlock`, `TimeBlockType`, `TimeBlockReminder`, `DoNotDisturbSettings`, `DndNotificationMode`
 - **UI:** `src/app/components/CalendarScreen.tsx` — TimeBlockEditor Modal, SortableBlockItem (aufklappbar zur Bearbeitung), DndSettingsForm, Background-Rendering in Week/Day-Views
 - **Storage:** `arego_calendar_time_blocks` localStorage
 
@@ -29,6 +29,7 @@ Timer-Icon klicken → TimeBlockEditor Modal → Bloecke hinzufuegen/bearbeiten/
 | bufferBefore | TimeBlockBuffer? | Optionaler Puffer davor (Minuten + Name) |
 | bufferAfter | TimeBlockBuffer? | Optionaler Puffer danach (Minuten + Name) |
 | doNotDisturb | DoNotDisturbSettings? | Optionale Nicht-stören-Einstellungen |
+| reminders | TimeBlockReminder[]? | Mehrere Erinnerungen pro Zeitblock (ARE-261) |
 | type | TimeBlockType? | Legacy: work, interruptible, buffer, available |
 | dayOfWeek | number? | Legacy: Einzelner Tag |
 
@@ -40,6 +41,12 @@ Timer-Icon klicken → TimeBlockEditor Modal → Bloecke hinzufuegen/bearbeiten/
 | notificationMode | DndNotificationMode | 'silent' / 'vibration' / 'normal' |
 | allowedMessagers? | string[] | Legacy — wird bei Migration nach allowedContacts zusammengefuehrt |
 | allowedCallers? | string[] | Legacy — wird bei Migration nach allowedContacts zusammengefuehrt |
+
+## TimeBlockReminder-Felder (ARE-261)
+| Feld | Typ | Beschreibung |
+|------|-----|-------------|
+| preset | enum | none, 5min, 10min, 30min, 1h, custom |
+| customMinutes | number? | Benutzerdefinierte Minuten (wenn preset=custom) |
 
 ## Block-Typen & Farben
 | Typ | Farbe | Beschreibung |

@@ -29,7 +29,15 @@ Event speichern → `scheduleSWReminder()` → `postMessage` an SW → SW speich
 - **Felder:** eventId, title, body, fireAt (Unix ms)
 
 ## Reminder-Zeitpunkte
-- 10 Min, 30 Min, 1 Std, 1 Tag vorher (wie bisher in UI)
+- Events: 10 Min, 30 Min, 1 Std, 1 Tag vorher, benutzerdefiniert
+- Zeitbloecke: 5 Min, 10 Min, 30 Min, 1 Std vorher, benutzerdefiniert
+- Geburtstage: 1 Tag, 1 Woche vorher, benutzerdefiniert
+
+## Multi-Reminder (ARE-261)
+- Jedes Event, jeder Zeitblock und jeder Geburtstag kann mehrere Erinnerungen haben
+- `scheduleReminder()` iteriert ueber `reminders[]`-Array und erstellt je einen SW-Timer
+- ID-Schema: `{eventId}` fuer erste Erinnerung, `{eventId}:r{index}` fuer weitere
+- `cancelReminder()` loescht alle Varianten r0..r9
 
 ## Fallback
 - Ohne Service Worker: automatischer Fallback auf setTimeout (max 24h, nur bei offenem Tab)
