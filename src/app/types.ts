@@ -182,6 +182,7 @@ export interface TimeBlock {
   bufferAfter?: TimeBlockBuffer;
   doNotDisturb?: DoNotDisturbSettings;
   reminders?: TimeBlockReminder[];
+  color?: string;            // Tailwind color ID or hex string (e.g. "blue", "#ff5500")
   // Legacy support
   type?: TimeBlockType;
   dayOfWeek?: number;

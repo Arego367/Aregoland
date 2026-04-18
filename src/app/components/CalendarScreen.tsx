@@ -466,12 +466,19 @@ function DayRowStack({
           if (tb) {
             // Row inside a time block — show block background + name
             const interruptible = tb.isInterruptible;
+            const tc = tbColor(tb.color);
+            const isHex = tb.color?.startsWith("#");
             return (
               <button
                 key={i}
                 onClick={interruptible ? () => onClickFreeSlot?.(row.startMin, row.endMin) : undefined}
-                className={`flex items-center ${compact ? "px-1.5" : "px-3"} border-t border-blue-500/15 overflow-hidden text-left transition-colors ${interruptible ? "bg-blue-500/10 text-blue-400/70 hover:bg-blue-500/18 cursor-pointer" : "bg-blue-500/8 text-blue-400/50 cursor-not-allowed opacity-80"}`}
-                style={{ fontSize: compact ? "10px" : "11px", lineHeight: 1 }}
+                className={`flex items-center ${compact ? "px-1.5" : "px-3"} border-t overflow-hidden text-left transition-colors ${
+                  isHex ? "" : interruptible ? `${tc.bg} ${tc.text} hover:brightness-125 cursor-pointer` : `${tc.bgFaint} ${tc.textFaint} cursor-not-allowed opacity-80`
+                }`}
+                style={{
+                  fontSize: compact ? "10px" : "11px", lineHeight: 1,
+                  ...(isHex ? (interruptible ? tc.style : tc.styleFaint) : {}),
+                }}
                 disabled={!interruptible}
               >
                 <span className="truncate">
@@ -498,9 +505,10 @@ function DayRowStack({
         const isBottom = row.position === "bottom" || row.position === "only";
         const cornerClass = `${isTop ? "rounded-t-md" : ""} ${isBottom ? "rounded-b-md mb-0.5" : ""}`;
         // Event row — if inside a time block, show block background behind event
-        const tbBg = tb ? "bg-blue-500/8" : "";
+        const evTc = tb ? tbColor(tb.color) : null;
+        const evTbHex = tb?.color?.startsWith("#");
         return (
-          <div key={i} className={`relative ${tbBg}`}>
+          <div key={i} className={`relative ${evTc && !evTbHex ? evTc.bgFaint : ""}`} style={evTc && evTbHex ? evTc.styleFaint : undefined}>
             <button
               onClick={() => onSelectEvent(ev)}
               className={`w-full h-full flex items-center ${compact ? "px-1.5 gap-1" : "px-2 gap-2"} text-left text-white ${colorBgClass(ev.color)} ${cornerClass} overflow-hidden focus:outline-none focus:ring-2 focus:ring-white/40`}
@@ -577,6 +585,32 @@ function saveTimeBlocks(blocks: TimeBlock[]) {
 }
 
 const TIME_BLOCK_COLOR = "bg-blue-500/10 border-blue-500/20";
+
+/** Derive time-block background/border/text classes from an optional color value.
+ *  Supports Tailwind color IDs (e.g. "blue") and hex strings (e.g. "#ff5500").
+ *  Falls back to default blue when no color is set. */
+function tbColor(color?: string): { bg: string; bgFaint: string; border: string; text: string; textFaint: string; style: React.CSSProperties; styleFaint: React.CSSProperties } {
+  if (!color) {
+    return { bg: "bg-blue-500/10", bgFaint: "bg-blue-500/8", border: "border-blue-500/20", text: "text-blue-400/70", textFaint: "text-blue-400/50", style: {}, styleFaint: {} };
+  }
+  if (color.startsWith("#")) {
+    return {
+      bg: "", bgFaint: "", border: "", text: "", textFaint: "",
+      style: { backgroundColor: `${color}1a`, borderColor: `${color}33`, color: `${color}b3` },
+      styleFaint: { backgroundColor: `${color}14`, color: `${color}80` },
+    };
+  }
+  const map: Record<string, { bg: string; bgFaint: string; border: string; text: string; textFaint: string }> = {
+    blue:   { bg: "bg-blue-500/10",   bgFaint: "bg-blue-500/8",   border: "border-blue-500/20",   text: "text-blue-400/70",   textFaint: "text-blue-400/50" },
+    purple: { bg: "bg-purple-500/10", bgFaint: "bg-purple-500/8", border: "border-purple-500/20", text: "text-purple-400/70", textFaint: "text-purple-400/50" },
+    pink:   { bg: "bg-pink-500/10",   bgFaint: "bg-pink-500/8",   border: "border-pink-500/20",   text: "text-pink-400/70",   textFaint: "text-pink-400/50" },
+    green:  { bg: "bg-green-500/10",  bgFaint: "bg-green-500/8",  border: "border-green-500/20",  text: "text-green-400/70",  textFaint: "text-green-400/50" },
+    orange: { bg: "bg-orange-500/10", bgFaint: "bg-orange-500/8", border: "border-orange-500/20", text: "text-orange-400/70", textFaint: "text-orange-400/50" },
+    teal:   { bg: "bg-teal-500/10",   bgFaint: "bg-teal-500/8",   border: "border-teal-500/20",   text: "text-teal-400/70",   textFaint: "text-teal-400/50" },
+  };
+  const m = map[color] ?? map.blue;
+  return { ...m, style: {}, styleFaint: {} };
+}
 
 // ── Days-View Config Persistence ────────────────────────────────────────────
 
@@ -2876,6 +2910,7 @@ function SortableBlockItem({
   const [showDnd, setShowDnd] = useState(editDnd.enabled);
   const [editReminders, setEditReminders] = useState<TimeBlockReminder[]>(block.reminders ?? []);
   const [showReminders, setShowReminders] = useState(editReminders.length > 0);
+  const [editColor, setEditColor] = useState(block.color ?? "blue");
 
   const toggleEditDay = (d: number) => {
     setEditDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
@@ -2894,12 +2929,15 @@ function SortableBlockItem({
       bufferAfter: editBufferAfter ? { minutes: parseInt(editBufferAfter), name: editBufferAfterName.trim() || undefined } : undefined,
       doNotDisturb: showDnd ? { ...editDnd, enabled: true } : undefined,
       reminders: editReminders.length > 0 ? editReminders : undefined,
+      color: editColor,
     });
     setExpanded(false);
   };
 
+  const tbc = tbColor(block.color);
+
   return (
-    <div ref={setNodeRef} style={style} className={`rounded-xl border ${TIME_BLOCK_COLOR} overflow-hidden`}>
+    <div ref={setNodeRef} style={{ ...style, ...(tbc.style.borderColor ? { borderColor: tbc.style.borderColor, backgroundColor: tbc.style.backgroundColor } : {}) }} className={`rounded-xl border ${block.color?.startsWith("#") ? "" : `${tbc.bg} ${tbc.border}`} overflow-hidden`}>
       {/* Collapsed header */}
       <div className="flex items-center gap-2 p-3 cursor-pointer" onClick={() => setExpanded(!expanded)}>
         <button {...attributes} {...listeners} className="p-1 text-gray-500 hover:text-gray-300 cursor-grab touch-none" onClick={(e) => e.stopPropagation()}>
@@ -2936,6 +2974,28 @@ function SortableBlockItem({
             <label className="text-xs text-gray-500 mb-1 block">{t('calendar.blockName')}</label>
             <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)}
               placeholder={t('calendar.blockNamePlaceholder')} className={inputClass} />
+          </div>
+
+          {/* Color picker */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{t('calendar.color', 'Farbe')}</label>
+            <div className="flex items-center gap-2">
+              {COLORS.map((c) => (
+                <button key={c.id} onClick={() => setEditColor(c.id)}
+                  className={`w-7 h-7 rounded-full ${c.bg} transition-all ${
+                    editColor === c.id ? `ring-2 ${c.ring} ring-offset-2 ring-offset-gray-900 scale-110` : "opacity-60 hover:opacity-100"
+                  }`} />
+              ))}
+              <div className="relative">
+                <input type="color" value={editColor.startsWith("#") ? editColor : "#3b82f6"}
+                  onChange={(e) => setEditColor(e.target.value)}
+                  className="w-7 h-7 rounded-full cursor-pointer border-0 p-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
+                  title="Colorpicker" />
+                {editColor.startsWith("#") && (
+                  <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full border border-gray-900" />
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Weekday chips */}
@@ -3124,6 +3184,7 @@ function TimeBlockEditor({
   const [addShowDnd, setAddShowDnd] = useState(false);
   const [addShowReminders, setAddShowReminders] = useState(false);
   const [addReminders, setAddReminders] = useState<TimeBlockReminder[]>([]);
+  const [addColor, setAddColor] = useState("blue");
   const [showAddForm, setShowAddForm] = useState(false);
 
   const sensors = useSensors(
@@ -3150,13 +3211,14 @@ function TimeBlockEditor({
       bufferAfter: addBufferAfter ? { minutes: parseInt(addBufferAfter), name: addBufferAfterName.trim() || undefined } : undefined,
       doNotDisturb: addShowDnd ? { ...addDnd, enabled: true } : undefined,
       reminders: addReminders.length > 0 ? addReminders : undefined,
+      color: addColor,
     };
     setEditing([...editing, newBlock]);
     setAddName(""); setAddDays([]); setAddStart("09:00"); setAddEnd("17:00");
     setAddInterruptible(false); setAddBufferBefore(""); setAddBufferBeforeName("");
     setAddBufferAfter(""); setAddBufferAfterName("");
     setAddDnd({ enabled: false, allowedContacts: [], notificationMode: 'silent' });
-    setAddShowDnd(false); setAddReminders([]); setShowAddForm(false);
+    setAddShowDnd(false); setAddReminders([]); setAddColor("blue"); setShowAddForm(false);
   };
 
   const updateBlock = (updated: TimeBlock) => {
@@ -3241,6 +3303,28 @@ function TimeBlockEditor({
             <input type="text" value={addName} onChange={(e) => setAddName(e.target.value)}
               placeholder={t('calendar.blockNamePlaceholder')}
               className={inputClass} />
+          </div>
+
+          {/* Color picker */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">{t('calendar.color', 'Farbe')}</label>
+            <div className="flex items-center gap-2">
+              {COLORS.map((c) => (
+                <button key={c.id} onClick={() => setAddColor(c.id)}
+                  className={`w-7 h-7 rounded-full ${c.bg} transition-all ${
+                    addColor === c.id ? `ring-2 ${c.ring} ring-offset-2 ring-offset-gray-900 scale-110` : "opacity-60 hover:opacity-100"
+                  }`} />
+              ))}
+              <div className="relative">
+                <input type="color" value={addColor.startsWith("#") ? addColor : "#3b82f6"}
+                  onChange={(e) => setAddColor(e.target.value)}
+                  className="w-7 h-7 rounded-full cursor-pointer border-0 p-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
+                  title="Colorpicker" />
+                {addColor.startsWith("#") && (
+                  <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full border border-gray-900" />
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Weekday chips */}
