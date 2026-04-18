@@ -5,7 +5,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import ProfileAvatar from "./ProfileAvatar";
 import AppHeader from "./AppHeader";
 import { motion, AnimatePresence } from "motion/react";
-import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer, TimeBlockReminder, CalendarLabel, CalendarEventDefaults, DoNotDisturbSettings, DndNotificationMode, Tab, Contact, CalendarBirthday, BirthdayReminder, BirthdayReminderPreset, EventReminder, EventReminderPreset } from "@/app/types";
+import type { CalendarEvent, RecurrenceFreq, CalendarLayer, EventInvitee, InviteStatus, TimeBlock, TimeBlockType, TimeBlockBuffer, TimeBlockReminder, TimeBlockException, CalendarLabel, CalendarEventDefaults, DoNotDisturbSettings, DndNotificationMode, Tab, Contact, CalendarBirthday, BirthdayReminder, BirthdayReminderPreset, EventReminder, EventReminderPreset } from "@/app/types";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -1419,6 +1419,8 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
             defaultStartTime={formDefaultStartTime}
             onSave={addOrUpdateEvent}
             onClose={() => { setShowForm(false); setEditingEvent(null); setFormDefaultStartTime(undefined); }}
+            timeBlocks={timeBlocks}
+            onUpdateTimeBlocks={(blocks) => { setTimeBlocks(blocks); saveTimeBlocks(blocks); }}
           />
         )}
       </AnimatePresence>
@@ -1681,7 +1683,11 @@ function DaysView({
             const timed = dayEvs.filter((e) => e.duration !== "allday").sort((a, b) => a.startTime.localeCompare(b.startTime));
             const stackH = Math.max(0, containerHeight - 56);
             const dayOfWeek = weekdayMon(d);
-            const dayTbs = timeBlocks?.filter((tb) => tb.daysOfWeek.includes(dayOfWeek));
+            const dayTbs = timeBlocks?.filter((tb) => {
+              if (!tb.daysOfWeek.includes(dayOfWeek)) return false;
+              if (tb.exceptions?.some(ex => ds >= ex.startDate && ds <= ex.endDate)) return false;
+              return true;
+            });
 
             return (
               <div
@@ -1935,13 +1941,15 @@ function SectionPill({
 // ── Event Form Modal ─────────────────────────────────────────────────────────
 
 function EventFormModal({
-  initial, defaultDate, defaultStartTime, onSave, onClose,
+  initial, defaultDate, defaultStartTime, onSave, onClose, timeBlocks, onUpdateTimeBlocks,
 }: {
   initial: CalendarEvent | null;
   defaultDate: string;
   defaultStartTime?: string;
   onSave: (ev: CalendarEvent) => void;
   onClose: () => void;
+  timeBlocks?: TimeBlock[];
+  onUpdateTimeBlocks?: (blocks: TimeBlock[]) => void;
 }) {
   const { t } = useTranslation();
   const defaults = useMemo(() => loadDefaults(), []);
@@ -2038,6 +2046,44 @@ function EventFormModal({
 
   // Defaults saved flash
   const [showDefaultsSaved, setShowDefaultsSaved] = useState(false);
+
+  // Zeitblock overlap detection (Weg A)
+  const [dismissedTbHints, setDismissedTbHints] = useState<Set<string>>(new Set());
+  const overlappingBlocks = useMemo(() => {
+    if (!timeBlocks || timeBlocks.length === 0 || !date || !startTime) return [];
+    const eventDate = new Date(date);
+    // 0=Mon..6=Sun mapping (JS: 0=Sun..6=Sat → shift)
+    const jsDay = eventDate.getDay();
+    const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+    const durationMinutes = duration === 'allday' ? 24 * 60
+      : duration === '15min' ? 15
+      : duration === '30min' ? 30
+      : duration === '1h' ? 60
+      : duration === '2h' ? 120
+      : duration === 'custom' ? customDurationMinutes
+      : 60;
+    const eventStart = toMinutes(startTime);
+    const eventEnd = eventStart + durationMinutes;
+    return timeBlocks.filter((tb) => {
+      if (!tb.daysOfWeek.includes(dayOfWeek)) return false;
+      // Check if already excepted for this date
+      if (tb.exceptions?.some(ex => date >= ex.startDate && date <= ex.endDate)) return false;
+      const tbStart = toMinutes(tb.startTime);
+      const tbEnd = toMinutes(tb.endTime);
+      return eventStart < tbEnd && eventEnd > tbStart;
+    });
+  }, [timeBlocks, date, startTime, duration, customDurationMinutes]);
+
+  const handlePauseBlock = (blockId: string) => {
+    if (!timeBlocks || !onUpdateTimeBlocks) return;
+    const updated = timeBlocks.map(tb => {
+      if (tb.id !== blockId) return tb;
+      const newException: TimeBlockException = { id: `exc-${Date.now()}`, startDate: date, endDate: date };
+      return { ...tb, exceptions: [...(tb.exceptions ?? []), newException] };
+    });
+    onUpdateTimeBlocks(updated);
+    setDismissedTbHints(prev => new Set(prev).add(blockId));
+  };
 
   const toggleInvitee = (aregoId: string) => {
     setSelectedInvitees((prev) =>
@@ -2550,6 +2596,27 @@ function EventFormModal({
           className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 resize-none"
         />
 
+        {/* Zeitblock overlap hint (Weg A) */}
+        {overlappingBlocks.filter(tb => !dismissedTbHints.has(tb.id)).map(tb => (
+          <div key={tb.id} className="mb-3 p-3 rounded-xl bg-yellow-600/15 border border-yellow-500/30 text-sm">
+            <p className="text-yellow-200 mb-2">{t('calendar.tbHintInBlock', { name: tb.name })}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handlePauseBlock(tb.id)}
+                className="flex-1 py-1.5 rounded-lg bg-yellow-600/30 hover:bg-yellow-600/50 text-yellow-200 text-xs font-bold transition-colors"
+              >
+                {t('calendar.tbHintPause')}
+              </button>
+              <button
+                onClick={() => setDismissedTbHints(prev => new Set(prev).add(tb.id))}
+                className="flex-1 py-1.5 rounded-lg bg-gray-700/50 hover:bg-gray-700 text-gray-300 text-xs font-bold transition-colors"
+              >
+                {t('calendar.tbHintIgnore')}
+              </button>
+            </div>
+          </div>
+        ))}
+
         {/* Save Event */}
         <button
           onClick={handleSave}
@@ -2924,6 +2991,9 @@ function SortableBlockItem({
   const [editBufferBeforeName, setEditBufferBeforeName] = useState(block.bufferBefore?.name ?? "");
   const [editBufferAfter, setEditBufferAfter] = useState(block.bufferAfter?.minutes?.toString() ?? "");
   const [editBufferAfterName, setEditBufferAfterName] = useState(block.bufferAfter?.name ?? "");
+  const [showBuffer, setShowBuffer] = useState(!!(block.bufferBefore || block.bufferAfter));
+  const [showInterruptible, setShowInterruptible] = useState(false);
+  const [editExceptions, setEditExceptions] = useState<TimeBlockException[]>(block.exceptions ?? []);
   const [editDnd, setEditDnd] = useState<DoNotDisturbSettings>(
     block.doNotDisturb ?? { enabled: false, allowedContacts: [], notificationMode: 'silent' }
   );
@@ -2949,6 +3019,7 @@ function SortableBlockItem({
       bufferAfter: editBufferAfter ? { minutes: parseInt(editBufferAfter), name: editBufferAfterName.trim() || undefined } : undefined,
       doNotDisturb: showDnd ? { ...editDnd, enabled: true } : undefined,
       reminders: editReminders.length > 0 ? editReminders : undefined,
+      exceptions: editExceptions.length > 0 ? editExceptions : undefined,
       color: editColor,
     });
     setExpanded(false);
@@ -2973,6 +3044,9 @@ function SortableBlockItem({
               {block.bufferBefore && <span>{t('calendar.bufferBefore')}: {block.bufferBefore.minutes} min{block.bufferBefore.name ? ` (${block.bufferBefore.name})` : ""} </span>}
               {block.bufferAfter && <span>{t('calendar.bufferAfter')}: {block.bufferAfter.minutes} min{block.bufferAfter.name ? ` (${block.bufferAfter.name})` : ""}</span>}
             </div>
+          )}
+          {block.exceptions && block.exceptions.length > 0 && (
+            <div className="text-xs text-yellow-400 mt-0.5">{t('calendar.exceptions')}: {block.exceptions.length}</div>
           )}
           {block.doNotDisturb?.enabled && (
             <div className="text-xs text-purple-400 mt-0.5 flex items-center gap-1"><BellOff size={10} /> {t('calendar.dndActive')}</div>
@@ -3045,41 +3119,131 @@ function SortableBlockItem({
             </div>
           </div>
 
-          {/* Interruptible toggle */}
-          <div className="flex items-center justify-between">
-            <label className="text-sm text-gray-300">{t('calendar.interruptible')}</label>
-            <button onClick={() => setEditInterruptible(!editInterruptible)}
-              className={`w-10 h-6 rounded-full transition-colors relative ${editInterruptible ? "bg-blue-600" : "bg-gray-700"}`}>
-              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${editInterruptible ? "left-[18px]" : "left-0.5"}`} />
+          {/* Puffer — collapsible pill */}
+          <div className="rounded-xl border border-gray-700/50 overflow-hidden">
+            <button
+              onClick={() => setShowBuffer(!showBuffer)}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors ${
+                showBuffer ? "bg-orange-600/20 text-orange-300" : "bg-gray-800/50 text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Timer size={14} />
+                {t('calendar.bufferPill')} ▸ {editBufferBefore || editBufferAfter
+                  ? [editBufferBefore && `${editBufferBefore} Min ${t('calendar.bufferBeforeShort')}`, editBufferAfter && `${editBufferAfter} Min ${t('calendar.bufferAfterShort')}`].filter(Boolean).join(", ")
+                  : t('calendar.bufferNone')}
+              </span>
+              {showBuffer ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
+            {showBuffer && (
+              <div className="px-3 pb-3 pt-2 bg-gray-800/30 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferBefore')} (min)</label>
+                    <input type="number" min="0" value={editBufferBefore} onChange={(e) => setEditBufferBefore(e.target.value)}
+                      placeholder="0" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
+                    <input type="text" value={editBufferBeforeName} onChange={(e) => setEditBufferBeforeName(e.target.value)}
+                      placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferAfter')} (min)</label>
+                    <input type="number" min="0" value={editBufferAfter} onChange={(e) => setEditBufferAfter(e.target.value)}
+                      placeholder="0" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
+                    <input type="text" value={editBufferAfterName} onChange={(e) => setEditBufferAfterName(e.target.value)}
+                      placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Buffer before */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferBefore')} (min)</label>
-              <input type="number" min="0" value={editBufferBefore} onChange={(e) => setEditBufferBefore(e.target.value)}
-                placeholder="0" className={inputClass} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
-              <input type="text" value={editBufferBeforeName} onChange={(e) => setEditBufferBeforeName(e.target.value)}
-                placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
-            </div>
-          </div>
-
-          {/* Buffer after */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferAfter')} (min)</label>
-              <input type="number" min="0" value={editBufferAfter} onChange={(e) => setEditBufferAfter(e.target.value)}
-                placeholder="0" className={inputClass} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
-              <input type="text" value={editBufferAfterName} onChange={(e) => setEditBufferAfterName(e.target.value)}
-                placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
-            </div>
+          {/* Unterbrechbar — collapsible pill */}
+          <div className="rounded-xl border border-gray-700/50 overflow-hidden">
+            <button
+              onClick={() => setShowInterruptible(!showInterruptible)}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors ${
+                showInterruptible ? "bg-green-600/20 text-green-300" : "bg-gray-800/50 text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Clock size={14} />
+                {t('calendar.interruptiblePill')} ▸ {editInterruptible ? t('calendar.interruptibleYesPill') : t('calendar.interruptibleNoPill')}
+              </span>
+              {showInterruptible ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {showInterruptible && (
+              <div className="px-3 pb-3 pt-2 bg-gray-800/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-gray-300">{t('calendar.interruptible')}</label>
+                  <button onClick={() => setEditInterruptible(!editInterruptible)}
+                    className={`w-10 h-6 rounded-full transition-colors relative ${editInterruptible ? "bg-blue-600" : "bg-gray-700"}`}>
+                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${editInterruptible ? "left-[18px]" : "left-0.5"}`} />
+                  </button>
+                </div>
+                {/* Ausnahmen */}
+                <div className="border-t border-gray-700/50 pt-2">
+                  <label className="text-xs text-gray-500 mb-1 block">{t('calendar.exceptions')}</label>
+                  {editExceptions.length === 0 && (
+                    <p className="text-xs text-gray-500 italic mb-1">{t('calendar.noExceptions')}</p>
+                  )}
+                  {editExceptions.map((ex) => (
+                    <div key={ex.id} className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-gray-300">
+                        {ex.startDate === ex.endDate
+                          ? ex.startDate.split("-").reverse().join(".")
+                          : `${ex.startDate.split("-").reverse().join(".")} – ${ex.endDate.split("-").reverse().join(".")}`}
+                      </span>
+                      <button onClick={() => setEditExceptions(prev => prev.filter(e => e.id !== ex.id))}
+                        className="p-0.5 rounded-full hover:bg-gray-800 text-gray-500 hover:text-red-400">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => {
+                      const today = new Date().toISOString().slice(0, 10);
+                      setEditExceptions(prev => [...prev, { id: `exc-${Date.now()}`, startDate: today, endDate: today }]);
+                    }}
+                    className="text-xs text-blue-400 hover:text-blue-300 font-medium"
+                  >
+                    + {t('calendar.addException')}
+                  </button>
+                  {/* Inline date editors for new exceptions */}
+                  {editExceptions.map((ex, idx) => (
+                    <div key={`edit-${ex.id}`} className="grid grid-cols-2 gap-2 mt-1">
+                      <div>
+                        <label className="text-xs text-gray-500 block">{t('calendar.exceptionFrom')}</label>
+                        <input type="date" value={ex.startDate}
+                          onChange={(e) => {
+                            const next = [...editExceptions];
+                            next[idx] = { ...ex, startDate: e.target.value, endDate: ex.endDate < e.target.value ? e.target.value : ex.endDate };
+                            setEditExceptions(next);
+                          }}
+                          className={inputClass} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block">{t('calendar.exceptionTo')}</label>
+                        <input type="date" value={ex.endDate} min={ex.startDate}
+                          onChange={(e) => {
+                            const next = [...editExceptions];
+                            next[idx] = { ...ex, endDate: e.target.value };
+                            setEditExceptions(next);
+                          }}
+                          className={inputClass} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Do Not Disturb — collapsible pill */}
@@ -3204,6 +3368,9 @@ function TimeBlockEditor({
   const [addShowDnd, setAddShowDnd] = useState(false);
   const [addShowReminders, setAddShowReminders] = useState(false);
   const [addReminders, setAddReminders] = useState<TimeBlockReminder[]>([]);
+  const [addShowBuffer, setAddShowBuffer] = useState(false);
+  const [addShowInterruptible, setAddShowInterruptible] = useState(false);
+  const [addExceptions, setAddExceptions] = useState<TimeBlockException[]>([]);
   const [addColor, setAddColor] = useState("blue");
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -3231,6 +3398,7 @@ function TimeBlockEditor({
       bufferAfter: addBufferAfter ? { minutes: parseInt(addBufferAfter), name: addBufferAfterName.trim() || undefined } : undefined,
       doNotDisturb: addShowDnd ? { ...addDnd, enabled: true } : undefined,
       reminders: addReminders.length > 0 ? addReminders : undefined,
+      exceptions: addExceptions.length > 0 ? addExceptions : undefined,
       color: addColor,
     };
     setEditing([...editing, newBlock]);
@@ -3238,7 +3406,8 @@ function TimeBlockEditor({
     setAddInterruptible(false); setAddBufferBefore(""); setAddBufferBeforeName("");
     setAddBufferAfter(""); setAddBufferAfterName("");
     setAddDnd({ enabled: false, allowedContacts: [], notificationMode: 'silent' });
-    setAddShowDnd(false); setAddReminders([]); setAddColor("blue"); setShowAddForm(false);
+    setAddShowDnd(false); setAddReminders([]); setAddExceptions([]); setAddShowBuffer(false);
+    setAddShowInterruptible(false); setAddColor("blue"); setShowAddForm(false);
   };
 
   const updateBlock = (updated: TimeBlock) => {
@@ -3374,41 +3543,130 @@ function TimeBlockEditor({
             </div>
           </div>
 
-          {/* Interruptible toggle */}
-          <div className="flex items-center justify-between">
-            <label className="text-sm text-gray-300">{t('calendar.interruptible')}</label>
-            <button onClick={() => setAddInterruptible(!addInterruptible)}
-              className={`w-10 h-6 rounded-full transition-colors relative ${addInterruptible ? "bg-blue-600" : "bg-gray-700"}`}>
-              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${addInterruptible ? "left-[18px]" : "left-0.5"}`} />
+          {/* Puffer — collapsible pill */}
+          <div className="rounded-xl border border-gray-700/50 overflow-hidden">
+            <button
+              onClick={() => setAddShowBuffer(!addShowBuffer)}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors ${
+                addShowBuffer ? "bg-orange-600/20 text-orange-300" : "bg-gray-800/50 text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Timer size={14} />
+                {t('calendar.bufferPill')} ▸ {addBufferBefore || addBufferAfter
+                  ? [addBufferBefore && `${addBufferBefore} Min ${t('calendar.bufferBeforeShort')}`, addBufferAfter && `${addBufferAfter} Min ${t('calendar.bufferAfterShort')}`].filter(Boolean).join(", ")
+                  : t('calendar.bufferNone')}
+              </span>
+              {addShowBuffer ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
+            {addShowBuffer && (
+              <div className="px-3 pb-3 pt-2 bg-gray-800/30 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferBefore')} (min)</label>
+                    <input type="number" min="0" value={addBufferBefore} onChange={(e) => setAddBufferBefore(e.target.value)}
+                      placeholder="0" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
+                    <input type="text" value={addBufferBeforeName} onChange={(e) => setAddBufferBeforeName(e.target.value)}
+                      placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferAfter')} (min)</label>
+                    <input type="number" min="0" value={addBufferAfter} onChange={(e) => setAddBufferAfter(e.target.value)}
+                      placeholder="0" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
+                    <input type="text" value={addBufferAfterName} onChange={(e) => setAddBufferAfterName(e.target.value)}
+                      placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Buffer before */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferBefore')} (min)</label>
-              <input type="number" min="0" value={addBufferBefore} onChange={(e) => setAddBufferBefore(e.target.value)}
-                placeholder="0" className={inputClass} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
-              <input type="text" value={addBufferBeforeName} onChange={(e) => setAddBufferBeforeName(e.target.value)}
-                placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
-            </div>
-          </div>
-
-          {/* Buffer after */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferAfter')} (min)</label>
-              <input type="number" min="0" value={addBufferAfter} onChange={(e) => setAddBufferAfter(e.target.value)}
-                placeholder="0" className={inputClass} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">{t('calendar.bufferName')}</label>
-              <input type="text" value={addBufferAfterName} onChange={(e) => setAddBufferAfterName(e.target.value)}
-                placeholder={t('calendar.bufferNamePlaceholder')} className={inputClass} />
-            </div>
+          {/* Unterbrechbar — collapsible pill */}
+          <div className="rounded-xl border border-gray-700/50 overflow-hidden">
+            <button
+              onClick={() => setAddShowInterruptible(!addShowInterruptible)}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors ${
+                addShowInterruptible ? "bg-green-600/20 text-green-300" : "bg-gray-800/50 text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Clock size={14} />
+                {t('calendar.interruptiblePill')} ▸ {addInterruptible ? t('calendar.interruptibleYesPill') : t('calendar.interruptibleNoPill')}
+              </span>
+              {addShowInterruptible ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {addShowInterruptible && (
+              <div className="px-3 pb-3 pt-2 bg-gray-800/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-gray-300">{t('calendar.interruptible')}</label>
+                  <button onClick={() => setAddInterruptible(!addInterruptible)}
+                    className={`w-10 h-6 rounded-full transition-colors relative ${addInterruptible ? "bg-blue-600" : "bg-gray-700"}`}>
+                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${addInterruptible ? "left-[18px]" : "left-0.5"}`} />
+                  </button>
+                </div>
+                {/* Ausnahmen */}
+                <div className="border-t border-gray-700/50 pt-2">
+                  <label className="text-xs text-gray-500 mb-1 block">{t('calendar.exceptions')}</label>
+                  {addExceptions.length === 0 && (
+                    <p className="text-xs text-gray-500 italic mb-1">{t('calendar.noExceptions')}</p>
+                  )}
+                  {addExceptions.map((ex) => (
+                    <div key={ex.id} className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-gray-300">
+                        {ex.startDate === ex.endDate
+                          ? ex.startDate.split("-").reverse().join(".")
+                          : `${ex.startDate.split("-").reverse().join(".")} – ${ex.endDate.split("-").reverse().join(".")}`}
+                      </span>
+                      <button onClick={() => setAddExceptions(prev => prev.filter(e => e.id !== ex.id))}
+                        className="p-0.5 rounded-full hover:bg-gray-800 text-gray-500 hover:text-red-400">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => {
+                      const today = new Date().toISOString().slice(0, 10);
+                      setAddExceptions(prev => [...prev, { id: `exc-${Date.now()}`, startDate: today, endDate: today }]);
+                    }}
+                    className="text-xs text-blue-400 hover:text-blue-300 font-medium"
+                  >
+                    + {t('calendar.addException')}
+                  </button>
+                  {addExceptions.map((ex, idx) => (
+                    <div key={`edit-${ex.id}`} className="grid grid-cols-2 gap-2 mt-1">
+                      <div>
+                        <label className="text-xs text-gray-500 block">{t('calendar.exceptionFrom')}</label>
+                        <input type="date" value={ex.startDate}
+                          onChange={(e) => {
+                            const next = [...addExceptions];
+                            next[idx] = { ...ex, startDate: e.target.value, endDate: ex.endDate < e.target.value ? e.target.value : ex.endDate };
+                            setAddExceptions(next);
+                          }}
+                          className={inputClass} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block">{t('calendar.exceptionTo')}</label>
+                        <input type="date" value={ex.endDate} min={ex.startDate}
+                          onChange={(e) => {
+                            const next = [...addExceptions];
+                            next[idx] = { ...ex, endDate: e.target.value };
+                            setAddExceptions(next);
+                          }}
+                          className={inputClass} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Do Not Disturb — collapsible pill for new block */}

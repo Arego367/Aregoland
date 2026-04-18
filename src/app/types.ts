@@ -170,6 +170,12 @@ export interface TimeBlockReminder {
   customMinutes?: number;
 }
 
+export interface TimeBlockException {
+  id: string;
+  startDate: string;        // YYYY-MM-DD
+  endDate: string;           // YYYY-MM-DD (same as startDate for single day)
+}
+
 export interface TimeBlock {
   id: string;
   name: string;             // Freier Name (z.B. "Arbeit", "Pilates")
@@ -182,6 +188,7 @@ export interface TimeBlock {
   bufferAfter?: TimeBlockBuffer;
   doNotDisturb?: DoNotDisturbSettings;
   reminders?: TimeBlockReminder[];
+  exceptions?: TimeBlockException[];  // Tage/Zeiträume an denen der Block pausiert ist
   color?: string;            // Tailwind color ID or hex string (e.g. "blue", "#ff5500")
   // Legacy support
   type?: TimeBlockType;
