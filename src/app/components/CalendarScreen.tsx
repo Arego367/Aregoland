@@ -1179,6 +1179,9 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
 
           {/* Settings dropdown (day count + weekday picker) */}
           {showDaysTabMenu && (
+            <>
+            {/* Invisible backdrop to close menu on outside click */}
+            <div className="fixed inset-0 z-40" onClick={() => setShowDaysTabMenu(false)} />
             <div className="absolute top-full left-0 mt-1 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 p-2 z-50 min-w-[200px]">
               {/* Day count selection */}
               <div className="text-[10px] font-bold text-gray-500 uppercase px-2 pb-1">{t('calendar.daysCount')}</div>
@@ -1244,6 +1247,7 @@ export default function CalendarScreen({ onBack, onOpenProfile, onOpenQRCode, on
                 {t('common.close')}
               </button>
             </div>
+            </>
           )}
         </div>
 
