@@ -3037,11 +3037,11 @@ function SortableBlockItem({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-gray-500 mb-1 block">{t('calendar.from')}</label>
-              <input type="time" value={editStart} onChange={(e) => setEditStart(e.target.value)} className={inputClass} />
+              <input type="time" value={editStart} onChange={(e) => setEditStart(e.target.value)} onFocus={(e) => e.target.select()} className={inputClass} />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-1 block">{t('calendar.to')}</label>
-              <input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className={inputClass} />
+              <input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} onFocus={(e) => e.target.select()} className={inputClass} />
             </div>
           </div>
 
@@ -3366,11 +3366,11 @@ function TimeBlockEditor({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-gray-500 mb-1 block">{t('calendar.from')}</label>
-              <input type="time" value={addStart} onChange={(e) => setAddStart(e.target.value)} className={inputClass} />
+              <input type="time" value={addStart} onChange={(e) => setAddStart(e.target.value)} onFocus={(e) => e.target.select()} className={inputClass} />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-1 block">{t('calendar.to')}</label>
-              <input type="time" value={addEnd} onChange={(e) => setAddEnd(e.target.value)} className={inputClass} />
+              <input type="time" value={addEnd} onChange={(e) => setAddEnd(e.target.value)} onFocus={(e) => e.target.select()} className={inputClass} />
             </div>
           </div>
 
