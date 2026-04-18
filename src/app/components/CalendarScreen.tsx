@@ -441,6 +441,17 @@ function DayRowStack({
     }).filter(Boolean) as { tb: TimeBlock; gridRowStart: number; gridRowEnd: number }[];
   }, [timeBlocks, plan.rows]);
 
+  // Determine which row indices fall inside a time-block overlay
+  const rowsInsideTb = useMemo(() => {
+    const set = new Set<number>();
+    for (const ov of tbOverlays) {
+      for (let r = ov.gridRowStart - 1; r < ov.gridRowEnd - 1; r++) {
+        set.add(r);
+      }
+    }
+    return set;
+  }, [tbOverlays]);
+
   if (height <= 0 || plan.rows.length === 0) return null;
   const compact = density === "compact";
 
@@ -449,30 +460,36 @@ function DayRowStack({
       className="w-full h-full grid overflow-hidden relative"
       style={{ gridTemplateRows: `repeat(${plan.rows.length}, minmax(0, 1fr))` }}
     >
-      {/* TimeBlock background layers */}
-      {tbOverlays.map((ov) => (
-        <div
-          key={ov.tb.id}
-          className="bg-blue-500/8 border-l-2 border-blue-500/30 pointer-events-none"
-          style={{
-            gridRow: `${ov.gridRowStart} / ${ov.gridRowEnd}`,
-            gridColumn: "1 / -1",
-            zIndex: 0,
-          }}
-        >
-          <span className="text-[8px] text-blue-400/60 font-medium px-1 truncate block leading-tight mt-0.5">
-            {ov.tb.name}
-          </span>
-        </div>
-      ))}
+      {/* TimeBlock background layers — absolutely positioned so they don't affect grid track sizing */}
+      {tbOverlays.map((ov) => {
+        const totalRows = plan.rows.length;
+        const topPct = ((ov.gridRowStart - 1) / totalRows) * 100;
+        const bottomPct = ((ov.gridRowEnd - 1) / totalRows) * 100;
+        return (
+          <div
+            key={ov.tb.id}
+            className="absolute left-0 right-0 bg-blue-500/8 border-l-2 border-blue-500/30 pointer-events-none"
+            style={{
+              top: `${topPct}%`,
+              height: `${bottomPct - topPct}%`,
+              zIndex: 2,
+            }}
+          >
+            <span className="text-[8px] text-blue-400/60 font-medium px-1 truncate block leading-tight mt-0.5">
+              {ov.tb.name}
+            </span>
+          </div>
+        );
+      })}
       {plan.rows.map((row, i) => {
         if (row.kind === "free") {
+          const insideTb = rowsInsideTb.has(i);
           return (
             <button
               key={i}
-              onClick={() => onClickFreeSlot?.(row.startMin, row.endMin)}
-              className={`flex items-center ${compact ? "px-1.5" : "px-3"} border-t border-gray-800/40 text-gray-500 italic overflow-hidden text-left hover:bg-gray-800/40 transition-colors cursor-pointer`}
-              style={{ fontSize: compact ? "10px" : "11px", lineHeight: 1, zIndex: 1 }}
+              onClick={insideTb ? undefined : () => onClickFreeSlot?.(row.startMin, row.endMin)}
+              className={`flex items-center ${compact ? "px-1.5" : "px-3"} ${insideTb ? "" : "border-t border-gray-800/40 text-gray-500 italic hover:bg-gray-800/40 cursor-pointer"} overflow-hidden text-left transition-colors`}
+              style={{ fontSize: compact ? "10px" : "11px", lineHeight: 1, zIndex: insideTb ? 0 : 1, visibility: insideTb ? "hidden" as const : "visible" as const }}
             >
               <span className="truncate">
                 {formatMinuteOfDay(row.startMin)} – {formatMinuteOfDay(row.endMin)} · {freeLabel}
