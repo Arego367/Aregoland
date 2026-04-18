@@ -9,8 +9,9 @@ import QRCode from "qrcode";
 import { loadSubscription, saveSubscription, getEffectiveStatus, hasAccess, setAutoRenew, activatePlan, formatDateDE, daysUntil, PLANS, type Subscription } from "@/app/auth/subscription";
 import { loadFsk, saveFsk, type FskStatus } from "@/app/auth/fsk";
 import { signData } from "@/app/auth/crypto";
-import { downloadGdprExport } from "@/app/lib/gdpr-export";
-import { getBackupPreview, getBackupScenario, createEncryptedBackup, downloadBackup, readBackupFile, decryptBackup, restoreBackup, uploadCloudBackup, getCloudBackupStatus, type BackupFileInfo, type CloudBackupStatus } from "@/app/lib/backup";
+import { downloadGdprExport, readGdprFile, importGdprExport } from "@/app/lib/gdpr-export";
+import { getBackupPreview, getBackupScenario, createEncryptedBackup, downloadBackup, readBackupFile, decryptBackup, restoreBackup, uploadCloudBackup, getCloudBackupStatus, getChatBackupOptIn, setChatBackupOptIn, type BackupFileInfo, type CloudBackupStatus } from "@/app/lib/backup";
+import { loadStorageQuota, getActiveStorageTier, activateStorageTier, STORAGE_TIERS, type StorageTier } from "@/app/auth/subscription";
 import { Html5Qrcode } from "html5-qrcode";
 import { getLiveKitNodeUrl, setLiveKitNodeUrl } from "@/app/lib/call-manager";
 
@@ -1776,6 +1777,9 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               </div>
             </div>
 
+            {/* ARE-308: Zusatz-Speicher für Fotos & Videos */}
+            <ExtraStorageSection t={t} />
+
           </div>
         </div>
       </div>
@@ -2673,8 +2677,8 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
 // ── Backup Submenu ────────────────────────────────────────────────────────────
 
 function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opts?: Record<string, unknown>) => string }) {
-  const [mode, setMode] = useState<'menu' | 'export' | 'import'>('menu');
-  const [includeChats, setIncludeChats] = useState(false);
+  const [mode, setMode] = useState<'menu' | 'export' | 'import' | 'gdpr-import'>('menu');
+  const [includeChats, setIncludeChats] = useState(() => getChatBackupOptIn());
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -2826,7 +2830,7 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
 
           {/* Chats opt-in */}
           <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-2">
-            <button onClick={() => setIncludeChats(!includeChats)} className="w-full flex items-center justify-between">
+            <button onClick={() => { const next = !includeChats; setIncludeChats(next); setChatBackupOptIn(next); }} className="w-full flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <MessageSquare size={16} className="text-gray-400" />
                 <span className="text-sm font-medium">{t('settings.backupIncludeChats')}</span>
@@ -2834,6 +2838,9 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
               {includeChats ? <ToggleRight size={24} className="text-blue-400" /> : <ToggleLeft size={24} className="text-gray-500" />}
             </button>
             <p className="text-xs text-gray-500 pl-7">{t('settings.backupIncludeChatsHint')}</p>
+            <p className="text-xs pl-7 mt-1" style={{ color: includeChats ? '#93c5fd' : '#6b7280' }}>
+              {includeChats ? t('settings.chatOptInEnabled') : t('settings.chatOptInDisabled')}
+            </p>
             {includeChats && (() => {
               const chatCat = preview.categories.find(c => c.key === 'chats');
               return chatCat ? (
@@ -3008,6 +3015,11 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
     );
   }
 
+  // ── GDPR-Import-Ansicht (ARE-308) ──
+  if (mode === 'gdpr-import') {
+    return <GdprImportView onBack={() => setMode('menu')} t={t} />;
+  }
+
   // ── Menü-Ansicht ──
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white">
@@ -3046,6 +3058,32 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
             </div>
             <ChevronRight size={16} className="text-gray-500" />
           </button>
+
+          <button
+            onClick={() => setMode('gdpr-import')}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <FileText size={18} className="text-purple-400" />
+              <div className="text-left">
+                <span className="text-sm font-medium block">{t('settings.gdprImportBtn')}</span>
+                <span className="text-xs text-gray-500">{t('settings.gdprImportDesc')}</span>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Chat Opt-in (ARE-308) — persistent */}
+        <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-2">
+          <button onClick={() => { const next = !includeChats; setIncludeChats(next); setChatBackupOptIn(next); }} className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <MessageSquare size={16} className="text-gray-400" />
+              <span className="text-sm font-medium">{t('settings.chatOptIn')}</span>
+            </div>
+            {includeChats ? <ToggleRight size={24} className="text-blue-400" /> : <ToggleLeft size={24} className="text-gray-500" />}
+          </button>
+          <p className="text-xs text-gray-500 pl-7">{t('settings.chatOptInDesc')}</p>
         </div>
 
         {/* Cloud-Backup (ARE-307) — nur für Szenario A mit Abo */}
@@ -3109,6 +3147,188 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── ARE-308: GDPR Re-Import ──────────────────────────────────────────────────
+
+function GdprImportView({ onBack, t }: { onBack: () => void; t: (key: string, opts?: Record<string, unknown>) => string }) {
+  const [importing, setImporting] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError('');
+    setSuccess('');
+    setImporting(true);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = reader.result as string;
+        const data = readGdprFile(text);
+        if (!data) {
+          setError(t('settings.gdprImportInvalidFile'));
+          setImporting(false);
+          return;
+        }
+        const result = importGdprExport(data);
+        setSuccess(t('settings.gdprImportSuccess', { count: result.restoredCategories.length, keys: result.restoredKeys }));
+        setTimeout(() => window.location.reload(), 2500);
+      } catch {
+        setError(t('settings.gdprImportFailed'));
+      } finally {
+        setImporting(false);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-gray-900 text-white">
+      <div className="flex items-center gap-3 p-4 border-b border-gray-700/50">
+        <button onClick={onBack} className="p-2 hover:bg-gray-800 rounded-xl"><ArrowLeft size={20} /></button>
+        <h2 className="text-lg font-bold">{t('settings.gdprImport')}</h2>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <p className="text-sm text-gray-400">{t('settings.gdprImportDesc')}</p>
+
+        {/* Warnung */}
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-1">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-amber-400" />
+            <span className="text-sm font-medium text-amber-300">{t('settings.gdprImportWarning')}</span>
+          </div>
+        </div>
+
+        {success ? (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 text-center space-y-2">
+            <Check size={24} className="text-green-400 mx-auto" />
+            <p className="text-sm font-medium text-green-300">{success}</p>
+            <p className="text-xs text-green-400/70">{t('settings.gdprImportReloadNeeded')}</p>
+          </div>
+        ) : (
+          <>
+            <input ref={fileInputRef} type="file" accept=".json" onChange={handleFileSelect} className="hidden" />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="w-full bg-gray-800/50 border-2 border-dashed border-gray-600 hover:border-purple-500 rounded-2xl p-6 text-center transition-colors"
+            >
+              {importing ? (
+                <Loader2 size={24} className="text-purple-400 mx-auto mb-2 animate-spin" />
+              ) : (
+                <FileText size={24} className="text-gray-400 mx-auto mb-2" />
+              )}
+              <span className="text-sm text-gray-400">{t('settings.gdprImportSelectFile')}</span>
+            </button>
+          </>
+        )}
+
+        {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── ARE-308: Zusatz-Speicher Sektion ─────────────────────────────────────────
+
+function ExtraStorageSection({ t }: { t: (key: string, opts?: Record<string, unknown>) => string }) {
+  const [activeTier, setActiveTier] = useState<StorageTier>(() => getActiveStorageTier());
+  const [showPicker, setShowPicker] = useState(false);
+  const quota = loadStorageQuota();
+  const sub = loadSubscription();
+  const hasAbo = sub ? hasAccess(sub) : false;
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  const handleSelect = (tier: StorageTier) => {
+    const result = activateStorageTier(tier.id);
+    if (result) {
+      setActiveTier(tier);
+      setShowPicker(false);
+    }
+  };
+
+  return (
+    <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+      <div className="flex items-center gap-3">
+        <HardDrive size={18} className="text-purple-400" />
+        <div className="flex-1">
+          <span className="text-sm font-medium block">{t('settings.extraStorage')}</span>
+          <span className="text-xs text-gray-500">{t('settings.extraStorageDesc')}</span>
+        </div>
+      </div>
+
+      {/* Aktueller Status */}
+      {activeTier.gb === 0 ? (
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <span>{t('settings.extraStorageNone')}</span>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">{t('settings.extraStorageTier')}</span>
+            <span className="text-purple-300 font-medium">{activeTier.label}</span>
+          </div>
+          {quota && (
+            <>
+              <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-purple-500 rounded-full transition-all"
+                  style={{ width: `${Math.min((quota.usedBytes / (activeTier.gb * 1024 * 1024 * 1024)) * 100, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                {t('settings.extraStorageUsed', { used: formatBytes(quota.usedBytes), total: activeTier.label })}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Abo-Warnung */}
+      {!hasAbo && (
+        <p className="text-xs text-amber-400">{t('settings.extraStorageAboRequired')}</p>
+      )}
+
+      {/* Tier-Auswahl */}
+      {hasAbo && (
+        <>
+          <button
+            onClick={() => setShowPicker(!showPicker)}
+            className="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium py-2 px-4 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+          >
+            <HardDrive size={14} />
+            {activeTier.gb === 0 ? t('settings.extraStorageActivate') : t('settings.extraStorageChange')}
+          </button>
+
+          {showPicker && (
+            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden divide-y divide-gray-700/50">
+              {STORAGE_TIERS.map(tier => (
+                <button
+                  key={tier.id}
+                  onClick={() => handleSelect(tier)}
+                  className={`w-full flex items-center justify-between p-3 hover:bg-gray-700/50 transition-colors ${tier.id === activeTier.id ? 'bg-purple-500/10' : ''}`}
+                >
+                  <span className="text-sm font-medium">{tier.label}</span>
+                  <span className="text-xs text-gray-400">
+                    {tier.priceMonthly === 0 ? t('settings.extraStorageFree') : t('settings.extraStoragePerMonth', { price: tier.priceMonthly })}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

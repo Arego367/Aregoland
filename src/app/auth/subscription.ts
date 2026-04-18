@@ -137,6 +137,85 @@ export function setAutoRenew(renew: boolean): void {
   saveSubscription(sub);
 }
 
+// ── ARE-308 Phase 4: Zusatz-Speicher für Fotos & Videos ─────────────────────
+
+export interface StorageTier {
+  id: string;
+  gb: number;
+  priceMonthly: number; // EUR pro Monat
+  label: string;        // z.B. "5 GB", "20 GB"
+}
+
+export const STORAGE_TIERS: StorageTier[] = [
+  { id: 'free',   gb: 0,   priceMonthly: 0,   label: '0 GB (Standard)' },
+  { id: '5gb',    gb: 5,   priceMonthly: 1,   label: '5 GB' },
+  { id: '20gb',   gb: 20,  priceMonthly: 3,   label: '20 GB' },
+  { id: '50gb',   gb: 50,  priceMonthly: 5,   label: '50 GB' },
+  { id: '100gb',  gb: 100, priceMonthly: 8,   label: '100 GB' },
+];
+
+export interface StorageQuota {
+  tierId: string;
+  usedBytes: number;
+  activatedAt: string;
+}
+
+const STORAGE_KEY_QUOTA = 'aregoland_storage_quota';
+
+/** Lädt die Speicher-Quota aus localStorage. */
+export function loadStorageQuota(): StorageQuota | null {
+  const raw = localStorage.getItem(STORAGE_KEY_QUOTA);
+  if (!raw) return null;
+  try { return JSON.parse(raw) as StorageQuota; } catch { return null; }
+}
+
+/** Speichert die Speicher-Quota. */
+export function saveStorageQuota(quota: StorageQuota): void {
+  localStorage.setItem(STORAGE_KEY_QUOTA, JSON.stringify(quota));
+}
+
+/** Aktiviert einen Speicher-Tier (setzt Abo voraus). */
+export function activateStorageTier(tierId: string): StorageQuota | null {
+  const tier = STORAGE_TIERS.find(t => t.id === tierId);
+  if (!tier) return null;
+
+  // Abo prüfen — Zusatz-Speicher nur mit aktivem Abo
+  const sub = loadSubscription();
+  if (!sub || !hasAccess(sub)) return null;
+
+  const quota: StorageQuota = {
+    tierId,
+    usedBytes: loadStorageQuota()?.usedBytes ?? 0,
+    activatedAt: new Date().toISOString(),
+  };
+  saveStorageQuota(quota);
+  return quota;
+}
+
+/** Gibt den aktiven Tier zurück (oder den Free-Tier). */
+export function getActiveStorageTier(): StorageTier {
+  const quota = loadStorageQuota();
+  if (!quota) return STORAGE_TIERS[0];
+  return STORAGE_TIERS.find(t => t.id === quota.tierId) ?? STORAGE_TIERS[0];
+}
+
+/** Prüft ob noch Speicherplatz verfügbar ist. */
+export function hasStorageAvailable(additionalBytes: number = 0): boolean {
+  const quota = loadStorageQuota();
+  if (!quota) return false;
+  const tier = STORAGE_TIERS.find(t => t.id === quota.tierId);
+  if (!tier || tier.gb === 0) return false;
+  return (quota.usedBytes + additionalBytes) <= tier.gb * 1024 * 1024 * 1024;
+}
+
+/** Aktualisiert den belegten Speicher (z.B. nach Upload). */
+export function updateStorageUsed(usedBytes: number): void {
+  const quota = loadStorageQuota();
+  if (!quota) return;
+  quota.usedBytes = usedBytes;
+  saveStorageQuota(quota);
+}
+
 /** Formatiert ein ISO-Datum als deutsches Datum (TT.MM.JJJJ). */
 export function formatDateDE(iso: string): string {
   const d = new Date(iso);

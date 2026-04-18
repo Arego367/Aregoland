@@ -408,6 +408,20 @@ export function restoreBackup(data: BackupData): { restored: string[]; skipped: 
   return { restored, skipped };
 }
 
+// ── ARE-308 Phase 4: Chat Opt-in Persistenz ──────────────────────────────────
+
+const CHAT_OPTIN_KEY = 'aregoland_backup_chat_optin';
+
+/** Liest die persistierte Chat-Opt-in-Einstellung. */
+export function getChatBackupOptIn(): boolean {
+  return localStorage.getItem(CHAT_OPTIN_KEY) === 'true';
+}
+
+/** Speichert die Chat-Opt-in-Einstellung persistent. */
+export function setChatBackupOptIn(enabled: boolean): void {
+  localStorage.setItem(CHAT_OPTIN_KEY, enabled ? 'true' : 'false');
+}
+
 // ── Szenario-Check ────────────────────────────────────────────────────────────
 
 export type BackupScenario = 'A' | 'B' | 'C';
@@ -528,8 +542,8 @@ export async function autoBackupIfNeeded(): Promise<void> {
       if (hoursSince < 24) return;
     }
 
-    // Backup im Hintergrund erstellen und hochladen
-    await uploadCloudBackup(false); // Chats nicht einschließen (zu groß für Auto-Backup)
+    // Backup im Hintergrund erstellen und hochladen (Chat-Opt-in beachten)
+    await uploadCloudBackup(getChatBackupOptIn());
     console.log('[CloudBackup] Auto-Backup erfolgreich');
   } catch (err) {
     console.warn('[CloudBackup] Auto-Backup fehlgeschlagen:', err);
