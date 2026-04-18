@@ -13,7 +13,6 @@ import { expandRecurrence, buildRRule, rruleLabel } from "@/app/lib/rrule";
 import { scheduleReminder as scheduleSWReminder, cancelReminder, checkReminders } from "@/app/lib/reminder-scheduler";
 import { loadInvitations, invitationsToEvents, updateRsvp, type ReceivedInvitation } from "@/app/lib/calendar-invitations";
 import { loadContacts, type StoredContact } from "@/app/auth/contacts";
-import { MOCK_CONTACTS } from "@/app/data/contacts";
 
 // ── Persistence ──────────────────────────────────────────────────────────────
 
@@ -3308,17 +3307,25 @@ function BirthdayFormModal({
   const [note, setNote] = useState(initial?.note ?? '');
   const [reminders, setReminders] = useState<BirthdayReminder[]>(initial?.reminders ?? [...DEFAULT_BIRTHDAY_REMINDERS]);
 
-  // Import state
+  // Import state — use real contacts from the Contacts app (no mock data)
+  const realContacts: Contact[] = useMemo(() =>
+    loadContacts().map(sc => ({
+      id: sc.aregoId,
+      name: sc.displayName,
+      categories: [] as string[],
+      type: 'individual' as const,
+    })), []);
+
   const contactsWithBirthday = useMemo(() => {
     const existingContactIds = new Set(existingBirthdays.filter(b => b.contactId).map(b => b.contactId));
-    return MOCK_CONTACTS
+    return realContacts
       .filter(c => c.type === 'individual' && c.birthday && !existingContactIds.has(c.id))
       .map(c => {
         const parsed = parseBirthdayDE(c.birthday!);
         return parsed ? { contact: c, parsed } : null;
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
-  }, [existingBirthdays]);
+  }, [existingBirthdays, realContacts]);
 
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
   const [importFilter, setImportFilter] = useState('');
