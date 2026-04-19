@@ -361,7 +361,10 @@
     "gdprExport": "Data Export (GDPR)",
     "gdprExportBtn": "Export all data",
     "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
-    "gdprExportStarted": "Export downloading..."
+    "gdprExportStarted": "Export downloading...",
+    "gdprReImport": "Reimport GDPR",
+    "gdprReImportDesc": "Restaurați datele dintr-un export GDPR anterior.",
+    "gdprImportError": "Importul a eșuat. Fișierul nu a putut fi citit."
   },
   "calendar": {
     "title": "Calendar",

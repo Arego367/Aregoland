@@ -361,7 +361,10 @@
     "gdprExport": "Data Export (GDPR)",
     "gdprExportBtn": "Export all data",
     "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
-    "gdprExportStarted": "Export downloading..."
+    "gdprExportStarted": "Export downloading...",
+    "gdprReImport": "GDPR повторен импорт",
+    "gdprReImportDesc": "Възстановете данни от предишен GDPR експорт.",
+    "gdprImportError": "Импортирането неуспешно. Файлът не може да бъде прочетен."
   },
   "calendar": {
     "title": "Календар",

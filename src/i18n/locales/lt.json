@@ -362,7 +362,10 @@
     "gdprExport": "Data Export (GDPR)",
     "gdprExportBtn": "Export all data",
     "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
-    "gdprExportStarted": "Export downloading..."
+    "gdprExportStarted": "Export downloading...",
+    "gdprReImport": "GDPR pakartotinis importas",
+    "gdprReImportDesc": "Atkurkite duomenis iš ankstesnio GDPR eksporto.",
+    "gdprImportError": "Importavimas nepavyko. Nepavyko perskaityti failo."
   },
   "calendar": {
     "title": "Kalendorius",

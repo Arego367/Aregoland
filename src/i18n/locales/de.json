@@ -608,7 +608,10 @@
     "extraStorageActivate": "Aktivieren",
     "extraStorageChange": "Plan ändern",
     "extraStoragePerMonth": "{{price}} EUR/Monat",
-    "extraStorageFree": "Kostenlos"
+    "extraStorageFree": "Kostenlos",
+    "gdprReImport": "DSGVO Re-Import",
+    "gdprReImportDesc": "Stelle Daten aus einem früheren DSGVO-Export wieder her.",
+    "gdprImportError": "Import fehlgeschlagen. Die Datei konnte nicht gelesen werden."
   },
   "calendar": {
     "title": "Kalender",
@@ -741,7 +744,15 @@
     "daysCount": "Wie viele Tage?",
     "daysWhich": "Welche Tage?",
     "daysFrom": "ab",
-    "weekdaysFull": ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"],
+    "weekdaysFull": [
+      "Montag",
+      "Dienstag",
+      "Mittwoch",
+      "Donnerstag",
+      "Freitag",
+      "Samstag",
+      "Sonntag"
+    ],
     "remCustom": "Eigene",
     "recurCustom": "Eigene",
     "customReminderValue": "{{value}} {{unit}} vorher",

@@ -361,7 +361,10 @@
     "gdprExport": "Exportación de datos (RGPD)",
     "gdprExportBtn": "Exportar todos los datos",
     "gdprExportDesc": "Exportación JSON estructurada según RGPD Art. 20",
-    "gdprExportStarted": "Descargando exportación..."
+    "gdprExportStarted": "Descargando exportación...",
+    "gdprReImport": "Reimportación RGPD",
+    "gdprReImportDesc": "Restaura datos de una exportación RGPD anterior.",
+    "gdprImportError": "Error en la importación. No se pudo leer el archivo."
   },
   "calendar": {
     "title": "Calendario",

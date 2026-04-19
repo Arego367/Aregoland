@@ -361,7 +361,10 @@
     "gdprExport": "Esportazione dati (GDPR)",
     "gdprExportBtn": "Esporta tutti i dati",
     "gdprExportDesc": "Esportazione JSON strutturata secondo GDPR Art. 20",
-    "gdprExportStarted": "Download in corso..."
+    "gdprExportStarted": "Download in corso...",
+    "gdprReImport": "Re-importazione GDPR",
+    "gdprReImportDesc": "Ripristina i dati da un'esportazione GDPR precedente.",
+    "gdprImportError": "Importazione fallita. Il file non può essere letto."
   },
   "calendar": {
     "title": "Calendario",

@@ -354,6 +354,7 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
           <h2 className="text-lg font-bold">{t('settings.backupExport')}</h2>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="space-y-6 max-w-lg mx-auto">
           {/* Vorschau */}
           <div className="space-y-2">
             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.backupPreview')}</h3>
@@ -466,6 +467,7 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
               {cloudError && <p className="text-xs text-red-400 text-center">{cloudError}</p>}
             </div>
           )}
+          </div>
         </div>
       </div>
     );
@@ -480,6 +482,7 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
           <h2 className="text-lg font-bold">{t('settings.backupImportTitle')}</h2>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="space-y-6 max-w-lg mx-auto">
           <p className="text-sm text-gray-400">{t('settings.backupImportDesc')}</p>
 
           {importSuccess ? (
@@ -554,6 +557,7 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
               )}
             </>
           )}
+          </div>
         </div>
       </div>
     );
@@ -572,6 +576,7 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
         <h2 className="text-lg font-bold">{t('settings.backup')}</h2>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="space-y-6 max-w-lg mx-auto">
         <p className="text-sm text-gray-400">{t('settings.backupDesc')}</p>
 
         <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden divide-y divide-gray-700/50">
@@ -634,6 +639,7 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
@@ -672,6 +678,7 @@ function GdprImportView({ onBack, t }: { onBack: () => void; t: (key: string, op
         <h2 className="text-lg font-bold">{t('settings.gdprReImport')}</h2>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="space-y-6 max-w-lg mx-auto">
         <p className="text-sm text-gray-400">{t('settings.gdprReImportDesc')}</p>
 
         {importResult ? (
@@ -708,6 +715,7 @@ function GdprImportView({ onBack, t }: { onBack: () => void; t: (key: string, op
         )}
 
         {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+        </div>
       </div>
     </div>
   );

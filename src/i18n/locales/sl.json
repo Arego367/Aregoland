@@ -361,7 +361,10 @@
     "gdprExport": "Data Export (GDPR)",
     "gdprExportBtn": "Export all data",
     "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
-    "gdprExportStarted": "Export downloading..."
+    "gdprExportStarted": "Export downloading...",
+    "gdprReImport": "Ponovni uvoz GDPR",
+    "gdprReImportDesc": "Obnovite podatke iz prejšnjega izvoza GDPR.",
+    "gdprImportError": "Uvoz ni uspel. Datoteke ni mogoče prebrati."
   },
   "calendar": {
     "title": "Koledar",

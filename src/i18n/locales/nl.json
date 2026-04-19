@@ -361,7 +361,10 @@
     "gdprExport": "Gegevensexport (AVG)",
     "gdprExportBtn": "Alle gegevens exporteren",
     "gdprExportDesc": "Gestructureerde JSON-export volgens AVG Art. 20",
-    "gdprExportStarted": "Export wordt gedownload..."
+    "gdprExportStarted": "Export wordt gedownload...",
+    "gdprReImport": "AVG herimport",
+    "gdprReImportDesc": "Herstel gegevens van een eerdere AVG-export.",
+    "gdprImportError": "Import mislukt. Het bestand kon niet worden gelezen."
   },
   "calendar": {
     "title": "Kalender",

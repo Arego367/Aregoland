@@ -361,7 +361,10 @@
     "gdprExport": "Data Export (GDPR)",
     "gdprExportBtn": "Export all data",
     "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
-    "gdprExportStarted": "Export downloading..."
+    "gdprExportStarted": "Export downloading...",
+    "gdprReImport": "Повторний імпорт GDPR",
+    "gdprReImportDesc": "Відновіть дані з попереднього експорту GDPR.",
+    "gdprImportError": "Помилка імпорту. Не вдалося прочитати файл."
   },
   "calendar": {
     "title": "Календар",

@@ -361,7 +361,10 @@
     "gdprExport": "Data Export (GDPR)",
     "gdprExportBtn": "Export all data",
     "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
-    "gdprExportStarted": "Export downloading..."
+    "gdprExportStarted": "Export downloading...",
+    "gdprReImport": "GDPR atkārtots imports",
+    "gdprReImportDesc": "Atjaunojiet datus no iepriekšējā GDPR eksporta.",
+    "gdprImportError": "Importēšana neizdevās. Failu nevarēja nolasīt."
   },
   "calendar": {
     "title": "Kalendārs",

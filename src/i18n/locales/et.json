@@ -361,7 +361,10 @@
     "gdprExport": "Data Export (GDPR)",
     "gdprExportBtn": "Export all data",
     "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
-    "gdprExportStarted": "Export downloading..."
+    "gdprExportStarted": "Export downloading...",
+    "gdprReImport": "GDPR taasiimport",
+    "gdprReImportDesc": "Taastage andmed varasemast GDPR ekspordist.",
+    "gdprImportError": "Import ebaõnnestus. Faili ei saanud lugeda."
   },
   "calendar": {
     "title": "Kalender",

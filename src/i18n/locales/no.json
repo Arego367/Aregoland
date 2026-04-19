@@ -361,7 +361,10 @@
     "gdprExport": "Data Export (GDPR)",
     "gdprExportBtn": "Export all data",
     "gdprExportDesc": "Structured JSON export per GDPR Art. 20",
-    "gdprExportStarted": "Export downloading..."
+    "gdprExportStarted": "Export downloading...",
+    "gdprReImport": "GDPR reimport",
+    "gdprReImportDesc": "Gjenopprett data fra en tidligere GDPR-eksport.",
+    "gdprImportError": "Import mislyktes. Filen kunne ikke leses."
   },
   "calendar": {
     "title": "Kalender",
