@@ -611,7 +611,13 @@
     "extraStorageFree": "Kostenlos",
     "gdprReImport": "DSGVO Re-Import",
     "gdprReImportDesc": "Stelle Daten aus einem früheren DSGVO-Export wieder her.",
-    "gdprImportError": "Import fehlgeschlagen. Die Datei konnte nicht gelesen werden."
+    "gdprImportError": "Import fehlgeschlagen. Die Datei konnte nicht gelesen werden.",
+    "groupAccount": "Konto",
+    "groupPrivacy": "Privatsphäre & Sicherheit",
+    "groupApp": "App",
+    "groupFamily": "Familie",
+    "groupDangerZone": "Gefahrenzone",
+    "advancedSection": "Erweitert"
   },
   "calendar": {
     "title": "Kalender",

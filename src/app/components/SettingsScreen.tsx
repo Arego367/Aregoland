@@ -65,130 +65,145 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
 
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-4 max-w-lg mx-auto">
-          {/* Gruppe 1: Abo & Speicher */}
-          <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
-             <button
-               onClick={() => setActiveSubmenu("subscription")}
-               className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
-             >
-               <div className="flex items-center gap-3">
-                 <div className="bg-amber-500/20 p-2 rounded-lg text-amber-400">
-                   <CreditCard size={20} />
-                 </div>
-                 <span className="font-medium">{t('settings.subscriptionSection')}</span>
-               </div>
-               <ChevronRight size={20} className="text-gray-500" />
-             </button>
+          {/* Gruppe 1: Konto */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-2 mb-2">{t('settings.groupAccount')}</h3>
+            <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
+              <button
+                onClick={() => setActiveSubmenu("subscription")}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="bg-amber-500/20 p-2 rounded-lg text-amber-400">
+                    <CreditCard size={20} />
+                  </div>
+                  <span className="font-medium">{t('settings.subscriptionSection')}</span>
+                </div>
+                <ChevronRight size={20} className="text-gray-500" />
+              </button>
 
-             <button
-               onClick={() => setActiveSubmenu("storage")}
-               className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
-             >
-               <div className="flex items-center gap-3">
-                 <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400">
-                   <HardDrive size={20} />
-                 </div>
-                 <span className="font-medium">{t('settings.storageSection')}</span>
-               </div>
-               <ChevronRight size={20} className="text-gray-500" />
-             </button>
+              <button
+                onClick={() => setActiveSubmenu("fsk")}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`${loadFsk()?.verified ? 'bg-green-500/20' : 'bg-orange-500/20'} p-2 rounded-lg ${loadFsk()?.verified ? 'text-green-400' : 'text-orange-400'}`}>
+                    <Shield size={20} />
+                  </div>
+                  <div>
+                    <span className="font-medium">{t('settings.fskSection')}</span>
+                    {!loadFsk()?.verified && (
+                      <p className="text-xs text-orange-400">{t('settings.fskNotVerified')}</p>
+                    )}
+                  </div>
+                </div>
+                <ChevronRight size={20} className="text-gray-500" />
+              </button>
+            </div>
           </div>
 
-          {/* Gruppe 2: App & Benachrichtigungen */}
-          <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
-             <button
-               onClick={() => setActiveSubmenu("app")}
-               className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
-             >
-               <div className="flex items-center gap-3">
-                 <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
-                   <Smartphone size={20} />
-                 </div>
-                 <span className="font-medium">{t('settings.appSettings')}</span>
-               </div>
-               <div className="flex items-center gap-2">
-                 <span className="text-xs text-gray-500">{t('settings.appSettingsDesc')}</span>
-                 <ChevronRight size={20} className="text-gray-500" />
-               </div>
-             </button>
+          {/* Gruppe 2: Privatsphaere & Sicherheit */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-2 mb-2">{t('settings.groupPrivacy')}</h3>
+            <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
+              <button
+                onClick={() => setActiveSubmenu("privacy")}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="bg-green-500/20 p-2 rounded-lg text-green-400">
+                    <Shield size={20} />
+                  </div>
+                  <span className="font-medium">{t('settings.privacy')}</span>
+                </div>
+                <ChevronRight size={20} className="text-gray-500" />
+              </button>
 
-             <button
-               onClick={() => setActiveSubmenu("notifications")}
-               className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
-             >
-               <div className="flex items-center gap-3">
-                 <div className="bg-purple-500/20 p-2 rounded-lg text-purple-400">
-                   <Bell size={20} />
-                 </div>
-                 <span className="font-medium">{t('settings.notifications')}</span>
-               </div>
-               <ChevronRight size={20} className="text-gray-500" />
-             </button>
+              <button
+                onClick={() => setActiveSubmenu("backup")}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400">
+                    <HardDrive size={20} />
+                  </div>
+                  <span className="font-medium">{t('settings.backup')}</span>
+                </div>
+                <ChevronRight size={20} className="text-gray-500" />
+              </button>
+
+              <button
+                onClick={() => setActiveSubmenu("storage")}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400">
+                    <HardDrive size={20} />
+                  </div>
+                  <span className="font-medium">{t('settings.storageSection')}</span>
+                </div>
+                <ChevronRight size={20} className="text-gray-500" />
+              </button>
+            </div>
           </div>
 
-          {/* Gruppe 3: FSK, Datenschutz & Familie */}
-          <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
-             <button
-               onClick={() => setActiveSubmenu("fsk")}
-               className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
-             >
-               <div className="flex items-center gap-3">
-                 <div className={`${loadFsk()?.verified ? 'bg-green-500/20' : 'bg-orange-500/20'} p-2 rounded-lg ${loadFsk()?.verified ? 'text-green-400' : 'text-orange-400'}`}>
-                   <Shield size={20} />
-                 </div>
-                 <div>
-                   <span className="font-medium">{t('settings.fskSection')}</span>
-                   {!loadFsk()?.verified && (
-                     <p className="text-xs text-orange-400">{t('settings.fskNotVerified')}</p>
-                   )}
-                 </div>
-               </div>
-               <ChevronRight size={20} className="text-gray-500" />
-             </button>
+          {/* Gruppe 3: App */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-2 mb-2">{t('settings.groupApp')}</h3>
+            <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
+              <button
+                onClick={() => setActiveSubmenu("app")}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
+                    <Smartphone size={20} />
+                  </div>
+                  <span className="font-medium">{t('settings.appSettings')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">{t('settings.appSettingsDesc')}</span>
+                  <ChevronRight size={20} className="text-gray-500" />
+                </div>
+              </button>
 
-             <button
-               onClick={() => setActiveSubmenu("backup")}
-               className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
-             >
-               <div className="flex items-center gap-3">
-                 <div className="bg-cyan-500/20 p-2 rounded-lg text-cyan-400">
-                   <HardDrive size={20} />
-                 </div>
-                 <span className="font-medium">{t('settings.backup')}</span>
-               </div>
-               <ChevronRight size={20} className="text-gray-500" />
-             </button>
-
-             <button
-               onClick={() => setActiveSubmenu("privacy")}
-               className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
-             >
-               <div className="flex items-center gap-3">
-                 <div className="bg-green-500/20 p-2 rounded-lg text-green-400">
-                   <Shield size={20} />
-                 </div>
-                 <span className="font-medium">{t('settings.privacy')}</span>
-               </div>
-               <ChevronRight size={20} className="text-gray-500" />
-             </button>
-
-             <button
-               onClick={() => setActiveSubmenu("family")}
-               className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
-             >
-               <div className="flex items-center gap-3">
-                 <div className="bg-pink-500/20 p-2 rounded-lg text-pink-400">
-                   <Baby size={20} />
-                 </div>
-                 <span className="font-medium">{t('settings.familyChildren')}</span>
-               </div>
-               <div className="flex items-center gap-2">
-                 <ChevronRight size={20} className="text-gray-500" />
-               </div>
-             </button>
+              <button
+                onClick={() => setActiveSubmenu("notifications")}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple-500/20 p-2 rounded-lg text-purple-400">
+                    <Bell size={20} />
+                  </div>
+                  <span className="font-medium">{t('settings.notifications')}</span>
+                </div>
+                <ChevronRight size={20} className="text-gray-500" />
+              </button>
+            </div>
           </div>
 
-          {/* Konto zuruecksetzen */}
+          {/* Gruppe 4: Familie */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-2 mb-2">{t('settings.groupFamily')}</h3>
+            <div className="bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50">
+              <button
+                onClick={() => setActiveSubmenu("family")}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="bg-pink-500/20 p-2 rounded-lg text-pink-400">
+                    <Baby size={20} />
+                  </div>
+                  <span className="font-medium">{t('settings.familyChildren')}</span>
+                </div>
+                <ChevronRight size={20} className="text-gray-500" />
+              </button>
+            </div>
+          </div>
+
+          {/* Gefahrenzone */}
+          <div>
+            <h3 className="text-xs font-bold text-red-500/70 uppercase tracking-wider px-2 mb-2">{t('settings.groupDangerZone')}</h3>
           <AlertDialog.Root>
             <AlertDialog.Trigger asChild>
               <button className="w-full flex items-center justify-center gap-2 p-4 text-red-600 font-medium hover:bg-red-500/10 rounded-2xl transition-colors border border-red-900/40">
@@ -229,6 +244,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
               </AlertDialog.Content>
             </AlertDialog.Portal>
           </AlertDialog.Root>
+          </div>
 
           <p className="text-center text-xs text-gray-600 mt-4">Version: {__GIT_HASH__} — {__BUILD_DATE__}</p>
         </div>
@@ -348,12 +364,12 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
   // ── Export-Ansicht ──
   if (mode === 'export') {
     return (
-      <div className="flex flex-col h-screen bg-gray-900 text-white">
-        <div className="flex items-center gap-3 p-4 border-b border-gray-700/50">
-          <button onClick={() => { setMode('menu'); setCreated(false); }} className="p-2 hover:bg-gray-800 rounded-xl"><ArrowLeft size={20} /></button>
-          <h2 className="text-lg font-bold">{t('settings.backupExport')}</h2>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+        <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
+          <button onClick={() => { setMode('menu'); setCreated(false); }} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"><ArrowLeft size={24} /></button>
+          <h1 className="text-xl font-bold">{t('settings.backupExport')}</h1>
+        </header>
+        <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-6 max-w-lg mx-auto">
           {/* Vorschau */}
           <div className="space-y-2">
@@ -476,12 +492,12 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
   // ── Import-Ansicht ──
   if (mode === 'import') {
     return (
-      <div className="flex flex-col h-screen bg-gray-900 text-white">
-        <div className="flex items-center gap-3 p-4 border-b border-gray-700/50">
-          <button onClick={() => { setMode('menu'); setImportFile(null); setImportError(''); setImportSuccess(false); }} className="p-2 hover:bg-gray-800 rounded-xl"><ArrowLeft size={20} /></button>
-          <h2 className="text-lg font-bold">{t('settings.backupImportTitle')}</h2>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+        <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
+          <button onClick={() => { setMode('menu'); setImportFile(null); setImportError(''); setImportSuccess(false); }} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"><ArrowLeft size={24} /></button>
+          <h1 className="text-xl font-bold">{t('settings.backupImportTitle')}</h1>
+        </header>
+        <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-6 max-w-lg mx-auto">
           <p className="text-sm text-gray-400">{t('settings.backupImportDesc')}</p>
 
@@ -570,12 +586,12 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
 
   // ── Menu-Ansicht ──
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white">
-      <div className="flex items-center gap-3 p-4 border-b border-gray-700/50">
-        <button onClick={onBack} className="p-2 hover:bg-gray-800 rounded-xl"><ArrowLeft size={20} /></button>
-        <h2 className="text-lg font-bold">{t('settings.backup')}</h2>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+      <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
+        <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"><ArrowLeft size={24} /></button>
+        <h1 className="text-xl font-bold">{t('settings.backup')}</h1>
+      </header>
+      <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-6 max-w-lg mx-auto">
         <p className="text-sm text-gray-400">{t('settings.backupDesc')}</p>
 
@@ -618,6 +634,23 @@ function BackupSubmenu({ onBack, t }: { onBack: () => void; t: (key: string, opt
               <div className="text-left">
                 <span className="text-sm font-medium block">{t('settings.gdprReImport')}</span>
                 <span className="text-xs text-gray-500">{t('settings.gdprReImportDesc')}</span>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* DSGVO Export */}
+        <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
+          <button
+            onClick={() => { downloadGdprExport(); }}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <FileText size={18} className="text-blue-400" />
+              <div className="text-left">
+                <span className="text-sm font-medium block">{t('settings.gdprExportBtn')}</span>
+                <span className="text-xs text-gray-500">{t('settings.gdprExportDesc')}</span>
               </div>
             </div>
             <ChevronRight size={18} className="text-gray-500" />
@@ -672,12 +705,12 @@ function GdprImportView({ onBack, t }: { onBack: () => void; t: (key: string, op
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white">
-      <div className="flex items-center gap-3 p-4 border-b border-gray-700/50">
-        <button onClick={onBack} className="p-2 hover:bg-gray-800 rounded-xl"><ArrowLeft size={20} /></button>
-        <h2 className="text-lg font-bold">{t('settings.gdprReImport')}</h2>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+      <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
+        <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"><ArrowLeft size={24} /></button>
+        <h1 className="text-xl font-bold">{t('settings.gdprReImport')}</h1>
+      </header>
+      <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-6 max-w-lg mx-auto">
         <p className="text-sm text-gray-400">{t('settings.gdprReImportDesc')}</p>
 

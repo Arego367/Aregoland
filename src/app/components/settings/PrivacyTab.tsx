@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
-import { ArrowLeft, Shield, Check, Copy, Eye, EyeOff, HardDrive, Users, MapPin, Phone, Link as LinkIcon, Ban, Clock, Baby, Trash2, ChevronRight, X, Download } from "lucide-react";
+import { ArrowLeft, Shield, Check, Eye, EyeOff, Users, MapPin, Phone, Link as LinkIcon, Ban, Clock, Baby, Trash2, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { loadIdentity } from "@/app/auth/identity";
 import { loadBlocked, unblockContact, loadContacts } from "@/app/auth/contacts";
-import { downloadGdprExport } from "@/app/lib/gdpr-export";
+
 
 const PRIVACY_KEY = "aregoland_privacy_visibility";
 type VisLevel = "all" | "custom" | "none";
@@ -27,11 +27,6 @@ function loadTabs(): { id: string; label: string }[] {
     { id: "children", label: "Kinder" }, { id: "space", label: "Spaces" },
     { id: "other", label: "Sonstige" },
   ];
-}
-
-function estimateStorageBytes(key: string): number {
-  const v = localStorage.getItem(key);
-  return v ? new Blob([v]).size : 0;
 }
 
 async function directoryRegister(aregoId: string, displayName: string): Promise<boolean> {
@@ -75,7 +70,6 @@ export default function PrivacyTab({ onBack, t }: PrivacyTabProps) {
   }, []);
   const availableTabs = useMemo(() => loadTabs(), []);
 
-  const [idCopied, setIdCopied] = useState(false);
   const [discoverable, setDiscoverable] = useState(() => localStorage.getItem("aregoland_discoverable") === "true");
   const [directoryStatus, setDirectoryStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [privacyVis, setPrivacyVis] = useState<PrivacyVisibility>(loadPrivacyVisibility);
@@ -83,21 +77,6 @@ export default function PrivacyTab({ onBack, t }: PrivacyTabProps) {
   const [privacyToast, setPrivacyToast] = useState(false);
   const [privacyToastMsg, setPrivacyToastMsg] = useState("");
   const [blockedList, setBlockedList] = useState<string[]>(() => loadBlocked());
-
-  const storageItems = [
-    { label: t('settings.storageChats'), key: "arego_chat_", estimate: () => {
-      let total = 0;
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.startsWith("arego_chat_") || k.startsWith("arego_history_") || k.startsWith("arego_pending_"))) total += estimateStorageBytes(k);
-      }
-      return total;
-    }},
-    { label: t('settings.storageProfile'), key: "arego_profile", estimate: () => estimateStorageBytes("arego_profile") },
-    { label: t('settings.storageContacts'), key: "arego_contacts", estimate: () => estimateStorageBytes("arego_contacts") },
-  ];
-  const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  const totalBytes = storageItems.reduce((sum, s) => sum + s.estimate(), 0) + estimateStorageBytes("aregoland_identity");
 
   const visCategories: { key: keyof PrivacyVisibility; label: string; desc: string; icon: typeof Users }[] = [
     { key: "personal", label: t('settings.visibilityPersonal'), desc: t('settings.visibilityPersonalDesc'), icon: Users },
@@ -170,20 +149,6 @@ export default function PrivacyTab({ onBack, t }: PrivacyTabProps) {
           <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-2xl flex gap-3">
             <Shield className="text-yellow-500 shrink-0" size={20} />
             <p className="text-sm text-yellow-200/80 leading-relaxed">{t('settings.privacyNote')}</p>
-          </div>
-
-          {/* Arego-ID */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.yourAregoId')}</h3>
-            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 flex items-center justify-between">
-              <span className="font-mono font-bold text-blue-400 tracking-wider">{identity?.aregoId ?? ""}</span>
-              <button
-                onClick={() => { navigator.clipboard.writeText(identity?.aregoId ?? ""); setIdCopied(true); setTimeout(() => setIdCopied(false), 2000); }}
-                className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-              >
-                {idCopied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-              </button>
-            </div>
           </div>
 
           {/* Discoverable toggle */}
@@ -342,44 +307,6 @@ export default function PrivacyTab({ onBack, t }: PrivacyTabProps) {
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Storage */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.dataStorage')}</h3>
-            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-gray-400"><HardDrive size={16} /> {t('settings.totalStorage')}</div>
-                <span className="font-mono font-bold text-white">{formatSize(totalBytes)}</span>
-              </div>
-              <div className="h-px bg-gray-700/50" />
-              {storageItems.map((s) => (
-                <div key={s.key} className="flex items-center justify-between text-xs text-gray-400">
-                  <span>{s.label}</span>
-                  <span className="font-mono">{formatSize(s.estimate())}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* DSGVO Data Export */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.gdprExport')}</h3>
-            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
-              <button
-                onClick={() => { downloadGdprExport(); setPrivacyToastMsg(t('settings.gdprExportStarted')); setPrivacyToast(true); setTimeout(() => setPrivacyToast(false), 2500); }}
-                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <Download size={16} className="text-blue-400" />
-                  <div className="text-left">
-                    <span className="text-sm font-medium block">{t('settings.gdprExportBtn')}</span>
-                    <span className="text-xs text-gray-500">{t('settings.gdprExportDesc')}</span>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-gray-500" />
-              </button>
-            </div>
-          </div>
 
           {/* Delete data */}
           <div className="space-y-2">

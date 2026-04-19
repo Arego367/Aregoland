@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ArrowLeft, HardDrive } from "lucide-react";
 import { loadSubscription, getActiveStorageTier, activateStorageTier, loadStorageQuota, hasAccess, STORAGE_TIERS, type StorageTier } from "@/app/auth/subscription";
+
+function estimateStorageBytes(key: string): number {
+  const v = localStorage.getItem(key);
+  return v ? new Blob([v]).size : 0;
+}
 
 interface StorageTabProps {
   onBack: () => void;
@@ -100,6 +105,43 @@ function ExtraStorageSection({ t }: { t: (key: string, opts?: Record<string, unk
   );
 }
 
+function LocalStorageSection({ t }: { t: (key: string, opts?: Record<string, unknown>) => string }) {
+  const storageItems = useMemo(() => [
+    { label: t('settings.storageChats'), key: "arego_chat_", estimate: () => {
+      let total = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith("arego_chat_") || k.startsWith("arego_history_") || k.startsWith("arego_pending_"))) total += estimateStorageBytes(k);
+      }
+      return total;
+    }},
+    { label: t('settings.storageProfile'), key: "arego_profile", estimate: () => estimateStorageBytes("arego_profile") },
+    { label: t('settings.storageContacts'), key: "arego_contacts", estimate: () => estimateStorageBytes("arego_contacts") },
+  ], [t]);
+
+  const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const totalBytes = storageItems.reduce((sum, s) => sum + s.estimate(), 0) + estimateStorageBytes("aregoland_identity");
+
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-2">{t('settings.dataStorage')}</h3>
+      <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2 text-gray-400"><HardDrive size={16} /> {t('settings.totalStorage')}</div>
+          <span className="font-mono font-bold text-white">{formatSize(totalBytes)}</span>
+        </div>
+        <div className="h-px bg-gray-700/50" />
+        {storageItems.map((s) => (
+          <div key={s.key} className="flex items-center justify-between text-xs text-gray-400">
+            <span>{s.label}</span>
+            <span className="font-mono">{formatSize(s.estimate())}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function StorageTab({ onBack, t }: StorageTabProps) {
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
@@ -126,6 +168,9 @@ export default function StorageTab({ onBack, t }: StorageTabProps) {
               </div>
             </div>
           </div>
+
+          {/* Lokaler Datenspeicher */}
+          <LocalStorageSection t={t} />
 
           {/* Zusatz-Speicher für Fotos & Videos */}
           <ExtraStorageSection t={t} />
