@@ -129,12 +129,20 @@ export function activatePlan(planType: PlanType): Subscription | null {
   return sub;
 }
 
-/** Setzt Auto-Verlaengerung. */
+/** Setzt Auto-Verlaengerung fuer das Haupt-Abo. */
 export function setAutoRenew(renew: boolean): void {
   const sub = loadSubscription();
   if (!sub) return;
   sub.autoRenew = renew;
   saveSubscription(sub);
+}
+
+/** Setzt Auto-Verlaengerung fuer den Zusatz-Speicher. */
+export function setStorageAutoRenew(renew: boolean): void {
+  const quota = loadStorageQuota();
+  if (!quota) return;
+  quota.autoRenew = renew;
+  saveStorageQuota(quota);
 }
 
 // ── ARE-308 Phase 4: Zusatz-Speicher für Fotos & Videos ─────────────────────
@@ -158,6 +166,7 @@ export interface StorageQuota {
   tierId: string;
   usedBytes: number;
   activatedAt: string;
+  autoRenew: boolean;
 }
 
 const STORAGE_KEY_QUOTA = 'aregoland_storage_quota';
@@ -187,6 +196,7 @@ export function activateStorageTier(tierId: string): StorageQuota | null {
     tierId,
     usedBytes: loadStorageQuota()?.usedBytes ?? 0,
     activatedAt: new Date().toISOString(),
+    autoRenew: loadStorageQuota()?.autoRenew ?? true,
   };
   saveStorageQuota(quota);
   return quota;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowLeft, Lock, Check, CreditCard, HardDrive } from "lucide-react";
-import { loadSubscription, getEffectiveStatus, setAutoRenew, activatePlan, formatDateDE, daysUntil, PLANS, getActiveStorageTier, loadStorageQuota, activateStorageTier, hasAccess, STORAGE_TIERS, type StorageTier } from "@/app/auth/subscription";
+import { loadSubscription, getEffectiveStatus, setAutoRenew, setStorageAutoRenew, activatePlan, formatDateDE, daysUntil, PLANS, getActiveStorageTier, loadStorageQuota, activateStorageTier, hasAccess, STORAGE_TIERS, type StorageTier } from "@/app/auth/subscription";
 
 interface SubscriptionTabProps {
   onBack: () => void;
@@ -138,6 +138,20 @@ export default function SubscriptionTab({ onBack, t, subscriptionLocked, onSubsc
                     </div>
                   )}
 
+                  {/* Auto-Verlängerung Abo */}
+                  <div className="flex items-center justify-between pt-1">
+                    <div>
+                      <p className="text-sm font-medium">{t('settings.subAutoRenewPlan')}</p>
+                      <p className="text-xs text-gray-500">{t('settings.subAutoRenewPlanDesc')}</p>
+                    </div>
+                    <div
+                      className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer shrink-0 ${sub.autoRenew ? 'bg-amber-500' : 'bg-gray-600'}`}
+                      onClick={() => { setAutoRenew(!sub.autoRenew); setSubRefresh(v => v + 1); }}
+                    >
+                      <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${sub.autoRenew ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                    </div>
+                  </div>
+
                   {/* Storage breakdown */}
                   <div className="h-px bg-gray-700/50 my-1" />
                   <div className="flex justify-between">
@@ -254,6 +268,20 @@ export default function SubscriptionTab({ onBack, t, subscriptionLocked, onSubsc
                       <span className="text-white font-medium">{storageRenewalDate}</span>
                     </div>
                   )}
+
+                  {/* Auto-Verlängerung Speicher */}
+                  <div className="flex items-center justify-between pt-1">
+                    <div>
+                      <p className="text-sm font-medium">{t('settings.subAutoRenewStorage')}</p>
+                      <p className="text-xs text-gray-500">{t('settings.subAutoRenewStorageDesc')}</p>
+                    </div>
+                    <div
+                      className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer shrink-0 ${quota?.autoRenew !== false ? 'bg-purple-500' : 'bg-gray-600'}`}
+                      onClick={() => { setStorageAutoRenew(quota?.autoRenew === false); setSubRefresh(v => v + 1); }}
+                    >
+                      <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${quota?.autoRenew !== false ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -285,24 +313,6 @@ export default function SubscriptionTab({ onBack, t, subscriptionLocked, onSubsc
                   )}
                 </>
               )}
-            </div>
-          )}
-
-          {/* ── Auto-Verlängerung (unified toggle) ── */}
-          {status === "active" && sub && (
-            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">{t('settings.subAutoRenewAll')}</p>
-                  <p className="text-xs text-gray-500">{t('settings.subAutoRenewAllDesc')}</p>
-                </div>
-                <div
-                  className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${sub.autoRenew ? 'bg-amber-500' : 'bg-gray-600'}`}
-                  onClick={() => { setAutoRenew(!sub.autoRenew); setSubRefresh(v => v + 1); }}
-                >
-                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${sub.autoRenew ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                </div>
-              </div>
             </div>
           )}
 
