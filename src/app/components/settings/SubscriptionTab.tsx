@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ArrowLeft, Lock, Check, CreditCard } from "lucide-react";
-import { loadSubscription, getEffectiveStatus, setAutoRenew, activatePlan, formatDateDE, daysUntil, PLANS } from "@/app/auth/subscription";
+import { ArrowLeft, Lock, Check, CreditCard, HardDrive } from "lucide-react";
+import { loadSubscription, getEffectiveStatus, setAutoRenew, activatePlan, formatDateDE, daysUntil, PLANS, getActiveStorageTier, loadStorageQuota, activateStorageTier, hasAccess, STORAGE_TIERS, type StorageTier } from "@/app/auth/subscription";
 
 interface SubscriptionTabProps {
   onBack: () => void;
@@ -12,6 +12,7 @@ interface SubscriptionTabProps {
 export default function SubscriptionTab({ onBack, t, subscriptionLocked, onSubscriptionUnlocked }: SubscriptionTabProps) {
   const [voucherCode, setVoucherCode] = useState("");
   const [subRefresh, setSubRefresh] = useState(0);
+  const [showStoragePicker, setShowStoragePicker] = useState(false);
 
   const sub = loadSubscription();
   const status = sub ? getEffectiveStatus(sub) : null;
@@ -23,8 +24,46 @@ export default function SubscriptionTab({ onBack, t, subscriptionLocked, onSubsc
     yearly: t('settings.subPlan12m'),
   };
 
+  const activeTier = getActiveStorageTier();
+  const quota = loadStorageQuota();
+  const hasAbo = sub ? hasAccess(sub) : false;
+
+  // Storage breakdown
+  const baseGb = 1; // Every subscription includes 1 GB base storage
+  const extraGb = activeTier.gb;
+  const totalGb = status === "active" ? baseGb + extraGb : extraGb;
+  const usedBytes = quota?.usedBytes ?? 0;
+  const totalBytes = totalGb * 1024 * 1024 * 1024;
+  const usagePercent = totalBytes > 0 ? Math.min((usedBytes / totalBytes) * 100, 100) : 0;
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
   // Force re-read on subRefresh change
   void subRefresh;
+
+  const handleStorageSelect = (tier: StorageTier) => {
+    const result = activateStorageTier(tier.id);
+    if (result) {
+      setShowStoragePicker(false);
+      setSubRefresh(v => v + 1);
+    }
+  };
+
+  // Compute next billing date: same as expiresAt if autoRenew is on
+  const nextBilling = sub?.autoRenew && sub?.expiresAt ? formatDateDE(sub.expiresAt) : null;
+
+  // Compute storage renewal date (approximation: activatedAt + 30 days)
+  const storageRenewalDate = quota?.activatedAt
+    ? (() => {
+        const d = new Date(quota.activatedAt);
+        d.setMonth(d.getMonth() + 1);
+        return formatDateDE(d.toISOString());
+      })()
+    : null;
 
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
@@ -55,9 +94,10 @@ export default function SubscriptionTab({ onBack, t, subscriptionLocked, onSubsc
             </div>
           )}
 
-          {/* Aktueller Plan */}
-          <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">
-            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">{t('settings.subCurrentPlan')}</p>
+          {/* ── Aktueller Plan (erweitert) ── */}
+          <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-4">
+            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">{t('settings.subCurrentPlan')}</p>
+
             {status === "trial" && sub && (
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-blue-400" />
@@ -70,18 +110,61 @@ export default function SubscriptionTab({ onBack, t, subscriptionLocked, onSubsc
                 </div>
               </div>
             )}
+
             {status === "active" && sub && (
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-400" />
-                <div>
-                  <p className="text-green-400 font-medium">{t('settings.subPlanActive')}</p>
-                  <p className="text-xs text-gray-400">
-                    {sub.planType ? planLabels[sub.planType] : ''} {"\u00b7"} 5 GB
-                    {sub.expiresAt && ` \u00b7 ${t('settings.subUntil')} ${formatDateDE(sub.expiresAt)}`}
-                  </p>
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-green-400" />
+                  <div>
+                    <p className="text-green-400 font-medium">{t('settings.subPlanActive')}</p>
+                    <p className="text-xs text-gray-400">
+                      {sub.planType ? planLabels[sub.planType] : ''}
+                    </p>
+                  </div>
                 </div>
-              </div>
+
+                {/* Detail rows */}
+                <div className="space-y-2 text-sm">
+                  {sub.expiresAt && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">{t('settings.subValidUntil')}</span>
+                      <span className="text-white font-medium">{formatDateDE(sub.expiresAt)}</span>
+                    </div>
+                  )}
+                  {nextBilling && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">{t('settings.subNextBilling')}</span>
+                      <span className="text-white font-medium">{nextBilling}</span>
+                    </div>
+                  )}
+
+                  {/* Storage breakdown */}
+                  <div className="h-px bg-gray-700/50 my-1" />
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">{t('settings.subStorageBreakdown')}</span>
+                    <span className="text-white font-medium">
+                      {baseGb} GB {t('settings.subStorageBase')}
+                      {extraGb > 0 && <> + {extraGb} GB {t('settings.subStorageExtra')}</>}
+                      {' = '}{totalGb} GB {t('settings.subStorageTotal')}
+                    </span>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="space-y-1">
+                    <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${usagePercent > 90 ? 'bg-red-500' : usagePercent > 70 ? 'bg-amber-500' : 'bg-green-500'}`}
+                        style={{ width: `${usagePercent}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {t('settings.subStorageUsage')}: {formatBytes(usedBytes)} / {totalGb} GB
+                    </p>
+                  </div>
+                </div>
+              </>
             )}
+
             {status === "expired" && (
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-red-400" />
@@ -91,6 +174,7 @@ export default function SubscriptionTab({ onBack, t, subscriptionLocked, onSubsc
                 </div>
               </div>
             )}
+
             {!sub && (
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-gray-500" />
@@ -148,13 +232,69 @@ export default function SubscriptionTab({ onBack, t, subscriptionLocked, onSubsc
             </div>
           )}
 
-          {/* Auto-Verlaengerung */}
+          {/* ── Zusätzlicher Speicher ── */}
+          {status === "active" && sub && (
+            <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <HardDrive size={16} className="text-purple-400" />
+                <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">{t('settings.subExtraStorageSection')}</p>
+              </div>
+
+              {activeTier.gb === 0 ? (
+                <p className="text-sm text-gray-400">{t('settings.subExtraStorageNone')}</p>
+              ) : (
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">{t('settings.subExtraStorageBooked')}</span>
+                    <span className="text-purple-300 font-medium">{activeTier.label}</span>
+                  </div>
+                  {storageRenewalDate && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">{t('settings.subExtraStorageRenewal')}</span>
+                      <span className="text-white font-medium">{storageRenewalDate}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {hasAbo && (
+                <>
+                  <button
+                    onClick={() => setShowStoragePicker(!showStoragePicker)}
+                    className="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium py-2 px-4 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+                  >
+                    <HardDrive size={14} />
+                    {activeTier.gb === 0 ? t('settings.extraStorageActivate') : t('settings.extraStorageChange')}
+                  </button>
+
+                  {showStoragePicker && (
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden divide-y divide-gray-700/50">
+                      {STORAGE_TIERS.map(tier => (
+                        <button
+                          key={tier.id}
+                          onClick={() => handleStorageSelect(tier)}
+                          className={`w-full flex items-center justify-between p-3 hover:bg-gray-700/50 transition-colors ${tier.id === activeTier.id ? 'bg-purple-500/10' : ''}`}
+                        >
+                          <span className="text-sm font-medium">{tier.label}</span>
+                          <span className="text-xs text-gray-400">
+                            {tier.priceMonthly === 0 ? t('settings.extraStorageFree') : t('settings.extraStoragePerMonth', { price: tier.priceMonthly })}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Auto-Verlängerung (unified toggle) ── */}
           {status === "active" && sub && (
             <div className="bg-gray-800/50 rounded-2xl border border-gray-700/50 p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">{t('settings.subAutoRenew')}</p>
-                  <p className="text-xs text-gray-500">{t('settings.subAutoRenewDesc')}</p>
+                  <p className="text-sm font-medium">{t('settings.subAutoRenewAll')}</p>
+                  <p className="text-xs text-gray-500">{t('settings.subAutoRenewAllDesc')}</p>
                 </div>
                 <div
                   className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${sub.autoRenew ? 'bg-amber-500' : 'bg-gray-600'}`}

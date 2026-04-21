@@ -47,7 +47,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   if (activeSubmenu === "backup") return <BackupSubmenu onBack={goMain} t={t} />;
   if (activeSubmenu === "subscription") return <SubscriptionTab onBack={goMain} t={t} subscriptionLocked={subscriptionLocked} onSubscriptionUnlocked={onSubscriptionUnlocked} />;
   if (activeSubmenu === "fsk") return <FskTab onBack={goMain} t={t} onFskUpdated={onFskUpdated} />;
-  if (activeSubmenu === "storage") return <StorageTab onBack={goMain} t={t} />;
+  if (activeSubmenu === "storage") return <StorageTab onBack={goMain} t={t} onNavigateSubscription={() => setActiveSubmenu("subscription")} />;
   if (activeSubmenu === "family") return <FamilyTab onBack={goMain} t={t} onFskUpdated={onFskUpdated} />;
 
   // ── Main Settings Menu ──

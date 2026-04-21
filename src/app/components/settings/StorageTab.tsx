@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { ArrowLeft, HardDrive } from "lucide-react";
-import { loadSubscription, getActiveStorageTier, activateStorageTier, loadStorageQuota, hasAccess, STORAGE_TIERS, type StorageTier } from "@/app/auth/subscription";
+import { ArrowLeft, HardDrive, ChevronRight } from "lucide-react";
+import { loadSubscription, getActiveStorageTier, loadStorageQuota, hasAccess } from "@/app/auth/subscription";
 
 function estimateStorageBytes(key: string): number {
   const v = localStorage.getItem(key);
@@ -10,27 +10,26 @@ function estimateStorageBytes(key: string): number {
 interface StorageTabProps {
   onBack: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
+  onNavigateSubscription?: () => void;
 }
 
-function ExtraStorageSection({ t }: { t: (key: string, opts?: Record<string, unknown>) => string }) {
-  const [activeTier, setActiveTier] = useState<StorageTier>(() => getActiveStorageTier());
-  const [showPicker, setShowPicker] = useState(false);
+function ExtraStorageSection({ t, onNavigateSubscription }: { t: (key: string, opts?: Record<string, unknown>) => string; onNavigateSubscription?: () => void }) {
+  const activeTier = getActiveStorageTier();
   const quota = loadStorageQuota();
   const sub = loadSubscription();
   const hasAbo = sub ? hasAccess(sub) : false;
+
+  const baseGb = hasAbo ? 1 : 0;
+  const extraGb = activeTier.gb;
+  const totalGb = baseGb + extraGb;
+  const usedBytes = quota?.usedBytes ?? 0;
+  const totalBytes = totalGb * 1024 * 1024 * 1024;
+  const usagePercent = totalBytes > 0 ? Math.min((usedBytes / totalBytes) * 100, 100) : 0;
 
   const formatBytes = (bytes: number) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  };
-
-  const handleSelect = (tier: StorageTier) => {
-    const result = activateStorageTier(tier.id);
-    if (result) {
-      setActiveTier(tier);
-      setShowPicker(false);
-    }
   };
 
   return (
@@ -43,7 +42,7 @@ function ExtraStorageSection({ t }: { t: (key: string, opts?: Record<string, unk
         </div>
       </div>
 
-      {activeTier.gb === 0 ? (
+      {totalGb === 0 ? (
         <div className="flex items-center gap-2 text-xs text-gray-400">
           <span>{t('settings.extraStorageNone')}</span>
         </div>
@@ -51,55 +50,32 @@ function ExtraStorageSection({ t }: { t: (key: string, opts?: Record<string, unk
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">{t('settings.extraStorageTier')}</span>
-            <span className="text-purple-300 font-medium">{activeTier.label}</span>
+            <span className="text-purple-300 font-medium">{totalGb} GB</span>
           </div>
-          {quota && (
-            <>
-              <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-500 rounded-full transition-all"
-                  style={{ width: `${Math.min((quota.usedBytes / (activeTier.gb * 1024 * 1024 * 1024)) * 100, 100)}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-500">
-                {t('settings.extraStorageUsed', { used: formatBytes(quota.usedBytes), total: activeTier.label })}
-              </p>
-            </>
-          )}
+          <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${usagePercent > 90 ? 'bg-red-500' : usagePercent > 70 ? 'bg-amber-500' : 'bg-purple-500'}`}
+              style={{ width: `${usagePercent}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-500">
+            {t('settings.extraStorageUsed', { used: formatBytes(usedBytes), total: `${totalGb} GB` })}
+          </p>
         </div>
       )}
 
-      {!hasAbo && (
-        <p className="text-xs text-amber-400">{t('settings.extraStorageAboRequired')}</p>
-      )}
-
-      {hasAbo && (
-        <>
-          <button
-            onClick={() => setShowPicker(!showPicker)}
-            className="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium py-2 px-4 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
-          >
-            <HardDrive size={14} />
-            {activeTier.gb === 0 ? t('settings.extraStorageActivate') : t('settings.extraStorageChange')}
-          </button>
-
-          {showPicker && (
-            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden divide-y divide-gray-700/50">
-              {STORAGE_TIERS.map(tier => (
-                <button
-                  key={tier.id}
-                  onClick={() => handleSelect(tier)}
-                  className={`w-full flex items-center justify-between p-3 hover:bg-gray-700/50 transition-colors ${tier.id === activeTier.id ? 'bg-purple-500/10' : ''}`}
-                >
-                  <span className="text-sm font-medium">{tier.label}</span>
-                  <span className="text-xs text-gray-400">
-                    {tier.priceMonthly === 0 ? t('settings.extraStorageFree') : t('settings.extraStoragePerMonth', { price: tier.priceMonthly })}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </>
+      {/* Link to Abo & Zahlung for management */}
+      {onNavigateSubscription && (
+        <button
+          onClick={onNavigateSubscription}
+          className="w-full bg-gray-700/50 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors text-sm flex items-center justify-between"
+        >
+          <div className="text-left">
+            <span className="block">{t('settings.storageManageLink')}</span>
+            <span className="text-xs text-gray-500">{t('settings.storageManageLinkDesc')}</span>
+          </div>
+          <ChevronRight size={16} className="text-gray-500 shrink-0" />
+        </button>
       )}
     </div>
   );
@@ -142,7 +118,7 @@ function LocalStorageSection({ t }: { t: (key: string, opts?: Record<string, unk
   );
 }
 
-export default function StorageTab({ onBack, t }: StorageTabProps) {
+export default function StorageTab({ onBack, t, onNavigateSubscription }: StorageTabProps) {
   return (
     <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
       <header className="px-4 py-4 flex items-center gap-4 bg-gray-900 sticky top-0 z-20 border-b border-gray-800">
@@ -172,8 +148,8 @@ export default function StorageTab({ onBack, t }: StorageTabProps) {
           {/* Lokaler Datenspeicher */}
           <LocalStorageSection t={t} />
 
-          {/* Zusatz-Speicher für Fotos & Videos */}
-          <ExtraStorageSection t={t} />
+          {/* Speicher-Nutzung + Link zu Abo & Zahlung */}
+          <ExtraStorageSection t={t} onNavigateSubscription={onNavigateSubscription} />
 
         </div>
       </div>
