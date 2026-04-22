@@ -27,6 +27,17 @@ import { SignalStore } from './signal-store';
 export { SignalStore } from './signal-store';
 export { initializeKeyManager, replenishIfNeeded } from './key-manager';
 export type { KeyManagerResult } from './key-manager';
+export {
+  establishSession,
+  getSessionCipher,
+  signalEncrypt,
+  signalDecrypt,
+  hasSignalSession,
+  serializeSignalMessage,
+  isSignalMessage,
+  getSignalCapability,
+} from './session-manager';
+export type { SignalSession, SignalCapability } from './session-manager';
 export { SignalProtocolAddress } from '@privacyresearch/libsignal-protocol-typescript';
 export type { KeyPairType, DeviceType, MessageType } from '@privacyresearch/libsignal-protocol-typescript';
 

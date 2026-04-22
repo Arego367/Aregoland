@@ -19,6 +19,8 @@ import {
   encryptMessage,
   decryptMessage,
 } from '@/app/lib/p2p-crypto';
+import type { SignalStore } from '@/app/lib/signal/signal-store';
+import type { SignalSession } from '@/app/lib/signal/session-manager';
 
 export type P2PStatus =
   | 'connecting'
@@ -99,6 +101,8 @@ interface Conn {
   pc: RTCPeerConnection | null;
   channel: RTCDataChannel | null;
   sessionKey: CryptoKey | null;
+  /** Signal Protocol Session (wenn X3DH erfolgreich, sonst null → ECDH Fallback) */
+  signalSession: SignalSession | null;
   status: P2PStatus;
   error: string | null;
   identityPayload?: string;
@@ -203,6 +207,10 @@ export class P2PManager {
   private messageEditCb: ((roomId: string, msgId: string, newText: string) => void) | null = null;
   private messageDeleteCb: ((roomId: string, msgId: string) => void) | null = null;
   private globalIdentityPayload: string | undefined;
+  /** Signal Store für X3DH Sessions (lazy-loaded) */
+  private signalStore: SignalStore | null = null;
+  /** Mapping roomId → Peer Arego-ID (für Signal Session-Lookup) */
+  private roomPeerMap = new Map<string, string>();
 
   // ── Callbacks registrieren ─────────────────────────────────────────────────
 
@@ -225,6 +233,17 @@ export class P2PManager {
     for (const conn of this.conns.values()) conn.identityPayload = payload;
   }
 
+  /** Setzt den Signal Store für X3DH-fähige Verbindungen */
+  setSignalStore(store: SignalStore) {
+    this.signalStore = store;
+  }
+
+  /** Verbindung starten mit Peer-Arego-ID für Signal-Session-Lookup */
+  connectWithPeer(roomId: string, peerAregoId: string) {
+    this.roomPeerMap.set(roomId, peerAregoId);
+    this.connect(roomId);
+  }
+
   // ── Öffentliche API ────────────────────────────────────────────────────────
 
   getStatus(roomId: string): P2PStatus {
@@ -237,12 +256,11 @@ export class P2PManager {
 
   async send(roomId: string, text: string, msgId?: string): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    if (!this.isEncryptionReady(c)) return false;
     try {
-      // Sende msgId mit, damit der Empfänger Lesebestätigungen referenzieren kann
       const payload = msgId ? JSON.stringify({ _t: 'msg', id: msgId, text }) : text;
-      const ct = await encryptMessage(c.sessionKey, payload);
-      c.channel.send(JSON.stringify({ ct }));
+      const encrypted = await this.encryptForConn(c, payload);
+      c.channel.send(encrypted);
       return true;
     } catch {
       return false;
@@ -252,23 +270,24 @@ export class P2PManager {
   /** Sendet eine Datei in Chunks über den DataChannel (max 14KB pro Chunk) */
   async sendFile(roomId: string, fileData: string, fileName: string, fileMime: string, msgId: string): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    if (!this.isEncryptionReady(c)) return false;
     try {
       const CHUNK_SIZE = 14_000; // 14KB Base64 pro Chunk → ~19KB verschlüsselt
       const totalChunks = Math.ceil(fileData.length / CHUNK_SIZE);
       const chunkId = msgId;
 
+      // File-Transfer: pro Chunk verschlüsseln (ECDH bleibt, Signal ratchetet pro Chunk)
       // 1. Metadaten senden
       const meta = JSON.stringify({ _t: 'file_start', chunkId, fileName, fileMime, totalChunks });
-      const metaCt = await encryptMessage(c.sessionKey, meta);
-      c.channel.send(JSON.stringify({ t: 'file', ct: metaCt }));
+      const metaEncrypted = await this.encryptForConn(c, meta, 'file');
+      c.channel.send(metaEncrypted);
 
       // 2. Chunks senden
       for (let i = 0; i < totalChunks; i++) {
         const data = fileData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
         const chunk = JSON.stringify({ _t: 'file_chunk', chunkId, idx: i, data });
-        const chunkCt = await encryptMessage(c.sessionKey, chunk);
-        c.channel.send(JSON.stringify({ t: 'file', ct: chunkCt }));
+        const chunkEncrypted = await this.encryptForConn(c, chunk, 'file');
+        c.channel.send(chunkEncrypted);
         // Kurz warten damit DataChannel-Buffer nicht überläuft
         if (c.channel.bufferedAmount > 64_000) {
           await new Promise<void>((resolve) => {
@@ -290,36 +309,32 @@ export class P2PManager {
   /** Sendet ein Kontakt-Entfernen-Signal verschlüsselt über den DataChannel */
   async sendContactRemove(roomId: string, myAregoId: string): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    if (!this.isEncryptionReady(c)) return false;
     try {
-      const ct = await encryptMessage(c.sessionKey, JSON.stringify({ aregoId: myAregoId }));
-      c.channel.send(JSON.stringify({ t: 'contact_remove', ct }));
+      const encrypted = await this.encryptForConn(c, JSON.stringify({ aregoId: myAregoId }), 'contact_remove');
+      c.channel.send(encrypted);
       return true;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }
 
   /** Sendet eine Lesebestätigung für Nachrichten-IDs verschlüsselt über den DataChannel */
   async sendReadReceipt(roomId: string, msgIds: string[]): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey || msgIds.length === 0) return false;
+    if (!this.isEncryptionReady(c) || msgIds.length === 0) return false;
     try {
-      const ct = await encryptMessage(c.sessionKey, JSON.stringify(msgIds));
-      c.channel.send(JSON.stringify({ t: 'msg_read', ct }));
+      const encrypted = await this.encryptForConn(c, JSON.stringify(msgIds), 'msg_read');
+      c.channel.send(encrypted);
       return true;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }
 
   /** Sendet ein Edit-Signal für eine Nachricht verschlüsselt über den DataChannel */
   async sendEdit(roomId: string, msgId: string, newText: string): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    if (!this.isEncryptionReady(c)) return false;
     try {
-      const ct = await encryptMessage(c.sessionKey, JSON.stringify({ msgId, text: newText }));
-      c.channel.send(JSON.stringify({ t: 'msg_edit', ct }));
+      const encrypted = await this.encryptForConn(c, JSON.stringify({ msgId, text: newText }), 'msg_edit');
+      c.channel.send(encrypted);
       return true;
     } catch { return false; }
   }
@@ -327,10 +342,10 @@ export class P2PManager {
   /** Sendet ein Delete-Signal für eine Nachricht verschlüsselt über den DataChannel */
   async sendDelete(roomId: string, msgId: string): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    if (!this.isEncryptionReady(c)) return false;
     try {
-      const ct = await encryptMessage(c.sessionKey, JSON.stringify({ msgId }));
-      c.channel.send(JSON.stringify({ t: 'msg_delete', ct }));
+      const encrypted = await this.encryptForConn(c, JSON.stringify({ msgId }), 'msg_delete');
+      c.channel.send(encrypted);
       return true;
     } catch { return false; }
   }
@@ -338,10 +353,10 @@ export class P2PManager {
   /** Sendet eine Kalender-Einladung verschlüsselt über den DataChannel */
   async sendCalendarInvite(roomId: string, invite: CalendarInviteMessage): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    if (!this.isEncryptionReady(c)) return false;
     try {
-      const ct = await encryptMessage(c.sessionKey, JSON.stringify(invite));
-      c.channel.send(JSON.stringify({ t: 'calendar_invite', ct }));
+      const encrypted = await this.encryptForConn(c, JSON.stringify(invite), 'calendar_invite');
+      c.channel.send(encrypted);
       return true;
     } catch { return false; }
   }
@@ -349,10 +364,10 @@ export class P2PManager {
   /** Sendet eine RSVP-Antwort auf eine Kalender-Einladung */
   async sendCalendarRsvp(roomId: string, rsvp: CalendarRsvpMessage): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    if (!this.isEncryptionReady(c)) return false;
     try {
-      const ct = await encryptMessage(c.sessionKey, JSON.stringify(rsvp));
-      c.channel.send(JSON.stringify({ t: 'calendar_rsvp', ct }));
+      const encrypted = await this.encryptForConn(c, JSON.stringify(rsvp), 'calendar_rsvp');
+      c.channel.send(encrypted);
       return true;
     } catch { return false; }
   }
@@ -360,10 +375,10 @@ export class P2PManager {
   /** Sendet ein Abwesenheits-Update verschlüsselt über den DataChannel */
   async sendAbsenceUpdate(roomId: string, update: AbsenceUpdateMessage): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    if (!this.isEncryptionReady(c)) return false;
     try {
-      const ct = await encryptMessage(c.sessionKey, JSON.stringify(update));
-      c.channel.send(JSON.stringify({ t: 'absence_update', ct }));
+      const encrypted = await this.encryptForConn(c, JSON.stringify(update), 'absence_update');
+      c.channel.send(encrypted);
       return true;
     } catch { return false; }
   }
@@ -371,10 +386,10 @@ export class P2PManager {
   /** Sendet ein Buchungs-Update verschlüsselt über den DataChannel */
   async sendBookingUpdate(roomId: string, update: BookingUpdateMessage): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    if (!this.isEncryptionReady(c)) return false;
     try {
-      const ct = await encryptMessage(c.sessionKey, JSON.stringify(update));
-      c.channel.send(JSON.stringify({ t: 'booking_update', ct }));
+      const encrypted = await this.encryptForConn(c, JSON.stringify(update), 'booking_update');
+      c.channel.send(encrypted);
       return true;
     } catch { return false; }
   }
@@ -382,10 +397,10 @@ export class P2PManager {
   /** Sendet ein Stundenplan-Status-Update verschlüsselt über den DataChannel */
   async sendTimetableStatus(roomId: string, update: TimetableStatusMessage): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    if (!this.isEncryptionReady(c)) return false;
     try {
-      const ct = await encryptMessage(c.sessionKey, JSON.stringify(update));
-      c.channel.send(JSON.stringify({ t: 'timetable_status', ct }));
+      const encrypted = await this.encryptForConn(c, JSON.stringify(update), 'timetable_status');
+      c.channel.send(encrypted);
       return true;
     } catch { return false; }
   }
@@ -393,19 +408,66 @@ export class P2PManager {
   /** Sendet ein Anruf-Signal verschlüsselt über den DataChannel */
   async sendCallSignal(roomId: string, signal: CallSignal): Promise<boolean> {
     const c = this.conns.get(roomId);
-    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) {
-      console.warn('[P2P] sendCallSignal BLOCKED — channel:', c?.channel?.readyState, 'sessionKey:', !!c?.sessionKey);
+    if (!this.isEncryptionReady(c)) {
+      console.warn('[P2P] sendCallSignal BLOCKED — channel:', c?.channel?.readyState, 'encryption:', !!c?.sessionKey || !!c?.signalSession);
       return false;
     }
     try {
       console.log('[P2P] sendCallSignal:', signal.action, 'callType:', signal.callType, 'sdp:', signal.sdp ? `${signal.sdp.length} chars` : 'none');
-      const ct = await encryptMessage(c.sessionKey, JSON.stringify(signal));
-      c.channel.send(JSON.stringify({ t: 'call', ct }));
+      const encrypted = await this.encryptForConn(c, JSON.stringify(signal), 'call');
+      c.channel.send(encrypted);
       return true;
     } catch (err) {
       console.error('[P2P] sendCallSignal FEHLER:', err);
       return false;
     }
+  }
+
+  // ── Signal/ECDH Verschlüsselungs-Adapter ───────────────────────────────────
+
+  /**
+   * Verschlüsselt mit Signal-Session oder Fallback auf ECDH AES-GCM.
+   * @param appType — Anwendungs-Nachrichtentyp (z.B. 'msg_edit', 'call')
+   */
+  private async encryptForConn(c: Conn, plaintext: string, appType?: string): Promise<string> {
+    if (c.signalSession) {
+      // Bei Signal: App-Typ in den Plaintext einbetten
+      const wrappedPayload = appType
+        ? JSON.stringify({ _st: appType, _sp: plaintext })
+        : plaintext;
+      const { signalEncrypt, serializeSignalMessage } = await import('@/app/lib/signal/session-manager');
+      const msg = await signalEncrypt(c.signalSession, wrappedPayload);
+      return serializeSignalMessage(msg);
+    }
+    if (!c.sessionKey) throw new Error('No session key');
+    const ct = await encryptMessage(c.sessionKey, plaintext);
+    return JSON.stringify(appType ? { t: appType, ct } : { ct });
+  }
+
+  /** Entschlüsselt Signal-Nachricht oder ECDH AES-GCM */
+  private async decryptForConn(c: Conn, raw: string): Promise<{ text: string; innerMsg: any }> {
+    const msg = JSON.parse(raw);
+    if (msg.t === 'sig' && c.signalSession) {
+      const { signalDecrypt } = await import('@/app/lib/signal/session-manager');
+      const decrypted = await signalDecrypt(c.signalSession, { type: msg.type, body: msg.body });
+      // Prüfen ob App-Typ eingebettet ist
+      try {
+        const parsed = JSON.parse(decrypted);
+        if (parsed._st) {
+          // Signal-Nachricht mit eingebettetem App-Typ
+          return { text: parsed._sp, innerMsg: { t: parsed._st } };
+        }
+      } catch { /* kein JSON — rohtext */ }
+      return { text: decrypted, innerMsg: msg };
+    }
+    if (!c.sessionKey) throw new Error('No session key');
+    const text = await decryptMessage(c.sessionKey, msg.ct);
+    return { text, innerMsg: msg };
+  }
+
+  /** Prüft ob Conn verschlüsselungsbereit ist (Signal oder ECDH) */
+  private isEncryptionReady(c: Conn | undefined): c is Conn {
+    return !!c?.channel && c.channel.readyState === 'open' && (!!c.sessionKey || !!c.signalSession);
   }
 
   /** Verbindung für einen Room starten (idempotent) */
@@ -417,6 +479,7 @@ export class P2PManager {
       pc: null,
       channel: null,
       sessionKey: null,
+      signalSession: null,
       status: 'connecting',
       error: null,
       identityPayload: this.globalIdentityPayload,
@@ -536,11 +599,26 @@ export class P2PManager {
   /**
    * WebRTC-Handshake starten (Initiator oder Responder).
    * Generiert pro Handshake neue ephemere ECDH-Keys → Forward Secrecy.
+   * Versucht X3DH wenn Signal Store + Peer-ID verfügbar.
    */
   private async startWebRTC(c: Conn, isInitiator: boolean, offerMsg?: any) {
     // Alter PC aufräumen
     this.teardownPeer(c);
     this.setStatus(c, 'handshake');
+
+    // X3DH Session-Aufbau versuchen (nur als Initiator)
+    const peerAregoId = this.roomPeerMap.get(c.roomId);
+    if (isInitiator && this.signalStore && peerAregoId) {
+      try {
+        const { establishSession } = await import('@/app/lib/signal/session-manager');
+        const session = await establishSession(this.signalStore, peerAregoId);
+        if (session) {
+          c.signalSession = session;
+        }
+      } catch {
+        // X3DH fehlgeschlagen → Fallback auf ECDH
+      }
+    }
 
     const ephKP = await generateEphemeralKeyPair();
     const myPubJwk = await exportECDHPublicKey(ephKP.publicKey);
@@ -572,14 +650,33 @@ export class P2PManager {
       this.bindChannel(c, ch);
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      c.ws?.send(JSON.stringify({ type: 'offer', sdp: offer.sdp, ek: myPubJwk }));
+      c.ws?.send(JSON.stringify({
+        type: 'offer',
+        sdp: offer.sdp,
+        ek: myPubJwk,
+        signalCapable: !!c.signalSession,
+      }));
     } else if (offerMsg) {
+      // Responder: wenn Initiator signalCapable ist und wir Signal Store haben
+      if (offerMsg.signalCapable && this.signalStore && peerAregoId) {
+        try {
+          const { getSessionCipher } = await import('@/app/lib/signal/session-manager');
+          c.signalSession = getSessionCipher(this.signalStore, peerAregoId);
+        } catch {
+          // Fallback: ECDH
+        }
+      }
       const peerPub = await importECDHPublicKey(offerMsg.ek);
       c.sessionKey = await deriveSessionKey(ephKP.privateKey, peerPub);
       await pc.setRemoteDescription({ type: 'offer', sdp: offerMsg.sdp });
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      c.ws?.send(JSON.stringify({ type: 'answer', sdp: answer.sdp, ek: myPubJwk }));
+      c.ws?.send(JSON.stringify({
+        type: 'answer',
+        sdp: answer.sdp,
+        ek: myPubJwk,
+        signalCapable: !!c.signalSession,
+      }));
     }
   }
 
@@ -590,10 +687,14 @@ export class P2PManager {
       if (!c.destroyed) { c.reconnectAttempts = 0; this.setStatus(c, 'connected'); }
       // Identitäts-Handshake → gegenseitiger Kontakt-Austausch
       const sendIdHandshake = async () => {
-        if (!c.sessionKey || !c.identityPayload || ch.readyState !== 'open') return;
+        if ((!c.sessionKey && !c.signalSession) || !c.identityPayload || ch.readyState !== 'open') return;
         try {
-          const ct = await encryptMessage(c.sessionKey, c.identityPayload);
-          ch.send(JSON.stringify({ t: 'id', ct }));
+          // signalCapable Flag in den Identity-Payload einbetten
+          const payload = JSON.parse(c.identityPayload);
+          payload.signalCapable = !!c.signalSession;
+          const payloadStr = JSON.stringify(payload);
+          const encrypted = await this.encryptForConn(c, payloadStr, 'id');
+          ch.send(encrypted);
         } catch { /* ignorieren */ }
       };
       sendIdHandshake();
@@ -604,10 +705,9 @@ export class P2PManager {
     };
 
     ch.onmessage = async ({ data }) => {
-      if (!c.sessionKey) return;
+      if (!c.sessionKey && !c.signalSession) return;
       try {
-        const msg = JSON.parse(data);
-        const text = await decryptMessage(c.sessionKey, msg.ct);
+        const { text, innerMsg: msg } = await this.decryptForConn(c, data);
 
         if (msg.t === 'id') {
           try {
