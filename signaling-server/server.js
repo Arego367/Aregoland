@@ -26,6 +26,11 @@
  *  GET  /nodes                 → Alle registrierten LiveKit-Nodes abrufen
  *  DELETE /node/:id            → LiveKit-Node entfernen
  *
+ *  POST /prekeys               → Pre-Key-Bundle hochladen (ECDSA-signiert)
+ *  GET  /prekeys/:aregoId      → Pre-Key-Bundle abrufen (konsumiert einen One-Time-Pre-Key)
+ *  DELETE /prekeys/:aregoId    → Alle Pre-Keys löschen (ECDSA-signiert)
+ *  POST /prekeys/replenish     → One-Time-Pre-Keys nachliefern
+ *
  *  POST /child-settings/update          → Verwalter ändert Kind-Einstellung (ECDSA-signiert)
  *  GET  /child-settings/audit/:kind_id  → Audit-Log abrufen (Verwalter + Kind ab FSK 12)
  *  POST /child-settings/self-determination → Kind ab FSK 16 deaktiviert Verwalter-Zugriff
@@ -239,6 +244,18 @@ async function initDb() {
       registered_at     TEXT NOT NULL
     )
   `);
+  // Pre-Key Bundles für Signal Protocol (ARE-341)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pre_key_bundles (
+      arego_id                  TEXT PRIMARY KEY,
+      identity_key              TEXT NOT NULL,
+      signed_pre_key_id         INTEGER NOT NULL,
+      signed_pre_key            TEXT NOT NULL,
+      signed_pre_key_signature  TEXT NOT NULL,
+      one_time_pre_keys         TEXT DEFAULT '[]',
+      updated_at                INTEGER NOT NULL
+    )
+  `);
   persistDb();
 }
 
@@ -317,8 +334,11 @@ setInterval(() => {
   // Pending child_profile_sync: Einträge älter als 48h löschen (TTL)
   const childSyncCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
   db.run(`DELETE FROM pending_child_sync WHERE created_at < ?`, [childSyncCutoff]);
+  // Pre-Key Bundles: älter als 30 Tage ohne Update löschen (ARE-341)
+  const preKeyCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  db.run(`DELETE FROM pre_key_bundles WHERE updated_at < ?`, [preKeyCutoff]);
   persistDb();
-}, 24 * 60 * 60 * 1000).unref(); // einmal täglich
+}, 60 * 60 * 1000).unref(); // stündlich (war: täglich; ARE-341 fordert 1h-Intervall)
 
 // ── In-Memory Stores ──────────────────────────────────────────────────────────
 const codes        = new Map(); // code → { payload, expires }
@@ -330,6 +350,9 @@ const supportRateLimit = new Map(); // aregoId → [timestamp, timestamp, ...]
 
 // Rate-Limiting für Verwalter-Einstellungen: 20/h pro Verwalter, 5/h pro Kategorie
 const verwalterRateLimit = new Map(); // verwalterId → { total: [ts], categories: { cat: [ts] } }
+
+// Rate-Limiting für Pre-Key Uploads: max 10/min pro Arego-ID (ARE-341)
+const preKeyRateLimit = new Map(); // aregoId → [timestamp, ...]
 
 // Presence — nur RAM, kein Disk, kein Verlauf
 const onlineUsers      = new Map(); // aregoId → Set<WebSocket>
@@ -2282,6 +2305,196 @@ const server = createServer(async (req, res) => {
         res.writeHead(404); res.end(); return;
       }
       db.run(`DELETE FROM livekit_nodes WHERE id = ?`, [nodeId]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── POST /prekeys — Pre-Key-Bundle hochladen (ECDSA-signiert) (ARE-341) ─────
+  if (req.method === 'POST' && req.url === '/prekeys') {
+    try {
+      const body = await readBody(req);
+      const { arego_id, identity_key, signed_pre_key_id, signed_pre_key,
+              signed_pre_key_signature, one_time_pre_keys, signature, timestamp } = JSON.parse(body);
+      if (!arego_id || !identity_key || signed_pre_key_id == null || !signed_pre_key ||
+          !signed_pre_key_signature || !signature || !timestamp) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'missing_fields' }));
+        return;
+      }
+      // Timestamp-Validierung (max 5 Minuten alt)
+      const tsAge = Math.abs(Date.now() - new Date(timestamp).getTime());
+      if (tsAge > 5 * 60 * 1000) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'timestamp_expired' }));
+        return;
+      }
+      // Rate Limiting: max 10 Uploads/Minute
+      const now = Date.now();
+      const minuteAgo = now - 60_000;
+      if (!preKeyRateLimit.has(arego_id)) preKeyRateLimit.set(arego_id, []);
+      const timestamps = preKeyRateLimit.get(arego_id).filter(t => t > minuteAgo);
+      if (timestamps.length >= 10) {
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'rate_limit' }));
+        return;
+      }
+      // ECDSA-Signaturverifikation
+      const dataToVerify = arego_id + identity_key + timestamp;
+      const valid = await verifyEcdsaSignature(arego_id, signature, dataToVerify);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      // One-Time-Pre-Keys: max 50
+      const otpks = Array.isArray(one_time_pre_keys) ? one_time_pre_keys.slice(0, 50) : [];
+      db.run(
+        `INSERT OR REPLACE INTO pre_key_bundles (arego_id, identity_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature, one_time_pre_keys, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [arego_id, identity_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature, JSON.stringify(otpks), now]
+      );
+      persistDb();
+      timestamps.push(now);
+      preKeyRateLimit.set(arego_id, timestamps);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, one_time_pre_key_count: otpks.length }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── POST /prekeys/replenish — One-Time-Pre-Keys nachliefern (ECDSA-signiert) (ARE-341) ──
+  if (req.method === 'POST' && req.url === '/prekeys/replenish') {
+    try {
+      const body = await readBody(req);
+      const { arego_id, one_time_pre_keys, signature, timestamp } = JSON.parse(body);
+      if (!arego_id || !one_time_pre_keys || !signature || !timestamp) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'missing_fields' }));
+        return;
+      }
+      const tsAge = Math.abs(Date.now() - new Date(timestamp).getTime());
+      if (tsAge > 5 * 60 * 1000) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'timestamp_expired' }));
+        return;
+      }
+      // Rate Limiting
+      const now = Date.now();
+      const minuteAgo = now - 60_000;
+      if (!preKeyRateLimit.has(arego_id)) preKeyRateLimit.set(arego_id, []);
+      const timestamps = preKeyRateLimit.get(arego_id).filter(t => t > minuteAgo);
+      if (timestamps.length >= 10) {
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'rate_limit' }));
+        return;
+      }
+      const dataToVerify = arego_id + 'replenish' + timestamp;
+      const valid = await verifyEcdsaSignature(arego_id, signature, dataToVerify);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      // Existierendes Bundle laden
+      const rows = db.exec(`SELECT one_time_pre_keys FROM pre_key_bundles WHERE arego_id = ?`, [arego_id]);
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'no_bundle' }));
+        return;
+      }
+      const existing = JSON.parse(rows[0].values[0][0] || '[]');
+      const newKeys = Array.isArray(one_time_pre_keys) ? one_time_pre_keys : [];
+      const merged = [...existing, ...newKeys].slice(0, 50);
+      db.run(
+        `UPDATE pre_key_bundles SET one_time_pre_keys = ?, updated_at = ? WHERE arego_id = ?`,
+        [JSON.stringify(merged), now, arego_id]
+      );
+      persistDb();
+      timestamps.push(now);
+      preKeyRateLimit.set(arego_id, timestamps);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, one_time_pre_key_count: merged.length }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── GET /prekeys/:aregoId — Pre-Key-Bundle abrufen (konsumiert einen One-Time-Pre-Key) (ARE-341) ──
+  const preKeyGetMatch = req.method === 'GET' && req.url?.match(/^\/prekeys\/([A-Za-z0-9_-]+)$/);
+  if (preKeyGetMatch) {
+    try {
+      const aregoId = preKeyGetMatch[1];
+      const rows = db.exec(
+        `SELECT identity_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature, one_time_pre_keys
+         FROM pre_key_bundles WHERE arego_id = ?`,
+        [aregoId]
+      );
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'no_bundle' }));
+        return;
+      }
+      const [identityKey, signedPreKeyId, signedPreKey, signedPreKeySig, otpksJson] = rows[0].values[0];
+      const otpks = JSON.parse(otpksJson || '[]');
+      // Einen One-Time-Pre-Key konsumieren (FIFO)
+      let consumedPreKey = null;
+      if (otpks.length > 0) {
+        consumedPreKey = otpks.shift();
+        db.run(
+          `UPDATE pre_key_bundles SET one_time_pre_keys = ? WHERE arego_id = ?`,
+          [JSON.stringify(otpks), aregoId]
+        );
+        persistDb();
+      }
+      const bundle = {
+        arego_id: aregoId,
+        identity_key: identityKey,
+        signed_pre_key: { keyId: signedPreKeyId, publicKey: signedPreKey, signature: signedPreKeySig },
+        pre_key: consumedPreKey,
+        remaining_one_time_pre_keys: otpks.length,
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(bundle));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── DELETE /prekeys/:aregoId — Alle Pre-Keys löschen (ECDSA-signiert) (ARE-341) ──
+  const preKeyDeleteMatch = req.method === 'DELETE' && req.url?.match(/^\/prekeys\/([A-Za-z0-9_-]+)$/);
+  if (preKeyDeleteMatch) {
+    try {
+      const aregoId = preKeyDeleteMatch[1];
+      const body = await readBody(req);
+      const { signature, timestamp } = JSON.parse(body);
+      if (!signature || !timestamp) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'missing_fields' }));
+        return;
+      }
+      const tsAge = Math.abs(Date.now() - new Date(timestamp).getTime());
+      if (tsAge > 5 * 60 * 1000) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'timestamp_expired' }));
+        return;
+      }
+      const dataToVerify = aregoId + 'delete' + timestamp;
+      const valid = await verifyEcdsaSignature(aregoId, signature, dataToVerify);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      db.run(`DELETE FROM pre_key_bundles WHERE arego_id = ?`, [aregoId]);
       persistDb();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
