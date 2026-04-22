@@ -36,12 +36,20 @@ interface ChatScreenProps {
   p2pError: string | null;
   sendP2PMessage: (text: string, msgId: string) => Promise<'delivered' | 'pending' | false>;
   sendP2PFile: (fileData: string, fileName: string, fileMime: string, msgId: string) => Promise<boolean>;
+  sendP2PEdit: (msgId: string, newText: string) => Promise<boolean>;
+  sendP2PDelete: (msgId: string) => Promise<boolean>;
   /** App.tsx ruft handler(msg) auf wenn eine P2P-Nachricht für diesen Room ankommt */
   registerMessageHandler: (handler: (msg: StoredMessage) => void) => void;
   unregisterMessageHandler: () => void;
   /** App.tsx ruft handler(msgId, status) auf wenn eine pending Nachricht zugestellt wurde */
   registerStatusHandler: (handler: (msgId: string, status: StoredMessage['status']) => void) => void;
   unregisterStatusHandler: () => void;
+  /** App.tsx ruft handler(msgId, newText) auf wenn der Peer eine Nachricht bearbeitet */
+  registerEditHandler: (handler: (msgId: string, newText: string) => void) => void;
+  unregisterEditHandler: () => void;
+  /** App.tsx ruft handler(msgId) auf wenn der Peer eine Nachricht löscht */
+  registerDeleteHandler: (handler: (msgId: string) => void) => void;
+  unregisterDeleteHandler: () => void;
   /** Anruf-Signaling */
   sendCallSignal: (signal: CallSignal) => Promise<boolean>;
   registerCallSignalHandler: (handler: (signal: CallSignal) => void) => void;
@@ -217,8 +225,11 @@ const isRealP2PRoom = (roomId: string) => roomId.includes(':');
 export default function ChatScreen({
   chatId, chatName, chatAvatar, isGroup, roomId, onBack, onLastMessage,
   isContactOnline, chatLockReason, p2pStatus, p2pError, sendP2PMessage, sendP2PFile,
+  sendP2PEdit, sendP2PDelete,
   registerMessageHandler, unregisterMessageHandler,
   registerStatusHandler, unregisterStatusHandler,
+  registerEditHandler, unregisterEditHandler,
+  registerDeleteHandler, unregisterDeleteHandler,
   sendCallSignal, registerCallSignalHandler, unregisterCallSignalHandler,
   onChatCleared,
 }: ChatScreenProps) {
@@ -381,6 +392,26 @@ export default function ChatScreen({
     return () => unregisterStatusHandler();
   }, [roomId, registerStatusHandler, unregisterStatusHandler]);
 
+  // Edit-Signal vom Peer: Nachricht im lokalen State aktualisieren
+  useEffect(() => {
+    const handler = (msgId: string, newText: string) => {
+      setMessages((prev) => prev.map((m) =>
+        m.id === msgId ? { ...m, text: newText, isEdited: true } : m
+      ));
+    };
+    registerEditHandler(handler);
+    return () => unregisterEditHandler();
+  }, [roomId, registerEditHandler, unregisterEditHandler]);
+
+  // Delete-Signal vom Peer: Nachricht aus lokalem State entfernen
+  useEffect(() => {
+    const handler = (msgId: string) => {
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    };
+    registerDeleteHandler(handler);
+    return () => unregisterDeleteHandler();
+  }, [roomId, registerDeleteHandler, unregisterDeleteHandler]);
+
   // Verlauf bei jeder Änderung persistieren
   useEffect(() => {
     if (isRealP2PRoom(roomId)) saveHistory(roomId, messages);
@@ -398,6 +429,8 @@ export default function ChatScreen({
       setMessages((prev) => prev.map((msg) =>
         msg.id === editingMessageId ? { ...msg, text: inputText, isEdited: true } : msg
       ));
+      // Edit-Signal an Peer senden
+      sendP2PEdit(editingMessageId, inputText);
       setEditingMessageId(null);
     } else {
       const newMessage: Message = {
@@ -579,6 +612,10 @@ export default function ChatScreen({
   const handleReply = (msg: Message) => { setReplyTo(msg); setEditingMessageId(null); };
   const handleEdit = (msg: Message) => { setEditingMessageId(msg.id); setInputText(msg.text); setReplyTo(null); };
   const handleDeleteMessage = (msgId: string) => { setMessages((prev) => prev.filter((m) => m.id !== msgId)); };
+  const handleDeleteForBoth = (msgId: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    sendP2PDelete(msgId);
+  };
 
   const handleClearChat = () => {
     setMessages([]);
@@ -882,7 +919,7 @@ export default function ChatScreen({
                     <ContextMenu.Portal>
                       <ContextMenu.SubContent className="min-w-[160px] bg-gray-800 rounded-xl shadow-xl p-1.5 border border-gray-700 animate-in fade-in zoom-in-95 duration-200 ml-1" sideOffset={2} alignOffset={-5}>
                         <ContextMenu.Item onSelect={() => handleDeleteMessage(msg.id)} className="flex items-center gap-2 px-2 py-2 text-sm text-red-400 rounded-lg hover:bg-red-500/10 outline-none cursor-pointer"><span>Für mich löschen</span></ContextMenu.Item>
-                        <ContextMenu.Item onSelect={() => handleDeleteMessage(msg.id)} className="flex items-center gap-2 px-2 py-2 text-sm text-red-400 rounded-lg hover:bg-red-500/10 outline-none cursor-pointer"><span>Für beide löschen</span></ContextMenu.Item>
+                        <ContextMenu.Item onSelect={() => handleDeleteForBoth(msg.id)} className="flex items-center gap-2 px-2 py-2 text-sm text-red-400 rounded-lg hover:bg-red-500/10 outline-none cursor-pointer"><span>Für beide löschen</span></ContextMenu.Item>
                       </ContextMenu.SubContent>
                     </ContextMenu.Portal>
                   </ContextMenu.Sub>

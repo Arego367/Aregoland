@@ -200,6 +200,8 @@ export class P2PManager {
   private absenceUpdateCb: ((roomId: string, update: AbsenceUpdateMessage) => void) | null = null;
   private bookingUpdateCb: ((roomId: string, update: BookingUpdateMessage) => void) | null = null;
   private timetableStatusCb: ((roomId: string, update: TimetableStatusMessage) => void) | null = null;
+  private messageEditCb: ((roomId: string, msgId: string, newText: string) => void) | null = null;
+  private messageDeleteCb: ((roomId: string, msgId: string) => void) | null = null;
   private globalIdentityPayload: string | undefined;
 
   // ── Callbacks registrieren ─────────────────────────────────────────────────
@@ -215,6 +217,8 @@ export class P2PManager {
   onAbsenceUpdate(cb: (roomId: string, update: AbsenceUpdateMessage) => void) { this.absenceUpdateCb = cb; }
   onBookingUpdate(cb: (roomId: string, update: BookingUpdateMessage) => void) { this.bookingUpdateCb = cb; }
   onTimetableStatus(cb: (roomId: string, update: TimetableStatusMessage) => void) { this.timetableStatusCb = cb; }
+  onMessageEdit(cb: (roomId: string, msgId: string, newText: string) => void) { this.messageEditCb = cb; }
+  onMessageDelete(cb: (roomId: string, msgId: string) => void) { this.messageDeleteCb = cb; }
 
   setIdentityPayload(payload: string | undefined) {
     this.globalIdentityPayload = payload;
@@ -307,6 +311,28 @@ export class P2PManager {
     } catch {
       return false;
     }
+  }
+
+  /** Sendet ein Edit-Signal für eine Nachricht verschlüsselt über den DataChannel */
+  async sendEdit(roomId: string, msgId: string, newText: string): Promise<boolean> {
+    const c = this.conns.get(roomId);
+    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    try {
+      const ct = await encryptMessage(c.sessionKey, JSON.stringify({ msgId, text: newText }));
+      c.channel.send(JSON.stringify({ t: 'msg_edit', ct }));
+      return true;
+    } catch { return false; }
+  }
+
+  /** Sendet ein Delete-Signal für eine Nachricht verschlüsselt über den DataChannel */
+  async sendDelete(roomId: string, msgId: string): Promise<boolean> {
+    const c = this.conns.get(roomId);
+    if (!c?.channel || c.channel.readyState !== 'open' || !c.sessionKey) return false;
+    try {
+      const ct = await encryptMessage(c.sessionKey, JSON.stringify({ msgId }));
+      c.channel.send(JSON.stringify({ t: 'msg_delete', ct }));
+      return true;
+    } catch { return false; }
   }
 
   /** Sendet eine Kalender-Einladung verschlüsselt über den DataChannel */
@@ -604,6 +630,16 @@ export class P2PManager {
           try {
             const msgIds = JSON.parse(text) as string[];
             if (Array.isArray(msgIds)) this.readReceiptCb?.(c.roomId, msgIds);
+          } catch { /* ignorieren */ }
+        } else if (msg.t === 'msg_edit') {
+          try {
+            const { msgId, text: newText } = JSON.parse(text) as { msgId: string; text: string };
+            if (msgId && newText) this.messageEditCb?.(c.roomId, msgId, newText);
+          } catch { /* ignorieren */ }
+        } else if (msg.t === 'msg_delete') {
+          try {
+            const { msgId } = JSON.parse(text) as { msgId: string };
+            if (msgId) this.messageDeleteCb?.(c.roomId, msgId);
           } catch { /* ignorieren */ }
         } else if (msg.t === 'calendar_invite') {
           try {

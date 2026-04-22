@@ -131,6 +131,8 @@ export default function App() {
   const activeChatHandlerRef = useRef<((msg: StoredMessage) => void) | null>(null);
   const activeChatStatusRef = useRef<((msgId: string, newStatus: StoredMessage['status']) => void) | null>(null);
   const activeChatCallRef = useRef<((signal: import("@/app/lib/p2p-manager").CallSignal) => void) | null>(null);
+  const activeChatEditRef = useRef<((msgId: string, newText: string) => void) | null>(null);
+  const activeChatDeleteRef = useRef<((msgId: string) => void) | null>(null);
   const activeChatDataRef = useRef(activeChatData);
   useEffect(() => { activeChatDataRef.current = activeChatData; }, [activeChatData]);
   const currentScreenRef = useRef(currentScreen);
@@ -288,6 +290,35 @@ export default function App() {
         for (const msgId of msgIds) {
           activeChatStatusRef.current(msgId, 'read');
         }
+      }
+    });
+
+    // Edit-Signal vom Peer empfangen → Nachricht in History + ChatScreen aktualisieren
+    manager.onMessageEdit((roomId, msgId, newText) => {
+      // localStorage aktualisieren
+      const history = loadHistory(roomId);
+      const idx = history.findIndex((m) => m.id === msgId);
+      if (idx !== -1) {
+        history[idx] = { ...history[idx], text: newText, isEdited: true };
+        saveHistory(roomId, history);
+      }
+      // Wenn ChatScreen offen → lokalen State aktualisieren
+      if (activeChatDataRef.current?.roomId === roomId && activeChatEditRef.current) {
+        activeChatEditRef.current(msgId, newText);
+      }
+    });
+
+    // Delete-Signal vom Peer empfangen → Nachricht aus History + ChatScreen entfernen
+    manager.onMessageDelete((roomId, msgId) => {
+      // localStorage aktualisieren
+      const history = loadHistory(roomId);
+      const filtered = history.filter((m) => m.id !== msgId);
+      if (filtered.length !== history.length) {
+        saveHistory(roomId, filtered);
+      }
+      // Wenn ChatScreen offen → lokalen State aktualisieren
+      if (activeChatDataRef.current?.roomId === roomId && activeChatDeleteRef.current) {
+        activeChatDeleteRef.current(msgId);
       }
     });
 
@@ -1401,6 +1432,20 @@ export default function App() {
     return manager.sendFile(roomId, fileData, fileName, fileMime, msgId);
   }, [manager]);
 
+  /** Sendet ein Edit-Signal an den Peer */
+  const sendP2PEdit = useCallback(async (msgId: string, newText: string): Promise<boolean> => {
+    const roomId = activeChatDataRef.current?.roomId;
+    if (!roomId || !roomId.includes(':')) return false;
+    return manager.sendEdit(roomId, msgId, newText);
+  }, [manager]);
+
+  /** Sendet ein Delete-Signal an den Peer */
+  const sendP2PDelete = useCallback(async (msgId: string): Promise<boolean> => {
+    const roomId = activeChatDataRef.current?.roomId;
+    if (!roomId || !roomId.includes(':')) return false;
+    return manager.sendDelete(roomId, msgId);
+  }, [manager]);
+
   // ── Eingehenden Anruf annehmen/ablehnen ─────────────────────────────────────
 
   const acceptIncomingCall = useCallback(() => {
@@ -1568,11 +1613,17 @@ export default function App() {
           p2pError={activeP2P?.error ?? null}
           sendP2PMessage={sendP2PMessage}
           sendP2PFile={sendP2PFile}
+          sendP2PEdit={sendP2PEdit}
+          sendP2PDelete={sendP2PDelete}
           onLastMessage={(text) => { updateChatLastMessage(activeChatData.id, text); setChatListVersion((v) => v + 1); }}
           registerMessageHandler={(handler) => { activeChatHandlerRef.current = handler; }}
           unregisterMessageHandler={() => { activeChatHandlerRef.current = null; }}
           registerStatusHandler={(handler) => { activeChatStatusRef.current = handler; }}
           unregisterStatusHandler={() => { activeChatStatusRef.current = null; }}
+          registerEditHandler={(handler) => { activeChatEditRef.current = handler; }}
+          unregisterEditHandler={() => { activeChatEditRef.current = null; }}
+          registerDeleteHandler={(handler) => { activeChatDeleteRef.current = handler; }}
+          unregisterDeleteHandler={() => { activeChatDeleteRef.current = null; }}
           sendCallSignal={async (signal) => manager.sendCallSignal(activeChatData.roomId, signal)}
           registerCallSignalHandler={(handler) => { activeChatCallRef.current = handler; }}
           unregisterCallSignalHandler={() => { activeChatCallRef.current = null; }}
