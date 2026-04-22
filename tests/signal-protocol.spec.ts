@@ -147,4 +147,92 @@ test.describe('Signal Protocol Integration', () => {
     expect(result.replyType).toBe(1);
     expect(result.replyText).toBe('Hallo Alice, empfangen!');
   });
+
+  test('Double Ratchet: Jede Nachricht hat einen anderen Key (Forward Secrecy)', async ({ page }) => {
+    await page.goto('/');
+
+    const result = await page.evaluate(async () => {
+      const helpers = await import('/src/app/lib/signal/test-helpers.ts');
+      const { KeyHelper, SessionBuilder, SessionCipher, SignalProtocolAddress, createMemoryStore } = helpers;
+
+      // --- Alice & Bob Setup ---
+      const aliceStore = createMemoryStore();
+      aliceStore._identity = await KeyHelper.generateIdentityKeyPair();
+      aliceStore._regId = KeyHelper.generateRegistrationId();
+      const bobStore = createMemoryStore();
+      bobStore._identity = await KeyHelper.generateIdentityKeyPair();
+      bobStore._regId = KeyHelper.generateRegistrationId();
+
+      const bobPreKey = await KeyHelper.generatePreKey(1);
+      const bobSignedPreKey = await KeyHelper.generateSignedPreKey(bobStore._identity, 1);
+      await bobStore.storePreKey(1, bobPreKey.keyPair);
+      await bobStore.storeSignedPreKey(1, bobSignedPreKey.keyPair);
+
+      const bobAddress = new SignalProtocolAddress('bob', 1);
+      const aliceAddress = new SignalProtocolAddress('alice', 1);
+      const aliceBuilder = new SessionBuilder(aliceStore as any, bobAddress);
+      await aliceBuilder.processPreKey({
+        identityKey: bobStore._identity.pubKey,
+        registrationId: bobStore._regId,
+        preKey: { keyId: 1, publicKey: bobPreKey.keyPair.pubKey },
+        signedPreKey: {
+          keyId: 1,
+          publicKey: bobSignedPreKey.keyPair.pubKey,
+          signature: bobSignedPreKey.signature,
+        },
+      });
+
+      const aliceCipher = new SessionCipher(aliceStore as any, bobAddress);
+      const bobCipher = new SessionCipher(bobStore as any, aliceAddress);
+
+      // Gleichen Text 3x verschlüsseln — muss jedes Mal anderen Ciphertext ergeben
+      const plaintext = 'Test Message';
+      const enc = new TextEncoder();
+      const e1 = await aliceCipher.encrypt(enc.encode(plaintext).buffer);
+      const e2 = await aliceCipher.encrypt(enc.encode(plaintext).buffer);
+      const e3 = await aliceCipher.encrypt(enc.encode(plaintext).buffer);
+
+      // Entschlüsseln — Typ bestimmt Decrypt-Methode
+      async function decryptMsg(cipher: any, msg: any): Promise<string> {
+        if (msg.type === 3) {
+          return new TextDecoder().decode(
+            await cipher.decryptPreKeyWhisperMessage(msg.body!, 'binary')
+          );
+        }
+        return new TextDecoder().decode(
+          await cipher.decryptWhisperMessage(msg.body!, 'binary')
+        );
+      }
+
+      const d1 = await decryptMsg(bobCipher, e1);
+      const d2 = await decryptMsg(bobCipher, e2);
+      const d3 = await decryptMsg(bobCipher, e3);
+
+      // Ratchet in Gegenrichtung: Bob → Alice
+      const e4 = await bobCipher.encrypt(enc.encode('Reply 1').buffer);
+      const e5 = await bobCipher.encrypt(enc.encode('Reply 2').buffer);
+      const d4 = await decryptMsg(aliceCipher, e4);
+      const d5 = await decryptMsg(aliceCipher, e5);
+
+      return {
+        allDifferent: e1.body !== e2.body && e2.body !== e3.body && e1.body !== e3.body,
+        d1, d2, d3, d4, d5,
+        firstType: e1.type,
+        subsequentType: e2.type,
+      };
+    });
+
+    // Double Ratchet: Jeder Ciphertext ist anders
+    expect(result.allDifferent).toBe(true);
+    // Klartext bleibt identisch
+    expect(result.d1).toBe('Test Message');
+    expect(result.d2).toBe('Test Message');
+    expect(result.d3).toBe('Test Message');
+    // Bidirektionaler Ratchet
+    expect(result.d4).toBe('Reply 1');
+    expect(result.d5).toBe('Reply 2');
+    // Initiator-Nachrichten vor Responder-Reply = PreKeyWhisperMessage (3)
+    expect(result.firstType).toBe(3);
+    expect(result.subsequentType).toBe(3); // Bleibt 3 bis Responder antwortet
+  });
 });
