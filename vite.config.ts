@@ -111,6 +111,18 @@ export default defineConfig({
     __GIT_HASH__: JSON.stringify(gitHash),
     __BUILD_DATE__: JSON.stringify(buildDate),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          signal: [
+            '@privacyresearch/libsignal-protocol-typescript',
+            '@privacyresearch/curve25519-typescript',
+          ],
+        },
+      },
+    },
+  },
   server: {
     host: '127.0.0.1',
     port: 5173,
