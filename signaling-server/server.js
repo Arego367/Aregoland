@@ -26,6 +26,10 @@
  *  GET  /nodes                 → Alle registrierten LiveKit-Nodes abrufen
  *  DELETE /node/:id            → LiveKit-Node entfernen
  *
+ *  POST /push/register          → Push-Token registrieren (ECDSA-signiert)
+ *  POST /push/wakeup            → Leeren Wakeup-Push an Arego-ID senden
+ *  DELETE /push/register        → Push-Token deregistrieren (ECDSA-signiert)
+ *
  *  POST /prekeys               → Pre-Key-Bundle hochladen (ECDSA-signiert)
  *  GET  /prekeys/:aregoId      → Pre-Key-Bundle abrufen (konsumiert einen One-Time-Pre-Key)
  *  DELETE /prekeys/:aregoId    → Alle Pre-Keys löschen (ECDSA-signiert)
@@ -244,6 +248,16 @@ async function initDb() {
       registered_at     TEXT NOT NULL
     )
   `);
+  // Push-Tokens für Wakeup-Service (ARE-345)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS push_tokens (
+      arego_id     TEXT NOT NULL,
+      token        TEXT NOT NULL,
+      provider     TEXT NOT NULL CHECK(provider IN ('fcm', 'apns')),
+      updated_at   INTEGER NOT NULL,
+      PRIMARY KEY (arego_id, token)
+    )
+  `);
   // Pre-Key Bundles für Signal Protocol (ARE-341)
   db.run(`
     CREATE TABLE IF NOT EXISTS pre_key_bundles (
@@ -334,6 +348,9 @@ setInterval(() => {
   // Pending child_profile_sync: Einträge älter als 48h löschen (TTL)
   const childSyncCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
   db.run(`DELETE FROM pending_child_sync WHERE created_at < ?`, [childSyncCutoff]);
+  // Push-Tokens: älter als 90 Tage löschen (ARE-345)
+  const pushCutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+  db.run(`DELETE FROM push_tokens WHERE updated_at < ?`, [pushCutoff]);
   // Pre-Key Bundles: älter als 30 Tage ohne Update löschen (ARE-341)
   const preKeyCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   db.run(`DELETE FROM pre_key_bundles WHERE updated_at < ?`, [preKeyCutoff]);
@@ -353,6 +370,9 @@ const verwalterRateLimit = new Map(); // verwalterId → { total: [ts], categori
 
 // Rate-Limiting für Pre-Key Uploads: max 10/min pro Arego-ID (ARE-341)
 const preKeyRateLimit = new Map(); // aregoId → [timestamp, ...]
+
+// Rate-Limiting für Push-Wakeup: max 5/min pro Arego-ID (ARE-345)
+const pushWakeupRateLimit = new Map(); // aregoId → [timestamp, ...]
 
 // Presence — nur RAM, kein Disk, kein Verlauf
 const onlineUsers      = new Map(); // aregoId → Set<WebSocket>
@@ -442,6 +462,55 @@ async function verifyEcdsaSignature(aregoId, signatureBase64, dataToVerify) {
   } catch {
     return false;
   }
+}
+
+// ── Push Wakeup Sender (ARE-345) ────────────────────────────────────────────
+
+const FCM_SERVER_KEY = process.env.FCM_SERVER_KEY || '';
+const APNS_KEY_ID = process.env.APNS_KEY_ID || '';
+const APNS_TEAM_ID = process.env.APNS_TEAM_ID || '';
+const APNS_BUNDLE_ID = process.env.APNS_BUNDLE_ID || 'de.aregoland.app';
+
+/**
+ * Sendet einen leeren FCM-Wakeup-Push (kein Titel, kein Body, kein Inhalt).
+ * Nutzt FCM Legacy HTTP API — nur data-message, kein notification.
+ */
+async function sendFcmWakeup(token) {
+  if (!FCM_SERVER_KEY) return;
+  await fetch('https://fcm.googleapis.com/fcm/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `key=${FCM_SERVER_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      to: token,
+      data: { _t: 'wakeup' }, // Leerer Trigger — kein Nachrichteninhalt
+      priority: 'high',
+      content_available: true, // iOS background wake
+    }),
+  });
+}
+
+/**
+ * Sendet einen leeren APNs-Wakeup-Push (background push, kein Alert).
+ * Nutzt HTTP/2 Provider API.
+ */
+async function sendApnsWakeup(token) {
+  if (!APNS_KEY_ID || !APNS_TEAM_ID) return;
+  const url = `https://api.push.apple.com/3/device/${token}`;
+  await fetch(url, {
+    method: 'POST',
+    headers: {
+      'apns-push-type': 'background',
+      'apns-priority': '5', // Background priority
+      'apns-topic': APNS_BUNDLE_ID,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      aps: { 'content-available': 1 }, // Silent push — nur App aufwecken
+    }),
+  });
 }
 
 // ── Verwalter Rate Limiting ──────────────────────────────────────────────────
@@ -2308,6 +2377,151 @@ const server = createServer(async (req, res) => {
       persistDb();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── POST /push/register — Push-Token registrieren (ECDSA-signiert) (ARE-345) ──
+  if (req.method === 'POST' && req.url === '/push/register') {
+    try {
+      const body = await readBody(req);
+      const { arego_id, token, provider, signature, timestamp } = JSON.parse(body);
+      if (!arego_id || !token || !provider || !signature || !timestamp) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'missing_fields' }));
+        return;
+      }
+      if (provider !== 'fcm' && provider !== 'apns') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_provider' }));
+        return;
+      }
+      const tsAge = Math.abs(Date.now() - new Date(timestamp).getTime());
+      if (tsAge > 5 * 60 * 1000) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'timestamp_expired' }));
+        return;
+      }
+      const dataToVerify = arego_id + token + timestamp;
+      const valid = await verifyEcdsaSignature(arego_id, signature, dataToVerify);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      const now = Date.now();
+      db.run(
+        `INSERT OR REPLACE INTO push_tokens (arego_id, token, provider, updated_at) VALUES (?, ?, ?, ?)`,
+        [arego_id, token, provider, now]
+      );
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── DELETE /push/register — Push-Token deregistrieren (ECDSA-signiert) (ARE-345) ──
+  if (req.method === 'DELETE' && req.url === '/push/register') {
+    try {
+      const body = await readBody(req);
+      const { arego_id, token, signature, timestamp } = JSON.parse(body);
+      if (!arego_id || !token || !signature || !timestamp) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'missing_fields' }));
+        return;
+      }
+      const tsAge = Math.abs(Date.now() - new Date(timestamp).getTime());
+      if (tsAge > 5 * 60 * 1000) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'timestamp_expired' }));
+        return;
+      }
+      const dataToVerify = arego_id + 'deregister' + timestamp;
+      const valid = await verifyEcdsaSignature(arego_id, signature, dataToVerify);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      db.run(`DELETE FROM push_tokens WHERE arego_id = ? AND token = ?`, [arego_id, token]);
+      persistDb();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(500); res.end();
+    }
+    return;
+  }
+
+  // ── POST /push/wakeup — Leeren Wakeup-Push an Arego-ID senden (ARE-345) ──
+  if (req.method === 'POST' && req.url === '/push/wakeup') {
+    try {
+      const body = await readBody(req);
+      const { arego_id, target_arego_id, signature, timestamp } = JSON.parse(body);
+      if (!arego_id || !target_arego_id || !signature || !timestamp) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'missing_fields' }));
+        return;
+      }
+      const tsAge = Math.abs(Date.now() - new Date(timestamp).getTime());
+      if (tsAge > 5 * 60 * 1000) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'timestamp_expired' }));
+        return;
+      }
+      // Rate Limiting: max 5 Wakeups/min
+      const now = Date.now();
+      const minuteAgo = now - 60_000;
+      if (!pushWakeupRateLimit.has(arego_id)) pushWakeupRateLimit.set(arego_id, []);
+      const timestamps = pushWakeupRateLimit.get(arego_id).filter(t => t > minuteAgo);
+      if (timestamps.length >= 5) {
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'rate_limit' }));
+        return;
+      }
+      const dataToVerify = arego_id + target_arego_id + timestamp;
+      const valid = await verifyEcdsaSignature(arego_id, signature, dataToVerify);
+      if (!valid) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid_signature' }));
+        return;
+      }
+      // Push-Tokens des Ziels laden
+      const rows = db.exec(
+        `SELECT token, provider FROM push_tokens WHERE arego_id = ?`,
+        [target_arego_id]
+      );
+      if (!rows.length || !rows[0].values.length) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, pushed: 0, reason: 'no_tokens' }));
+        timestamps.push(now);
+        pushWakeupRateLimit.set(arego_id, timestamps);
+        return;
+      }
+      // Leere Wakeup-Pushes versenden (kein Nachrichteninhalt — P2P-Prinzip)
+      let pushed = 0;
+      for (const [token, provider] of rows[0].values) {
+        try {
+          if (provider === 'fcm') {
+            await sendFcmWakeup(token);
+            pushed++;
+          } else if (provider === 'apns') {
+            await sendApnsWakeup(token);
+            pushed++;
+          }
+        } catch {
+          // Token möglicherweise ungültig — nicht löschen, Cleanup erledigt das
+        }
+      }
+      timestamps.push(now);
+      pushWakeupRateLimit.set(arego_id, timestamps);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, pushed }));
     } catch {
       res.writeHead(500); res.end();
     }
