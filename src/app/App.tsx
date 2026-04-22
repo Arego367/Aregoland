@@ -390,6 +390,17 @@ export default function App() {
       }),
     );
 
+    // Signal Key-Manager initialisieren (ARE-342)
+    const serverBase = `${window.location.protocol}//${window.location.host}`;
+    import('@/app/lib/signal/key-manager').then(({ initializeKeyManager }) => {
+      initializeKeyManager(identity.aregoId, identity.privateKeyJwk, serverBase)
+        .then((result) => {
+          manager.setSignalStore(result.store);
+          console.log('[App] Signal Key-Manager initialisiert', result.isNewIdentity ? '(neue Identität)' : '(geladen)');
+        })
+        .catch((err) => console.warn('[App] Signal Key-Manager Fehler:', err));
+    });
+
     // Für jeden persistierten Chat eine Verbindung starten
     const chats = loadPersistedChats();
     for (const chat of chats) {
