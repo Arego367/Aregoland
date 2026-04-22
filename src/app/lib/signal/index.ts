@@ -25,6 +25,8 @@ import type {
 import { SignalStore } from './signal-store';
 
 export { SignalStore } from './signal-store';
+export { initializeKeyManager, replenishIfNeeded } from './key-manager';
+export type { KeyManagerResult } from './key-manager';
 export { SignalProtocolAddress } from '@privacyresearch/libsignal-protocol-typescript';
 export type { KeyPairType, DeviceType, MessageType } from '@privacyresearch/libsignal-protocol-typescript';
 
