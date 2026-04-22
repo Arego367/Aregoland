@@ -267,6 +267,77 @@ export default function ChatScreen({
   const recordingTimerRef = useRef<ReturnType<typeof setInterval>>();
   const recordingStreamRef = useRef<MediaStream | null>(null);
 
+  // ── Kamera-Capture ──────────────────────────────────────────────────────────
+  const [showCamera, setShowCamera] = useState(false);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+
+  const openCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      });
+      cameraStreamRef.current = stream;
+      setShowCamera(true);
+    } catch {
+      alert('Kamera konnte nicht geöffnet werden.');
+    }
+  }, []);
+
+  const closeCamera = useCallback(() => {
+    cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+    cameraStreamRef.current = null;
+    setShowCamera(false);
+  }, []);
+
+  const capturePhoto = useCallback(async () => {
+    const video = cameraVideoRef.current;
+    if (!video) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    closeCamera();
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const base64 = dataUrl.split(',')[1];
+    const msgId = Date.now().toString();
+    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const newMsg: Message = {
+      id: msgId,
+      text: 'Foto',
+      sender: 'me',
+      timestamp: ts,
+      status: 'sent',
+      type: 'image',
+      fileData: dataUrl,
+      fileName: `foto_${msgId}.jpg`,
+      fileMime: 'image/jpeg',
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    onLastMessageRef.current?.('Bild');
+
+    const sent = await sendP2PFile(base64, `foto_${msgId}.jpg`, 'image/jpeg', msgId);
+    setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, status: sent ? 'delivered' : 'pending' } : m));
+  }, [closeCamera, sendP2PFile]);
+
+  // Kamera-Stream an Video-Element binden
+  useEffect(() => {
+    if (showCamera && cameraVideoRef.current && cameraStreamRef.current) {
+      cameraVideoRef.current.srcObject = cameraStreamRef.current;
+    }
+  }, [showCamera]);
+
+  // Kamera-Cleanup beim Unmount
+  useEffect(() => {
+    return () => {
+      cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
   // ── Anruf-State (via CallManager) ──────────────────────────────────────────
   const [callState, setCallState] = useState<CallState>('idle');
   const [callType, setCallType] = useState<CallType>('audio');
@@ -1018,7 +1089,7 @@ export default function ChatScreen({
           ) : (
             /* ── Normales Eingabefeld ─────────────────────────────────────── */
             <>
-              <button className="p-3 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-full transition-colors shrink-0"><PlusIconWrapper onPickFile={() => fileInputRef.current?.click()} /></button>
+              <button className="p-3 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-full transition-colors shrink-0"><PlusIconWrapper onPickFile={() => fileInputRef.current?.click()} onCamera={openCamera} /></button>
 
               <div className="flex-1 bg-gray-800 rounded-2xl flex items-center min-h-[48px] border border-gray-700 focus-within:border-blue-500/50 transition-colors">
                 <button
@@ -1144,6 +1215,39 @@ export default function ChatScreen({
         />
       )}
 
+      {/* Kamera-Capture Overlay */}
+      <AnimatePresence>
+        {showCamera && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center"
+          >
+            <button
+              onClick={closeCamera}
+              className="absolute top-4 right-4 p-2 bg-gray-800/80 rounded-full text-white hover:bg-gray-700 transition-colors z-10"
+            >
+              <X size={24} />
+            </button>
+            <video
+              ref={cameraVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute bottom-8 flex items-center justify-center">
+              <button
+                onClick={capturePhoto}
+                className="w-16 h-16 rounded-full border-4 border-white bg-white/20 hover:bg-white/40 transition-colors"
+                aria-label="Foto aufnehmen"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Image Preview Lightbox */}
       <AnimatePresence>
         {previewImage && (
@@ -1181,7 +1285,7 @@ export default function ChatScreen({
   );
 }
 
-function PlusIconWrapper({ onPickFile }: { onPickFile?: () => void }) {
+function PlusIconWrapper({ onPickFile, onCamera }: { onPickFile?: () => void; onCamera?: () => void }) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -1190,7 +1294,7 @@ function PlusIconWrapper({ onPickFile }: { onPickFile?: () => void }) {
       <DropdownMenu.Portal>
         <DropdownMenu.Content className="min-w-[160px] bg-gray-800 rounded-xl shadow-2xl p-2 border border-gray-700 mb-2 ml-2 data-[side=top]:animate-slideUpAndFade z-50" sideOffset={10} align="start" side="top">
           <DropdownMenu.Item onSelect={() => onPickFile?.()} className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-gray-700 cursor-pointer outline-none"><div className="p-1.5 bg-purple-500/20 text-purple-400 rounded-lg"><ImageIcon size={18}/></div>Fotos & Videos</DropdownMenu.Item>
-          <DropdownMenu.Item className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-gray-700 cursor-pointer outline-none"><div className="p-1.5 bg-blue-500/20 text-blue-400 rounded-lg"><Camera size={18}/></div>Kamera</DropdownMenu.Item>
+          <DropdownMenu.Item onSelect={() => onCamera?.()} className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-gray-700 cursor-pointer outline-none"><div className="p-1.5 bg-blue-500/20 text-blue-400 rounded-lg"><Camera size={18}/></div>Kamera</DropdownMenu.Item>
           <DropdownMenu.Item onSelect={() => onPickFile?.()} className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 rounded-lg hover:bg-gray-700 cursor-pointer outline-none"><div className="p-1.5 bg-indigo-500/20 text-indigo-400 rounded-lg"><FileText size={18}/></div>Dokument</DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
