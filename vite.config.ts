@@ -117,7 +117,6 @@ export default defineConfig({
         manualChunks: {
           signal: [
             '@privacyresearch/libsignal-protocol-typescript',
-            '@privacyresearch/curve25519-typescript',
           ],
         },
       },
