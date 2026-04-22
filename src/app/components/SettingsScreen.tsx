@@ -28,7 +28,7 @@ interface SettingsScreenProps {
 }
 
 export default function SettingsScreen({ onBack, onResetAccount, subscriptionLocked, onSubscriptionUnlocked, onFskUpdated }: SettingsScreenProps) {
-  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "subscription" | "family" | "notifications" | "fsk" | "backup">(subscriptionLocked ? "subscription" : "main");
+  const [activeSubmenu, setActiveSubmenu] = useState<"main" | "app" | "privacy" | "storage" | "subscription" | "family" | "notifications" | "fsk" | "backup" | "security-faq">(subscriptionLocked ? "subscription" : "main");
   const { t } = useTranslation();
 
   // Deep-Link: Toast oeffnet FSK-Sektion
@@ -49,6 +49,7 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
   if (activeSubmenu === "fsk") return <FskTab onBack={goMain} t={t} onFskUpdated={onFskUpdated} />;
   if (activeSubmenu === "storage") return <StorageTab onBack={goMain} t={t} onNavigateSubscription={() => setActiveSubmenu("subscription")} />;
   if (activeSubmenu === "family") return <FamilyTab onBack={goMain} t={t} onFskUpdated={onFskUpdated} />;
+  if (activeSubmenu === "security-faq") return <SecurityFaqTab onBack={goMain} />;
 
   // ── Main Settings Menu ──
   return (
@@ -141,6 +142,19 @@ export default function SettingsScreen({ onBack, onResetAccount, subscriptionLoc
                     <HardDrive size={20} />
                   </div>
                   <span className="font-medium">{t('settings.storageSection')}</span>
+                </div>
+                <ChevronRight size={20} className="text-gray-500" />
+              </button>
+
+              <button
+                onClick={() => setActiveSubmenu("security-faq")}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="bg-yellow-500/20 p-2 rounded-lg text-yellow-400">
+                    <Shield size={20} />
+                  </div>
+                  <span className="font-medium">Sicherheits-FAQ</span>
                 </div>
                 <ChevronRight size={20} className="text-gray-500" />
               </button>
@@ -749,6 +763,74 @@ function GdprImportView({ onBack, t }: { onBack: () => void; t: (key: string, op
 
         {error && <p className="text-xs text-red-400 text-center">{error}</p>}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sicherheits-FAQ ──────────────────────────────────────────────────────────
+
+const securityFaqItems: { q: string; a: string }[] = [
+  {
+    q: 'Kann Aregoland meine Chats mitlesen?',
+    a: 'Nein. Nachrichten werden direkt zwischen den Geräten per WebRTC übertragen und mit AES-256-GCM Ende-zu-Ende verschlüsselt. Der Server sieht nur Signaling-Daten (SDP/ICE) — niemals Nachrichteninhalte. Es gibt keine serverseitige Nachrichtenspeicherung.',
+  },
+  {
+    q: 'Was passiert mit meinen Nachrichten, wenn ich sie lösche?',
+    a: 'Beim Löschen "Für beide" wird ein verschlüsseltes Delete-Signal an das Gerät des Empfängers gesendet. Dort wird die Nachricht aus dem lokalen Speicher entfernt. Wenn der Empfänger offline ist, kommt das Signal erst an, sobald beide Geräte gleichzeitig online sind. Bis dahin bleibt die Nachricht auf dem Empfänger-Gerät.',
+  },
+  {
+    q: 'Was ist, wenn mein Handy geklaut wird?',
+    a: 'Deine Nachrichten liegen im lokalen Speicher des Browsers (localStorage). Wer physischen Zugriff auf dein entsperrtes Gerät hat, kann sie lesen. Aregoland kann das nicht verhindern — das ist eine Grenze jeder clientseitigen App. Schütze dein Gerät mit einem starken Sperrcode.',
+  },
+  {
+    q: 'Schützt Aregoland vor Pegasus oder staatlicher Überwachung?',
+    a: 'Nein, ehrlich gesagt nicht zuverlässig. Pegasus und ähnliche Spyware operieren auf Betriebssystem-Ebene und können Bildschirminhalte mitlesen, bevor Verschlüsselung greift. Dagegen kann keine App vollständig schützen. Unsere E2E-Verschlüsselung schützt vor Mitlesen auf dem Transportweg — nicht vor kompromittierten Geräten.',
+  },
+  {
+    q: 'Werden offline-Nachrichten irgendwo zwischengespeichert?',
+    a: 'Nachrichten, die nicht sofort zugestellt werden können, landen in einer lokalen Warteschlange auf deinem Gerät. Sie werden gesendet, sobald die P2P-Verbindung wieder steht. Es gibt aktuell keinen serverseitigen Store-and-Forward — wenn beide Geräte nicht gleichzeitig online sind, wartet die Nachricht lokal.',
+  },
+  {
+    q: 'Wie sicher ist die Verschlüsselung?',
+    a: 'Jede Sitzung generiert neue ECDH-Schlüssel (P-256). Daraus wird ein AES-256-GCM Sitzungsschlüssel abgeleitet. Jede Nachricht bekommt eine eigene zufällige IV. Das bietet Forward Secrecy pro Sitzung — ein kompromittierter Schlüssel betrifft nicht vergangene Sitzungen.',
+  },
+];
+
+function SecurityFaqTab({ onBack }: { onBack: () => void }) {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+
+  return (
+    <div className="flex flex-col h-screen w-full bg-gray-900 text-white font-sans">
+      <div className="flex items-center gap-3 p-4 pt-12 border-b border-gray-800">
+        <button onClick={onBack} className="p-2 hover:bg-gray-800 rounded-full transition-colors">
+          <ArrowLeft size={20} />
+        </button>
+        <h1 className="text-lg font-semibold">Sicherheits-FAQ</h1>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-3">
+        <p className="text-sm text-gray-400 mb-4">
+          Ehrliche Antworten auf häufige Sicherheitsfragen — inklusive der Grenzen.
+        </p>
+
+        {securityFaqItems.map((item, i) => (
+          <div key={i} className="bg-gray-800/50 rounded-2xl border border-gray-700/50 overflow-hidden">
+            <button
+              onClick={() => setOpenIdx(openIdx === i ? null : i)}
+              className="w-full text-left p-4 flex items-start gap-3"
+            >
+              <Shield size={18} className="text-yellow-400 mt-0.5 shrink-0" />
+              <span className="font-medium text-sm flex-1">{item.q}</span>
+              <ChevronRight size={18} className={`text-gray-500 transition-transform shrink-0 ${openIdx === i ? 'rotate-90' : ''}`} />
+            </button>
+            {openIdx === i && (
+              <div className="px-4 pb-4 pl-11">
+                <p className="text-sm text-gray-300 leading-relaxed">{item.a}</p>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
