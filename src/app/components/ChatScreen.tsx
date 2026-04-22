@@ -967,8 +967,15 @@ export default function ChatScreen({
                     {msg.isEdited && <span className="text-[10px] italic opacity-80 mr-1">bearbeitet</span>}
                     <span className="text-[10px]">{msg.timestamp}</span>
                     {msg.sender === "me" && (
-                      <span>
-                        {(msg.status === "pending" || msg.status === "sent") && <Check size={12} className="text-gray-300" />}
+                      <span title={
+                        msg.status === "pending" ? "Warteschlange – wird gesendet sobald Verbindung steht"
+                          : msg.status === "sent" ? "Gesendet (verschlüsselt)"
+                          : msg.status === "delivered" ? "Zugestellt (E2E-verschlüsselt)"
+                          : msg.status === "read" ? "Gelesen"
+                          : undefined
+                      }>
+                        {msg.status === "pending" && <Clock size={12} className="text-gray-400" />}
+                        {msg.status === "sent" && <Check size={12} className="text-gray-300" />}
                         {msg.status === "delivered" && <CheckCheck size={12} className="text-gray-300" />}
                         {msg.status === "read" && <CheckCheck size={12} className="text-blue-400" />}
                       </span>
